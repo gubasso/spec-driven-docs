@@ -1,0 +1,242 @@
+default_install_hook_types: [pre-commit, commit-msg, pre-push]
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-added-large-files
+        args: ['--maxkb=16384']
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: destroyed-symlinks
+      - id: check-yaml
+      - id: check-toml
+      - id: detect-private-key
+  - repo: https://gitlab.com/bmares/check-json5
+    rev: v1.0.1
+    hooks:
+      - id: check-json5
+  - repo: https://github.com/editorconfig-checker/editorconfig-checker
+    rev: v3.11.1
+    hooks:
+      - id: editorconfig-checker
+        alias: ec
+        args: [-disable-insert-final-newline]
+        exclude: '\.md$'
+# BEGIN spec-driven-docs managed
+  - repo: local
+    hooks:
+      - id: dprint
+        name: dprint check
+        entry: dprint check
+        language: system
+        types_or: [markdown, json]
+      - id: shfmt
+        name: shfmt check
+        entry: shfmt -d -i 2 -ci
+        language: system
+        types: [shell]
+      - id: shellcheck
+        name: shellcheck
+        entry: shellcheck
+        language: system
+        files: '\.(sh|bash)$'
+  - repo: https://github.com/frnmst/md-toc
+    rev: 9.0.0
+    hooks:
+      - id: md-toc
+        args: [-p, -c, --skip-lines, '1', github, -l, '3']
+        files: '^_docs/specs/SPEC-.*\.md$'
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.23.2
+    hooks:
+      - id: markdownlint-cli2
+      - id: markdownlint-cli2
+        alias: md-relative-links
+        name: markdownlint relative links
+        additional_dependencies: ['markdownlint-rule-relative-links']
+        args: ['--config', '.markdownlint/relative-links.markdownlint-cli2.jsonc']
+        exclude: '^_docs/decisions/'
+      - id: markdownlint-cli2
+        alias: md-spec
+        name: markdownlint spec heading shape
+        files: '^_docs/specs/SPEC-[a-z0-9-]+\.md$'
+        args: ['--config', '.markdownlint/spec.markdownlint-cli2.jsonc']
+      - id: markdownlint-cli2
+        alias: md-adr
+        name: markdownlint decision heading shape
+        files: '^_docs/decisions/ADR-[a-z-]+\.md$'
+        args: ['--config', '.markdownlint/adr.markdownlint-cli2.jsonc']
+  - repo: local
+    hooks:
+      - id: no-self-narration
+        name: documents state the present
+        entry: .hooks/no-self-narration.sh
+        language: system
+        types: [markdown]
+        exclude: '^_docs/decisions/'
+      - id: adr-filename-shape
+        name: decision record filename shape
+        entry: .hooks/adr-filename-shape.sh
+        language: system
+        files: '^_docs/decisions/.*\.md$'
+      - id: adr-word-cap
+        name: decision record word cap
+        entry: .hooks/adr-word-cap.sh
+        language: system
+        always_run: true
+        pass_filenames: false
+      - id: agents-digest-size
+        name: agent digest size
+        entry: .hooks/agents-digest-size.sh
+        language: system
+        always_run: true
+        pass_filenames: false
+      - id: chapter-size-cap
+        name: chapter size cap
+        entry: .hooks/chapter-size-cap.sh
+        language: system
+        always_run: true
+        pass_filenames: false
+      - id: spec-requirement-parts
+        name: spec requirement parts
+        entry: .hooks/spec-requirement-parts.sh
+        language: system
+        files: '^_docs/specs/SPEC-.*\.md$'
+      - id: spec-rule-id-unique
+        name: spec rule ID uniqueness
+        entry: .hooks/spec-rule-id-unique.sh
+        language: system
+        always_run: true
+        pass_filenames: false
+      - id: spec-size-cap
+        name: spec size cap
+        entry: .hooks/spec-size-cap.sh
+        language: system
+        always_run: true
+        pass_filenames: false
+      - id: spec-verify-hooks-exist
+        name: spec hook references exist
+        entry: .hooks/spec-verify-hooks-exist.sh
+        language: system
+        always_run: true
+        pass_filenames: false
+      - id: suppression-names-its-case
+        name: suppressions name a case
+        entry: .hooks/suppression-names-its-case.sh
+        language: system
+        always_run: true
+        pass_filenames: false
+        args: ['tests/fixtures']
+      - id: ki-filename-shape
+        name: known issue filename shape
+        entry: .hooks/ki-filename-shape.sh
+        language: system
+        files: '^(_?docs/reference/known-issues|tests/fixtures)/KI-.*\.md$'
+      - id: ki-mechanism-walkthrough
+        name: known issue mechanism walkthrough
+        entry: .hooks/ki-mechanism-walkthrough.sh
+        language: system
+        always_run: true
+        pass_filenames: false
+        args: ['tests/fixtures']
+      - id: ki-report-body
+        name: known issue report body
+        entry: .hooks/ki-report-body.sh
+        language: system
+        always_run: true
+        pass_filenames: false
+        args: ['tests/fixtures']
+      - id: ki-retire-when
+        name: known issue retirement condition
+        entry: .hooks/ki-retire-when.sh
+        language: system
+        always_run: true
+        pass_filenames: false
+        args: ['tests/fixtures']
+      - id: ki-bugzilla-report-width
+        name: Bugzilla report width
+        entry: .hooks/ki-bugzilla-report-width.sh
+        language: system
+        always_run: true
+        pass_filenames: false
+        args: ['tests/fixtures']
+      - id: comparison-dated-tables
+        name: comparison tables are dated
+        entry: .hooks/comparison-dated-tables.sh
+        language: system
+        files: '^templates/TEMPLATE-comparison\.md$'
+      - id: comparison-escaped-pipes
+        name: comparison table pipes are escaped
+        entry: .hooks/comparison-escaped-pipes.sh
+        language: system
+        files: '^templates/TEMPLATE-comparison\.md$'
+      - id: comparison-legend
+        name: comparison legend
+        entry: .hooks/comparison-legend.sh
+        language: system
+        files: '^templates/TEMPLATE-comparison\.md$'
+      - id: comparison-one-reference-per-cell
+        name: one reference per comparison cell
+        entry: .hooks/comparison-one-reference-per-cell.sh
+        language: system
+        files: '^templates/TEMPLATE-comparison\.md$'
+      - id: comparison-verdict-word
+        name: comparison verdict word
+        entry: .hooks/comparison-verdict-word.sh
+        language: system
+        files: '^templates/TEMPLATE-comparison\.md$'
+      - id: instance-manifest
+        name: instance manifest
+        entry: .hooks/instance-manifest.sh
+        language: system
+        always_run: true
+        pass_filenames: false
+      - id: plugin-layout
+        name: plugin layout
+        entry: .hooks/plugin-layout.sh
+        language: system
+        always_run: true
+        pass_filenames: false
+      - id: gate-message-cites-a-rule
+        name: gate messages cite a rule
+        entry: .hooks/gate-message-cites-a-rule.sh
+        language: system
+        always_run: true
+        pass_filenames: false
+      - id: gate-negative-controls
+        name: every distributed gate rejects a violation
+        entry: .hooks/test-gates.sh
+        language: system
+        files: '^(\.hooks/|\.markdownlint/|\.pre-commit-hooks\.yaml$|\.pre-commit-config\.yaml$|justfile$)'
+        pass_filenames: false
+# END spec-driven-docs managed
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.49.0
+    hooks:
+      - id: typos
+        language: system
+        args: [--force-exclude]
+  - repo: https://github.com/sirwart/ripsecrets
+    rev: v0.1.11
+    hooks:
+      - id: ripsecrets
+  - repo: https://github.com/lycheeverse/lychee
+    rev: lychee-v0.24.2
+    hooks:
+      - id: lychee
+        stages: [pre-push]
+        types: [markdown]
+        exclude: '^tests/fixtures/'
+        args: [--no-progress]
+  - repo: https://github.com/crate-ci/committed
+    rev: v1.1.11
+    hooks:
+      - id: committed
+        language: system
+        stages: [commit-msg]

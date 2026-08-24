@@ -1,0 +1,21 @@
+tracked:
+  - path: .pre-commit-config.yaml
+    last_checked: 2026-08-24
+    cadence: 30d
+    why: hook release tags change independently
+    revalidate: confirm every rev against the publisher's release or tag listing
+    dependents:
+      - flake.lock
+  - path: dprint.json
+    last_checked: 2026-08-24
+    cadence: 90d
+    why: plugin WASM URLs are versioned endpoints
+    revalidate: resolve each plugin URL before changing it
+    dependents:
+      - flake.lock
+  - path: reference/prior-art/spec-driven-development.md
+    last_checked: 2026-08-24
+    cadence: 90d
+    why: referenced tools and guidance evolve
+    revalidate: read the current primary documentation
+    dependents: []

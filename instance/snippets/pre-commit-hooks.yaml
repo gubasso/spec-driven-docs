@@ -1,0 +1,10 @@
+# BEGIN spec-driven-docs managed
+  - repo: local
+    hooks:
+      - id: spec-driven-docs-verify
+        name: verify spec-driven docs instance
+        entry: .spec-driven-docs/verify.sh --target . --offline
+        language: system
+        always_run: true
+        pass_filenames: false
+# END spec-driven-docs managed

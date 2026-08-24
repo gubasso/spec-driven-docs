@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/gubasso/spec-driven-docs/blob/main/instance/manifest.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "canon_version",
+    "canon_source",
+    "canon_ref",
+    "profile",
+    "docs_root",
+    "installed_at",
+    "managed_files",
+    "adopted_files",
+    "integration_blocks"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "canon_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "canon_source": { "type": "string", "minLength": 1 },
+    "canon_ref": { "type": "string", "minLength": 1 },
+    "profile": { "enum": ["codebase", "knowledge-base"] },
+    "docs_root": { "enum": ["docs", "_docs"] },
+    "installed_at": { "type": "string", "format": "date-time" },
+    "managed_files": { "$ref": "#/$defs/managed" },
+    "adopted_files": { "$ref": "#/$defs/adopted" },
+    "integration_blocks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "marker_hash"],
+        "properties": {
+          "path": { "type": "string" },
+          "marker_hash": { "$ref": "#/$defs/hash" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "managed": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["source", "destination", "sha256"],
+        "properties": {
+          "source": { "type": "string" },
+          "destination": { "type": "string" },
+          "sha256": { "$ref": "#/$defs/hash" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "adopted": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source", "destination", "sha256", "baseline_sha256"],
+        "properties": {
+          "source": { "type": "string" },
+          "destination": { "type": "string" },
+          "sha256": { "$ref": "#/$defs/hash" },
+          "baseline_sha256": { "$ref": "#/$defs/hash" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

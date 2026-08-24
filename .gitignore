@@ -1,0 +1,6 @@
+.direnv/
+.draft/
+.lycheecache
+result
+__pycache__/
+*.pyc

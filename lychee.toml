@@ -1,0 +1,4 @@
+scheme = ["http", "https"]
+cache = true
+max_retries = 3
+exclude = ["https://example.invalid/.*"]
