@@ -5,6 +5,9 @@ fmt:
     dprint fmt
     shfmt -w -i 2 -ci scripts/*.sh .hooks/*.sh tests/*.sh
 
+manifest:
+    scripts/self-manifest.sh
+
 lint:
     dprint check
     shfmt -d -i 2 -ci scripts/*.sh .hooks/*.sh tests/*.sh
@@ -26,10 +29,17 @@ test-instantiation:
 test-upgrade:
     tests/test-upgrade.sh
 
-test-plugin:
-    .hooks/plugin-layout.sh
+test-release:
+    tests/test-release.sh
 
-test: test-gates test-instantiation test-upgrade test-plugin
+test: test-gates test-instantiation test-upgrade test-release
+
+# Preview the tag VERSION derives. `release-tag` creates it; pushing stays manual.
+release:
+    scripts/release.sh
+
+release-tag:
+    scripts/release.sh --tag
 
 build:
     set -eu; d=$(mktemp -d "../sdd-build.XXXXXX"); d=$(cd "$d" && pwd -P); trap 'rm -rf "$d"' EXIT; mkdir -p "$d/.git"; scripts/instantiate.sh --target "$d" --profile knowledge-base >/dev/null; "$d/.spec-driven-docs/verify.sh" --target "$d" --offline

@@ -277,16 +277,33 @@ sed 's/## Status/## status/' "$adr" >"$bad_adr"
 reject 'md adr wrong case' markdownlint-cli2 --config "$hooks/../.markdownlint/adr.markdownlint-cli2.jsonc" "$bad_adr"
 
 root=$(CDPATH='' cd -- "$hooks/.." && pwd -P)
-accept 'plugin layout' run_at "$root" "$hooks/plugin-layout.sh"
-plugin="$tmp/plugin"
-mkdir -p "$plugin/.claude-plugin" "$plugin/skills" "$plugin/commands"
-cp -R "$root/.claude-plugin/." "$plugin/.claude-plugin/"
-cp -R "$root/skills/." "$plugin/skills/"
-cp -R "$root/commands/." "$plugin/commands/"
-cp "$root/VERSION" "$plugin/VERSION"
-sed -i 's/"version": "0.1.0"/"version": "9.9.9"/' "$plugin/.claude-plugin/plugin.json"
-reject_msg 'plugin version drift' 'distribution:versions-are-semantic-and-aligned' \
-  run_at "$plugin" "$hooks/plugin-layout.sh"
+accept 'license split' run_at "$root" "$hooks/license-split.sh"
+lic="$tmp/license"
+mkdir -p "$lic"
+cp "$root/LICENSE" "$root/LICENSE-MIT" "$root/LICENSE-CC-BY-4.0" "$lic/"
+sed -i '/LICENSE-MIT/d' "$lic/LICENSE"
+reject_msg 'license names one half' 'distribution:license-declares-both-halves' \
+  run_at "$lic" "$hooks/license-split.sh"
+cp "$root/LICENSE" "$lic/LICENSE"
+rm "$lic/LICENSE-MIT"
+reject_msg 'license half missing' 'distribution:license-declares-both-halves' \
+  run_at "$lic" "$hooks/license-split.sh"
+
+# The version gate is run against copies rather than the checkout, because the
+# tag half of it reads the repository it stands in: a control that edited
+# `VERSION` here would be asserting against this repository's own tags.
+accept 'version source of truth' run_at "$root" "$hooks/version-source-of-truth.sh"
+ver="$tmp/version"
+mkdir -p "$ver/.spec-driven-docs"
+cp "$root/VERSION" "$ver/VERSION"
+cp "$root/.spec-driven-docs/manifest.json" "$ver/.spec-driven-docs/manifest.json"
+accept 'version files only' run_at "$ver" "$hooks/version-source-of-truth.sh" --files-only
+printf 'v1.2\n' >"$ver/VERSION"
+reject_msg 'version not semantic' 'distribution:versions-are-semantic-and-aligned' \
+  run_at "$ver" "$hooks/version-source-of-truth.sh"
+printf '9.9.9\n' >"$ver/VERSION"
+reject_msg 'manifest version drift' 'distribution:versions-are-semantic-and-aligned' \
+  run_at "$ver" "$hooks/version-source-of-truth.sh"
 
 accept 'instance manifest' run_at "$root" "$hooks/instance-manifest.sh"
 instance="$tmp/instance"

@@ -197,9 +197,15 @@ repos:
         language: system
         always_run: true
         pass_filenames: false
-      - id: plugin-layout
-        name: plugin layout
-        entry: .hooks/plugin-layout.sh
+      - id: license-split
+        name: license split
+        entry: .hooks/license-split.sh
+        language: system
+        always_run: true
+        pass_filenames: false
+      - id: version-source-of-truth
+        name: version source of truth
+        entry: .hooks/version-source-of-truth.sh
         language: system
         always_run: true
         pass_filenames: false

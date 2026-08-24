@@ -13,10 +13,11 @@ routes readers; this file routes agents to the rules that bind their work.
 ## Ownership boundaries
 
 - `method/`, `comparison-docs/`, `templates/`, and `reference/` are canon product files.
-- `.hooks/`, `.markdownlint/`, scripts, profiles, and plugin components are managed instance payload.
+- `.hooks/`, `.markdownlint/`, scripts, and profiles are managed instance payload.
 - `_docs/specs/`, `_docs/decisions/`, marker-delimited integrations, and instance debt are local
   overlays after installation.
 - Keep each durable fact in one owner and link to it elsewhere.
+- `LICENSE` splits terms on the same boundary: CC BY 4.0 for the method, MIT for the payload.
 
 ## Authoring
 
@@ -37,6 +38,8 @@ routes readers; this file routes agents to the rules that bind their work.
 - Run `just check` before handoff. It checks without formatting.
 - Run `just manifest` after editing anything under `.hooks/`, `.markdownlint/`, `scripts/verify.sh`,
   or the managed pre-commit block; the instance manifest records their hashes.
+- `VERSION` is the release source of truth. Never author a tag: `just release` derives it, and
+  `_docs/guides/release.md` owns the sequence.
 - Every failure message a gate prints cites a rule ID that a spec defines.
 - Never edit a generated dogfood template independently of its canonical copy under `templates/`.
 
@@ -47,3 +50,4 @@ routes readers; this file routes agents to the rules that bind their work.
 - Distribution and ownership: `_docs/specs/SPEC-distribution.md`.
 - Format and budgets: `_docs/specs/SPEC-docs-format.md`.
 - Decision records: `_docs/specs/SPEC-decision-records.md`.
+- Cutting a release: `_docs/guides/release.md`.

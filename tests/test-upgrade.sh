@@ -32,7 +32,6 @@ seed_git "$target"
 next="$scratch/canon next"
 cp -R "$canon" "$next"
 printf '%s\n' 0.2.0 >"$next/VERSION"
-sed -i 's/"version": "0.1.0"/"version": "0.2.0"/' "$next/.claude-plugin/plugin.json"
 printf '%s\n' '# Migration from 0.1.0 to 0.2.0' >"$next/migrations/0.1.0-to-0.2.0.md"
 printf '%s\n' '# managed change' >>"$next/.hooks/adr-word-cap.sh"
 
@@ -93,7 +92,6 @@ rm -f "$next/.hooks/new-gate.sh"
 final="$scratch/canon-final"
 cp -R "$next" "$final"
 printf '%s\n' 0.3.0 >"$final/VERSION"
-sed -i 's/"version": "0.2.0"/"version": "0.3.0"/' "$final/.claude-plugin/plugin.json"
 printf '%s\n' '# Migration from 0.2.0 to 0.3.0' >"$final/migrations/0.2.0-to-0.3.0.md"
 "$final/scripts/upgrade.sh" --target "$target" --from "$final" | grep -q '0.2.0-to-0.3.0'
 echo 'OK upgrade controls'

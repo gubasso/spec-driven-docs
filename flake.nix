@@ -10,6 +10,12 @@
     flake-utils.lib.eachDefaultSystem (system:
       let pkgs = import nixpkgs { inherit system; };
       in {
+        # What belongs here: a tool this project pins, and a runtime pre-commit
+        # needs to build a hook environment. What does not: the host baseline.
+        # A POSIX userland and git are assumed present -- git because a
+        # pre-commit hook has no meaning without it, and the POSIX tools because
+        # `scripts/verify.sh` already preflights them by name on every instance,
+        # which is where a missing one would actually be discovered.
         devShells.default = pkgs.mkShell {
           packages = [
             pkgs.just
@@ -21,7 +27,6 @@
             pkgs.python3Packages.md-toc
             pkgs.typos
             pkgs.committed
-            pkgs.gawk
             pkgs.markdownlint-cli2
             pkgs.lychee
             pkgs.ripsecrets

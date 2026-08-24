@@ -129,9 +129,3 @@
   language: script
   always_run: true
   pass_filenames: false
-- id: plugin-layout
-  name: plugin layout
-  entry: .hooks/plugin-layout.sh
-  language: script
-  always_run: true
-  pass_filenames: false

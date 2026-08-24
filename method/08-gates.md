@@ -7,7 +7,7 @@ holds the wiring and the honest list of what no command can decide.
 
 - A rule that no command can check MUST be listed as unenforced rather than presented as gated.
 - A rule a project decides not to gate MUST be listed there too.
-- Every tool a gate runs MUST be in the project's devshell as well as in the hook.
+- Every tool a gate runs beyond POSIX and git MUST be in the project's devshell and in the hook.
 - A new gate MUST be demonstrated failing against an intentional violation before it is trusted.
 
 [03 — Rules](./03-rules.md) requires the `Verify:` line; this chapter wires it. A rule presented as

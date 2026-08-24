@@ -113,6 +113,11 @@
       "sha256": "023e294d2c6e33125cda31dfcfd69d59d876e0e25e9e8b9a35a1a39a076aa569"
     },
     {
+      "source": ".hooks/license-split.sh",
+      "destination": ".hooks/license-split.sh",
+      "sha256": "8351e12a40a8cd7c1de79fdae2237d4c307feba9efe28e8f7721a0d1c1813ffc"
+    },
+    {
       "source": ".hooks/no-self-narration.awk",
       "destination": ".hooks/no-self-narration.awk",
       "sha256": "4050fc16bda474295b02fdb60ef9c802ddf6d96520b53ccabe62ebb309fe0d7d"
@@ -121,11 +126,6 @@
       "source": ".hooks/no-self-narration.sh",
       "destination": ".hooks/no-self-narration.sh",
       "sha256": "cdff86bd1c20d291d8fc127731b51e6db51a66392da32211f3ee29929817564f"
-    },
-    {
-      "source": ".hooks/plugin-layout.sh",
-      "destination": ".hooks/plugin-layout.sh",
-      "sha256": "49900816ef0e7c0674df6a6c5c36266f5acfa30a5865c18e892c80b0e1738b03"
     },
     {
       "source": ".hooks/spec-requirement-parts.sh",
@@ -155,7 +155,12 @@
     {
       "source": ".hooks/test-gates.sh",
       "destination": ".hooks/test-gates.sh",
-      "sha256": "d881e0a5901bec179487c24e8f6d49b1e74326d47b9d44f89f08118cbf7915f4"
+      "sha256": "5a4c9ff55a2cac52172581e43a0064f69953fead17b95b7cd3b64b9e955f6192"
+    },
+    {
+      "source": ".hooks/version-source-of-truth.sh",
+      "destination": ".hooks/version-source-of-truth.sh",
+      "sha256": "793ab7b73d5c8af6c7fd847d422853313bcf3b468ac26f85e0119d320c3d812a"
     }
   ],
   "adopted_files": [
@@ -174,8 +179,8 @@
     {
       "source": "_docs/specs/SPEC-distribution.md",
       "destination": "_docs/specs/SPEC-distribution.md",
-      "sha256": "6a836dc996df5d1a2b3359bb7fbe94a6946cab3851efe3f50ed252962c25dece",
-      "baseline_sha256": "6a836dc996df5d1a2b3359bb7fbe94a6946cab3851efe3f50ed252962c25dece"
+      "sha256": "887662db73bbc6cff93e58d519738882808c189a604f1217225564f5ced2f2a3",
+      "baseline_sha256": "887662db73bbc6cff93e58d519738882808c189a604f1217225564f5ced2f2a3"
     },
     {
       "source": "_docs/specs/SPEC-docs-format.md",
@@ -223,7 +228,7 @@
   "integration_blocks": [
     {
       "path": ".pre-commit-config.yaml",
-      "marker_hash": "17aefcc9a3000abc9b606d68682dfb13c2283d240ad7ae8d4a35841b56511fc0"
+      "marker_hash": "a04a3c6fa2648fda866fe58d855a0e7385baf4d91a6a8f68a4d220cc574b7f84"
     }
   ]
 }

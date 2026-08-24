@@ -22,4 +22,4 @@ Chosen option: `CC BY 4.0 throughout` — the license field and repository licen
 
 ## Status
 
-Accepted
+Superseded by [ADR-split-the-license-by-product](./ADR-split-the-license-by-product.md).
