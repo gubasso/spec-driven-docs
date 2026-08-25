@@ -288,11 +288,11 @@ lic="$tmp/license"
 mkdir -p "$lic"
 cp "$root/LICENSE" "$root/LICENSE-MIT" "$root/LICENSE-CC-BY-4.0" "$lic/"
 sed -i '/LICENSE-MIT/d' "$lic/LICENSE"
-reject_msg 'license names one half' 'distribution:license-declares-both-halves' \
+reject_msg 'license names one half' 'release:license-declares-both-halves' \
   run_at "$lic" "$canon_gates/license-split.sh"
 cp "$root/LICENSE" "$lic/LICENSE"
 rm "$lic/LICENSE-MIT"
-reject_msg 'license half missing' 'distribution:license-declares-both-halves' \
+reject_msg 'license half missing' 'release:license-declares-both-halves' \
   run_at "$lic" "$canon_gates/license-split.sh"
 
 # The version gate is run against copies rather than the checkout, because the
@@ -305,10 +305,10 @@ cp "$root/VERSION" "$ver/VERSION"
 cp "$root/.spec-driven-docs/manifest.json" "$ver/.spec-driven-docs/manifest.json"
 accept 'version files only' run_at "$ver" "$canon_gates/version-source-of-truth.sh" --files-only
 printf 'v1.2\n' >"$ver/VERSION"
-reject_msg 'version not semantic' 'distribution:versions-are-semantic-and-aligned' \
+reject_msg 'version not semantic' 'release:versions-are-semantic-and-aligned' \
   run_at "$ver" "$canon_gates/version-source-of-truth.sh"
 printf '9.9.9\n' >"$ver/VERSION"
-reject_msg 'manifest version drift' 'distribution:versions-are-semantic-and-aligned' \
+reject_msg 'manifest version drift' 'release:versions-are-semantic-and-aligned' \
   run_at "$ver" "$canon_gates/version-source-of-truth.sh"
 
 accept 'instance manifest' run_at "$root" "$hooks/instance-manifest.sh"
@@ -332,17 +332,17 @@ accept 'delivered domain copy' run_at "$dom" "$canon_gates/delivered-domain.sh"
 
 printf '#!/usr/bin/env sh\nexit 0\n' >"$dom/gates/instance/stray.sh"
 chmod 755 "$dom/gates/instance/stray.sh"
-reject_msg 'delivered gate undeclared' 'distribution:the-delivered-gate-set-is-declared-once' \
+reject_msg 'delivered gate undeclared' 'release:the-delivered-gate-set-is-declared-once' \
   run_at "$dom" "$canon_gates/delivered-domain.sh"
 rm "$dom/gates/instance/stray.sh"
 
 sed -i '/^- id: adr-word-cap$/d' "$dom/.pre-commit-hooks.yaml"
-reject_msg 'delivered gate unpublished' 'distribution:the-delivered-gate-set-is-declared-once' \
+reject_msg 'delivered gate unpublished' 'release:the-delivered-gate-set-is-declared-once' \
   run_at "$dom" "$canon_gates/delivered-domain.sh"
 cp "$root/.pre-commit-hooks.yaml" "$dom/.pre-commit-hooks.yaml"
 
 printf -- '- id: license-split\n  name: license split\n  entry: gates/canon/license-split.sh\n  language: script\n  always_run: true\n  pass_filenames: false\n' >>"$dom/.pre-commit-hooks.yaml"
-reject_msg 'canon gate published' 'distribution:a-canon-gate-is-not-delivered' \
+reject_msg 'canon gate published' 'release:a-canon-gate-is-not-delivered' \
   run_at "$dom" "$canon_gates/delivered-domain.sh"
 
 echo "OK $passed gate controls"

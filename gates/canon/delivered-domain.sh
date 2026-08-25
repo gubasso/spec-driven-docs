@@ -18,11 +18,11 @@ set -eu
 decl=instance/gates.json
 published=.pre-commit-hooks.yaml
 [ -f "$decl" ] || {
-  echo "FAIL distribution:the-delivered-gate-set-is-declared-once $decl: missing"
+  echo "FAIL release:the-delivered-gate-set-is-declared-once $decl: missing"
   exit 1
 }
 [ -f "$published" ] || {
-  echo "FAIL distribution:the-delivered-gate-set-is-declared-once $published: missing"
+  echo "FAIL release:the-delivered-gate-set-is-declared-once $published: missing"
   exit 1
 }
 
@@ -41,12 +41,12 @@ sort "$work/declared-scripts" "$work/declared-support" >"$work/declared-files"
 # install can satisfy.
 while IFS= read -r script; do
   [ -f "$script_root/$script" ] || {
-    echo "FAIL distribution:the-delivered-gate-set-is-declared-once $script_root/$script: declared but absent"
+    echo "FAIL release:the-delivered-gate-set-is-declared-once $script_root/$script: declared but absent"
     status=1
     continue
   }
   [ -x "$script_root/$script" ] || {
-    echo "FAIL distribution:the-delivered-gate-set-is-declared-once $script_root/$script: not executable"
+    echo "FAIL release:the-delivered-gate-set-is-declared-once $script_root/$script: not executable"
     status=1
   }
 done <"$work/declared-scripts"
@@ -57,7 +57,7 @@ for file in "$script_root"/*; do
   [ -f "$file" ] || continue
   name=${file##*/}
   grep -Fxq "$name" "$work/declared-files" || {
-    echo "FAIL distribution:the-delivered-gate-set-is-declared-once $file: present but undeclared"
+    echo "FAIL release:the-delivered-gate-set-is-declared-once $file: present but undeclared"
     status=1
   }
 done
@@ -68,13 +68,13 @@ done
 grep -E '^- id: ' "$published" | sed 's/^- id: //' | sort >"$work/published-ids"
 missing=$(comm -23 "$work/declared-ids" "$work/published-ids")
 [ -z "$missing" ] || {
-  echo 'FAIL distribution:the-delivered-gate-set-is-declared-once .pre-commit-hooks.yaml: declared but not published'
+  echo 'FAIL release:the-delivered-gate-set-is-declared-once .pre-commit-hooks.yaml: declared but not published'
   printf '%s\n' "$missing" | sed 's/^/  /'
   status=1
 }
 extra=$(comm -13 "$work/declared-ids" "$work/published-ids")
 [ -z "$extra" ] || {
-  echo 'FAIL distribution:the-delivered-gate-set-is-declared-once .pre-commit-hooks.yaml: published but not declared'
+  echo 'FAIL release:the-delivered-gate-set-is-declared-once .pre-commit-hooks.yaml: published but not declared'
   printf '%s\n' "$extra" | sed 's/^/  /'
   status=1
 }
@@ -84,7 +84,7 @@ while IFS= read -r entry; do
   case "$entry" in
     "$script_root"/*) ;;
     *)
-      echo "FAIL distribution:a-canon-gate-is-not-delivered $published: $entry is published from outside $script_root"
+      echo "FAIL release:a-canon-gate-is-not-delivered $published: $entry is published from outside $script_root"
       status=1
       ;;
   esac
@@ -96,11 +96,11 @@ for file in gates/canon/*; do
   [ -f "$file" ] || continue
   name=${file##*/}
   if grep -Fxq "$name" "$work/declared-files"; then
-    echo "FAIL distribution:a-canon-gate-is-not-delivered $file: a canon gate is in the delivered declaration"
+    echo "FAIL release:a-canon-gate-is-not-delivered $file: a canon gate is in the delivered declaration"
     status=1
   fi
   grep -Fq "gates/canon/$name" "$published" && {
-    echo "FAIL distribution:a-canon-gate-is-not-delivered $file: a canon gate is published to consumers"
+    echo "FAIL release:a-canon-gate-is-not-delivered $file: a canon gate is published to consumers"
     status=1
   }
 done

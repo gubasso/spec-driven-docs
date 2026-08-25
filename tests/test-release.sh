@@ -49,13 +49,13 @@ first="$scratch/first"
 clone "$first"
 "$first/scripts/release.sh" | grep -q "would create v$version" ||
   fail 'preview did not name the derived tag'
-reject 'tag name drift' 'distribution:a-tag-derives-from-the-version-file' \
+reject 'tag name drift' 'release:a-tag-derives-from-the-version-file' \
   "$first/scripts/release.sh" --verify "v9.9.9"
 "$first/scripts/release.sh" --verify "v$version" >/dev/null ||
   fail 'verify rejected the derived tag'
 
 printf '%s\n' 'local edit' >>"$first/README.md"
-reject 'dirty tree' 'distribution:a-tag-derives-from-the-version-file' \
+reject 'dirty tree' 'release:a-tag-derives-from-the-version-file' \
   "$first/scripts/release.sh" --tag
 git -C "$first" checkout -q -- README.md
 
@@ -73,7 +73,7 @@ sh -c "cd '$first' && gates/canon/version-source-of-truth.sh" ||
 # version is the moment the gate refuses.
 printf '%s\n' 'next change' >>"$first/README.md"
 git -C "$first" add README.md
-reject 'released version re-authored' 'distribution:a-released-version-is-not-re-authored' \
+reject 'released version re-authored' 'release:a-released-version-is-not-re-authored' \
   sh -c "cd '$first' && gates/canon/version-source-of-truth.sh"
 
 # A second release needs the guide that steps into it, because the upgrade walks
@@ -86,7 +86,7 @@ sed -i "s/\"canon_version\": \"$version\"/\"canon_version\": \"0.99.0\"/" \
   "$next/.spec-driven-docs/manifest.json"
 git -C "$next" add -A
 git -C "$next" commit -q -m 'bump'
-reject 'missing migration guide' 'distribution:a-release-carries-its-migration-guide' \
+reject 'missing migration guide' 'release:a-release-carries-its-migration-guide' \
   "$next/scripts/release.sh"
 printf '%s\n' "# Migration from $version to 0.99.0" >"$next/migrations/$version-to-0.99.0.md"
 git -C "$next" add -A

@@ -150,22 +150,22 @@
     {
       "source": "gates/canon/delivered-domain.sh",
       "destination": "gates/canon/delivered-domain.sh",
-      "sha256": "a0e2a4397ff6ec1f6f9d73ae4899c67e2ac19083b1094fd949ea91d4681e6d44"
+      "sha256": "78687e5c8fa2c027fa6ebced0f46d1baecd9241968256829c276de614e44d722"
     },
     {
       "source": "gates/canon/license-split.sh",
       "destination": "gates/canon/license-split.sh",
-      "sha256": "8351e12a40a8cd7c1de79fdae2237d4c307feba9efe28e8f7721a0d1c1813ffc"
+      "sha256": "1408aa88a2de6b5fa7a8ecdc772379f5de2d6af1447db7ba8d8163b22b1d5ea2"
     },
     {
       "source": "gates/canon/test-gates.sh",
       "destination": "gates/canon/test-gates.sh",
-      "sha256": "5aeaad27441db7cc88437c371ed1a7823ba6b8161b80865f3c6e50d37da0daa1"
+      "sha256": "b68bb1c0439d3a07e5797fb1c3493c097db9392e4422487405d96e62d01bcbb8"
     },
     {
       "source": "gates/canon/version-source-of-truth.sh",
       "destination": "gates/canon/version-source-of-truth.sh",
-      "sha256": "09f5b33c4f5b749a4f7be9d8e02eb8e483f56a81d78ead4f7d037c1c6f7fb621"
+      "sha256": "d3401453c7d0ca4f008e4c55b1a276bd9111b239396cffdb30c88d62a3409ffa"
     }
   ],
   "adopted_files": [
@@ -184,8 +184,8 @@
     {
       "source": "_docs/specs/SPEC-distribution.md",
       "destination": "_docs/specs/SPEC-distribution.md",
-      "sha256": "39a166235291b48f3675fba4732c50fbb62aac0bba2b5d2143fccda28a5fc1ef",
-      "baseline_sha256": "39a166235291b48f3675fba4732c50fbb62aac0bba2b5d2143fccda28a5fc1ef"
+      "sha256": "5431f0152ea4d1e23394148b5f40db989bdf125b7089f4d2aabf4fb0b6245901",
+      "baseline_sha256": "5431f0152ea4d1e23394148b5f40db989bdf125b7089f4d2aabf4fb0b6245901"
     },
     {
       "source": "_docs/specs/SPEC-docs-format.md",
@@ -210,6 +210,12 @@
       "destination": "_docs/specs/SPEC-known-issues.md",
       "sha256": "974ede368bc8c8893ad10182c1d3565f18deaa2949439047ed5cd9a963fcaa0d",
       "baseline_sha256": "974ede368bc8c8893ad10182c1d3565f18deaa2949439047ed5cd9a963fcaa0d"
+    },
+    {
+      "source": "_docs/specs/SPEC-release.md",
+      "destination": "_docs/specs/SPEC-release.md",
+      "sha256": "34064481989fd62860f1d66f794ba29ea7ae3c90d244da0ea6c25d60d827985a",
+      "baseline_sha256": "34064481989fd62860f1d66f794ba29ea7ae3c90d244da0ea6c25d60d827985a"
     },
     {
       "source": "_docs/specs/SPEC-spec-to-code.md",

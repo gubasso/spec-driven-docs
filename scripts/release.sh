@@ -41,7 +41,7 @@ tag="v$version"
 if [ "$mode" = verify ]; then
   gates/canon/version-source-of-truth.sh --files-only
   [ "$claimed" = "$tag" ] || {
-    echo "FAIL distribution:a-tag-derives-from-the-version-file $claimed: VERSION says $version, so the tag is $tag"
+    echo "FAIL release:a-tag-derives-from-the-version-file $claimed: VERSION says $version, so the tag is $tag"
     exit 1
   }
   echo "OK $tag derives from VERSION"
@@ -51,12 +51,12 @@ fi
 gates/canon/version-source-of-truth.sh
 
 git rev-parse --git-dir >/dev/null 2>&1 || {
-  echo 'FAIL distribution:a-tag-derives-from-the-version-file: not a git checkout'
+  echo 'FAIL release:a-tag-derives-from-the-version-file: not a git checkout'
   exit 1
 }
 
 [ -z "$(git status --porcelain)" ] || {
-  echo "FAIL distribution:a-tag-derives-from-the-version-file: the working tree is dirty, so $tag would not name what it points at"
+  echo "FAIL release:a-tag-derives-from-the-version-file: the working tree is dirty, so $tag would not name what it points at"
   exit 1
 }
 
@@ -68,13 +68,13 @@ if [ -n "$(git tag -l 'v*')" ]; then
   for candidate in "migrations/"*-to-"$version.md"; do
     [ -f "$candidate" ] || continue
     [ -z "$guide" ] || {
-      echo "FAIL distribution:a-release-carries-its-migration-guide: more than one guide leads into $version"
+      echo "FAIL release:a-release-carries-its-migration-guide: more than one guide leads into $version"
       exit 1
     }
     guide=$candidate
   done
   [ -n "$guide" ] || {
-    echo "FAIL distribution:a-release-carries-its-migration-guide: no migrations/<previous>-to-$version.md"
+    echo "FAIL release:a-release-carries-its-migration-guide: no migrations/<previous>-to-$version.md"
     exit 1
   }
   echo "migration guide: ${guide##*/}"

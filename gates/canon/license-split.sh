@@ -11,14 +11,14 @@ set -eu
 
 for f in LICENSE LICENSE-MIT LICENSE-CC-BY-4.0; do
   [ -s "$f" ] || {
-    echo "FAIL distribution:license-declares-both-halves $f: missing or empty"
+    echo "FAIL release:license-declares-both-halves $f: missing or empty"
     exit 1
   }
 done
 
 for f in LICENSE-MIT LICENSE-CC-BY-4.0; do
   grep -Fq "$f" LICENSE || {
-    echo "FAIL distribution:license-declares-both-halves LICENSE: does not name $f"
+    echo "FAIL release:license-declares-both-halves LICENSE: does not name $f"
     exit 1
   }
 done

@@ -15,18 +15,18 @@ files_only=0
 [ "${1:-}" = "--files-only" ] && files_only=1
 
 [ -f VERSION ] || {
-  echo 'FAIL distribution:versions-are-semantic-and-aligned VERSION: missing'
+  echo 'FAIL release:versions-are-semantic-and-aligned VERSION: missing'
   exit 1
 }
 version=$(cat VERSION)
 
 echo "$version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$' || {
-  echo "FAIL distribution:versions-are-semantic-and-aligned VERSION: '$version' is not a semantic version"
+  echo "FAIL release:versions-are-semantic-and-aligned VERSION: '$version' is not a semantic version"
   exit 1
 }
 
 jq -e --arg v "$version" '.canon_version == $v' .spec-driven-docs/manifest.json >/dev/null || {
-  echo "FAIL distribution:versions-are-semantic-and-aligned .spec-driven-docs/manifest.json: expected canon_version $version"
+  echo "FAIL release:versions-are-semantic-and-aligned .spec-driven-docs/manifest.json: expected canon_version $version"
   exit 1
 }
 
@@ -50,5 +50,5 @@ if [ "$tagged" = "$head" ] && git diff --cached --quiet 2>/dev/null; then
   exit 0
 fi
 
-echo "FAIL distribution:a-released-version-is-not-re-authored VERSION: v$version is already tagged; bump VERSION"
+echo "FAIL release:a-released-version-is-not-re-authored VERSION: v$version is already tagged; bump VERSION"
 exit 1
