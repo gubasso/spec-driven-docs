@@ -31,11 +31,6 @@ pub const TEMPLATES: Shelf = Shelf {
     dir: &crate::embedded::TEMPLATES,
     strip: Some("TEMPLATE-"),
 };
-/// The migration guides.
-pub const MIGRATIONS: Shelf = Shelf {
-    dir: &crate::embedded::MIGRATIONS,
-    strip: None,
-};
 
 fn short_name<'a>(shelf: &Shelf, file_name: &'a str) -> Option<&'a str> {
     let stem = file_name.strip_suffix(".md")?;
@@ -80,7 +75,6 @@ mod tests {
         assert!(list(&METHOD).contains(&"glossary".to_string()));
         assert!(list(&SPECS).contains(&"distribution".to_string()));
         assert!(list(&TEMPLATES).contains(&"adr".to_string()));
-        assert!(!list(&MIGRATIONS).is_empty());
     }
 
     #[test]

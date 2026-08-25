@@ -11,8 +11,7 @@ what is written to be read:
 
   AGENTS.md          CLAUDE.md          README.md
   _docs/             comparison-docs/   examples/
-  method/            migrations/        reference/
-  templates/
+  method/            reference/         templates/
 
 The MIT License, in LICENSE-MIT, covers what is written to be run:
 

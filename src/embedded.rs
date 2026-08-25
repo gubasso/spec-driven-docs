@@ -20,8 +20,6 @@ pub static MARKDOWNLINT: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/.markd
 pub static SNIPPETS: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/instance/snippets");
 /// The method chapters and glossary.
 pub static METHOD: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/method");
-/// The migration guides, one per released step.
-pub static MIGRATIONS: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/migrations");
 
 /// The combined license statement naming both halves.
 pub static LICENSE: &str = include_str!("../LICENSE");
@@ -110,10 +108,9 @@ mod tests {
     }
 
     #[test]
-    fn the_method_and_migrations_are_carried() {
+    fn the_method_and_licenses_are_carried() {
         assert!(METHOD.get_file("glossary.md").is_some());
         assert!(METHOD.files().count() >= 15);
-        assert!(MIGRATIONS.files().count() >= 5);
         assert!(LICENSE.contains("LICENSE-MIT") && LICENSE.contains("LICENSE-CC-BY-4.0"));
     }
 

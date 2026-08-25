@@ -1,64 +1,84 @@
 # Release
 
-`Cargo.toml` is the source of truth. release-plz reads Conventional Commits to choose the bump,
-maintains `CHANGELOG.md`, creates the `v<version>` tag when the release pull request merges, and
-publishes to crates.io over trusted publishing. Nothing derives the other way, and nobody authors
-a tag by hand.
+`Cargo.toml` is the version source of truth. release-plz reads Conventional Commits, bumps the
+version, writes the changelog, tags, and publishes. Nobody authors a tag by hand, and a published
+tag or version is never moved — a bad release is fixed by the next version.
 
 ## Cut a release
 
-1. Confirm the tree is green and merge the work into `develop` with Conventional Commit messages.
-   release-plz reads them: a `feat:` proposes a minor bump, a `fix:` a patch.
+1. Land the work on `develop` with Conventional Commit messages (`feat:` bumps minor, `fix:`
+   bumps patch) and a green tree:
 
    ```bash
    just check
    ```
 
-2. Write the migration guide leading into the proposed version. Required from the second release
-   onward, because `sdd upgrade` walks guides and an instance cannot step into a version that has
-   none. The canon test suite refuses a release commit without exactly one guide into the current
-   version.
+2. Push `develop`. release-plz opens the release pull request — the version bump, the changelog,
+   and the regenerated canon manifest ride in it; merging it is the release. Automation then tags
+   `v<version>`, publishes to crates.io over OIDC, builds the installers, and fast-forwards
+   `master` to the tag.
+
+3. Verify:
 
    ```bash
-   cp migrations/TEMPLATE-migration.md migrations/<previous>-to-<version>.md
+   cargo info spec-driven-docs
+   gh release view v0.3.0 --repo gubasso/spec-driven-docs
+   sdd --version
    ```
-
-3. Regenerate the canon manifest so it carries the new version, and let release-plz open its
-   release pull request against `develop`.
-
-   ```bash
-   just manifest
-   ```
-
-4. Merge the release pull request. This is the one human release decision: release-plz then tags
-   `v<version>`, publishes the crate over OIDC, cargo-dist builds the installers, and the promote
-   job fast-forwards `master` onto the tag.
-
-5. Verify the release end to end: the crates.io version, the GitHub release's installers, and
-   `sdd --version` from a fresh install.
-
-## Never move a published tag
-
-`pre-commit` caches a repository by its `rev`, and cargo caches a crate by its version, so a moved
-tag or a re-published version serves the old payload to consumers who already resolved it and the
-new payload to everyone else, with no error on either side. A release that shipped wrong is
-corrected by the next version, never by retagging; `cargo yank` is a speed bump, not a recall.
-
-The `release-tags` ruleset over `refs/tags/v*` blocks updates and deletions at the forge so this
-cannot happen by accident.
-
-## What checks what
-
-| Check                      | Runs                | Holds                                                            |
-| -------------------------- | ------------------- | ---------------------------------------------------------------- |
-| `cargo-test` (canon tests) | every commit        | the manifest carries the crate version and a guide leads into it |
-| release-plz                | on merge to develop | the bump, the changelog, the tag, and the publish                |
-| `release-tags` ruleset     | at the forge        | no `v*` tag is ever moved or deleted                             |
-| promote job                | after a release     | `master` fast-forwards to the tag, never past it                 |
 
 ## First-time setup
 
-The trusted publisher, the GitHub App, and the branch rulesets are registered once; the sequence
-lives with the workflows under `.github/workflows/` and follows the release-plz documentation:
-first publish manually with a `publish-new`-scoped token, register `release-plz.yml` as the
-crates.io trusted publisher, then revoke the token.
+Once, in this order.
+
+1. Make `develop` the default branch:
+
+   ```bash
+   gh repo edit gubasso/spec-driven-docs --default-branch develop
+   ```
+
+2. Let Actions write and open pull requests:
+
+   ```bash
+   gh api -X PUT repos/gubasso/spec-driven-docs/actions/permissions/workflow \
+     -f default_workflow_permissions=write \
+     -F can_approve_pull_request_reviews=true
+   ```
+
+3. Create the GitHub App at <https://github.com/settings/apps/new>: name `gubasso-ci-bot`,
+   permissions Contents read-write and Pull requests read-write, webhook off. Install it on the
+   repository, generate a private key, then:
+
+   ```bash
+   gh secret set RELEASE_PLZ_APP_ID --repo gubasso/spec-driven-docs --body '<app id>'
+   gh secret set RELEASE_PLZ_APP_PRIVATE_KEY --repo gubasso/spec-driven-docs \
+     < gubasso-ci-bot.private-key.pem
+   ```
+
+4. Create three rulesets under Settings, Rules, Rulesets:
+
+   - `master-protection` on `master`: require linear history, require the `test` status check,
+     block force pushes and deletion; bypass actor `gubasso-ci-bot`.
+   - `develop-protection` on `develop`: block force pushes and deletion.
+   - `release-tags` on `v*` tags: block update and deletion.
+
+5. Publish 0.2.0 by hand — trusted publishing only attaches to an existing crate:
+
+   ```bash
+   scripts/publish-dry
+   # create a publish-new scoped token at https://crates.io/settings/tokens
+   cargo login
+   scripts/publish
+   ```
+
+6. Register the trusted publisher on the crate's Settings page at crates.io: repository
+   `gubasso/spec-driven-docs`, workflow filename `release-plz.yml` — never `release.yml` or
+   `ci.yml`. Revoke the bootstrap token.
+
+7. After the first automated release succeeds over OIDC, enable "Require trusted publishing for
+   all new versions" on the same crates.io settings page, so every token publish is rejected.
+
+8. After the first automated release creates `master`, delete `main`:
+
+   ```bash
+   gh api -X DELETE repos/gubasso/spec-driven-docs/git/refs/heads/main
+   ```

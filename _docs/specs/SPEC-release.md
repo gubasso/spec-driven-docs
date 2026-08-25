@@ -7,7 +7,6 @@
   - [`release:versions-are-semantic-and-aligned` — Versions are semantic and aligned](#releaseversions-are-semantic-and-aligned--versions-are-semantic-and-aligned)
   - [`release:a-tag-derives-from-the-version-file` — A tag derives from the version file](#releasea-tag-derives-from-the-version-file--a-tag-derives-from-the-version-file)
   - [`release:a-released-version-is-not-re-authored` — A released version is not re-authored](#releasea-released-version-is-not-re-authored--a-released-version-is-not-re-authored)
-  - [`release:a-release-carries-its-migration-guide` — A release carries its migration guide](#releasea-release-carries-its-migration-guide--a-release-carries-its-migration-guide)
   - [`release:license-declares-both-halves` — The license declares both halves](#releaselicense-declares-both-halves--the-license-declares-both-halves)
   - [`release:the-delivered-gate-set-is-declared-once` — The delivered gate set is declared once](#releasethe-delivered-gate-set-is-declared-once--the-delivered-gate-set-is-declared-once)
   - [`release:a-canon-gate-is-not-delivered` — A canon gate is not delivered](#releasea-canon-gate-is-not-delivered--a-canon-gate-is-not-delivered)
@@ -58,18 +57,6 @@ If a version is published, then further changes MUST ship as a new version; a pu
 - THEN the fix merges forward and the automation proposes 0.3.1, because the registry refuses a second 0.3.0 and a moved tag serves two payloads under one name
 
 Verify: reviewer confirms corrections are cut forward as a new version, never by retagging
-
-### `release:a-release-carries-its-migration-guide` — A release carries its migration guide
-
-Where a previous release exists, the release MUST carry exactly one `migrations/<previous>-to-<version>.md` before it is tagged.
-
-#### Scenario: A version ships with no way into it
-
-- GIVEN an instance installed at the previous version
-- WHEN it upgrades to a release whose guide was never written
-- THEN the upgrade aborts, so the guide is required at the tag rather than discovered by the consumer
-
-Verify: `pre-commit run cargo-test --all-files`
 
 ### `release:license-declares-both-halves` — The license declares both halves
 

@@ -12,7 +12,6 @@ fn main() {
         ".markdownlint",
         "instance/snippets",
         "method",
-        "migrations",
         "LICENSE",
         "LICENSE-MIT",
         "LICENSE-CC-BY-4.0",

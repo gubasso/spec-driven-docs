@@ -14,8 +14,4 @@ pub struct UpgradeArgs {
     /// Report the plan and change nothing.
     #[arg(long)]
     pub dry_run: bool,
-
-    /// Print each consulted migration guide in full.
-    #[arg(long)]
-    pub show_guides: bool,
 }

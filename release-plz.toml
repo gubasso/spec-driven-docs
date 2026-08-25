@@ -2,4 +2,6 @@
 changelog_update = true
 release_always = false
 publish = true
+# The lib target exists only so this crate's own tests can link it; no
+# external consumer holds its API, so the library semver check is noise.
 semver_check = false

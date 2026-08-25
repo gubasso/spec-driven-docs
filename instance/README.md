@@ -55,10 +55,9 @@ alignment between the binary and the instance.
 
 ## Upgrade
 
-Install the newer `sdd`, review every applicable guide it carries, then dry-run the upgrade:
+Install the newer `sdd`, review its changelog, then dry-run the upgrade:
 
 ```bash
-sdd migration --list
 sdd upgrade --target /path/to/your-project --dry-run
 sdd upgrade --target /path/to/your-project
 ```

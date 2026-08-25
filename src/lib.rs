@@ -3,8 +3,8 @@
 //!
 //! This crate is the canon's distribution: the `sdd` binary installs, verifies,
 //! upgrades, and gates instances, and carries the whole payload — spec seeds,
-//! templates, lint configs, migration guides, and the method chapters —
-//! embedded at compile time. The method itself lives in the repository's
+//! templates, lint configs, and the method chapters — embedded at compile
+//! time. The method itself lives in the repository's
 //! markdown, not here; this crate only ships and enforces it.
 //!
 //! Major modules:

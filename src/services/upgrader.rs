@@ -1,12 +1,11 @@
 //! Binary-driven instance upgrade.
 //!
-//! The newer binary carries the newer payload, so an upgrade is: walk the
-//! embedded migration guides from the installed version to this one, refuse
-//! atomically while any managed file is locally edited, reinstall from the
-//! embedded payload, prune what the new version stopped managing — inside
-//! the vendored directory only, and never through a symlink — and report
-//! the rule-ID diff the operator reconciles by hand. Copier's model, with
-//! the guide list as the safety briefing before a hard-to-reverse change.
+//! The newer binary carries the newer payload, so an upgrade is mechanical:
+//! refuse atomically while any managed file is locally edited, reinstall
+//! from the embedded payload, prune what the new version stopped managing —
+//! inside the vendored directory only, and never through a symlink — and
+//! report the rule-ID diff the operator reconciles by hand. Copier's model;
+//! what changed between versions is the changelog's business.
 
 use camino::{Utf8Path, Utf8PathBuf};
 
@@ -25,8 +24,6 @@ pub struct UpgradeOptions {
     pub target: Utf8PathBuf,
     /// Report the plan and change nothing.
     pub dry_run: bool,
-    /// Print each consulted guide's full text.
-    pub show_guides: bool,
 }
 
 /// What an upgrade did.
@@ -78,46 +75,6 @@ fn read_installed(target: &Utf8Path) -> Result<Installed, AppError> {
         }
         Err(error) => Err(AppError::ManifestInvalid(error.to_string())),
     }
-}
-
-fn guide_versions(name: &str) -> Option<(CanonVersion, CanonVersion)> {
-    let stem = name.strip_suffix(".md")?;
-    let (from, to) = stem.split_once("-to-")?;
-    Some((from.parse().ok()?, to.parse().ok()?))
-}
-
-fn migration_chain(
-    from: CanonVersion,
-    to: CanonVersion,
-) -> Result<Vec<&'static include_dir::File<'static>>, AppError> {
-    let mut chain = Vec::new();
-    let mut current = from;
-    while current != to {
-        let mut next: Option<(&include_dir::File, CanonVersion)> = None;
-        for file in crate::embedded::MIGRATIONS.files() {
-            let name = file.path().as_os_str().to_str().unwrap_or_default();
-            let Some((guide_from, guide_to)) = guide_versions(name) else {
-                continue;
-            };
-            if guide_from != current {
-                continue;
-            }
-            if next.is_some() {
-                return Err(AppError::Refused(format!(
-                    "ambiguous migration path from {current}: more than one guide"
-                )));
-            }
-            next = Some((file, guide_to));
-        }
-        let Some((file, guide_to)) = next else {
-            return Err(AppError::Refused(format!(
-                "no migration guide from {current} to {to}"
-            )));
-        };
-        chain.push(file);
-        current = guide_to;
-    }
-    Ok(chain)
 }
 
 fn prune(
@@ -179,8 +136,9 @@ fn prune(
 /// # Errors
 ///
 /// [`AppError::Violations`] when conflicts block the upgrade or removals
-/// remain unfinished, [`AppError::Refused`] when the migration path or the
-/// reinstall refuses, and manifest errors when the record cannot be read.
+/// remain unfinished, [`AppError::Refused`] when the binary is older than
+/// the instance or the reinstall refuses, and manifest errors when the
+/// record cannot be read.
 pub fn upgrade(options: &UpgradeOptions) -> Result<UpgradeOutcome, AppError> {
     if !options.target.is_absolute() {
         return Err(AppError::Usage("target must be absolute".to_string()));
@@ -207,16 +165,6 @@ pub fn upgrade(options: &UpgradeOptions) -> Result<UpgradeOutcome, AppError> {
         return Err(AppError::Refused(format!(
             "sdd {new} is older than the installed canon {old}; upgrade sdd"
         )));
-    }
-
-    for guide in migration_chain(old, new)? {
-        let name = guide.path().as_os_str().to_str().unwrap_or_default();
-        outcome.lines.push(format!("consult migration: {name}"));
-        if options.show_guides
-            && let Some(text) = guide.contents_utf8()
-        {
-            outcome.lines.push(text.trim_end_matches('\n').to_string());
-        }
     }
 
     let mut conflicts = Vec::new();

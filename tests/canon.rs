@@ -2,8 +2,8 @@
 //!
 //! These never reach an instance — an instance holding them would be gated
 //! on a release process it does not run. The delivered-set drift check
-//! lives in `cmd_hooks.rs`; here live the license split, the version
-//! alignment, and the migration-guide chain.
+//! lives in `cmd_hooks.rs`; here live the license split and the version
+//! alignment.
 
 // Integration tests: assertion style is the point, so the production
 // restrictions on unwrap/panic and string building do not apply here.
@@ -57,34 +57,6 @@ fn the_canon_manifest_carries_this_crate_version() {
         manifest["canon_version"],
         env!("CARGO_PKG_VERSION"),
         "regenerate with 'sdd self-manifest'"
-    );
-}
-
-/// SATISFIES release:a-release-carries-its-migration-guide
-#[test]
-fn a_migration_guide_leads_into_this_version() {
-    let migrations = canon().join("migrations");
-    let guides: Vec<String> = std::fs::read_dir(&migrations)
-        .unwrap()
-        .filter_map(Result::ok)
-        .filter_map(|entry| entry.file_name().into_string().ok())
-        .filter(|name| name.ends_with(".md") && name.contains("-to-"))
-        .collect();
-    assert!(!guides.is_empty(), "no migration guides at all");
-
-    let into_current: Vec<&String> = guides
-        .iter()
-        .filter(|name| {
-            name.strip_suffix(".md")
-                .and_then(|stem| stem.split_once("-to-"))
-                .is_some_and(|(_, to)| to == env!("CARGO_PKG_VERSION"))
-        })
-        .collect();
-    assert_eq!(
-        into_current.len(),
-        1,
-        "exactly one guide must lead into {}; found {into_current:?}",
-        env!("CARGO_PKG_VERSION")
     );
 }
 

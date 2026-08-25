@@ -56,8 +56,6 @@ pub enum Commands {
     Spec(read::ReadArgs),
     /// Read a document template, or list them.
     Template(read::ReadArgs),
-    /// Read a migration guide, or list them.
-    Migration(read::ReadArgs),
     /// Print the license terms this binary carries.
     License(license::LicenseArgs),
     /// Regenerate the canon checkout's own instance manifest.

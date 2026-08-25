@@ -27,12 +27,6 @@ fn shelves_list_and_serve_their_documents() {
             "distribution:instances-operate-offline",
         ),
         ("template", "adr", "adr", "Context and Problem Statement"),
-        (
-            "migration",
-            "0.1.6-to-0.2.0",
-            "0.1.6-to-0.2.0",
-            "# Migration from 0.1.6 to 0.2.0",
-        ),
     ] {
         fixture
             .cmd()

@@ -1,8 +1,7 @@
 //! The embedded-document readers: runtime-shape.
 //!
-//! One handler serves `method`, `spec`, `template`, and `migration` — the
-//! shelf is the only difference. Shelf semantics live in
-//! `services::reader`.
+//! One handler serves `method`, `spec`, and `template` — the shelf is the
+//! only difference. Shelf semantics live in `services::reader`.
 
 use crate::cli::read::ReadArgs;
 use crate::context::AppContext;

@@ -1,7 +1,7 @@
 //! Shared parse-shape for the embedded-document readers.
 //!
-//! `method`, `spec`, `template`, and `migration` all take one optional name
-//! and a `--list` flag; the shelf they read is the subcommand's identity.
+//! `method`, `spec`, and `template` all take one optional name and a
+//! `--list` flag; the shelf they read is the subcommand's identity.
 //! No I/O, no business logic.
 
 /// Read one embedded document, or list the shelf.

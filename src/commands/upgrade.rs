@@ -27,7 +27,6 @@ pub fn run(ctx: &AppContext, args: UpgradeArgs) -> Result<(), AppError> {
     let outcome = upgrade(&UpgradeOptions {
         target,
         dry_run: args.dry_run,
-        show_guides: args.show_guides,
     })?;
     for line in &outcome.lines {
         output::line(line);

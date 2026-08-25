@@ -75,7 +75,6 @@ rule_ids! {
     RecordWalksTheMechanism => "known-issues:a-record-walks-the-mechanism",
     CaseIdIsASlug => "known-issues:case-id-is-a-slug",
     CanonGateIsNotDelivered => "release:a-canon-gate-is-not-delivered",
-    ReleaseCarriesItsMigrationGuide => "release:a-release-carries-its-migration-guide",
     ReleasedVersionIsNotReAuthored => "release:a-released-version-is-not-re-authored",
     TagDerivesFromTheVersionFile => "release:a-tag-derives-from-the-version-file",
     LicenseDeclaresBothHalves => "release:license-declares-both-halves",

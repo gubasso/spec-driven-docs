@@ -83,7 +83,7 @@ fn an_instance_at_the_current_version_is_already_done() {
 }
 
 #[test]
-fn dry_run_names_the_guides_and_changes_nothing() {
+fn dry_run_reports_the_plan_and_changes_nothing() {
     let fixture = v1_instance();
     let digest = fixture.tree_digest();
     fixture
@@ -91,9 +91,6 @@ fn dry_run_names_the_guides_and_changes_nothing() {
         .args(["upgrade", "--target", &fixture.target(), "--dry-run"])
         .assert()
         .success()
-        .stdout(predicate::str::contains(
-            "consult migration: 0.1.6-to-0.2.0.md",
-        ))
         .stdout(predicate::str::contains("DRY RUN upgrade 0.1.6 to"));
     assert_eq!(digest, fixture.tree_digest(), "dry run changed bytes");
 }
@@ -142,9 +139,6 @@ fn an_upgrade_reinstalls_prunes_and_reports() {
         .args(["upgrade", "--target", &fixture.target()])
         .assert()
         .success()
-        .stdout(predicate::str::contains(
-            "consult migration: 0.1.6-to-0.2.0.md",
-        ))
         .stdout(predicate::str::contains(
             "removed managed file no longer owned: .spec-driven-docs/verify.sh",
         ))
@@ -205,7 +199,7 @@ fn a_symlinked_prune_destination_is_refused() {
 }
 
 #[test]
-fn a_version_with_no_guide_is_refused() {
+fn any_older_version_upgrades_mechanically() {
     let fixture = v1_instance();
     let manifest = fixture
         .read(".spec-driven-docs/manifest.json")
@@ -215,23 +209,14 @@ fn a_version_with_no_guide_is_refused() {
         .cmd()
         .args(["upgrade", "--target", &fixture.target()])
         .assert()
-        .code(73)
-        .stderr(predicate::str::contains("no migration guide from 0.0.1"));
-}
-
-#[test]
-fn show_guides_prints_the_guide_body() {
-    let fixture = v1_instance();
+        .success()
+        .stdout(predicate::str::contains(format!(
+            "OK upgraded 0.0.1 to {}",
+            env!("CARGO_PKG_VERSION")
+        )));
     fixture
         .cmd()
-        .args([
-            "upgrade",
-            "--target",
-            &fixture.target(),
-            "--dry-run",
-            "--show-guides",
-        ])
+        .args(["verify", "--target", &fixture.target()])
         .assert()
-        .success()
-        .stdout(predicate::str::contains("# Migration from 0.1.6 to 0.2.0"));
+        .success();
 }

@@ -14,14 +14,13 @@ routes readers; this file routes agents to the rules that bind their work.
 
 - `method/`, `comparison-docs/`, `templates/`, and `reference/` are canon product files.
 - `src/` is the distribution: the `sdd` binary embeds the payload — spec seeds, templates,
-  `.markdownlint/` configurations, `instance/snippets/`, `migrations/`, and `method/` — at compile
-  time from these authored paths, so canon and binary cannot drift.
+  `.markdownlint/` configurations, `instance/snippets/`, and `method/` — at compile time from
+  these authored paths, so canon and binary cannot drift.
 - The delivered gate set is declared once, in the registry in `src/gates.rs`; the managed block an
   instance receives and the published `.pre-commit-hooks.yaml` are both rendered from it by
   `sdd hooks`, and a cargo test holds the published file equal to the render.
-- Checks of invariants only this repository has — the license split, version alignment, the
-  migration chain — are cargo tests under `tests/`, never delivered
-  (ADR-split-gates-by-delivery-domain).
+- Checks of invariants only this repository has — the license split, version alignment — are
+  cargo tests under `tests/`, never delivered (ADR-split-gates-by-delivery-domain).
 - `_docs/specs/`, `_docs/decisions/`, marker-delimited integrations, and instance debt are local
   overlays after installation.
 - Keep each durable fact in one owner and link to it elsewhere.
