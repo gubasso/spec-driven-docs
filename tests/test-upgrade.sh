@@ -94,9 +94,40 @@ esac
   fail 'the refused upgrade changed the colliding destination'
 rm -f "$next/gates/instance/new-gate.sh"
 
+# A payload the canon reorganizes is still upgradable. The instance records the
+# path a file was copied from, and upstream moving it says nothing about whether
+# the operator edited their copy -- which is the only question the scan asks.
+moved="$scratch/canon moved"
+cp -R "$next" "$moved"
+printf '%s\n' 0.2.1 >"$moved/VERSION"
+printf '%s\n' '# Migration from 0.2.0 to 0.2.1' >"$moved/migrations/0.2.0-to-0.2.1.md"
+mv "$moved/gates/instance" "$moved/relocated"
+jq '.managed_directories = ["relocated"]' "$moved/instance/profiles/codebase.json" >"$moved/p.json"
+mv "$moved/p.json" "$moved/instance/profiles/codebase.json"
+jq '.script_root = "relocated"' "$moved/instance/gates.json" >"$moved/g.json"
+mv "$moved/g.json" "$moved/instance/gates.json"
+# And one gate is retired outright, so the same upgrade covers a payload that
+# moved and a payload that shrank.
+rm "$moved/relocated/ki-retire-when.sh"
+jq 'del(.gates[] | select(.script == "ki-retire-when.sh"))' \
+  "$moved/instance/gates.json" >"$moved/g.json"
+mv "$moved/g.json" "$moved/instance/gates.json"
+relocate_out=$("$moved/scripts/upgrade.sh" --target "$target" --from "$moved" 2>&1) ||
+  fail "a relocated payload blocked the upgrade: $relocate_out"
+
+# And what the new version stopped managing is gone, not left running from a
+# payload that no longer claims it.
+[ ! -e "$target/.spec-driven-docs/hooks/ki-retire-when.sh" ] ||
+  fail 'a retired gate survived the upgrade'
+printf '%s\n' "$relocate_out" | grep -q 'removed managed file no longer owned: .spec-driven-docs/hooks/ki-retire-when.sh' ||
+  fail 'the upgrade removed a managed file without saying so'
+[ -f "$target/.spec-driven-docs/hooks/adr-word-cap.sh" ] ||
+  fail 'the relocated payload was not reinstalled'
+jq -e '.canon_version == "0.2.1"' "$target/.spec-driven-docs/manifest.json" >/dev/null
+
 final="$scratch/canon-final"
 cp -R "$next" "$final"
 printf '%s\n' 0.3.0 >"$final/VERSION"
-printf '%s\n' '# Migration from 0.2.0 to 0.3.0' >"$final/migrations/0.2.0-to-0.3.0.md"
-"$final/scripts/upgrade.sh" --target "$target" --from "$final" | grep -q '0.2.0-to-0.3.0'
+printf '%s\n' '# Migration from 0.2.1 to 0.3.0' >"$final/migrations/0.2.1-to-0.3.0.md"
+"$final/scripts/upgrade.sh" --target "$target" --from "$final" | grep -q '0.2.1-to-0.3.0'
 echo 'OK upgrade controls'

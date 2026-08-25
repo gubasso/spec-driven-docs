@@ -108,9 +108,14 @@ jq -r '.managed[] | @tsv' "$profile_file" | while IFS="$(printf '\t')" read -r s
 # check an invariant this repository alone has -- its VERSION against its tag,
 # its dual licence, its own negative controls -- and an instance that received
 # them would be gated on a release process it does not run.
-for source in "$canon"/gates/instance/*; do
-  [ -f "$source" ] || continue
-  copy_managed "gates/instance/${source##*/}" ".spec-driven-docs/hooks/${source##*/}"
+# The directory comes from the profile rather than from this script. A profile
+# that declares what it manages and an installer that copies somewhere else are
+# two statements of the same fact, and they drift.
+jq -r '.managed_directories[]' "$profile_file" | while IFS= read -r dir; do
+  for source in "$canon/$dir"/*; do
+    [ -f "$source" ] || continue
+    copy_managed "$dir/${source##*/}" ".spec-driven-docs/hooks/${source##*/}"
+  done
 done
 
 # An adopted file is the instance's own copy from the moment it lands, so its

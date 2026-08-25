@@ -81,15 +81,17 @@ done
 # rerunning to find the next is the shape this avoids, and a file the loop
 # writes to survives the pipeline's subshell where a variable does not.
 : >"$stage/conflicts"
-jq -r '.managed_files[] | [.source,.destination,.sha256] | @tsv' "$manifest" >"$stage/managed" || {
+jq -r '.managed_files[] | [.destination,.sha256] | @tsv' "$manifest" >"$stage/managed" || {
   echo 'FAIL unreadable manifest projection'
   exit 1
 }
-while IFS="$(printf '\t')" read -r source destination recorded; do
-  [ -f "$from/$source" ] || {
-    echo "CONFLICT missing upstream $source" >>"$stage/conflicts"
-    continue
-  }
+# The scan asks one question: has the operator edited a file this instance does
+# not own? The recorded hash answers it against the copy on disk, and where
+# upstream keeps its own copy has no bearing on the answer. Requiring the old
+# source path to still exist made every relocation upstream report every managed
+# file as a conflict, which is an upgrade nobody can take and a payload that can
+# never be reorganized.
+while IFS="$(printf '\t')" read -r destination recorded; do
   [ -f "$target/$destination" ] || {
     echo "CONFLICT missing managed file: $destination" >>"$stage/conflicts"
     continue
@@ -121,6 +123,10 @@ done <"$stage/managed"
 # in `.git/config` somewhere the operator did not choose.
 profile=$(jq -r .profile "$manifest")
 ref="v$new"
+# What this instance owns right now, captured before the reinstall overwrites
+# the manifest that records it. A file dropped from the payload between the two
+# versions is only identifiable as the difference between these two lists.
+cut -f1 "$stage/managed" | sort >"$stage/old-destinations"
 # The installer's output is held rather than discarded: on success it is the
 # list of proposed paths, which the operator did not ask for, and on failure it
 # is the only account of what stopped the upgrade.
@@ -130,6 +136,29 @@ ref="v$new"
   exit 1
 }
 "$target/.spec-driven-docs/verify.sh" --target "$target" --offline >/dev/null
+
+# A file the new version stopped managing is removed, not left behind. The
+# conflict scan already proved every one of them still matches the hash this
+# instance recorded, so nothing an operator wrote is at risk. Left in place, a
+# dropped gate keeps running from a payload that no longer claims it, and no
+# check would ever mention it again.
+#
+# The prefix guard is what keeps this a payload operation. Only the vendored
+# directory is ever pruned, so a manifest naming a destination outside it --
+# through damage or through a hand edit -- cannot turn an upgrade into a
+# deletion somewhere in the project.
+jq -r '.managed_files[].destination' "$manifest" | sort >"$stage/new-destinations"
+comm -23 "$stage/old-destinations" "$stage/new-destinations" >"$stage/dropped"
+while IFS= read -r destination; do
+  [ -n "$destination" ] || continue
+  case "$destination" in
+    .spec-driven-docs/*) ;;
+    *) continue ;;
+  esac
+  [ -f "$target/$destination" ] || continue
+  rm -f "$target/$destination"
+  echo "removed managed file no longer owned: $destination"
+done <"$stage/dropped"
 
 # The rule IDs that changed upstream are what an operator reconciles by hand, so
 # the diff is reported rather than computed and dropped.
