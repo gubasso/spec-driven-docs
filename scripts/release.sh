@@ -39,7 +39,7 @@ version=$(cat VERSION)
 tag="v$version"
 
 if [ "$mode" = verify ]; then
-  .hooks/version-source-of-truth.sh --files-only
+  gates/canon/version-source-of-truth.sh --files-only
   [ "$claimed" = "$tag" ] || {
     echo "FAIL distribution:a-tag-derives-from-the-version-file $claimed: VERSION says $version, so the tag is $tag"
     exit 1
@@ -48,7 +48,7 @@ if [ "$mode" = verify ]; then
   exit 0
 fi
 
-.hooks/version-source-of-truth.sh
+gates/canon/version-source-of-truth.sh
 
 git rev-parse --git-dir >/dev/null 2>&1 || {
   echo 'FAIL distribution:a-tag-derives-from-the-version-file: not a git checkout'

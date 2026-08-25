@@ -136,7 +136,12 @@ sed -n '/^# BEGIN spec-driven-docs managed$/,/^# END spec-driven-docs managed$/p
   sed -n 's/^[[:space:]]*entry:[[:space:]]*//p' | cut -d' ' -f1 >"$work/entries"
 entries=0
 while IFS= read -r entry; do
-  case "$entry" in ./* | /* | .[!/]*) ;; *) continue ;; esac
+  # An entry naming a path is one containing a separator, not one starting with
+  # a dot. A block wiring gates from a plain directory -- which is how this
+  # repository wires its own -- has no leading dot on any entry, and a
+  # dot-prefix test skips every one of them, leaving the count at zero and the
+  # check reporting an empty block over a full one.
+  case "$entry" in */*) ;; *) continue ;; esac
   entries=$((entries + 1))
   [ -x "$target/$entry" ] || {
     echo "FAIL managed block entry is not executable: $entry"

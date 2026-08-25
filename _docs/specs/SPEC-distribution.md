@@ -13,6 +13,8 @@
   - [`distribution:a-released-version-is-not-re-authored` — A released version is not re-authored](#distributiona-released-version-is-not-re-authored--a-released-version-is-not-re-authored)
   - [`distribution:a-release-carries-its-migration-guide` — A release carries its migration guide](#distributiona-release-carries-its-migration-guide--a-release-carries-its-migration-guide)
   - [`distribution:license-declares-both-halves` — The license declares both halves](#distributionlicense-declares-both-halves--the-license-declares-both-halves)
+  - [`distribution:the-delivered-gate-set-is-declared-once` — The delivered gate set is declared once](#distributionthe-delivered-gate-set-is-declared-once--the-delivered-gate-set-is-declared-once)
+  - [`distribution:a-canon-gate-is-not-delivered` — A canon gate is not delivered](#distributiona-canon-gate-is-not-delivered--a-canon-gate-is-not-delivered)
 
 <!--TOC-->
 
@@ -130,3 +132,27 @@ The release MUST carry a named license file for the method and one for the distr
 - THEN one identifier covers what was installed and the other stays with what was left behind
 
 Verify: `pre-commit run license-split --all-files`
+
+### `distribution:the-delivered-gate-set-is-declared-once` — The delivered gate set is declared once
+
+Every gate the release delivers MUST be declared in one file that both the projection into an instance and the manifest published to a consumer are rendered from.
+
+#### Scenario: A gate reaches the payload but no wiring
+
+- GIVEN a gate copied into an instance and named by no pre-commit entry
+- WHEN the instance runs its hooks
+- THEN the gate is hashed, executable, and never runs, so the declaration is what both deliveries derive from
+
+Verify: `pre-commit run delivered-domain --all-files`
+
+### `distribution:a-canon-gate-is-not-delivered` — A canon gate is not delivered
+
+A gate checking an invariant that only this repository has MUST stay outside the delivered set, and MUST reach neither the projection nor the published manifest.
+
+#### Scenario: An instance receives the release gates
+
+- GIVEN a gate holding VERSION against the tag that names it
+- WHEN it is projected into a knowledge base that cuts no release
+- THEN the instance is gated on a process it does not run, so the boundary is asserted rather than assumed
+
+Verify: `pre-commit run delivered-domain --all-files`

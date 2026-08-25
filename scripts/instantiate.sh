@@ -104,9 +104,13 @@ copy_managed() {
   echo "$destination"
 }
 jq -r '.managed[] | @tsv' "$profile_file" | while IFS="$(printf '\t')" read -r source destination; do copy_managed "$source" "$destination"; done
-for source in "$canon"/.hooks/*; do
+# Only the delivered domain is projected. `gates/canon/` holds the gates that
+# check an invariant this repository alone has -- its VERSION against its tag,
+# its dual licence, its own negative controls -- and an instance that received
+# them would be gated on a release process it does not run.
+for source in "$canon"/gates/instance/*; do
   [ -f "$source" ] || continue
-  copy_managed ".hooks/${source##*/}" ".spec-driven-docs/hooks/${source##*/}"
+  copy_managed "gates/instance/${source##*/}" ".spec-driven-docs/hooks/${source##*/}"
 done
 
 # An adopted file is the instance's own copy from the moment it lands, so its
@@ -155,6 +159,11 @@ repos_line=$(grep -n '^repos:[[:space:]]*$' "$base" | head -1 | cut -d: -f1)
 }
 indent=$(awk -v s="$repos_line" 'NR>s && /^[[:space:]]*- / { match($0, /^[[:space:]]*/); print substr($0, 1, RLENGTH); exit }' "$base")
 [ -n "$indent" ] || indent='  '
+# The block carries the gates, not just the verifier. `verify.sh` checks that
+# the payload on disk is the payload the manifest recorded; it runs no gate and
+# reads no document. A block naming it alone leaves every projected gate wired
+# to nothing -- present, executable, hashed, and never run -- so the delivered
+# set is rendered in beside it from the one declaration that defines it.
 {
   printf '%s\n' '# BEGIN spec-driven-docs managed'
   printf '%s- repo: local\n' "$indent"
@@ -165,6 +174,9 @@ indent=$(awk -v s="$repos_line" 'NR>s && /^[[:space:]]*- / { match($0, /^[[:spac
   printf '%s      language: system\n' "$indent"
   printf '%s      always_run: true\n' "$indent"
   printf '%s      pass_filenames: false\n' "$indent"
+  "$canon/scripts/render-gate-block.sh" --gates "$canon/instance/gates.json" \
+    --docs-root "$docs_root" --entry-root .spec-driven-docs/hooks \
+    --language system --indent "$indent"
   printf '%s\n' '# END spec-driven-docs managed'
 } >"$stage/block"
 end_line=$(awk -v s="$repos_line" 'NR>s && /^[A-Za-z_][A-Za-z0-9_-]*:/ { print NR; exit }' "$base")

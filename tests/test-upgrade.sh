@@ -38,7 +38,7 @@ cp -R "$canon" "$next"
 printf '%s\n' 0.2.0 >"$next/VERSION"
 printf '%s\n' "# Migration from $from_version to 0.2.0" \
   >"$next/migrations/$from_version-to-0.2.0.md"
-printf '%s\n' '# managed change' >>"$next/.hooks/adr-word-cap.sh"
+printf '%s\n' '# managed change' >>"$next/gates/instance/adr-word-cap.sh"
 
 before=$(find "$target" -type f -not -path '*/.git/*' -exec sha256sum {} + | sort | sha256sum)
 "$next/scripts/upgrade.sh" --target "$target" --from "$next" --dry-run >/dev/null
@@ -81,8 +81,8 @@ seed_git "$collide"
 # A destination the new release introduces, blocked by a directory the target
 # already holds. The conflict scan cannot see it: the installed manifest does
 # not list a file that did not exist when the instance was installed.
-printf '#!/usr/bin/env sh\nexit 0\n' >"$next/.hooks/new-gate.sh"
-chmod 755 "$next/.hooks/new-gate.sh"
+printf '#!/usr/bin/env sh\nexit 0\n' >"$next/gates/instance/new-gate.sh"
+chmod 755 "$next/gates/instance/new-gate.sh"
 mkdir -p "$collide/.spec-driven-docs/hooks/new-gate.sh"
 collide_out=$("$next/scripts/upgrade.sh" --target "$collide" --from "$next" 2>&1) &&
   fail 'a colliding destination was accepted'
@@ -92,7 +92,7 @@ case "$collide_out" in
 esac
 [ -d "$collide/.spec-driven-docs/hooks/new-gate.sh" ] ||
   fail 'the refused upgrade changed the colliding destination'
-rm -f "$next/.hooks/new-gate.sh"
+rm -f "$next/gates/instance/new-gate.sh"
 
 final="$scratch/canon-final"
 cp -R "$next" "$final"

@@ -252,4 +252,53 @@ if grep -q "${canon}" "$kb/.spec-driven-docs/verify.sh"; then
   fail 'verifier records the canon checkout path'
 fi
 "$kb/.spec-driven-docs/verify.sh" --target "$kb" --offline >/dev/null
+# A projected gate is wired, not merely present. The defect this guards against
+# is silent in every other check: the payload lands, the manifest hashes it, the
+# verifier passes, and no gate runs, because the managed block named the
+# verifier alone. So the block is held against the declaration that defines the
+# delivered set, and then a real violation is planted and the hooks are run.
+gate_ids=$(jq -r '.gates[].id' "$canon/instance/gates.json")
+for id in $gate_ids; do
+  grep -q "^ *- id: $id\$" "$kb/.pre-commit-config.yaml" ||
+    fail "projected gate is wired to nothing: $id"
+done
+for id in $gate_ids; do
+  script=$(jq -r --arg i "$id" '.gates[] | select(.id==$i) | .script' "$canon/instance/gates.json")
+  [ -x "$kb/.spec-driven-docs/hooks/$script" ] ||
+    fail "wired gate is not executable in the instance: $script"
+done
+
+# The boundary holds in the other direction too: nothing from `gates/canon/`
+# reaches the instance.
+for file in "$canon"/gates/canon/*; do
+  [ -f "$file" ] || continue
+  [ ! -e "$kb/.spec-driven-docs/hooks/${file##*/}" ] ||
+    fail "a canon-only gate was projected: ${file##*/}"
+done
+
+# End to end: the instance rejects a document its gates forbid. `pre-commit` is
+# run against the one hook, so the assertion is that this gate ran and failed,
+# not that something somewhere in the config did.
+if command -v pre-commit >/dev/null 2>&1 && command -v git >/dev/null 2>&1; then
+  live="$scratch/live"
+  mkdir -p "$live"
+  cp -R "$kb/." "$live/"
+  rm -rf "$live/.git"
+  git -C "$live" init -q
+  git -C "$live" add -A
+  printf '# Choice\n' >"$live/_docs/decisions/ADR-use-v2.md"
+  git -C "$live" add -A
+  out=$(cd "$live" && pre-commit run adr-filename-shape --all-files 2>&1) && {
+    printf '%s\n' "$out"
+    fail 'the projected filename gate accepted a record carrying a digit'
+  }
+  case "$out" in
+    *decision-records:filename-carries-no-digit*) ;;
+    *)
+      printf '%s\n' "$out"
+      fail 'the projected gate failed without reporting its rule'
+      ;;
+  esac
+fi
+
 echo 'OK instantiation controls'

@@ -10,7 +10,7 @@
       ".spec-driven-docs/markdownlint/relative-links.markdownlint-cli2.jsonc"
     ]
   ],
-  "managed_directories": [".hooks"],
+  "managed_directories": ["gates/instance"],
   "adopted": [
     ["_docs/specs/SPEC-decision-records.md", "{docs_root}/specs/SPEC-decision-records.md"],
     ["_docs/specs/SPEC-distribution.md", "{docs_root}/specs/SPEC-distribution.md"],

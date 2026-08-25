@@ -66,7 +66,7 @@ git -C "$first" rev-parse -q --verify "refs/tags/v$version" >/dev/null ||
 
 # Standing on the release commit is not re-authoring it, so the gate lets the
 # tagged tree alone.
-sh -c "cd '$first' && .hooks/version-source-of-truth.sh" ||
+sh -c "cd '$first' && gates/canon/version-source-of-truth.sh" ||
   fail 'the gate refused the tree the tag points at'
 
 # The tag is what forces the bump: staging the next commit under the released
@@ -74,7 +74,7 @@ sh -c "cd '$first' && .hooks/version-source-of-truth.sh" ||
 printf '%s\n' 'next change' >>"$first/README.md"
 git -C "$first" add README.md
 reject 'released version re-authored' 'distribution:a-released-version-is-not-re-authored' \
-  sh -c "cd '$first' && .hooks/version-source-of-truth.sh"
+  sh -c "cd '$first' && gates/canon/version-source-of-truth.sh"
 
 # A second release needs the guide that steps into it, because the upgrade walks
 # guides and has no other way in.

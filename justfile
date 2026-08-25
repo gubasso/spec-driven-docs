@@ -3,15 +3,15 @@ default:
 
 fmt:
     dprint fmt
-    shfmt -w -i 2 -ci scripts/*.sh .hooks/*.sh tests/*.sh
+    shfmt -w -i 2 -ci scripts/*.sh gates/instance/*.sh gates/canon/*.sh tests/*.sh
 
 manifest:
     scripts/self-manifest.sh
 
 lint:
     dprint check
-    shfmt -d -i 2 -ci scripts/*.sh .hooks/*.sh tests/*.sh
-    shellcheck scripts/*.sh .hooks/*.sh tests/*.sh
+    shfmt -d -i 2 -ci scripts/*.sh gates/instance/*.sh gates/canon/*.sh tests/*.sh
+    shellcheck scripts/*.sh gates/instance/*.sh gates/canon/*.sh tests/*.sh
     editorconfig-checker -disable-insert-final-newline
     typos
     markdownlint-cli2 "**/*.md" "#tests/fixtures/**"
@@ -21,7 +21,7 @@ lint:
     pre-commit run --files $(rg --files --hidden -g '!.git/**')
 
 test-gates:
-    .hooks/test-gates.sh
+    gates/canon/test-gates.sh
 
 test-instantiation:
     tests/test-instantiation.sh

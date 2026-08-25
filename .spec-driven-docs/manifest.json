@@ -10,7 +10,7 @@
     {
       "source": "scripts/verify.sh",
       "destination": "scripts/verify.sh",
-      "sha256": "28438e45b180df094eddc6263a41221c57eaca8e4988c9e3f06c1b3cf0e2f669"
+      "sha256": "dc17d596ae2c196cc01b439c291416f91198cc274e2376fd01a4d614c1ff60ad"
     },
     {
       "source": ".markdownlint/adr.markdownlint-cli2.jsonc",
@@ -28,138 +28,143 @@
       "sha256": "85c5697b30b980e6f130f6dfa79960d16eb5a12c77e141ff23b63b0c0e6b055a"
     },
     {
-      "source": ".hooks/adr-filename-shape.sh",
-      "destination": ".hooks/adr-filename-shape.sh",
+      "source": "gates/instance/adr-filename-shape.sh",
+      "destination": "gates/instance/adr-filename-shape.sh",
       "sha256": "f4d575a911c13925c9a5343c9ef25a8deb71bba661a28546b11440b3e63e4a4f"
     },
     {
-      "source": ".hooks/adr-word-cap.sh",
-      "destination": ".hooks/adr-word-cap.sh",
+      "source": "gates/instance/adr-word-cap.sh",
+      "destination": "gates/instance/adr-word-cap.sh",
       "sha256": "d103d83a3d16adcbdd7bf120b47a285617280ede4cfa3e9d26befb7e5d568ce6"
     },
     {
-      "source": ".hooks/agents-digest-size.sh",
-      "destination": ".hooks/agents-digest-size.sh",
+      "source": "gates/instance/agents-digest-size.sh",
+      "destination": "gates/instance/agents-digest-size.sh",
       "sha256": "ce51967d5761033563db9571927cf616678fce71069d63ab60a5c885b0df077b"
     },
     {
-      "source": ".hooks/chapter-size-cap.sh",
-      "destination": ".hooks/chapter-size-cap.sh",
+      "source": "gates/instance/chapter-size-cap.sh",
+      "destination": "gates/instance/chapter-size-cap.sh",
       "sha256": "311dd275e3d0d9c8650c2edebec9f89027d52e64bcc728fec706227be29bbf9b"
     },
     {
-      "source": ".hooks/comparison-dated-tables.sh",
-      "destination": ".hooks/comparison-dated-tables.sh",
+      "source": "gates/instance/comparison-dated-tables.sh",
+      "destination": "gates/instance/comparison-dated-tables.sh",
       "sha256": "a6e7be4514534b6d827bf923d0316b374ead61e9a0ab948dac3ad0df5a65a5c2"
     },
     {
-      "source": ".hooks/comparison-escaped-pipes.sh",
-      "destination": ".hooks/comparison-escaped-pipes.sh",
+      "source": "gates/instance/comparison-escaped-pipes.sh",
+      "destination": "gates/instance/comparison-escaped-pipes.sh",
       "sha256": "6a1f5cbe71e9ea974ce4b78c2ffb1896325e0b0cb27f6aae2fe3fd6f6a3106b7"
     },
     {
-      "source": ".hooks/comparison-legend.sh",
-      "destination": ".hooks/comparison-legend.sh",
+      "source": "gates/instance/comparison-legend.sh",
+      "destination": "gates/instance/comparison-legend.sh",
       "sha256": "ff54e674adda5d440e4139b77f7b2e0dc6739c715b25c1f968b657ca62f06ca1"
     },
     {
-      "source": ".hooks/comparison-one-reference-per-cell.sh",
-      "destination": ".hooks/comparison-one-reference-per-cell.sh",
+      "source": "gates/instance/comparison-one-reference-per-cell.sh",
+      "destination": "gates/instance/comparison-one-reference-per-cell.sh",
       "sha256": "70bf047b7a8ea14f0277689c5b5ea65e7bd86d40462729de9fdcc78b0d832bba"
     },
     {
-      "source": ".hooks/comparison-verdict-word.sh",
-      "destination": ".hooks/comparison-verdict-word.sh",
+      "source": "gates/instance/comparison-verdict-word.sh",
+      "destination": "gates/instance/comparison-verdict-word.sh",
       "sha256": "c217ff2cafcee1fe265ebb3fc418c1fa9cb6781b7e089661b7e746b28c77cc02"
     },
     {
-      "source": ".hooks/gate-message-cites-a-rule.sh",
-      "destination": ".hooks/gate-message-cites-a-rule.sh",
-      "sha256": "b83370d1a8831011e5d14497dc0d5083a4765429089915c16923adb4772f67be"
+      "source": "gates/instance/gate-message-cites-a-rule.sh",
+      "destination": "gates/instance/gate-message-cites-a-rule.sh",
+      "sha256": "3053b0eb88097c0455530c987894e83363434a7b8325f0bc0673912f8537d9b8"
     },
     {
-      "source": ".hooks/instance-manifest.sh",
-      "destination": ".hooks/instance-manifest.sh",
+      "source": "gates/instance/instance-manifest.sh",
+      "destination": "gates/instance/instance-manifest.sh",
       "sha256": "6cb7516b8019e95d3425d6f429c875034befda32f14398c10ff44760eec57bfc"
     },
     {
-      "source": ".hooks/ki-bugzilla-report-width.sh",
-      "destination": ".hooks/ki-bugzilla-report-width.sh",
+      "source": "gates/instance/ki-bugzilla-report-width.sh",
+      "destination": "gates/instance/ki-bugzilla-report-width.sh",
       "sha256": "85275a6e1e1371ea901b7528c6687ca9fa5f501e5ee444d26d0265266723e042"
     },
     {
-      "source": ".hooks/ki-filename-shape.sh",
-      "destination": ".hooks/ki-filename-shape.sh",
+      "source": "gates/instance/ki-filename-shape.sh",
+      "destination": "gates/instance/ki-filename-shape.sh",
       "sha256": "cecc4fb8ce8d6ac84f98c9946763f909f1883b4aee545d850a24d9fa2d70776e"
     },
     {
-      "source": ".hooks/ki-mechanism-walkthrough.sh",
-      "destination": ".hooks/ki-mechanism-walkthrough.sh",
+      "source": "gates/instance/ki-mechanism-walkthrough.sh",
+      "destination": "gates/instance/ki-mechanism-walkthrough.sh",
       "sha256": "b3a1760b9d6b31cce5f195ed953334f3e1b714c6810ad64bebeaa6977de93848"
     },
     {
-      "source": ".hooks/ki-report-body.sh",
-      "destination": ".hooks/ki-report-body.sh",
+      "source": "gates/instance/ki-report-body.sh",
+      "destination": "gates/instance/ki-report-body.sh",
       "sha256": "141ecede742fe02aec5260568d88010b921a65e29417bec383c09f6251573a43"
     },
     {
-      "source": ".hooks/ki-retire-when.sh",
-      "destination": ".hooks/ki-retire-when.sh",
+      "source": "gates/instance/ki-retire-when.sh",
+      "destination": "gates/instance/ki-retire-when.sh",
       "sha256": "1a05ee65729c9b3a3cbb25e0b0dfed80b556a28d3b91c714e7e4861b5656487e"
     },
     {
-      "source": ".hooks/lib-instance-paths.sh",
-      "destination": ".hooks/lib-instance-paths.sh",
+      "source": "gates/instance/lib-instance-paths.sh",
+      "destination": "gates/instance/lib-instance-paths.sh",
       "sha256": "023e294d2c6e33125cda31dfcfd69d59d876e0e25e9e8b9a35a1a39a076aa569"
     },
     {
-      "source": ".hooks/license-split.sh",
-      "destination": ".hooks/license-split.sh",
-      "sha256": "8351e12a40a8cd7c1de79fdae2237d4c307feba9efe28e8f7721a0d1c1813ffc"
-    },
-    {
-      "source": ".hooks/no-self-narration.awk",
-      "destination": ".hooks/no-self-narration.awk",
+      "source": "gates/instance/no-self-narration.awk",
+      "destination": "gates/instance/no-self-narration.awk",
       "sha256": "4050fc16bda474295b02fdb60ef9c802ddf6d96520b53ccabe62ebb309fe0d7d"
     },
     {
-      "source": ".hooks/no-self-narration.sh",
-      "destination": ".hooks/no-self-narration.sh",
-      "sha256": "cdff86bd1c20d291d8fc127731b51e6db51a66392da32211f3ee29929817564f"
+      "source": "gates/instance/no-self-narration.sh",
+      "destination": "gates/instance/no-self-narration.sh",
+      "sha256": "f1accb6ccb4343ba082538c8cc76a5f4cccb0f52ae9039c4facacd760b7935d4"
     },
     {
-      "source": ".hooks/spec-requirement-parts.sh",
-      "destination": ".hooks/spec-requirement-parts.sh",
+      "source": "gates/instance/spec-requirement-parts.sh",
+      "destination": "gates/instance/spec-requirement-parts.sh",
       "sha256": "d1e369e008d2f095a8d7afed157eef259c8122eb38de438832978b7c0782f6cf"
     },
     {
-      "source": ".hooks/spec-rule-id-unique.sh",
-      "destination": ".hooks/spec-rule-id-unique.sh",
+      "source": "gates/instance/spec-rule-id-unique.sh",
+      "destination": "gates/instance/spec-rule-id-unique.sh",
       "sha256": "49da4089918eb5a6256f8412c25347047b031579480226b79426db753db671e6"
     },
     {
-      "source": ".hooks/spec-size-cap.sh",
-      "destination": ".hooks/spec-size-cap.sh",
+      "source": "gates/instance/spec-size-cap.sh",
+      "destination": "gates/instance/spec-size-cap.sh",
       "sha256": "2cc375d7275f3d57026cf4c68f2236d8cbc70e9d1f4269c574efff42af8f0691"
     },
     {
-      "source": ".hooks/spec-verify-hooks-exist.sh",
-      "destination": ".hooks/spec-verify-hooks-exist.sh",
+      "source": "gates/instance/spec-verify-hooks-exist.sh",
+      "destination": "gates/instance/spec-verify-hooks-exist.sh",
       "sha256": "bd8c2a00863ad60567dbe80e6df0333e1197c1fcf4dd859c8873ace69045e065"
     },
     {
-      "source": ".hooks/suppression-names-its-case.sh",
-      "destination": ".hooks/suppression-names-its-case.sh",
+      "source": "gates/instance/suppression-names-its-case.sh",
+      "destination": "gates/instance/suppression-names-its-case.sh",
       "sha256": "96351e42b46f5ae231c377c184d54736bf35754cfeeba7f56f6c31d2f5bcbed9"
     },
     {
-      "source": ".hooks/test-gates.sh",
-      "destination": ".hooks/test-gates.sh",
-      "sha256": "5a4c9ff55a2cac52172581e43a0064f69953fead17b95b7cd3b64b9e955f6192"
+      "source": "gates/canon/delivered-domain.sh",
+      "destination": "gates/canon/delivered-domain.sh",
+      "sha256": "a0e2a4397ff6ec1f6f9d73ae4899c67e2ac19083b1094fd949ea91d4681e6d44"
     },
     {
-      "source": ".hooks/version-source-of-truth.sh",
-      "destination": ".hooks/version-source-of-truth.sh",
+      "source": "gates/canon/license-split.sh",
+      "destination": "gates/canon/license-split.sh",
+      "sha256": "8351e12a40a8cd7c1de79fdae2237d4c307feba9efe28e8f7721a0d1c1813ffc"
+    },
+    {
+      "source": "gates/canon/test-gates.sh",
+      "destination": "gates/canon/test-gates.sh",
+      "sha256": "5aeaad27441db7cc88437c371ed1a7823ba6b8161b80865f3c6e50d37da0daa1"
+    },
+    {
+      "source": "gates/canon/version-source-of-truth.sh",
+      "destination": "gates/canon/version-source-of-truth.sh",
       "sha256": "09f5b33c4f5b749a4f7be9d8e02eb8e483f56a81d78ead4f7d037c1c6f7fb621"
     }
   ],
@@ -179,8 +184,8 @@
     {
       "source": "_docs/specs/SPEC-distribution.md",
       "destination": "_docs/specs/SPEC-distribution.md",
-      "sha256": "887662db73bbc6cff93e58d519738882808c189a604f1217225564f5ced2f2a3",
-      "baseline_sha256": "887662db73bbc6cff93e58d519738882808c189a604f1217225564f5ced2f2a3"
+      "sha256": "39a166235291b48f3675fba4732c50fbb62aac0bba2b5d2143fccda28a5fc1ef",
+      "baseline_sha256": "39a166235291b48f3675fba4732c50fbb62aac0bba2b5d2143fccda28a5fc1ef"
     },
     {
       "source": "_docs/specs/SPEC-docs-format.md",
@@ -228,7 +233,7 @@
   "integration_blocks": [
     {
       "path": ".pre-commit-config.yaml",
-      "marker_hash": "a04a3c6fa2648fda866fe58d855a0e7385baf4d91a6a8f68a4d220cc574b7f84"
+      "marker_hash": "dbc6e805c921d631dbfeaf93adadfffdf97406dfeb7a59b15d0a331ff99fc2b2"
     }
   ]
 }

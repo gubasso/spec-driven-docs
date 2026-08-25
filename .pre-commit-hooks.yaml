@@ -7,125 +7,125 @@
 # the repository, which would block a consumer whose README carries one.
 - id: adr-filename-shape
   name: decision record filename shape
-  entry: .hooks/adr-filename-shape.sh
+  entry: gates/instance/adr-filename-shape.sh
   language: script
   files: '^_?docs/decisions/.*\.md$'
 - id: adr-word-cap
   name: decision record word cap
-  entry: .hooks/adr-word-cap.sh
+  entry: gates/instance/adr-word-cap.sh
   language: script
   always_run: true
   pass_filenames: false
 - id: agents-digest-size
   name: agent digest size
-  entry: .hooks/agents-digest-size.sh
+  entry: gates/instance/agents-digest-size.sh
   language: script
   always_run: true
   pass_filenames: false
 - id: chapter-size-cap
   name: chapter and catalog size
-  entry: .hooks/chapter-size-cap.sh
+  entry: gates/instance/chapter-size-cap.sh
   language: script
   always_run: true
   pass_filenames: false
 - id: comparison-dated-tables
   name: comparison tables are dated
-  entry: .hooks/comparison-dated-tables.sh
+  entry: gates/instance/comparison-dated-tables.sh
   language: script
   files: '(^|/)COMPARISON-[a-z0-9-]+\.md$'
 - id: comparison-escaped-pipes
   name: comparison table pipes are escaped
-  entry: .hooks/comparison-escaped-pipes.sh
+  entry: gates/instance/comparison-escaped-pipes.sh
   language: script
   files: '(^|/)COMPARISON-[a-z0-9-]+\.md$'
 - id: comparison-legend
   name: comparison legend
-  entry: .hooks/comparison-legend.sh
+  entry: gates/instance/comparison-legend.sh
   language: script
   files: '(^|/)COMPARISON-[a-z0-9-]+\.md$'
 - id: comparison-one-reference-per-cell
   name: one reference per comparison cell
-  entry: .hooks/comparison-one-reference-per-cell.sh
+  entry: gates/instance/comparison-one-reference-per-cell.sh
   language: script
   files: '(^|/)COMPARISON-[a-z0-9-]+\.md$'
 - id: comparison-verdict-word
   name: comparison verdict word
-  entry: .hooks/comparison-verdict-word.sh
+  entry: gates/instance/comparison-verdict-word.sh
   language: script
   files: '(^|/)COMPARISON-[a-z0-9-]+\.md$'
 - id: gate-message-cites-a-rule
   name: gate messages cite a rule
-  entry: .hooks/gate-message-cites-a-rule.sh
+  entry: gates/instance/gate-message-cites-a-rule.sh
   language: script
   always_run: true
   pass_filenames: false
 - id: ki-filename-shape
   name: known issue filename shape
-  entry: .hooks/ki-filename-shape.sh
+  entry: gates/instance/ki-filename-shape.sh
   language: script
   files: '^_?docs/reference/known-issues/.*\.md$'
 - id: ki-mechanism-walkthrough
   name: known issue mechanism walkthrough
-  entry: .hooks/ki-mechanism-walkthrough.sh
+  entry: gates/instance/ki-mechanism-walkthrough.sh
   language: script
   always_run: true
   pass_filenames: false
 - id: ki-bugzilla-report-width
   name: Bugzilla report width
-  entry: .hooks/ki-bugzilla-report-width.sh
+  entry: gates/instance/ki-bugzilla-report-width.sh
   language: script
   always_run: true
   pass_filenames: false
 - id: ki-report-body
   name: known issue report body
-  entry: .hooks/ki-report-body.sh
+  entry: gates/instance/ki-report-body.sh
   language: script
   always_run: true
   pass_filenames: false
 - id: ki-retire-when
   name: known issue retirement condition
-  entry: .hooks/ki-retire-when.sh
+  entry: gates/instance/ki-retire-when.sh
   language: script
   always_run: true
   pass_filenames: false
 - id: no-self-narration
   name: documents state the present
-  entry: .hooks/no-self-narration.sh
+  entry: gates/instance/no-self-narration.sh
   language: script
   types: [markdown]
   exclude: '^_?docs/decisions/'
 - id: spec-requirement-parts
   name: spec requirement parts
-  entry: .hooks/spec-requirement-parts.sh
+  entry: gates/instance/spec-requirement-parts.sh
   language: script
   files: '^_?docs/specs/SPEC-.*\.md$'
 - id: spec-rule-id-unique
   name: spec rule IDs are unique
-  entry: .hooks/spec-rule-id-unique.sh
+  entry: gates/instance/spec-rule-id-unique.sh
   language: script
   always_run: true
   pass_filenames: false
 - id: spec-size-cap
   name: spec size cap
-  entry: .hooks/spec-size-cap.sh
+  entry: gates/instance/spec-size-cap.sh
   language: script
   always_run: true
   pass_filenames: false
 - id: spec-verify-hooks-exist
   name: spec hook references exist
-  entry: .hooks/spec-verify-hooks-exist.sh
+  entry: gates/instance/spec-verify-hooks-exist.sh
   language: script
   always_run: true
   pass_filenames: false
 - id: suppression-names-its-case
   name: suppressions name a known issue
-  entry: .hooks/suppression-names-its-case.sh
+  entry: gates/instance/suppression-names-its-case.sh
   language: script
   always_run: true
   pass_filenames: false
 - id: instance-manifest
   name: instance manifest
-  entry: .hooks/instance-manifest.sh
+  entry: gates/instance/instance-manifest.sh
   language: script
   always_run: true
   pass_filenames: false

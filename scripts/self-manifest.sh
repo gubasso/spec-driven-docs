@@ -24,7 +24,7 @@ record() {
   jq -nc --arg s "$1" --arg h "$hash" "$2" >>"$3"
 }
 # shellcheck disable=SC2016
-for file in scripts/verify.sh .markdownlint/*.markdownlint-cli2.jsonc .hooks/*; do
+for file in scripts/verify.sh .markdownlint/*.markdownlint-cli2.jsonc gates/instance/* gates/canon/*; do
   [ -f "$file" ] || continue
   record "$file" '{source:$s,destination:$s,sha256:$h}' "$work/managed"
 done

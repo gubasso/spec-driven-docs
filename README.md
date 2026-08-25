@@ -7,7 +7,7 @@ and code traceability coherent for people and coding agents.
 
 Two products in one repository. The method is what a reader loads: `method/`, `comparison-docs/`,
 `templates/` and `reference/` state the rules and the shapes that carry them. The distribution is
-what a project installs: `scripts/`, `.hooks/` and `instance/` put those rules into a repository
+what a project installs: `scripts/`, `gates/` and `instance/` put those rules into a repository
 and keep them upgradable. This repository is the canon; a project that
 installs it is an instance, and [method/glossary.md](./method/glossary.md) fixes both terms.
 

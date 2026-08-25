@@ -13,7 +13,10 @@ routes readers; this file routes agents to the rules that bind their work.
 ## Ownership boundaries
 
 - `method/`, `comparison-docs/`, `templates/`, and `reference/` are canon product files.
-- `.hooks/`, `.markdownlint/`, scripts, and profiles are managed instance payload.
+- `gates/instance/`, `.markdownlint/`, scripts, and profiles are managed instance payload;
+  `instance/gates.json` declares that delivered set and both deliveries render from it.
+- `gates/canon/` never leaves this repository: it holds the gates for invariants only the canon
+  has (ADR-split-gates-by-delivery-domain).
 - `_docs/specs/`, `_docs/decisions/`, marker-delimited integrations, and instance debt are local
   overlays after installation.
 - Keep each durable fact in one owner and link to it elsewhere.
@@ -36,7 +39,7 @@ routes readers; this file routes agents to the rules that bind their work.
 - A shipped executable requires a pre-commit gate, an accept and reject control under `just test`,
   and every dependency in `flake.nix`.
 - Run `just check` before handoff. It checks without formatting.
-- Run `just manifest` after editing anything under `.hooks/`, `.markdownlint/`, `scripts/verify.sh`,
+- Run `just manifest` after editing anything under `gates/`, `.markdownlint/`, `scripts/verify.sh`,
   or the managed pre-commit block; the instance manifest records their hashes.
 - `VERSION` is the release source of truth. Never author a tag: `just release` derives it, and
   `_docs/guides/release.md` owns the sequence.
