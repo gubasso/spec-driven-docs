@@ -29,10 +29,15 @@ mkdir -p "$target"
 seed_git "$target"
 "$canon/scripts/instantiate.sh" --target "$target" --profile codebase >/dev/null
 
+# The step out of the installed version is whatever the canon currently
+# releases, so the control reads it rather than restating it and going stale on
+# the next bump.
+from_version=$(cat "$canon/VERSION")
 next="$scratch/canon next"
 cp -R "$canon" "$next"
 printf '%s\n' 0.2.0 >"$next/VERSION"
-printf '%s\n' '# Migration from 0.1.0 to 0.2.0' >"$next/migrations/0.1.0-to-0.2.0.md"
+printf '%s\n' "# Migration from $from_version to 0.2.0" \
+  >"$next/migrations/$from_version-to-0.2.0.md"
 printf '%s\n' '# managed change' >>"$next/.hooks/adr-word-cap.sh"
 
 before=$(find "$target" -type f -not -path '*/.git/*' -exec sha256sum {} + | sort | sha256sum)
@@ -43,7 +48,7 @@ after=$(find "$target" -type f -not -path '*/.git/*' -exec sha256sum {} + | sort
 # A `--from` path carrying a space names its guides correctly, or the operator
 # is told to read migrations that do not exist.
 "$next/scripts/upgrade.sh" --target "$target" --from "$next" --dry-run |
-  grep -q '^consult migration: 0.1.0-to-0.2.0.md$' || fail 'the migration list word-split'
+  grep -q "^consult migration: $from_version-to-0.2.0.md\$" || fail 'the migration list word-split'
 [ "$("$next/scripts/upgrade.sh" --target "$target" --from "$next" --dry-run | grep -c '^consult migration:')" -eq 1 ] ||
   fail 'the migration list named more guides than exist'
 

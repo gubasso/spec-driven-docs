@@ -64,8 +64,15 @@ git -C "$first" checkout -q -- README.md
 git -C "$first" rev-parse -q --verify "refs/tags/v$version" >/dev/null ||
   fail 'the tag the script reported does not exist'
 
-# The tag is what forces the bump: with it in place, the version gate refuses
-# the next commit until VERSION rises.
+# Standing on the release commit is not re-authoring it, so the gate lets the
+# tagged tree alone.
+sh -c "cd '$first' && .hooks/version-source-of-truth.sh" ||
+  fail 'the gate refused the tree the tag points at'
+
+# The tag is what forces the bump: staging the next commit under the released
+# version is the moment the gate refuses.
+printf '%s\n' 'next change' >>"$first/README.md"
+git -C "$first" add README.md
 reject 'released version re-authored' 'distribution:a-released-version-is-not-re-authored' \
   sh -c "cd '$first' && .hooks/version-source-of-truth.sh"
 

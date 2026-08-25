@@ -38,7 +38,17 @@ jq -e --arg v "$version" '.canon_version == $v' .spec-driven-docs/manifest.json 
 [ "$files_only" -eq 1 ] && exit 0
 command -v git >/dev/null 2>&1 || exit 0
 git rev-parse --git-dir >/dev/null 2>&1 || exit 0
-git rev-parse -q --verify "refs/tags/v$version" >/dev/null 2>&1 || exit 0
+tagged=$(git rev-parse -q --verify "refs/tags/v$version^{commit}" 2>/dev/null) || exit 0
+[ -n "$tagged" ] || exit 0
+
+# The release commit itself carries the version it released, so the tag pointing
+# at `HEAD` with nothing staged is the tree standing on the release rather than
+# authoring past it. A commit in progress stages something, which is the moment
+# the version has to rise.
+head=$(git rev-parse -q --verify HEAD 2>/dev/null || true)
+if [ "$tagged" = "$head" ] && git diff --cached --quiet 2>/dev/null; then
+  exit 0
+fi
 
 echo "FAIL distribution:a-released-version-is-not-re-authored VERSION: v$version is already tagged; bump VERSION"
 exit 1

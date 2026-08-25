@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "canon_version": "0.1.0",
+  "canon_version": "0.1.1",
   "canon_source": "https://github.com/gubasso/spec-driven-docs",
   "canon_ref": "pre-release",
   "profile": "knowledge-base",
@@ -160,7 +160,7 @@
     {
       "source": ".hooks/version-source-of-truth.sh",
       "destination": ".hooks/version-source-of-truth.sh",
-      "sha256": "793ab7b73d5c8af6c7fd847d422853313bcf3b468ac26f85e0119d320c3d812a"
+      "sha256": "09f5b33c4f5b749a4f7be9d8e02eb8e483f56a81d78ead4f7d037c1c6f7fb621"
     }
   ],
   "adopted_files": [
