@@ -3,7 +3,7 @@ set -eu
 canon=$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd -P)
 scratch=$(mktemp -d "${TMPDIR:-/tmp}/sdd-instantiation.XXXXXX")
 scratch=$(cd "$scratch" && pwd -P)
-trap 'rm -rf "$scratch"' EXIT HUP INT TERM
+trap 'chmod -R u+w "$scratch" 2>/dev/null || true; rm -rf "$scratch"' EXIT HUP INT TERM
 
 fail() {
   echo "FAIL $1"

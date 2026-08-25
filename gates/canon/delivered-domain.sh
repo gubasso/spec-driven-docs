@@ -62,33 +62,58 @@ for file in "$script_root"/*; do
   }
 done
 
-# The published manifest names the same ids, and names them at the delivered
-# path. An entry pointing into `gates/canon/` would ship a canon-only gate to
-# every consumer who installs this repository by rev.
-grep -E '^- id: ' "$published" | sed 's/^- id: //' | sort >"$work/published-ids"
-missing=$(comm -23 "$work/declared-ids" "$work/published-ids")
-[ -z "$missing" ] || {
-  echo 'FAIL release:the-delivered-gate-set-is-declared-once .pre-commit-hooks.yaml: declared but not published'
-  printf '%s\n' "$missing" | sed 's/^/  /'
-  status=1
-}
-extra=$(comm -13 "$work/declared-ids" "$work/published-ids")
-[ -z "$extra" ] || {
-  echo 'FAIL release:the-delivered-gate-set-is-declared-once .pre-commit-hooks.yaml: published but not declared'
-  printf '%s\n' "$extra" | sed 's/^/  /'
+# The declaration and the installer must name the same directory. The installer
+# projects `managed_directories` from the profile and never reads this file, so a
+# profile pointing somewhere else would ship a set nothing here ever checked --
+# the boundary would hold over a directory no instance receives.
+for profile in instance/profiles/*.json; do
+  [ -f "$profile" ] || continue
+  # Count and element are compared separately. Joining the array into one string
+  # first makes `["gates", "instance"]` equal a root literally named
+  # `gates,instance`, so a profile projecting two directories would satisfy a
+  # check that only ever inspects one.
+  dir_count=$(jq -r '.managed_directories | length' "$profile")
+  [ "$dir_count" -eq 1 ] || {
+    echo "FAIL release:a-canon-gate-is-not-delivered $profile: projects $dir_count directories, the declaration names one"
+    status=1
+    continue
+  }
+  declared_dir=$(jq -r '.managed_directories[0]' "$profile")
+  [ "$declared_dir" = "$script_root" ] || {
+    echo "FAIL release:a-canon-gate-is-not-delivered $profile: projects $declared_dir, declaration names $script_root"
+    status=1
+  }
+done
+
+# An id or a script name outside the slug shape would reach YAML as a plain
+# scalar, where a colon or a quote means something other than itself.
+jq -r '.gates[] | .id + " " + .script' "$decl" | while read -r gid gscript; do
+  case "$gid" in *[!a-z0-9-]* | '') echo "FAIL release:the-delivered-gate-set-is-declared-once $decl: unsafe gate id: $gid" ;; esac
+  case "$gscript" in *[!a-z0-9.-]* | '') echo "FAIL release:the-delivered-gate-set-is-declared-once $decl: unsafe script name: $gscript" ;; esac
+done >"$work/shape"
+[ ! -s "$work/shape" ] || {
+  cat "$work/shape"
   status=1
 }
 
-sed -n 's/^  entry: //p' "$published" | cut -d' ' -f1 >"$work/published-entries"
-while IFS= read -r entry; do
-  case "$entry" in
-    "$script_root"/*) ;;
-    *)
-      echo "FAIL release:a-canon-gate-is-not-delivered $published: $entry is published from outside $script_root"
-      status=1
-      ;;
-  esac
-done <"$work/published-entries"
+# The published manifest is the declaration, rendered. Comparing id sets alone
+# left every other field free to drift: a `files:` pattern, an `exclude:`, or an
+# `always_run:` could differ between what an instance runs and what a consumer
+# installs, and both would still be "the same gates". So the render is produced
+# here and the file is required to equal it byte for byte, comments aside.
+render="$work/rendered"
+"$(dirname "$0")/../../scripts/render-gate-block.sh" --gates "$decl" \
+  --docs-root '_?docs' --entry-root "$script_root" \
+  --language script --style manifest >"$render" || {
+  echo "FAIL release:the-delivered-gate-set-is-declared-once $decl: the declaration does not render"
+  exit 1
+}
+sed -n '/^- id: /,$p' "$published" >"$work/published-body"
+if ! diff -u "$render" "$work/published-body" >"$work/render-diff"; then
+  echo "FAIL release:the-delivered-gate-set-is-declared-once $published: does not match the rendered declaration"
+  sed -n '1,40p' "$work/render-diff" | sed 's/^/  /'
+  status=1
+fi
 
 # The boundary, stated as its own assertion rather than inferred from the two
 # above: nothing under `gates/canon/` is declared or published.
@@ -99,7 +124,10 @@ for file in gates/canon/*; do
     echo "FAIL release:a-canon-gate-is-not-delivered $file: a canon gate is in the delivered declaration"
     status=1
   fi
-  grep -Fq "gates/canon/$name" "$published" && {
+  # The entries, not the whole file: this header documents the boundary by
+  # naming a gate on the canon side of it, and a check reading the comments
+  # would fail on the sentence that explains it.
+  grep -Fq "gates/canon/$name" "$work/published-body" && {
     echo "FAIL release:a-canon-gate-is-not-delivered $file: a canon gate is published to consumers"
     status=1
   }

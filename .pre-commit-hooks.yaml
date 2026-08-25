@@ -1,131 +1,135 @@
 # Hooks a consumer repository installs from this repository.
 #
+# Rendered from `instance/gates.json` by `scripts/render-gate-block.sh --style
+# manifest`, and held equal to that render by `gates/canon/delivered-domain.sh`.
+# Edit the declaration, not this file.
+#
 # A hook scoped by `files:` here states the default a consumer can narrow or
 # widen in their own `.pre-commit-config.yaml`. The comparison hooks are the
 # ones that need it: a comparison document is an ordinary markdown file, so the
 # default names the `COMPARISON-<slug>.md` convention rather than every table in
 # the repository, which would block a consumer whose README carries one.
 - id: adr-filename-shape
-  name: decision record filename shape
+  name: 'decision record filename shape'
   entry: gates/instance/adr-filename-shape.sh
   language: script
   files: '^_?docs/decisions/.*\.md$'
 - id: adr-word-cap
-  name: decision record word cap
+  name: 'decision record word cap'
   entry: gates/instance/adr-word-cap.sh
   language: script
   always_run: true
   pass_filenames: false
 - id: agents-digest-size
-  name: agent digest size
+  name: 'agent digest size'
   entry: gates/instance/agents-digest-size.sh
   language: script
   always_run: true
   pass_filenames: false
 - id: chapter-size-cap
-  name: chapter and catalog size
+  name: 'chapter and catalog size'
   entry: gates/instance/chapter-size-cap.sh
   language: script
   always_run: true
   pass_filenames: false
 - id: comparison-dated-tables
-  name: comparison tables are dated
+  name: 'comparison tables are dated'
   entry: gates/instance/comparison-dated-tables.sh
   language: script
   files: '(^|/)COMPARISON-[a-z0-9-]+\.md$'
 - id: comparison-escaped-pipes
-  name: comparison table pipes are escaped
+  name: 'comparison table pipes are escaped'
   entry: gates/instance/comparison-escaped-pipes.sh
   language: script
   files: '(^|/)COMPARISON-[a-z0-9-]+\.md$'
 - id: comparison-legend
-  name: comparison legend
+  name: 'comparison legend'
   entry: gates/instance/comparison-legend.sh
   language: script
   files: '(^|/)COMPARISON-[a-z0-9-]+\.md$'
 - id: comparison-one-reference-per-cell
-  name: one reference per comparison cell
+  name: 'one reference per comparison cell'
   entry: gates/instance/comparison-one-reference-per-cell.sh
   language: script
   files: '(^|/)COMPARISON-[a-z0-9-]+\.md$'
 - id: comparison-verdict-word
-  name: comparison verdict word
+  name: 'comparison verdict word'
   entry: gates/instance/comparison-verdict-word.sh
   language: script
   files: '(^|/)COMPARISON-[a-z0-9-]+\.md$'
 - id: gate-message-cites-a-rule
-  name: gate messages cite a rule
+  name: 'gate messages cite a rule'
   entry: gates/instance/gate-message-cites-a-rule.sh
   language: script
   always_run: true
   pass_filenames: false
-- id: ki-filename-shape
-  name: known issue filename shape
-  entry: gates/instance/ki-filename-shape.sh
-  language: script
-  files: '^_?docs/reference/known-issues/.*\.md$'
-- id: ki-mechanism-walkthrough
-  name: known issue mechanism walkthrough
-  entry: gates/instance/ki-mechanism-walkthrough.sh
+- id: instance-manifest
+  name: 'instance manifest'
+  entry: gates/instance/instance-manifest.sh
   language: script
   always_run: true
   pass_filenames: false
 - id: ki-bugzilla-report-width
-  name: Bugzilla report width
+  name: 'Bugzilla report width'
   entry: gates/instance/ki-bugzilla-report-width.sh
   language: script
   always_run: true
   pass_filenames: false
+- id: ki-filename-shape
+  name: 'known issue filename shape'
+  entry: gates/instance/ki-filename-shape.sh
+  language: script
+  files: '^_?docs/reference/known-issues/.*\.md$'
+- id: ki-mechanism-walkthrough
+  name: 'known issue mechanism walkthrough'
+  entry: gates/instance/ki-mechanism-walkthrough.sh
+  language: script
+  always_run: true
+  pass_filenames: false
 - id: ki-report-body
-  name: known issue report body
+  name: 'known issue report body'
   entry: gates/instance/ki-report-body.sh
   language: script
   always_run: true
   pass_filenames: false
 - id: ki-retire-when
-  name: known issue retirement condition
+  name: 'known issue retirement condition'
   entry: gates/instance/ki-retire-when.sh
   language: script
   always_run: true
   pass_filenames: false
 - id: no-self-narration
-  name: documents state the present
+  name: 'documents state the present'
   entry: gates/instance/no-self-narration.sh
   language: script
   types: [markdown]
   exclude: '^_?docs/decisions/'
 - id: spec-requirement-parts
-  name: spec requirement parts
+  name: 'spec requirement parts'
   entry: gates/instance/spec-requirement-parts.sh
   language: script
   files: '^_?docs/specs/SPEC-.*\.md$'
 - id: spec-rule-id-unique
-  name: spec rule IDs are unique
+  name: 'spec rule IDs are unique'
   entry: gates/instance/spec-rule-id-unique.sh
   language: script
   always_run: true
   pass_filenames: false
 - id: spec-size-cap
-  name: spec size cap
+  name: 'spec size cap'
   entry: gates/instance/spec-size-cap.sh
   language: script
   always_run: true
   pass_filenames: false
 - id: spec-verify-hooks-exist
-  name: spec hook references exist
+  name: 'spec hook references exist'
   entry: gates/instance/spec-verify-hooks-exist.sh
   language: script
   always_run: true
   pass_filenames: false
 - id: suppression-names-its-case
-  name: suppressions name a known issue
+  name: 'suppressions name a known issue'
   entry: gates/instance/suppression-names-its-case.sh
-  language: script
-  always_run: true
-  pass_filenames: false
-- id: instance-manifest
-  name: instance manifest
-  entry: gates/instance/instance-manifest.sh
   language: script
   always_run: true
   pass_filenames: false

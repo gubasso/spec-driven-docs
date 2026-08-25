@@ -125,6 +125,30 @@ printf '%s\n' "$relocate_out" | grep -q 'removed managed file no longer owned: .
   fail 'the relocated payload was not reinstalled'
 jq -e '.canon_version == "0.2.1"' "$target/.spec-driven-docs/manifest.json" >/dev/null
 
+# A dropped destination reached through a symlink is refused. The directory has
+# to be one the new release never writes into: where it does, the installer's own
+# destination check refuses the symlink first and the prune is never reached. So
+# the fixture retires a directory, which is exactly the case that slips past
+# every check but this one -- `rm` resolves the path it is handed, and the file
+# it unlinks is outside the target entirely.
+sym="$scratch/symlink-target"
+outside="$scratch/outside"
+rm -rf "$sym" "$outside"
+mkdir -p "$sym" "$outside"
+seed_git "$sym"
+"$canon/scripts/instantiate.sh" --target "$sym" --profile codebase >/dev/null
+printf 'retired payload\n' >"$outside/thing.sh"
+retired_hash=$(sha256sum "$outside/thing.sh" | cut -d' ' -f1)
+ln -s "$outside" "$sym/.spec-driven-docs/retired"
+jq --arg h "$retired_hash" '.managed_files += [{source:"gates/instance/thing.sh",destination:".spec-driven-docs/retired/thing.sh",sha256:$h}]' \
+  "$sym/.spec-driven-docs/manifest.json" >"$sym/m.json"
+mv "$sym/m.json" "$sym/.spec-driven-docs/manifest.json"
+sym_out=$("$moved/scripts/upgrade.sh" --target "$sym" --from "$moved" 2>&1) || true
+[ -f "$outside/thing.sh" ] ||
+  fail 'the prune deleted a file outside the target through a symlink'
+printf '%s\n' "$sym_out" | grep -q 'refused to remove a destination reached through a symlink' ||
+  fail 'the prune crossed a symlink without refusing it'
+
 final="$scratch/canon-final"
 cp -R "$next" "$final"
 printf '%s\n' 0.3.0 >"$final/VERSION"

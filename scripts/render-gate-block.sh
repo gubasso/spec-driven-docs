@@ -14,7 +14,7 @@
 set -eu
 
 usage() {
-  echo 'usage: render-gate-block.sh --gates <gates.json> --docs-root <root> --entry-root <dir> [--language system|script] [--indent <spaces>]' >&2
+  echo 'usage: render-gate-block.sh --gates <gates.json> --docs-root <root> --entry-root <dir> [--language system|script] [--indent <spaces>] [--style block|manifest]' >&2
   exit 2
 }
 gates=
@@ -22,6 +22,10 @@ docs_root=
 entry_root=
 language=system
 indent='  '
+# `block` nests the entries under a `hooks:` key inside a consumer's `repos:`
+# sequence. `manifest` is the top-level sequence `.pre-commit-hooks.yaml` is,
+# where an entry opens at column zero.
+style=block
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --gates)
@@ -49,10 +53,20 @@ while [ "$#" -gt 0 ]; do
       indent=$2
       shift 2
       ;;
+    --style)
+      [ "$#" -ge 2 ] || usage
+      style=$2
+      shift 2
+      ;;
     *) usage ;;
   esac
 done
 [ -n "$gates" ] && [ -n "$docs_root" ] && [ -n "$entry_root" ] || usage
+case "$style" in
+  block) item="$indent    - " field="$indent      " ;;
+  manifest) item='- ' field='  ' ;;
+  *) usage ;;
+esac
 [ -f "$gates" ] || {
   echo "FAIL unreadable gate declaration: $gates" >&2
   exit 1
@@ -68,16 +82,20 @@ count=$(jq -r '.gates | length' "$gates")
   exit 1
 }
 
-jq -r --arg root "$docs_root" --arg entry "$entry_root" --arg lang "$language" --arg i "$indent" '
+jq -r --arg root "$docs_root" --arg entry "$entry_root" --arg lang "$language" --arg item "$item" --arg f "$field" '
   def sub_root: gsub("\\{docs_root\\}"; $root);
+  # A single-quoted YAML scalar escapes an apostrophe by doubling it. A regex
+  # carrying one would otherwise close the scalar early and emit a document that
+  # either fails to parse or, worse, parses into something else.
+  def q(v): "\u0027" + (v | gsub("\u0027"; "\u0027\u0027")) + "\u0027";
   .gates[]
-  | ($i + "    - id: " + .id),
-    ($i + "      name: " + .name),
-    ($i + "      entry: " + $entry + "/" + .script),
-    ($i + "      language: " + $lang),
-    (if .files then ($i + "      files: " + "'"'"'" + (.files | sub_root) + "'"'"'") else empty end),
-    (if .types then ($i + "      types: [" + (.types | join(", ")) + "]") else empty end),
-    (if .exclude then ($i + "      exclude: " + "'"'"'" + (.exclude | sub_root) + "'"'"'") else empty end),
-    (if .always_run then ($i + "      always_run: true") else empty end),
-    (if .always_run then ($i + "      pass_filenames: false") else empty end)
+  | ($item + "id: " + .id),
+    ($f + "name: " + q(.name)),
+    ($f + "entry: " + $entry + "/" + .script),
+    ($f + "language: " + $lang),
+    (if .files then ($f + "files: " + q(.files | sub_root)) else empty end),
+    (if .types then ($f + "types: [" + (.types | join(", ")) + "]") else empty end),
+    (if .exclude then ($f + "exclude: " + q(.exclude | sub_root)) else empty end),
+    (if .always_run then ($f + "always_run: true") else empty end),
+    (if .always_run then ($f + "pass_filenames: false") else empty end)
 ' "$gates"

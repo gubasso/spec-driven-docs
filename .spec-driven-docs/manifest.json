@@ -150,7 +150,7 @@
     {
       "source": "gates/canon/delivered-domain.sh",
       "destination": "gates/canon/delivered-domain.sh",
-      "sha256": "78687e5c8fa2c027fa6ebced0f46d1baecd9241968256829c276de614e44d722"
+      "sha256": "7a236e532d9d4e135f635c71b84aad232ab12754527eb72743a7c7749611658e"
     },
     {
       "source": "gates/canon/license-split.sh",
@@ -160,7 +160,7 @@
     {
       "source": "gates/canon/test-gates.sh",
       "destination": "gates/canon/test-gates.sh",
-      "sha256": "b68bb1c0439d3a07e5797fb1c3493c097db9392e4422487405d96e62d01bcbb8"
+      "sha256": "0b66b21c197a559857ce1bc84f6bc5a3a783a704b2360f2a4ba58a744e7a90fd"
     },
     {
       "source": "gates/canon/version-source-of-truth.sh",

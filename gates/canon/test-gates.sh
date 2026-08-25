@@ -326,6 +326,7 @@ accept 'delivered domain' run_at "$root" "$canon_gates/delivered-domain.sh"
 dom="$tmp/domain"
 mkdir -p "$dom/instance" "$dom/gates"
 cp "$root/instance/gates.json" "$dom/instance/gates.json"
+cp -R "$root/instance/profiles" "$dom/instance/profiles"
 cp "$root/.pre-commit-hooks.yaml" "$dom/.pre-commit-hooks.yaml"
 cp -R "$root/gates/instance" "$root/gates/canon" "$dom/gates/"
 accept 'delivered domain copy' run_at "$dom" "$canon_gates/delivered-domain.sh"
@@ -344,5 +345,35 @@ cp "$root/.pre-commit-hooks.yaml" "$dom/.pre-commit-hooks.yaml"
 printf -- '- id: license-split\n  name: license split\n  entry: gates/canon/license-split.sh\n  language: script\n  always_run: true\n  pass_filenames: false\n' >>"$dom/.pre-commit-hooks.yaml"
 reject_msg 'canon gate published' 'release:a-canon-gate-is-not-delivered' \
   run_at "$dom" "$canon_gates/delivered-domain.sh"
+cp "$root/.pre-commit-hooks.yaml" "$dom/.pre-commit-hooks.yaml"
+
+# The ids can agree while everything that decides which files a gate sees does
+# not. This is the drift an id-set comparison cannot see.
+# The installer projects the profile's directory and never reads the
+# declaration, so the two naming different directories is a boundary that holds
+# over nothing.
+jq '.managed_directories = ["elsewhere"]' "$dom/instance/profiles/codebase.json" >"$dom/p.json"
+mv "$dom/p.json" "$dom/instance/profiles/codebase.json"
+reject_msg 'profile projects elsewhere' 'projects elsewhere, declaration names gates/instance' \
+  run_at "$dom" "$canon_gates/delivered-domain.sh"
+cp "$root/instance/profiles/codebase.json" "$dom/instance/profiles/codebase.json"
+
+# Two directories are not one directory whose name happens to contain a comma.
+jq '.managed_directories = ["gates", "instance"]' "$dom/instance/profiles/codebase.json" >"$dom/p.json"
+mv "$dom/p.json" "$dom/instance/profiles/codebase.json"
+jq '.script_root = "gates,instance"' "$dom/instance/gates.json" >"$dom/g.json"
+mv "$dom/g.json" "$dom/instance/gates.json"
+# The expected text is the one only the cardinality branch emits. Asserting the
+# rule id alone would pass on any of the other refusals this fixture also
+# triggers, and would keep passing if the branch were deleted.
+reject_msg 'profile projects two directories' 'projects 2 directories, the declaration names one' \
+  run_at "$dom" "$canon_gates/delivered-domain.sh"
+cp "$root/instance/profiles/codebase.json" "$dom/instance/profiles/codebase.json"
+cp "$root/instance/gates.json" "$dom/instance/gates.json"
+
+sed -i "s#docs/decisions/'#docs/nowhere/'#" "$dom/.pre-commit-hooks.yaml"
+reject_msg 'published scoping drifted' 'release:the-delivered-gate-set-is-declared-once' \
+  run_at "$dom" "$canon_gates/delivered-domain.sh"
+cp "$root/.pre-commit-hooks.yaml" "$dom/.pre-commit-hooks.yaml"
 
 echo "OK $passed gate controls"

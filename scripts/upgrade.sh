@@ -49,6 +49,7 @@ old=$(jq -r .canon_version "$manifest") new=$(cat "$from/VERSION")
 
 stage=$(mktemp -d "${TMPDIR:-/tmp}/sdd-upgrade.XXXXXX")
 trap 'rm -rf "$stage"' EXIT HUP INT TERM
+status=0
 
 # Each guide is announced as it is discovered. Accumulating them in one string
 # and splitting it afterwards turns any path containing a space into several
@@ -149,16 +150,61 @@ cut -f1 "$stage/managed" | sort >"$stage/old-destinations"
 # deletion somewhere in the project.
 jq -r '.managed_files[].destination' "$manifest" | sort >"$stage/new-destinations"
 comm -23 "$stage/old-destinations" "$stage/new-destinations" >"$stage/dropped"
+: >"$stage/unremoved"
 while IFS= read -r destination; do
   [ -n "$destination" ] || continue
+  # The prefix alone is not containment. `.spec-driven-docs/../../elsewhere`
+  # satisfies it and resolves outside the target, so a manifest that was damaged
+  # or hand-edited could aim this deletion anywhere the operator can write. A
+  # traversal segment or an absolute path is refused outright rather than
+  # normalized, because there is no legitimate managed destination that needs one.
+  case "$destination" in
+    /* | */../* | ../* | */.. | ..)
+      echo "refused to remove a destination that leaves the target: $destination"
+      status=1
+      continue
+      ;;
+  esac
   case "$destination" in
     .spec-driven-docs/*) ;;
     *) continue ;;
   esac
+  # A lexical guard is not containment either. `rm` resolves the path it is
+  # given, so a symlink anywhere along it -- planted in the vendored directory,
+  # or left by an earlier install -- makes this unlink a file the operator never
+  # named. Every component below the target is checked, and the destination
+  # itself must be a regular file rather than a link to one.
+  escapes=0
+  prefix=$target rest=$destination
+  while [ "$rest" != "${rest%%/*}" ]; do
+    prefix="$prefix/${rest%%/*}"
+    rest=${rest#*/}
+    [ ! -L "$prefix" ] || escapes=1
+  done
+  if [ "$escapes" -eq 1 ] || [ -L "$target/$destination" ]; then
+    echo "refused to remove a destination reached through a symlink: $destination"
+    status=1
+    continue
+  fi
   [ -f "$target/$destination" ] || continue
-  rm -f "$target/$destination"
-  echo "removed managed file no longer owned: $destination"
+  # A failure here is collected rather than fatal. The reinstall has already
+  # committed the new manifest, so aborting now would leave an instance that
+  # reports the new version and never prunes again -- the next run exits at
+  # `already at`, with the old manifest that named this file gone. Reporting
+  # every one that survived leaves the operator an exact, finishable remainder.
+  if rm -f "$target/$destination" 2>/dev/null; then
+    echo "removed managed file no longer owned: $destination"
+  else
+    printf '%s\n' "$destination" >>"$stage/unremoved"
+  fi
 done <"$stage/dropped"
+if [ -s "$stage/unremoved" ]; then
+  echo "FAIL these files are no longer owned and could not be removed; delete them by hand:"
+  sed 's|^|  |' "$stage/unremoved"
+  echo "the payload and manifest are upgraded to $new; only these removals remain, and"
+  echo "re-running this upgrade will report 'already at $new' rather than retry them"
+  status=1
+fi
 
 # The rule IDs that changed upstream are what an operator reconciles by hand, so
 # the diff is reported rather than computed and dropped.
@@ -172,4 +218,8 @@ if [ -s "$stage/new-ids" ]; then
   echo 'upstream rule IDs not present locally:'
   tr -d '`' <"$stage/new-ids" | sed 's/^### /  /'
 fi
+[ "$status" -eq 0 ] || {
+  echo "FAIL upgraded $old to $new with unfinished removals above"
+  exit "$status"
+}
 echo "OK upgraded $old to $new"
