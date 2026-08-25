@@ -2,9 +2,7 @@
 
 ## Purpose
 
-The artifact model this project's documentation follows, its precedence order, and where each
-artifact goes. Covers which artifact owns a fact, what wins when two disagree, and how artifacts are
-named and placed. The shape of a spec and the shape of a record are covered by their own specs.
+The artifact model this project's documentation follows, its precedence order, and where each artifact goes. Covers which artifact owns a fact, what wins when two disagree, and how artifacts are named and placed. The shape of a spec and the shape of a record are covered by their own specs.
 
 ## Requirements
 
@@ -46,8 +44,7 @@ Verify: `find . -name 'SPEC-*.md' -not -path './_docs/specs/*' | grep . && exit 
 
 ### `docs-foundations:artifact-filenames-carry-a-kind-prefix` — A fixed-kind file carries an uppercase kind prefix
 
-Where this framework fixes a file's kind, the author MUST name it `<KIND>-<slug>.md` with the kind in
-uppercase.
+Where this framework fixes a file's kind, the author MUST name it `<KIND>-<slug>.md` with the kind in uppercase.
 
 #### Scenario: A directory holds two kinds of file
 
@@ -59,8 +56,7 @@ Verify: `find _docs/specs _docs/decisions -name '*.md' | rg -v '/(SPEC|ADR|KI|TE
 
 ### `docs-foundations:a-kind-prefix-carries-a-slug` — A prefixed filename carries a slug, not a counter
 
-Where a filename carries a kind prefix, the author MUST follow the prefix with the slug that
-identifies the file rather than an allocated number.
+Where a filename carries a kind prefix, the author MUST follow the prefix with the slug that identifies the file rather than an allocated number.
 
 #### Scenario: Two branches each add a record
 
@@ -72,8 +68,7 @@ Verify: `find _docs/decisions -name '*-*.md' | rg '/(ADR|KI)-[0-9]' | grep . && 
 
 ### `docs-foundations:companion-artifacts-share-the-spec-name` — A spec's supporting artifacts sit in a directory named for it
 
-Where a requirement names a supporting artifact, the author MUST place that artifact in
-`<root>/specs/SPEC-<domain>/`.
+Where a requirement names a supporting artifact, the author MUST place that artifact in `<root>/specs/SPEC-<domain>/`.
 
 #### Scenario: A verification command needs a schema
 

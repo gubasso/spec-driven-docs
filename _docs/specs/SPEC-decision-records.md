@@ -2,9 +2,7 @@
 
 ## Purpose
 
-Rules governing decision records under `_docs/decisions/`. Covers naming, permanence, and size. What
-a record's body contains is covered by the record template; the rules a record's decision enforces
-live in whichever spec owns them.
+Rules governing decision records under `_docs/decisions/`. Covers naming, permanence, and size. What a record's body contains is covered by the record template; the rules a record's decision enforces live in whichever spec owns them.
 
 ## Requirements
 

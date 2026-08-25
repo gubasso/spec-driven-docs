@@ -26,6 +26,7 @@ pub mod ki_mechanism_walkthrough;
 pub mod ki_report_body;
 pub mod ki_retire_when;
 pub mod no_self_narration;
+pub mod prose_stays_unwrapped;
 pub mod spec_requirement_parts;
 pub mod spec_rule_id_unique;
 pub mod spec_size_cap;
@@ -324,6 +325,16 @@ pub static GATES: &[GateSpec] = &[
         always_run: false,
         cites: no_self_narration::CITES,
         run: no_self_narration::run,
+    },
+    GateSpec {
+        id: GateId::ProseStaysUnwrapped,
+        name: "prose lines stay unwrapped",
+        files: None,
+        types: Some("markdown"),
+        exclude: None,
+        always_run: false,
+        cites: prose_stays_unwrapped::CITES,
+        run: prose_stays_unwrapped::run,
     },
     GateSpec {
         id: GateId::SpecRequirementParts,

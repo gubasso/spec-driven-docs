@@ -8,13 +8,11 @@ token-estimate: 560
 
 ## Scope
 
-The spec-driven documentation method: artifact ownership, placement, rules, decision records, agent
-context, format, lifecycle, traceability, procedures, operational documents, and gates.
+The spec-driven documentation method: artifact ownership, placement, rules, decision records, agent context, format, lifecycle, traceability, procedures, operational documents, and gates.
 
 ## How to use this shelf
 
-Load this digest, then the one chapter that owns the question. Load `_docs/specs/` for changes to the
-canon itself. Do not read decision records unless the rationale is requested.
+Load this digest, then the one chapter that owns the question. Load `_docs/specs/` for changes to the canon itself. Do not read decision records unless the rationale is requested.
 
 ## Routing
 

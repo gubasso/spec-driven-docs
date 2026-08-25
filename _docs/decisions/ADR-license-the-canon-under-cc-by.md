@@ -2,8 +2,7 @@
 
 ## Context and Problem Statement
 
-The repository combines documentation with executable maintenance artifacts. A single license keeps
-the initial distribution unambiguous while the project establishes its release surface.
+The repository combines documentation with executable maintenance artifacts. A single license keeps the initial distribution unambiguous while the project establishes its release surface.
 
 ## Considered Options
 

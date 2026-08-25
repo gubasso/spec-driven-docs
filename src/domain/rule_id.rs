@@ -54,6 +54,7 @@ rule_ids! {
     DocumentUsesStructuralMarkdownOnly => "docs-format:document-uses-structural-markdown-only",
     EveryBudgetCarriesAGate => "docs-format:every-budget-carries-a-gate",
     FenceDeclaresALanguage => "docs-format:fence-declares-a-language",
+    ProseStaysUnwrapped => "docs-format:prose-stays-unwrapped",
     KindPrefixCarriesASlug => "docs-foundations:a-kind-prefix-carries-a-slug",
     ArtifactFilenamesCarryAKindPrefix => "docs-foundations:artifact-filenames-carry-a-kind-prefix",
     CompanionArtifactsShareTheSpecName => "docs-foundations:companion-artifacts-share-the-spec-name",

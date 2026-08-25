@@ -47,6 +47,8 @@ pub enum GateId {
     KiRetireWhen,
     /// Documents state the present rather than narrate their edits.
     NoSelfNarration,
+    /// Paragraphs occupy one source line rather than hard-wrap.
+    ProseStaysUnwrapped,
     /// Spec requirements carry all five parts.
     SpecRequirementParts,
     /// Rule IDs are unique across the local specs.
@@ -79,6 +81,7 @@ impl GateId {
         Self::KiReportBody,
         Self::KiRetireWhen,
         Self::NoSelfNarration,
+        Self::ProseStaysUnwrapped,
         Self::SpecRequirementParts,
         Self::SpecRuleIdUnique,
         Self::SpecSizeCap,
@@ -107,6 +110,7 @@ impl GateId {
             Self::KiReportBody => "ki-report-body",
             Self::KiRetireWhen => "ki-retire-when",
             Self::NoSelfNarration => "no-self-narration",
+            Self::ProseStaysUnwrapped => "prose-stays-unwrapped",
             Self::SpecRequirementParts => "spec-requirement-parts",
             Self::SpecRuleIdUnique => "spec-rule-id-unique",
             Self::SpecSizeCap => "spec-size-cap",
@@ -144,7 +148,7 @@ mod tests {
         for gate in GateId::ALL {
             assert!(seen.insert(gate.as_str()), "{gate} is duplicated");
         }
-        assert_eq!(GateId::ALL.len(), 22);
+        assert_eq!(GateId::ALL.len(), 23);
     }
 
     #[test]

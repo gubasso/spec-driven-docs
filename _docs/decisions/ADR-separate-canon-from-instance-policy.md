@@ -2,8 +2,7 @@
 
 ## Context and Problem Statement
 
-Reusable method gates must not encode a consumer's planning zones, retired names, or local debt.
-Combining them would make upgrades overwrite policy the instance owns.
+Reusable method gates must not encode a consumer's planning zones, retired names, or local debt. Combining them would make upgrades overwrite policy the instance owns.
 
 ## Considered Options
 
@@ -13,11 +12,9 @@ Combining them would make upgrades overwrite policy the instance owns.
 
 ## Decision Outcome
 
-Chosen option: `managed canon with local overlays` — managed files project shared machinery, adopted
-files become local, and marker blocks reserve only their delimited integration.
+Chosen option: `managed canon with local overlays` — managed files project shared machinery, adopted files become local, and marker blocks reserve only their delimited integration.
 
-Enforced by `distribution:manifest-identifies-every-owned-file` and
-`distribution:initialization-preserves-project-content`.
+Enforced by `distribution:manifest-identifies-every-owned-file` and `distribution:initialization-preserves-project-content`.
 
 ## Consequences
 

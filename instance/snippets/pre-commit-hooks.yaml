@@ -102,6 +102,11 @@
         language: system
         types: [markdown]
         exclude: '^_docs/decisions/'
+      - id: prose-stays-unwrapped
+        name: 'prose lines stay unwrapped'
+        entry: sdd gate prose-stays-unwrapped
+        language: system
+        types: [markdown]
       - id: spec-requirement-parts
         name: 'spec requirement parts'
         entry: sdd gate spec-requirement-parts

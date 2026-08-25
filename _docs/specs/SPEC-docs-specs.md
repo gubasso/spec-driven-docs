@@ -18,16 +18,13 @@
 
 ## Purpose
 
-Rules governing specification files under `_docs/specs/`. Covers the requirement block, its grammar,
-its identifier, and its verification. Where a spec is placed and how it is named belong to
-`SPEC-docs-foundations.md`; the markdown a spec is written in belongs to `SPEC-docs-format.md`.
+Rules governing specification files under `_docs/specs/`. Covers the requirement block, its grammar, its identifier, and its verification. Where a spec is placed and how it is named belong to `SPEC-docs-foundations.md`; the markdown a spec is written in belongs to `SPEC-docs-format.md`.
 
 ## Requirements
 
 ### `docs-specs:requirement-carries-five-parts` — A requirement carries five parts
 
-The author MUST give every requirement a title, a rule ID, a statement, a scenario, and a
-verification line.
+The author MUST give every requirement a title, a rule ID, a statement, a scenario, and a verification line.
 
 #### Scenario: A requirement is added during a rushed change
 
@@ -39,8 +36,7 @@ Verify: ``for f in _docs/specs/SPEC-*.md; do r=$(grep -cE '^### `[a-z0-9-]+:[a-z
 
 ### `docs-specs:statement-uses-an-ears-pattern` — A statement uses one EARS pattern
 
-The author MUST write every requirement statement as one sentence in an EARS pattern carrying an
-RFC 2119 keyword.
+The author MUST write every requirement statement as one sentence in an EARS pattern carrying an RFC 2119 keyword.
 
 #### Scenario: A preference is written as a requirement
 
@@ -76,8 +72,7 @@ Verify: reviewer confirms no rule ID changed alongside a reworded statement
 
 ### `docs-specs:requirement-carries-a-verification` — A requirement carries a verification
 
-The author MUST give every requirement a `Verify:` line that exits non-zero when the rule is
-violated, or names the human procedure that decides it.
+The author MUST give every requirement a `Verify:` line that exits non-zero when the rule is violated, or names the human procedure that decides it.
 
 #### Scenario: A rule no command can decide
 
@@ -89,8 +84,7 @@ Verify: reviewer confirms each requirement's `Verify:` line names a command or a
 
 ### `docs-specs:spec-stays-within-300-lines` — A spec stays within 300 lines
 
-The author MUST keep a spec at or below 300 authored lines, and MUST give one carrying more than 100
-a generated table of contents.
+The author MUST keep a spec at or below 300 authored lines, and MUST give one carrying more than 100 a generated table of contents.
 
 #### Scenario: A domain accumulates requirements
 
@@ -102,8 +96,7 @@ Verify: `pre-commit run spec-size-cap --all-files`
 
 ### `docs-specs:verification-names-a-live-hook` — A verification names a live hook
 
-Where a requirement's verification runs a hook, the author MUST name a hook the project still
-defines.
+Where a requirement's verification runs a hook, the author MUST name a hook the project still defines.
 
 #### Scenario: A hook is renamed
 
@@ -115,8 +108,7 @@ Verify: `pre-commit run spec-verify-hooks-exist --all-files`
 
 ### `docs-specs:prohibitions-are-capped` — Prohibitions are capped and paired
 
-The author MUST keep a spec at or below five prohibitions, each paired with the action that replaces
-it.
+The author MUST keep a spec at or below five prohibitions, each paired with the action that replaces it.
 
 #### Scenario: A spec accumulates prohibitions
 

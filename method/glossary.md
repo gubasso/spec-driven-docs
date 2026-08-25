@@ -1,7 +1,6 @@
 # Glossary
 
-Terms this framework fixes, each resolved at the chapter that owns it. A term is defined once; this
-page points rather than restates.
+Terms this framework fixes, each resolved at the chapter that owns it. A term is defined once; this page points rather than restates.
 
 | Term                     | Means                                                                   | Owner                 |
 | ------------------------ | ----------------------------------------------------------------------- | --------------------- |
@@ -45,6 +44,4 @@ page points rather than restates.
 | Adopted file             | a file the canon seeds and the instance then owns                       | `instance/README.md`  |
 | Integration block        | a marked region the canon owns inside a file the instance owns          | `instance/README.md`  |
 
-Terms this framework deliberately does not use, because each is a synonym that weakens retrieval for
-the one it duplicates: specification document, contract, requirements doc, ADR log, decision log,
-constitution, steering file, policy.
+Terms this framework deliberately does not use, because each is a synonym that weakens retrieval for the one it duplicates: specification document, contract, requirements doc, ADR log, decision log, constitution, steering file, policy.

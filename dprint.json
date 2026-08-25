@@ -1,7 +1,6 @@
 {
   "markdown": {
-    "lineWidth": 100,
-    "textWrap": "maintain"
+    "textWrap": "never"
   },
   "json": {
     "indentWidth": 2

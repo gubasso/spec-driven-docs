@@ -15,10 +15,7 @@
 
 ## Purpose
 
-Rules governing how this repository cuts a release: which artifact states the version, how a tag
-derives from it, what a release carries, and how the licence splits. No instance adopts this spec.
-Every rule here is verified by a cargo test that never ships, so an instance holding these rules
-would hold rules it cannot run.
+Rules governing how this repository cuts a release: which artifact states the version, how a tag derives from it, what a release carries, and how the licence splits. No instance adopts this spec. Every rule here is verified by a cargo test that never ships, so an instance holding these rules would hold rules it cannot run.
 
 ## Requirements
 

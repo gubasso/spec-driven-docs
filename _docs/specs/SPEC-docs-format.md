@@ -2,8 +2,7 @@
 
 ## Purpose
 
-Rules governing the markdown every document in this project is written in, and the size budgets that
-keep documents inside the range where retrieval stays reliable.
+Rules governing the markdown every document in this project is written in, and the size budgets that keep documents inside the range where retrieval stays reliable.
 
 ## Requirements
 
@@ -21,8 +20,7 @@ Verify: `pre-commit run chapter-size-cap --all-files`
 
 ### `docs-format:author-instructions-stay-within-budget` — Author instructions stay within budget
 
-The author MUST keep the root author-instructions file at or below 100 lines and a subtree one at or
-below 150.
+The author MUST keep the root author-instructions file at or below 100 lines and a subtree one at or below 150.
 
 #### Scenario: A root file accumulates a subtree's rules
 
@@ -34,8 +32,7 @@ Verify: `pre-commit run agents-digest-size --all-files`
 
 ### `docs-format:every-budget-carries-a-gate` — Every count-shaped budget carries a gate
 
-The project MUST enforce every budget stated as a count with a command that fails the change, and
-MUST NOT raise a budget to admit a document that exceeds it.
+The project MUST enforce every budget stated as a count with a command that fails the change, and MUST NOT raise a budget to admit a document that exceeds it.
 
 #### Scenario: A document arrives over its budget
 
@@ -80,3 +77,15 @@ The author MUST give every fenced code block a language, using `text` when none 
 - THEN the gate rejects it and `text` is the correct declaration
 
 Verify: `pre-commit run markdownlint-cli2 --all-files`
+
+### `docs-format:prose-stays-unwrapped` — Prose stays unwrapped
+
+The author MUST keep each paragraph, list item, and blockquote paragraph on one source line, leaving fenced code, tables, and explicit hard breaks as the only multi-line constructs.
+
+#### Scenario: A paragraph is hard-wrapped at a column width
+
+- GIVEN a paragraph broken across source lines at an arbitrary column
+- WHEN an edit touches one sentence
+- THEN the diff rewraps neighboring lines it never changed, so the paragraph joins back onto one line and the editor soft-wraps it
+
+Verify: `pre-commit run prose-stays-unwrapped --all-files`

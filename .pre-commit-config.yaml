@@ -104,6 +104,11 @@ repos:
         language: system
         types: [markdown]
         exclude: '^_docs/decisions/'
+      - id: prose-stays-unwrapped
+        name: prose lines stay unwrapped
+        entry: cargo run -q -- gate prose-stays-unwrapped
+        language: system
+        types: [markdown]
       - id: adr-filename-shape
         name: decision record filename shape
         entry: cargo run -q -- gate adr-filename-shape

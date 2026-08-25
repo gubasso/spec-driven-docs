@@ -1,16 +1,10 @@
 # Spec-Driven Docs
 
-A canonical method for keeping current specifications, immutable decision records, executable gates,
-and code traceability coherent for people and coding agents.
+A canonical method for keeping current specifications, immutable decision records, executable gates, and code traceability coherent for people and coding agents.
 
 ## What this is
 
-Two products in one repository. The method is what a reader loads: `method/`, `comparison-docs/`,
-`templates/` and `reference/` state the rules and the shapes that carry them. The distribution is
-what a project installs: the `sdd` binary, built from `src/`, carries the whole payload — gates,
-verifier, spec seeds, templates, and the method itself — and keeps instances
-upgradable. This repository is the canon; a project that installs it is an instance, and
-[method/glossary.md](./method/glossary.md) fixes both terms.
+Two products in one repository. The method is what a reader loads: `method/`, `comparison-docs/`, `templates/` and `reference/` state the rules and the shapes that carry them. The distribution is what a project installs: the `sdd` binary, built from `src/`, carries the whole payload — gates, verifier, spec seeds, templates, and the method itself — and keeps instances upgradable. This repository is the canon; a project that installs it is an instance, and [method/glossary.md](./method/glossary.md) fixes both terms.
 
 ## Install
 
@@ -18,8 +12,7 @@ upgradable. This repository is the canon; a project that installs it is an insta
 cargo install spec-driven-docs
 ```
 
-Prebuilt installers ship with each GitHub release, and `cargo binstall spec-driven-docs` resolves
-them.
+Prebuilt installers ship with each GitHub release, and `cargo binstall spec-driven-docs` resolves them.
 
 ## Quick paths
 
@@ -35,6 +28,4 @@ The `sdd` CLI is the whole interface. Nothing here is tied to a particular edito
 
 ## License
 
-The method is under [CC BY 4.0](./LICENSE-CC-BY-4.0) and the distribution that installs it is under
-the [MIT License](./LICENSE-MIT). [LICENSE](./LICENSE) states which side each file falls on, and
-`sdd license` prints the terms the binary carries.
+The method is under [CC BY 4.0](./LICENSE-CC-BY-4.0) and the distribution that installs it is under the [MIT License](./LICENSE-MIT). [LICENSE](./LICENSE) states which side each file falls on, and `sdd license` prints the terms the binary carries.

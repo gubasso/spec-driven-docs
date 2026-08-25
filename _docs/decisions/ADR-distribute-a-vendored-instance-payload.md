@@ -2,8 +2,7 @@
 
 ## Context and Problem Statement
 
-Projects need documentation rules to remain operable when the network or canon checkout is unavailable.
-Runtime fetching would make linting and verification depend on external state.
+Projects need documentation rules to remain operable when the network or canon checkout is unavailable. Runtime fetching would make linting and verification depend on external state.
 
 ## Considered Options
 
@@ -13,11 +12,9 @@ Runtime fetching would make linting and verification depend on external state.
 
 ## Decision Outcome
 
-Chosen option: `vendored, hash-tracked payload` — installation copies managed gates, configurations,
-templates, and the verifier locally while the manifest records their hashes.
+Chosen option: `vendored, hash-tracked payload` — installation copies managed gates, configurations, templates, and the verifier locally while the manifest records their hashes.
 
-Enforced by `distribution:manifest-identifies-every-owned-file` and
-`distribution:instances-operate-offline`.
+Enforced by `distribution:manifest-identifies-every-owned-file` and `distribution:instances-operate-offline`.
 
 ## Consequences
 

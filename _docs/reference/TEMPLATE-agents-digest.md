@@ -1,11 +1,8 @@
 # Template — Author-instructions digest
 
-Copy the block below to `<directory>/AGENTS.md`. A digest routes; it never owns a rule. At or below
-100 lines at the repository root and 150 lines in a subtree.
+Copy the block below to `<directory>/AGENTS.md`. A digest routes; it never owns a rule. At or below 100 lines at the repository root and 150 lines in a subtree.
 
-Where a tool reads only its own filename, add a one-line `<directory>/CLAUDE.md` containing
-`@AGENTS.md` beside it. The import path resolves relative to the importing file, so the sibling is
-`@AGENTS.md`, not a repo-root path.
+Where a tool reads only its own filename, add a one-line `<directory>/CLAUDE.md` containing `@AGENTS.md` beside it. The import path resolves relative to the importing file, so the sibling is `@AGENTS.md`, not a repo-root path.
 
 ```markdown
 # AGENTS

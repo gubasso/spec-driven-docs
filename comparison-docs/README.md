@@ -1,17 +1,10 @@
 # Comparison Docs
 
-A format for the document that answers "should I use this instead of that". The matrix indexes
-verdicts; each verdict points at a scenario that was run and dated. The separation is what lets a
-reader check a claim instead of believing it, and what lets the document be refreshed a year later by
-someone who did not write it.
+A format for the document that answers "should I use this instead of that". The matrix indexes verdicts; each verdict points at a scenario that was run and dated. The separation is what lets a reader check a claim instead of believing it, and what lets the document be refreshed a year later by someone who did not write it.
 
 ## Problem
 
-Two failures produce most comparison pages. The first is a matrix built by reading everyone's
-documentation: fast to write, impossible to re-verify, wrong within a release, and indistinguishable
-from an honest one. The second is a matrix of bare emoji: scannable and unreadable, because the symbol
-is announced by its Unicode name to a screen reader, vanishes in monochrome, and carries no
-qualification for the middle state where most real answers live.
+Two failures produce most comparison pages. The first is a matrix built by reading everyone's documentation: fast to write, impossible to re-verify, wrong within a release, and indistinguishable from an honest one. The second is a matrix of bare emoji: scannable and unreadable, because the symbol is announced by its Unicode name to a screen reader, vanishes in monochrome, and carries no qualification for the middle state where most real answers live.
 
 ## Model
 
@@ -41,20 +34,16 @@ qualification for the middle state where most real answers live.
 
 ## Apply the genre
 
-1. Instantiate the knowledge-base profile or copy
-   [the stable template](../templates/TEMPLATE-comparison.md) into the project's explanation zone.
+1. Instantiate the knowledge-base profile or copy [the stable template](../templates/TEMPLATE-comparison.md) into the project's explanation zone.
 2. Name one theme and at most three alternatives that compete in it.
 3. Write the method for each row before filling any cell.
 4. Run every method against every subject. Anything not run stays `❓ untested`.
 5. Fill the `Verified:` line with the run date and every subject version.
-6. Wire the five commands from [06 — Gates](./06-gates.md), with the escaped-pipe check ahead of the
-   markdown formatter.
+6. Wire the five commands from [06 — Gates](./06-gates.md), with the escaped-pipe check ahead of the markdown formatter.
 7. Record the re-verification cadence where the project tracks perishable facts.
 
-Start with one theme. A matrix that covers everything on the day it ships covers nothing six months
-later, because a refresh nobody can finish is a refresh nobody starts.
+Start with one theme. A matrix that covers everything on the day it ships covers nothing six months later, because a refresh nobody can finish is a refresh nobody starts.
 
 ## House format
 
-This shelf obeys [06 — Format](../method/06-format.md). Chapters stay at or below 200 lines,
-carry no bold or italics, and spend prose only on a decision, a hazard, or a non-obvious constraint.
+This shelf obeys [06 — Format](../method/06-format.md). Chapters stay at or below 200 lines, carry no bold or italics, and spend prose only on a decision, a hazard, or a non-obvious constraint.

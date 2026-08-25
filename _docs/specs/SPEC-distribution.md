@@ -13,10 +13,7 @@
 
 ## Purpose
 
-Rules governing installation, ownership classes, offline verification, and upgrades. The
-distribution is one installed binary, `sdd`, that carries the payload; an instance adopts this
-spec, and every rule here is one an instance can verify with the binary it runs. The release rules
-the canon alone runs are stated in `SPEC-release.md`.
+Rules governing installation, ownership classes, offline verification, and upgrades. The distribution is one installed binary, `sdd`, that carries the payload; an instance adopts this spec, and every rule here is one an instance can verify with the binary it runs. The release rules the canon alone runs are stated in `SPEC-release.md`.
 
 ## Requirements
 

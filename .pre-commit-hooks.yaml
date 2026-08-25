@@ -103,6 +103,11 @@
   language: rust
   types: [markdown]
   exclude: '^_?docs/decisions/'
+- id: prose-stays-unwrapped
+  name: 'prose lines stay unwrapped'
+  entry: sdd gate prose-stays-unwrapped
+  language: rust
+  types: [markdown]
 - id: spec-requirement-parts
   name: 'spec requirement parts'
   entry: sdd gate spec-requirement-parts

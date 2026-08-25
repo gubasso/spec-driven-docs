@@ -2,8 +2,7 @@
 
 ## Context and Problem Statement
 
-An upgrade may require reconciliation of living rule IDs and local integration. Readers need current
-instructions for crossing a version boundary without turning project documentation into a release diary.
+An upgrade may require reconciliation of living rule IDs and local integration. Readers need current instructions for crossing a version boundary without turning project documentation into a release diary.
 
 ## Considered Options
 
@@ -13,8 +12,7 @@ instructions for crossing a version boundary without turning project documentati
 
 ## Decision Outcome
 
-Chosen option: `imperative migration guides` — each version transition states applicability,
-preconditions, managed changes, rule-ID changes, local action, verification, and rollback.
+Chosen option: `imperative migration guides` — each version transition states applicability, preconditions, managed changes, rule-ID changes, local action, verification, and rollback.
 
 ## Consequences
 

@@ -17,17 +17,13 @@
 
 ## Purpose
 
-Rules governing the seam between a spec and the work that implements it. Covers requirements written
-before their behavior exists, how an entry document in the plan zone — this project declares it at
-`tests/fixtures/` — cites the rules it enacts, and how coverage is derived. The shape of a requirement
-is covered by the specs specification; how a spec changes is covered by its lifecycle rules.
+Rules governing the seam between a spec and the work that implements it. Covers requirements written before their behavior exists, how an entry document in the plan zone — this project declares it at `tests/fixtures/` — cites the rules it enacts, and how coverage is derived. The shape of a requirement is covered by the specs specification; how a spec changes is covered by its lifecycle rules.
 
 ## Requirements
 
 ### `spec-to-code:a-spec-may-lead-its-code` — A spec may lead its code
 
-Where a requirement's behavior does not yet exist, the author MUST represent that state only by its
-failing verification command.
+Where a requirement's behavior does not yet exist, the author MUST represent that state only by its failing verification command.
 
 #### Scenario: A domain is specified before it is built
 
@@ -39,8 +35,7 @@ Verify: `rg -in '^status:' _docs/specs && exit 1 || exit 0`
 
 ### `spec-to-code:a-spec-change-is-typed` — A spec change is typed
 
-When an entry document cites a spec change, the author MUST write the clause as `ADDED`, `MODIFIED`,
-or `REMOVED` followed by the rule ID in inline code.
+When an entry document cites a spec change, the author MUST write the clause as `ADDED`, `MODIFIED`, or `REMOVED` followed by the rule ID in inline code.
 
 #### Scenario: A clause names a type but garbles the ID
 
@@ -52,8 +47,7 @@ Verify: `rg -n 'ADDED|MODIFIED|REMOVED' tests/fixtures | rg -v '(ADDED|MODIFIED|
 
 ### `spec-to-code:an-entry-document-cites-rule-ids` — An entry document cites rule IDs
 
-When a unit of work changes agreed behavior, the author MUST cite each affected rule ID in the
-work's entry document.
+When a unit of work changes agreed behavior, the author MUST cite each affected rule ID in the work's entry document.
 
 #### Scenario: A diff changes a spec the entry document never names
 
@@ -77,8 +71,7 @@ Verify: reviewer confirms no document stores the agreed-to-enacted mapping
 
 ### `spec-to-code:a-comment-cites-the-rule` — A comment cites the rule it satisfies
 
-Where a comment cites an agreement, the author MUST write `SATISFIES` or `VERIFIES` followed by the
-rule ID.
+Where a comment cites an agreement, the author MUST write `SATISFIES` or `VERIFIES` followed by the rule ID.
 
 #### Scenario: A comment cites a rule that no spec defines
 
@@ -108,15 +101,13 @@ The author MUST cite an agreement in code by its rule ID rather than by naming a
 
 - GIVEN code whose shape was argued for in a decision record
 - WHEN the author wants the reason discoverable from the code
-- THEN the comment carries the rule ID the record enforces, because the record is frozen and the
-  rule is what binds
+- THEN the comment carries the rule ID the record enforces, because the record is frozen and the rule is what binds
 
 Verify: `grep -rnE "^[[:space:]]*#.*\bADR-" examples tests && exit 1 || exit 0`
 
 ### `spec-to-code:a-suppression-names-its-case` — A suppression names its known-issue case
 
-Where a test is suppressed or left failing, the author MUST name the `KI-<slug>` case at the
-suppression.
+Where a test is suppressed or left failing, the author MUST name the `KI-<slug>` case at the suppression.
 
 #### Scenario: A suppression names a case that no record defines
 

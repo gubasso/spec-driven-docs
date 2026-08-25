@@ -1,7 +1,6 @@
 # 01 — Placement
 
-Every durable fact has one home, decided by the reader need it serves. This chapter names the homes,
-gives the decision procedure that reaches exactly one of them, and places the docs root itself.
+Every durable fact has one home, decided by the reader need it serves. This chapter names the homes, gives the decision procedure that reaches exactly one of them, and places the docs root itself.
 
 ## The docs root
 
@@ -15,12 +14,9 @@ docs/         about it        languages/     the product
                               _docs/         about it
 ```
 
-A code project's product is its source tree, so `docs/` at the root is unambiguous. A knowledge
-base's product is the content tree, so a bare `docs/` would read as another content directory; the
-underscore marks the root as metadata about the library rather than part of it.
+A code project's product is its source tree, so `docs/` at the root is unambiguous. A knowledge base's product is the content tree, so a bare `docs/` would read as another content directory; the underscore marks the root as metadata about the library rather than part of it.
 
-- A project MUST use `docs/` when its product is a codebase and `_docs/` when its product is a
-  content tree.
+- A project MUST use `docs/` when its product is a codebase and `_docs/` when its product is a content tree.
 - Product content MUST NOT live under the docs root.
 
 ## The zones
@@ -36,12 +32,9 @@ underscore marks the root as metadata about the library rather than part of it.
 
 Create a zone when it has real content. An empty zone is a promise the project has not kept.
 
-The plan zone's exact path is declared by the planning tool that owns the record, anywhere under the
-docs root. This framework fixes the zone's existence and reader question, never its path.
+The plan zone's exact path is declared by the planning tool that owns the record, anywhere under the docs root. This framework fixes the zone's existence and reader question, never its path.
 
-Specifications and decisions are the two zones this shelf owns; [02 — Specs](./02-specs.md) and
-[04 — Decisions](./04-decisions.md) hold their rules. The other four are ordinary reader-need zones
-and need no chapter of their own.
+Specifications and decisions are the two zones this shelf owns; [02 — Specs](./02-specs.md) and [04 — Decisions](./04-decisions.md) hold their rules. The other four are ordinary reader-need zones and need no chapter of their own.
 
 ## Placement procedure
 
@@ -78,8 +71,7 @@ a durable fact needs a home
      yes → the code. prose is the wrong home.
 ```
 
-The second branch is the one that changes how a project behaves. A rule that an agent must apply
-belongs in a spec even when it feels like background, because background is not loaded and a spec is.
+The second branch is the one that changes how a project behaves. A rule that an agent must apply belongs in a spec even when it feels like background, because background is not loaded and a spec is.
 
 ## Specs are centralized
 
@@ -90,31 +82,22 @@ Specs live in one tree under the docs root, keyed by domain, never beside the fi
 
 Two reasons, and the second is the one that decides it.
 
-A path-keyed spec rots on every reorganization. Moving a spec along with a directory refactor is
-exactly the chore that gets dropped, and the survivor is a spec governing a path that no longer
-exists. A domain key survives the refactor because it names what the rules are about, not where the
-files sit.
+A path-keyed spec rots on every reorganization. Moving a spec along with a directory refactor is exactly the chore that gets dropped, and the survivor is a spec governing a path that no longer exists. A domain key survives the refactor because it names what the rules are about, not where the files sit.
 
-Scoping by location also fails at the load step. An agent editing one directory has no way to know
-which other directories hold rules that bind it. Centralization plus a small always-loaded
-author-instructions file is what makes the whole rule set reachable from one place; see
-[05 — Agent Context](./05-agent-context.md).
+Scoping by location also fails at the load step. An agent editing one directory has no way to know which other directories hold rules that bind it. Centralization plus a small always-loaded author-instructions file is what makes the whole rule set reachable from one place; see [05 — Agent Context](./05-agent-context.md).
 
 ## Domains
 
-A domain is a capability, not a directory. In a codebase it names what the system does: `auth`,
-`payments`, `ingest`. In a knowledge base it names a shelf.
+A domain is a capability, not a directory. In a codebase it names what the system does: `auth`, `payments`, `ingest`. In a knowledge base it names a shelf.
 
 - A domain name MUST be lowercase and kebab-case.
 - A domain MUST have a spec only when it has rules that can be verified.
 
-Do not create a spec for a domain that has no enforceable rules yet. An empty spec is loaded on every
-session and teaches nothing.
+Do not create a spec for a domain that has no enforceable rules yet. An empty spec is loaded on every session and teaches nothing.
 
 ## Artifact names
 
-A file whose kind this framework fixes carries that kind as an uppercase prefix, so a directory
-listing, a glob, or an agent tells the kinds apart without opening anything.
+A file whose kind this framework fixes carries that kind as an uppercase prefix, so a directory listing, a glob, or an agent tells the kinds apart without opening anything.
 
 | Artifact         | Name                 | Lives in                         |
 | ---------------- | -------------------- | -------------------------------- |
@@ -127,29 +110,19 @@ listing, a glob, or an agent tells the kinds apart without opening anything.
 - A file whose kind this framework fixes MUST carry that kind as an uppercase prefix.
 - A prefixed filename MUST carry the slug that identifies it, and no counter.
 
-The prefix is uppercase because the discriminator should win over the slug when a reader scans a
-column of filenames. It is the first thing read and the only part that repeats.
+The prefix is uppercase because the discriminator should win over the slug when a reader scans a column of filenames. It is the first thing read and the only part that repeats.
 
-The rule that generates the table: prefix a file when its shape is fixed and gated. A project that
-gates a fifth shape adds a fifth prefix by the same test.
+The rule that generates the table: prefix a file when its shape is fixed and gated. A project that gates a fifth shape adds a fifth prefix by the same test.
 
-A known-issue case is prefixed because it is the one kind cited from outside the docs root. A
-suppression in the source names its case, and the prefix is what makes that citation resolvable by
-a grep over a single directory; [07 — Lifecycle](./07-lifecycle.md) owns the record's contents.
+A known-issue case is prefixed because it is the one kind cited from outside the docs root. A suppression in the source names its case, and the prefix is what makes that citation resolvable by a grep over a single directory; [07 — Lifecycle](./07-lifecycle.md) owns the record's contents.
 
-Guides, reference pages, and explanation pages take no prefix. Their zone directory already names
-their reader need, and a prefix on every file would make the discriminator meaningless by making it
-universal.
+Guides, reference pages, and explanation pages take no prefix. Their zone directory already names their reader need, and a prefix on every file would make the discriminator meaningless by making it universal.
 
-A prefix is not part of an identifier. A spec's domain is `auth`, not `SPEC-auth`, so a rule ID reads
-`auth:token-expiry-is-bounded`; see [03 — Rules](./03-rules.md).
+A prefix is not part of an identifier. A spec's domain is `auth`, not `SPEC-auth`, so a rule ID reads `auth:token-expiry-is-bounded`; see [03 — Rules](./03-rules.md).
 
 ## Operational material is zone-first
 
-Runbooks, setup procedures, diagnostics, and incident write-ups are ordinary documents and take the
-zone matching their reader need: a runbook is a guide, a diagnostic table is reference, a post-mortem
-is reference. Do not create an `ops/` directory beside the zones; it splits the same reader need
-across two homes.
+Runbooks, setup procedures, diagnostics, and incident write-ups are ordinary documents and take the zone matching their reader need: a runbook is a guide, a diagnostic table is reference, a post-mortem is reference. Do not create an `ops/` directory beside the zones; it splits the same reader need across two homes.
 
 ## Drafts
 
@@ -157,24 +130,17 @@ across two homes.
 
 [07 — Lifecycle](./07-lifecycle.md) owns what may live there and how it leaves.
 
-A reader must be able to tell whether a document is project state from its path alone, without
-opening it. That is why a filename warning like `draft-final.md` inside the docs root does not
-substitute for the path.
+A reader must be able to tell whether a document is project state from its path alone, without opening it. That is why a filename warning like `draft-final.md` inside the docs root does not substitute for the path.
 
-Forward-looking is not the same as provisional. A ranked plan with declared scope is binding and
-belongs in the plan zone under version control, however early it is. The test is not whether the
-document is finished but whether the project is working under it. [07 — Lifecycle](./07-lifecycle.md)
-owns the promotion procedure.
+Forward-looking is not the same as provisional. A ranked plan with declared scope is binding and belongs in the plan zone under version control, however early it is. The test is not whether the document is finished but whether the project is working under it. [07 — Lifecycle](./07-lifecycle.md) owns the promotion procedure.
 
 ## Boundary tests
 
 - A document that answers two reader questions is two documents.
-- A rule with no verification is either not a rule or not yet finished; see
-  [03 — Rules](./03-rules.md).
+- A rule with no verification is either not a rule or not yet finished; see [03 — Rules](./03-rules.md).
 - A document that would need editing every time a file is added was indexing the filesystem.
 
 ## Sources
 
 - Diataxis, on organizing by reader need: <https://diataxis.fr/>
-- OpenSpec, on the centralized `specs/` tree keyed by domain:
-  <https://github.com/Fission-AI/OpenSpec/blob/main/docs/concepts.md>
+- OpenSpec, on the centralized `specs/` tree keyed by domain: <https://github.com/Fission-AI/OpenSpec/blob/main/docs/concepts.md>

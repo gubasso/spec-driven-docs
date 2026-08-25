@@ -8,18 +8,13 @@ token-estimate: 600
 
 ## Scope
 
-The format for a document comparing one project against its alternatives. Covers the artifact model,
-table width and thematic splitting, the verdict vocabulary, the two reference levels, the shape of a
-scenario and its evidence, dating and refresh, and the gates.
+The format for a document comparing one project against its alternatives. Covers the artifact model, table width and thematic splitting, the verdict vocabulary, the two reference levels, the shape of a scenario and its evidence, dating and refresh, and the gates.
 
-The documentation method itself — zones, specs, decision records, the markdown register — belongs to
-`../method/`. This shelf owns one genre inside it.
+The documentation method itself — zones, specs, decision records, the markdown register — belongs to `../method/`. This shelf owns one genre inside it.
 
 ## How to use this shelf
 
-Load this file, find the owning chapter below, then read that chapter. Do not read the shelf linearly.
-Building a comparison document from scratch means reading `00-model.md` first, then following
-`README.md` under Apply the genre.
+Load this file, find the owning chapter below, then read that chapter. Do not read the shelf linearly. Building a comparison document from scratch means reading `00-model.md` first, then following `README.md` under Apply the genre.
 
 ## Where the rules live
 
@@ -48,8 +43,7 @@ Template: `../templates/TEMPLATE-comparison.md`.
 - A cell carries at most one reference, and that reference is a heading anchor.
 - A row label links to the method; a verdict links to the evidence; the two never coincide.
 - Every table carries a `Verified:` line with the run date and every subject version.
-- A pipe inside a code span in a table row is escaped as `\|`, and the check for it runs before the
-  markdown formatter.
+- A pipe inside a code span in a table row is escaped as `\|`, and the check for it runs before the markdown formatter.
 - Use no bold or italics, and give every fenced block a language.
 
 ## Maintenance

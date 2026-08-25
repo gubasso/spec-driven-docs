@@ -1,8 +1,6 @@
 # Template — Decision record
 
-Copy the block below to `<root>/decisions/ADR-<slug>.md`. A project keeping its own copy
-names it `TEMPLATE-adr.md`, so the prefix distinguishes the seed from the records it seeds and no
-template reads as a decision the project made. A filled body is at or below 350 words.
+Copy the block below to `<root>/decisions/ADR-<slug>.md`. A project keeping its own copy names it `TEMPLATE-adr.md`, so the prefix distinguishes the seed from the records it seeds and no template reads as a decision the project made. A filled body is at or below 350 words.
 
 ```markdown
 # <Short title naming the choice, not the task>
@@ -21,8 +19,7 @@ template reads as a decision the project made. A filled body is at or below 350 
 
 Chosen option: `<option 1>` — <one sentence: why>.
 
-<If this decision binds behavior, name the requirement that enforces it:
-Enforced by `<domain-slug>:<rule-slug>`.>
+<If this decision binds behavior, name the requirement that enforces it: Enforced by `<domain-slug>:<rule-slug>`.>
 
 ## Consequences
 
