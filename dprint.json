@@ -13,7 +13,8 @@
   ],
   "excludes": [
     ".git",
-    "node_modules"
+    "node_modules",
+    "target"
   ],
   "plugins": [
     "https://plugins.dprint.dev/markdown-0.22.0.wasm",

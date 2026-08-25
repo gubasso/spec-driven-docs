@@ -1,0 +1,17 @@
+//! Subcommand handlers.
+//!
+//! One module per subcommand. Each exposes a free function
+//! `run(ctx, args) -> Result<(), AppError>` that projects clap args, calls
+//! the gates or services, renders through `output`, and returns a typed
+//! error. No clap derives here.
+
+pub mod completions;
+pub mod gate;
+pub mod hooks;
+pub mod init;
+pub mod license;
+pub mod man;
+pub mod read;
+pub mod self_manifest;
+pub mod upgrade;
+pub mod verify;

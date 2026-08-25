@@ -1,0 +1,5 @@
+[workspace]
+changelog_update = true
+release_always = false
+publish = true
+semver_check = false

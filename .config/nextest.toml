@@ -1,0 +1,17 @@
+[profile.default]
+status-level = "pass"
+final-status-level = "fail"
+success-output = "never"
+failure-output = "immediate-final"
+
+[profile.ci]
+fail-fast = false
+status-level = "fail"
+final-status-level = "fail"
+success-output = "never"
+failure-output = "immediate-final"
+
+[profile.ci.retries]
+backoff = "exponential"
+count = 2
+delay = "1s"

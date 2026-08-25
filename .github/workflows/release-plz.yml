@@ -1,0 +1,75 @@
+# The release automation and the crates.io trusted publisher. This filename
+# is registered at crates.io; cargo-dist's release.yml builds binaries and
+# must never be registered there.
+name: release-plz
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+on:
+  push:
+    branches: [develop]
+
+jobs:
+  release-plz:
+    runs-on: ubuntu-latest
+    outputs:
+      releases_created: ${{ steps.release.outputs.releases_created }}
+      releases: ${{ steps.release.outputs.releases }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          app-id: ${{ secrets.RELEASE_PLZ_APP_ID }}
+          private-key: ${{ secrets.RELEASE_PLZ_APP_PRIVATE_KEY }}
+      - uses: dtolnay/rust-toolchain@stable
+      # No `command` input: unset, the action runs both `release-pr` and
+      # `release`, which is the whole loop this workflow wants.
+      - uses: release-plz/action@v0.5
+        id: release
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+
+  # master mirrors releases. The tag release-plz pushes does not retrigger
+  # other workflows, so the promotion runs inline, guarded so master can
+  # only ever fast-forward onto a tag that develop reaches.
+  promote:
+    needs: release-plz
+    if: needs.release-plz.outputs.releases_created == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          app-id: ${{ secrets.RELEASE_PLZ_APP_ID }}
+          private-key: ${{ secrets.RELEASE_PLZ_APP_PRIVATE_KEY }}
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+      - name: fast-forward master to the release tag
+        env:
+          RELEASES: ${{ needs.release-plz.outputs.releases }}
+        run: |
+          set -eu
+          tag="$(printf '%s' "$RELEASES" | jq -r '.[0].tag')"
+          git fetch origin "refs/tags/$tag" 'refs/heads/*:refs/remotes/origin/*'
+          tag_sha="$(git rev-parse "$tag^{commit}")"
+          if ! git merge-base --is-ancestor "$tag_sha" origin/develop; then
+            echo "::error::tag $tag is not on develop; refusing to promote master."
+            exit 1
+          fi
+          git config user.name 'release-plz-promote'
+          git config user.email 'release-plz-promote@users.noreply.github.com'
+          if git rev-parse -q --verify origin/master >/dev/null; then
+            git checkout -B master origin/master
+            git merge --ff-only "$tag_sha"
+          else
+            git checkout -B master "$tag_sha"
+          fi
+          git push origin master

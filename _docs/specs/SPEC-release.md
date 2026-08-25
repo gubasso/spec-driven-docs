@@ -18,46 +18,46 @@
 
 Rules governing how this repository cuts a release: which artifact states the version, how a tag
 derives from it, what a release carries, and how the licence splits. No instance adopts this spec.
-Every rule here is verified by a gate under `gates/canon/`, which is never delivered, so an instance
-holding these rules would hold rules it cannot run.
+Every rule here is verified by a cargo test that never ships, so an instance holding these rules
+would hold rules it cannot run.
 
 ## Requirements
 
 ### `release:versions-are-semantic-and-aligned` — Versions are semantic and aligned
 
-`VERSION` states the release identity as one semantic version, and every other artifact naming a version MUST carry that value.
+`Cargo.toml` states the release identity as one semantic version, and every other artifact naming a version MUST carry that value.
 
 #### Scenario: A second artifact names a different version
 
-- GIVEN `VERSION` reads 0.2.0 and the instance manifest reads 0.1.0
-- WHEN the version gate runs
-- THEN it fails and names `VERSION` as the value to correct toward, not the disagreement
+- GIVEN `Cargo.toml` reads 0.3.0 and the instance manifest reads 0.2.0
+- WHEN the canon test suite runs
+- THEN it fails and names `Cargo.toml` as the value to correct toward, not the disagreement
 
-Verify: `pre-commit run version-source-of-truth --all-files`
+Verify: `pre-commit run cargo-test --all-files`
 
 ### `release:a-tag-derives-from-the-version-file` — A tag derives from the version file
 
-A release tag MUST be `v<VERSION>` at the commit it names, and MUST be produced by `scripts/release.sh`.
+A release tag MUST be `v<version>` for the version `Cargo.toml` states at the commit it names, and MUST be produced by the release automation rather than authored by hand.
 
 #### Scenario: A maintainer tags by hand
 
-- GIVEN a working tree whose `VERSION` reads 0.2.0
-- WHEN a tag named `v0.3.0` is pushed
-- THEN the release job rejects it, because the tag resolves consumers to a version the tree does not hold
+- GIVEN a working tree whose `Cargo.toml` reads 0.3.0
+- WHEN a tag named `v0.4.0` is pushed
+- THEN the tag ruleset rejects it, because the tag resolves consumers to a version the tree does not hold
 
-Verify: `just test-release`
+Verify: reviewer confirms every `v*` tag was created by the merged release pull request
 
 ### `release:a-released-version-is-not-re-authored` — A released version is not re-authored
 
-If a tag named `v<VERSION>` already exists, then the author MUST raise `VERSION` before committing further.
+If a version is published, then further changes MUST ship as a new version; a published version is never re-authored.
 
-#### Scenario: A fix lands under a version already pinned
+#### Scenario: A fix lands after a version is published
 
-- GIVEN a consumer pinned to `rev: v0.2.0`
-- WHEN a commit changes managed content while `VERSION` still reads 0.2.0
-- THEN the gate fails, because shipping it needs the tag moved and a moved tag serves two payloads under one name
+- GIVEN a consumer pinned to `rev: v0.3.0` or the published crate
+- WHEN a defect in 0.3.0 needs correcting
+- THEN the fix merges forward and the automation proposes 0.3.1, because the registry refuses a second 0.3.0 and a moved tag serves two payloads under one name
 
-Verify: `pre-commit run version-source-of-truth --all-files`
+Verify: reviewer confirms corrections are cut forward as a new version, never by retagging
 
 ### `release:a-release-carries-its-migration-guide` — A release carries its migration guide
 
@@ -69,40 +69,40 @@ Where a previous release exists, the release MUST carry exactly one `migrations/
 - WHEN it upgrades to a release whose guide was never written
 - THEN the upgrade aborts, so the guide is required at the tag rather than discovered by the consumer
 
-Verify: `just test-release`
+Verify: `pre-commit run cargo-test --all-files`
 
 ### `release:license-declares-both-halves` — The license declares both halves
 
-The release MUST carry a named license file for the method and one for the distribution, and the root `LICENSE` MUST name both.
+The release MUST carry a named license file for the method and one for the distribution, the root `LICENSE` MUST name both, and the crate metadata MUST carry the combined SPDX expression.
 
-#### Scenario: A project vendors the distribution without the method
+#### Scenario: A project installs the binary without the method
 
 - GIVEN a target that installs the hooks and the verifier
-- WHEN a reader opens `LICENSE` to learn the terms
+- WHEN a reader opens `LICENSE` or the crate metadata to learn the terms
 - THEN one identifier covers what was installed and the other stays with what was left behind
 
-Verify: `pre-commit run license-split --all-files`
+Verify: `pre-commit run cargo-test --all-files`
 
 ### `release:the-delivered-gate-set-is-declared-once` — The delivered gate set is declared once
 
-Every gate the release delivers MUST be declared in one file that both the projection into an instance and the manifest published to a consumer are rendered from.
+Every gate the release delivers MUST be declared in the one registry that the projection into an instance and the manifest published to a consumer are both rendered from.
 
 #### Scenario: A gate reaches the payload but no wiring
 
-- GIVEN a gate copied into an instance and named by no pre-commit entry
+- GIVEN a gate compiled into the binary and named by no pre-commit entry
 - WHEN the instance runs its hooks
-- THEN the gate is hashed, executable, and never runs, so the declaration is what both deliveries derive from
+- THEN the gate exists and never runs, so both deliveries are rendered from the registry and held equal to it
 
-Verify: `pre-commit run delivered-domain --all-files`
+Verify: `pre-commit run cargo-test --all-files`
 
 ### `release:a-canon-gate-is-not-delivered` — A canon gate is not delivered
 
-A gate checking an invariant that only this repository has MUST stay outside the delivered set, and MUST reach neither the projection nor the published manifest.
+A check of an invariant only this repository has MUST stay a canon-side test, and MUST reach neither the projection nor the published manifest.
 
-#### Scenario: An instance receives the release gates
+#### Scenario: An instance receives the release checks
 
-- GIVEN a gate holding VERSION against the tag that names it
-- WHEN it is projected into a knowledge base that cuts no release
+- GIVEN a check holding the crate version against the instance manifest of the canon
+- WHEN it is delivered to a knowledge base that cuts no release
 - THEN the instance is gated on a process it does not run, so the boundary is asserted rather than assumed
 
-Verify: `pre-commit run delivered-domain --all-files`
+Verify: `pre-commit run cargo-test --all-files`

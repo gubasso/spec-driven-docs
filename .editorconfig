@@ -16,12 +16,15 @@ indent_size = 2
 [Makefile]
 indent_style = tab
 
-# The gates ship as shell scripts; 2-space matches the shfmt
-# default (shfmt -i 2). editorconfig-checker respects these; shfmt, if adopted,
-# reads the same block.
+# The release helper scripts; 2-space matches the shfmt default (shfmt -i 2).
 [*.{sh,bash,bats}]
 indent_style = space
 indent_size = 2
+
+# rustfmt owns Rust formatting, including continuation indents that are not
+# multiples of the base, so no indent size is enforced here.
+[*.rs]
+indent_style = space
 
 [*.md]
 trim_trailing_whitespace = false

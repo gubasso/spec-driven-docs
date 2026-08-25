@@ -16,8 +16,9 @@ what is written to be read:
 
 The MIT License, in LICENSE-MIT, covers what is written to be run:
 
-  .hooks/            .markdownlint/     .spec-driven-docs/
-  instance/          scripts/           tests/
+  .markdownlint/     .spec-driven-docs/ Cargo.toml
+  build.rs           instance/          scripts/
+  src/               tests/
 
 Every other file is build, editor, or tool configuration, under the MIT
 License. Where a distribution file quotes the method, the quoted text keeps the

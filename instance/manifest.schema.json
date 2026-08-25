@@ -6,7 +6,6 @@
     "schema_version",
     "canon_version",
     "canon_source",
-    "canon_ref",
     "profile",
     "docs_root",
     "installed_at",
@@ -15,10 +14,9 @@
     "integration_blocks"
   ],
   "properties": {
-    "schema_version": { "const": 1 },
+    "schema_version": { "const": 2 },
     "canon_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
     "canon_source": { "type": "string", "minLength": 1 },
-    "canon_ref": { "type": "string", "minLength": 1 },
     "profile": { "enum": ["codebase", "knowledge-base"] },
     "docs_root": { "enum": ["docs", "_docs"] },
     "installed_at": { "type": "string", "format": "date-time" },

@@ -1,17 +1,11 @@
 {
-  "schema_version": 1,
-  "canon_version": "0.1.6",
+  "schema_version": 2,
+  "canon_version": "0.2.0",
   "canon_source": "https://github.com/gubasso/spec-driven-docs",
-  "canon_ref": "pre-release",
   "profile": "knowledge-base",
   "docs_root": "_docs",
   "installed_at": "2026-08-24T00:00:00Z",
   "managed_files": [
-    {
-      "source": "scripts/verify.sh",
-      "destination": "scripts/verify.sh",
-      "sha256": "dc17d596ae2c196cc01b439c291416f91198cc274e2376fd01a4d614c1ff60ad"
-    },
     {
       "source": ".markdownlint/adr.markdownlint-cli2.jsonc",
       "destination": ".markdownlint/adr.markdownlint-cli2.jsonc",
@@ -26,146 +20,6 @@
       "source": ".markdownlint/spec.markdownlint-cli2.jsonc",
       "destination": ".markdownlint/spec.markdownlint-cli2.jsonc",
       "sha256": "85c5697b30b980e6f130f6dfa79960d16eb5a12c77e141ff23b63b0c0e6b055a"
-    },
-    {
-      "source": "gates/instance/adr-filename-shape.sh",
-      "destination": "gates/instance/adr-filename-shape.sh",
-      "sha256": "f4d575a911c13925c9a5343c9ef25a8deb71bba661a28546b11440b3e63e4a4f"
-    },
-    {
-      "source": "gates/instance/adr-word-cap.sh",
-      "destination": "gates/instance/adr-word-cap.sh",
-      "sha256": "d103d83a3d16adcbdd7bf120b47a285617280ede4cfa3e9d26befb7e5d568ce6"
-    },
-    {
-      "source": "gates/instance/agents-digest-size.sh",
-      "destination": "gates/instance/agents-digest-size.sh",
-      "sha256": "ce51967d5761033563db9571927cf616678fce71069d63ab60a5c885b0df077b"
-    },
-    {
-      "source": "gates/instance/chapter-size-cap.sh",
-      "destination": "gates/instance/chapter-size-cap.sh",
-      "sha256": "311dd275e3d0d9c8650c2edebec9f89027d52e64bcc728fec706227be29bbf9b"
-    },
-    {
-      "source": "gates/instance/comparison-dated-tables.sh",
-      "destination": "gates/instance/comparison-dated-tables.sh",
-      "sha256": "a6e7be4514534b6d827bf923d0316b374ead61e9a0ab948dac3ad0df5a65a5c2"
-    },
-    {
-      "source": "gates/instance/comparison-escaped-pipes.sh",
-      "destination": "gates/instance/comparison-escaped-pipes.sh",
-      "sha256": "6a1f5cbe71e9ea974ce4b78c2ffb1896325e0b0cb27f6aae2fe3fd6f6a3106b7"
-    },
-    {
-      "source": "gates/instance/comparison-legend.sh",
-      "destination": "gates/instance/comparison-legend.sh",
-      "sha256": "ff54e674adda5d440e4139b77f7b2e0dc6739c715b25c1f968b657ca62f06ca1"
-    },
-    {
-      "source": "gates/instance/comparison-one-reference-per-cell.sh",
-      "destination": "gates/instance/comparison-one-reference-per-cell.sh",
-      "sha256": "70bf047b7a8ea14f0277689c5b5ea65e7bd86d40462729de9fdcc78b0d832bba"
-    },
-    {
-      "source": "gates/instance/comparison-verdict-word.sh",
-      "destination": "gates/instance/comparison-verdict-word.sh",
-      "sha256": "c217ff2cafcee1fe265ebb3fc418c1fa9cb6781b7e089661b7e746b28c77cc02"
-    },
-    {
-      "source": "gates/instance/gate-message-cites-a-rule.sh",
-      "destination": "gates/instance/gate-message-cites-a-rule.sh",
-      "sha256": "3053b0eb88097c0455530c987894e83363434a7b8325f0bc0673912f8537d9b8"
-    },
-    {
-      "source": "gates/instance/instance-manifest.sh",
-      "destination": "gates/instance/instance-manifest.sh",
-      "sha256": "6cb7516b8019e95d3425d6f429c875034befda32f14398c10ff44760eec57bfc"
-    },
-    {
-      "source": "gates/instance/ki-bugzilla-report-width.sh",
-      "destination": "gates/instance/ki-bugzilla-report-width.sh",
-      "sha256": "85275a6e1e1371ea901b7528c6687ca9fa5f501e5ee444d26d0265266723e042"
-    },
-    {
-      "source": "gates/instance/ki-filename-shape.sh",
-      "destination": "gates/instance/ki-filename-shape.sh",
-      "sha256": "cecc4fb8ce8d6ac84f98c9946763f909f1883b4aee545d850a24d9fa2d70776e"
-    },
-    {
-      "source": "gates/instance/ki-mechanism-walkthrough.sh",
-      "destination": "gates/instance/ki-mechanism-walkthrough.sh",
-      "sha256": "b3a1760b9d6b31cce5f195ed953334f3e1b714c6810ad64bebeaa6977de93848"
-    },
-    {
-      "source": "gates/instance/ki-report-body.sh",
-      "destination": "gates/instance/ki-report-body.sh",
-      "sha256": "141ecede742fe02aec5260568d88010b921a65e29417bec383c09f6251573a43"
-    },
-    {
-      "source": "gates/instance/ki-retire-when.sh",
-      "destination": "gates/instance/ki-retire-when.sh",
-      "sha256": "1a05ee65729c9b3a3cbb25e0b0dfed80b556a28d3b91c714e7e4861b5656487e"
-    },
-    {
-      "source": "gates/instance/lib-instance-paths.sh",
-      "destination": "gates/instance/lib-instance-paths.sh",
-      "sha256": "023e294d2c6e33125cda31dfcfd69d59d876e0e25e9e8b9a35a1a39a076aa569"
-    },
-    {
-      "source": "gates/instance/no-self-narration.awk",
-      "destination": "gates/instance/no-self-narration.awk",
-      "sha256": "4050fc16bda474295b02fdb60ef9c802ddf6d96520b53ccabe62ebb309fe0d7d"
-    },
-    {
-      "source": "gates/instance/no-self-narration.sh",
-      "destination": "gates/instance/no-self-narration.sh",
-      "sha256": "f1accb6ccb4343ba082538c8cc76a5f4cccb0f52ae9039c4facacd760b7935d4"
-    },
-    {
-      "source": "gates/instance/spec-requirement-parts.sh",
-      "destination": "gates/instance/spec-requirement-parts.sh",
-      "sha256": "d1e369e008d2f095a8d7afed157eef259c8122eb38de438832978b7c0782f6cf"
-    },
-    {
-      "source": "gates/instance/spec-rule-id-unique.sh",
-      "destination": "gates/instance/spec-rule-id-unique.sh",
-      "sha256": "49da4089918eb5a6256f8412c25347047b031579480226b79426db753db671e6"
-    },
-    {
-      "source": "gates/instance/spec-size-cap.sh",
-      "destination": "gates/instance/spec-size-cap.sh",
-      "sha256": "2cc375d7275f3d57026cf4c68f2236d8cbc70e9d1f4269c574efff42af8f0691"
-    },
-    {
-      "source": "gates/instance/spec-verify-hooks-exist.sh",
-      "destination": "gates/instance/spec-verify-hooks-exist.sh",
-      "sha256": "bd8c2a00863ad60567dbe80e6df0333e1197c1fcf4dd859c8873ace69045e065"
-    },
-    {
-      "source": "gates/instance/suppression-names-its-case.sh",
-      "destination": "gates/instance/suppression-names-its-case.sh",
-      "sha256": "96351e42b46f5ae231c377c184d54736bf35754cfeeba7f56f6c31d2f5bcbed9"
-    },
-    {
-      "source": "gates/canon/delivered-domain.sh",
-      "destination": "gates/canon/delivered-domain.sh",
-      "sha256": "7a236e532d9d4e135f635c71b84aad232ab12754527eb72743a7c7749611658e"
-    },
-    {
-      "source": "gates/canon/license-split.sh",
-      "destination": "gates/canon/license-split.sh",
-      "sha256": "1408aa88a2de6b5fa7a8ecdc772379f5de2d6af1447db7ba8d8163b22b1d5ea2"
-    },
-    {
-      "source": "gates/canon/test-gates.sh",
-      "destination": "gates/canon/test-gates.sh",
-      "sha256": "0b66b21c197a559857ce1bc84f6bc5a3a783a704b2360f2a4ba58a744e7a90fd"
-    },
-    {
-      "source": "gates/canon/version-source-of-truth.sh",
-      "destination": "gates/canon/version-source-of-truth.sh",
-      "sha256": "d3401453c7d0ca4f008e4c55b1a276bd9111b239396cffdb30c88d62a3409ffa"
     }
   ],
   "adopted_files": [
@@ -184,8 +38,8 @@
     {
       "source": "_docs/specs/SPEC-distribution.md",
       "destination": "_docs/specs/SPEC-distribution.md",
-      "sha256": "5431f0152ea4d1e23394148b5f40db989bdf125b7089f4d2aabf4fb0b6245901",
-      "baseline_sha256": "5431f0152ea4d1e23394148b5f40db989bdf125b7089f4d2aabf4fb0b6245901"
+      "sha256": "30ca1b2444d889b91330fc871a5d6a6f5f2b52d530801d6d5b6365d9ce2902cd",
+      "baseline_sha256": "30ca1b2444d889b91330fc871a5d6a6f5f2b52d530801d6d5b6365d9ce2902cd"
     },
     {
       "source": "_docs/specs/SPEC-docs-format.md",
@@ -214,8 +68,8 @@
     {
       "source": "_docs/specs/SPEC-release.md",
       "destination": "_docs/specs/SPEC-release.md",
-      "sha256": "34064481989fd62860f1d66f794ba29ea7ae3c90d244da0ea6c25d60d827985a",
-      "baseline_sha256": "34064481989fd62860f1d66f794ba29ea7ae3c90d244da0ea6c25d60d827985a"
+      "sha256": "a33ca1539e0432dd0a9974ba8af7a6bc6b2d123666d823b3c747b947786aadb3",
+      "baseline_sha256": "a33ca1539e0432dd0a9974ba8af7a6bc6b2d123666d823b3c747b947786aadb3"
     },
     {
       "source": "_docs/specs/SPEC-spec-to-code.md",
@@ -239,7 +93,7 @@
   "integration_blocks": [
     {
       "path": ".pre-commit-config.yaml",
-      "marker_hash": "dbc6e805c921d631dbfeaf93adadfffdf97406dfeb7a59b15d0a331ff99fc2b2"
+      "marker_hash": "afe361699f336a55afb2ad3366d9b3fc62ee88849daceaff2c13e2a819aa886e"
     }
   ]
 }

@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+# Rehearse the crates.io publish without credentials: verify the package
+# builds from its own tarball and list what ships. The embedded payload
+# directories must appear in the listing, or `include_dir!` has nothing to
+# compile from at the consumer's end.
+set -eu
+cd "$(dirname "$0")/.."
+cargo publish --dry-run
+cargo package --list

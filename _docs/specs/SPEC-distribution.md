@@ -13,15 +13,16 @@
 
 ## Purpose
 
-Rules governing installation, ownership classes, offline verification, and upgrades. An instance
-adopts this spec, so every rule here is one an instance can verify with the payload it received.
-The release rules the canon alone runs are stated in `SPEC-release.md`.
+Rules governing installation, ownership classes, offline verification, and upgrades. The
+distribution is one installed binary, `sdd`, that carries the payload; an instance adopts this
+spec, and every rule here is one an instance can verify with the binary it runs. The release rules
+the canon alone runs are stated in `SPEC-release.md`.
 
 ## Requirements
 
 ### `distribution:manifest-identifies-every-owned-file` — The manifest identifies every owned file
 
-The installer MUST record each installed file with its ownership class, destination, and SHA-256.
+The installer MUST record each installed file with its ownership class, destination, and SHA-256, and the record MUST state which canon version produced it.
 
 #### Scenario: An agent encounters a local edit
 
@@ -41,28 +42,28 @@ When a target is non-empty, the installer MUST preview its changes before writin
 - WHEN initialization inserts its block
 - THEN every outside comment remains byte-identical
 
-Verify: `just test-instantiation`
+Verify: `cargo nextest run -E 'binary(cmd_init)'`
 
 ### `distribution:instances-operate-offline` — Instances operate offline
 
-The installed verifier MUST validate an instance without a network or canon checkout.
+The installed binary MUST verify and upgrade an instance without a network or canon checkout.
 
-#### Scenario: The canon checkout is unavailable
+#### Scenario: The canon repository is unreachable
 
 - GIVEN a fully installed target
-- WHEN its vendored verifier runs with `--offline`
-- THEN it checks tools, hashes, rule IDs, and the marked integration block locally
+- WHEN `sdd verify` and `sdd upgrade` run with no network
+- THEN they check hashes, the managed block, rule IDs, and the binary's own version against the manifest, from the payload the binary carries
 
-Verify: `just test-instantiation`
+Verify: `cargo nextest run -E 'binary(cmd_verify) + binary(cmd_upgrade)'`
 
 ### `distribution:upgrade-conflicts-are-atomic` — Upgrade conflicts are atomic
 
 If a managed file differs from its installed hash, then the upgrader MUST abort without changing the target.
 
-#### Scenario: One managed hook is edited locally
+#### Scenario: One managed configuration is edited locally
 
 - GIVEN a valid installed instance with one managed edit
 - WHEN an upgrade is requested
-- THEN it lists the conflict and changes no target byte
+- THEN it lists every conflict in one run and changes no target byte
 
-Verify: `just test-upgrade`
+Verify: `cargo nextest run -E 'binary(cmd_upgrade)'`

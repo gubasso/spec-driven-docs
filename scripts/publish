@@ -1,0 +1,17 @@
+#!/usr/bin/env sh
+# Publish to crates.io with a pre-configured credential. This checks that
+# auth is configured — never that a token is valid — and prints the
+# remediation when it is not. Routine releases go through release-plz over
+# trusted publishing; this exists for the first manual publish.
+set -eu
+cd "$(dirname "$0")/.."
+
+if [ -z "${CARGO_REGISTRY_TOKEN:-}" ] && [ -z "${CARGO_REGISTRIES_CRATES_IO_TOKEN:-}" ] &&
+  [ ! -f "${CARGO_HOME:-$HOME/.cargo}/credentials.toml" ] &&
+  [ ! -f "${CARGO_HOME:-$HOME/.cargo}/credentials" ]; then
+  echo 'FAIL no crates.io credential is configured' >&2
+  echo 'remediation: create a publish-new scoped token at crates.io, then run: cargo login' >&2
+  exit 1
+fi
+
+cargo publish

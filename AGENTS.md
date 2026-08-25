@@ -13,10 +13,15 @@ routes readers; this file routes agents to the rules that bind their work.
 ## Ownership boundaries
 
 - `method/`, `comparison-docs/`, `templates/`, and `reference/` are canon product files.
-- `gates/instance/`, `.markdownlint/`, scripts, and profiles are managed instance payload;
-  `instance/gates.json` declares that delivered set and both deliveries render from it.
-- `gates/canon/` never leaves this repository: it holds the gates for invariants only the canon
-  has (ADR-split-gates-by-delivery-domain).
+- `src/` is the distribution: the `sdd` binary embeds the payload — spec seeds, templates,
+  `.markdownlint/` configurations, `instance/snippets/`, `migrations/`, and `method/` — at compile
+  time from these authored paths, so canon and binary cannot drift.
+- The delivered gate set is declared once, in the registry in `src/gates.rs`; the managed block an
+  instance receives and the published `.pre-commit-hooks.yaml` are both rendered from it by
+  `sdd hooks`, and a cargo test holds the published file equal to the render.
+- Checks of invariants only this repository has — the license split, version alignment, the
+  migration chain — are cargo tests under `tests/`, never delivered
+  (ADR-split-gates-by-delivery-domain).
 - `_docs/specs/`, `_docs/decisions/`, marker-delimited integrations, and instance debt are local
   overlays after installation.
 - Keep each durable fact in one owner and link to it elsewhere.
@@ -36,15 +41,18 @@ routes readers; this file routes agents to the rules that bind their work.
 
 ## Executable artifacts
 
-- A shipped executable requires a pre-commit gate, an accept and reject control under `just test`,
-  and every dependency in `flake.nix`.
-- Run `just check` before handoff. It checks without formatting.
-- Run `just manifest` after editing anything under `gates/`, `.markdownlint/`, `scripts/verify.sh`,
-  or the managed pre-commit block; the instance manifest records their hashes.
-- `VERSION` is the release source of truth. Never author a tag: `just release` derives it, and
-  `_docs/guides/release.md` owns the sequence.
-- Every failure message a gate prints cites a rule ID that a spec defines.
-- Never edit a generated dogfood template independently of its canonical copy under `templates/`.
+- Rust follows the exobrain CLI conventions: clap derive in `src/cli/`, one handler per subcommand
+  in `src/commands/`, typed errors with a tested exit-code matrix in `src/error.rs`.
+- Every gate change lands with its unit tests, and every failure message a gate prints cites a rule
+  ID that a spec defines; the registry test holds the citable set to the specs.
+- Run `just check` before handoff. It lints, tests, and installs into a scratch target.
+- Run `just manifest` after editing anything the canon manifest records: `.markdownlint/`,
+  `_docs/specs/`, the recorded templates, or the managed pre-commit block.
+- `Cargo.toml` is the release source of truth. Write Conventional Commits; release-plz derives the
+  version, the changelog, and the tag. Never author a tag: `_docs/guides/release.md` owns the
+  sequence.
+- Manage dependencies through cargo (`cargo add`, `cargo remove`, `cargo update`); never hand-edit
+  versions in `Cargo.toml`.
 
 ## Routing
 

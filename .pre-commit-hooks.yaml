@@ -1,135 +1,134 @@
 # Hooks a consumer repository installs from this repository.
 #
-# Rendered from `instance/gates.json` by `scripts/render-gate-block.sh --style
-# manifest`, and held equal to that render by `gates/canon/delivered-domain.sh`.
-# Edit the declaration, not this file.
+# Rendered from the gate registry by `sdd hooks --style manifest --docs-root
+# '_?docs' --language rust`, and held equal to that render by
+# `tests/cmd_hooks.rs`. Edit the registry in `src/gates.rs`, not this file.
 #
-# A hook scoped by `files:` here states the default a consumer can narrow or
-# widen in their own `.pre-commit-config.yaml`. The comparison hooks are the
-# ones that need it: a comparison document is an ordinary markdown file, so the
-# default names the `COMPARISON-<slug>.md` convention rather than every table in
-# the repository, which would block a consumer whose README carries one.
+# `language: rust` makes pre-commit build the `sdd` binary from this
+# repository into its own hook environment, so a consumer needs cargo and
+# nothing else. A hook scoped by `files:` here states the default a consumer
+# can narrow or widen in their own `.pre-commit-config.yaml`.
 - id: adr-filename-shape
   name: 'decision record filename shape'
-  entry: gates/instance/adr-filename-shape.sh
-  language: script
+  entry: sdd gate adr-filename-shape
+  language: rust
   files: '^_?docs/decisions/.*\.md$'
 - id: adr-word-cap
   name: 'decision record word cap'
-  entry: gates/instance/adr-word-cap.sh
-  language: script
+  entry: sdd gate adr-word-cap
+  language: rust
   always_run: true
   pass_filenames: false
 - id: agents-digest-size
   name: 'agent digest size'
-  entry: gates/instance/agents-digest-size.sh
-  language: script
+  entry: sdd gate agents-digest-size
+  language: rust
   always_run: true
   pass_filenames: false
 - id: chapter-size-cap
   name: 'chapter and catalog size'
-  entry: gates/instance/chapter-size-cap.sh
-  language: script
+  entry: sdd gate chapter-size-cap
+  language: rust
   always_run: true
   pass_filenames: false
 - id: comparison-dated-tables
   name: 'comparison tables are dated'
-  entry: gates/instance/comparison-dated-tables.sh
-  language: script
+  entry: sdd gate comparison-dated-tables
+  language: rust
   files: '(^|/)COMPARISON-[a-z0-9-]+\.md$'
 - id: comparison-escaped-pipes
   name: 'comparison table pipes are escaped'
-  entry: gates/instance/comparison-escaped-pipes.sh
-  language: script
+  entry: sdd gate comparison-escaped-pipes
+  language: rust
   files: '(^|/)COMPARISON-[a-z0-9-]+\.md$'
 - id: comparison-legend
   name: 'comparison legend'
-  entry: gates/instance/comparison-legend.sh
-  language: script
+  entry: sdd gate comparison-legend
+  language: rust
   files: '(^|/)COMPARISON-[a-z0-9-]+\.md$'
 - id: comparison-one-reference-per-cell
   name: 'one reference per comparison cell'
-  entry: gates/instance/comparison-one-reference-per-cell.sh
-  language: script
+  entry: sdd gate comparison-one-reference-per-cell
+  language: rust
   files: '(^|/)COMPARISON-[a-z0-9-]+\.md$'
 - id: comparison-verdict-word
   name: 'comparison verdict word'
-  entry: gates/instance/comparison-verdict-word.sh
-  language: script
+  entry: sdd gate comparison-verdict-word
+  language: rust
   files: '(^|/)COMPARISON-[a-z0-9-]+\.md$'
 - id: gate-message-cites-a-rule
   name: 'gate messages cite a rule'
-  entry: gates/instance/gate-message-cites-a-rule.sh
-  language: script
+  entry: sdd gate gate-message-cites-a-rule
+  language: rust
   always_run: true
   pass_filenames: false
 - id: instance-manifest
   name: 'instance manifest'
-  entry: gates/instance/instance-manifest.sh
-  language: script
+  entry: sdd gate instance-manifest
+  language: rust
   always_run: true
   pass_filenames: false
 - id: ki-bugzilla-report-width
   name: 'Bugzilla report width'
-  entry: gates/instance/ki-bugzilla-report-width.sh
-  language: script
+  entry: sdd gate ki-bugzilla-report-width
+  language: rust
   always_run: true
   pass_filenames: false
 - id: ki-filename-shape
   name: 'known issue filename shape'
-  entry: gates/instance/ki-filename-shape.sh
-  language: script
+  entry: sdd gate ki-filename-shape
+  language: rust
   files: '^_?docs/reference/known-issues/.*\.md$'
 - id: ki-mechanism-walkthrough
   name: 'known issue mechanism walkthrough'
-  entry: gates/instance/ki-mechanism-walkthrough.sh
-  language: script
+  entry: sdd gate ki-mechanism-walkthrough
+  language: rust
   always_run: true
   pass_filenames: false
 - id: ki-report-body
   name: 'known issue report body'
-  entry: gates/instance/ki-report-body.sh
-  language: script
+  entry: sdd gate ki-report-body
+  language: rust
   always_run: true
   pass_filenames: false
 - id: ki-retire-when
   name: 'known issue retirement condition'
-  entry: gates/instance/ki-retire-when.sh
-  language: script
+  entry: sdd gate ki-retire-when
+  language: rust
   always_run: true
   pass_filenames: false
 - id: no-self-narration
   name: 'documents state the present'
-  entry: gates/instance/no-self-narration.sh
-  language: script
+  entry: sdd gate no-self-narration
+  language: rust
   types: [markdown]
   exclude: '^_?docs/decisions/'
 - id: spec-requirement-parts
   name: 'spec requirement parts'
-  entry: gates/instance/spec-requirement-parts.sh
-  language: script
+  entry: sdd gate spec-requirement-parts
+  language: rust
   files: '^_?docs/specs/SPEC-.*\.md$'
 - id: spec-rule-id-unique
   name: 'spec rule IDs are unique'
-  entry: gates/instance/spec-rule-id-unique.sh
-  language: script
+  entry: sdd gate spec-rule-id-unique
+  language: rust
   always_run: true
   pass_filenames: false
 - id: spec-size-cap
   name: 'spec size cap'
-  entry: gates/instance/spec-size-cap.sh
-  language: script
+  entry: sdd gate spec-size-cap
+  language: rust
   always_run: true
   pass_filenames: false
 - id: spec-verify-hooks-exist
   name: 'spec hook references exist'
-  entry: gates/instance/spec-verify-hooks-exist.sh
-  language: script
+  entry: sdd gate spec-verify-hooks-exist
+  language: rust
   always_run: true
   pass_filenames: false
 - id: suppression-names-its-case
   name: 'suppressions name a known issue'
-  entry: gates/instance/suppression-names-its-case.sh
-  language: script
+  entry: sdd gate suppression-names-its-case
+  language: rust
   always_run: true
   pass_filenames: false

@@ -224,7 +224,7 @@ rule quotes the words it forbids, and an unstripped match reports the definition
 
 ````bash
 strip() { sed '/^```/,/^```/d' "$1" | sed 's/`[^`]*`//g'; }
-awk -f gates/instance/no-self-narration.awk "$f"
+sdd gate no-self-narration "$f"
 ````
 
 The emphasis rule is the other prose rule, and it is stated without a gate; see the table below.

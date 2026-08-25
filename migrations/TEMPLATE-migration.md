@@ -9,7 +9,7 @@ Apply this guide to instances whose manifest reports `<from>`.
 1. Run offline verification.
 
    ```bash
-   .spec-driven-docs/verify.sh --target /path/to/your-project --offline
+   sdd verify --target /path/to/your-project
    ```
 
 ## Managed changes
@@ -29,7 +29,7 @@ Apply this guide to instances whose manifest reports `<from>`.
 1. Run the project gate and offline verifier.
 
    ```bash
-   .spec-driven-docs/verify.sh --target /path/to/your-project --offline
+   sdd verify --target /path/to/your-project
    ```
 
 ## Rollback

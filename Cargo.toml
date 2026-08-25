@@ -1,0 +1,98 @@
+[package]
+name = "spec-driven-docs"
+version = "0.2.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Spec-driven documentation: current specs, immutable decision records, and executable gates kept coherent for people and coding agents."
+license = "MIT AND CC-BY-4.0"
+homepage = "https://github.com/gubasso/spec-driven-docs"
+repository = "https://github.com/gubasso/spec-driven-docs"
+readme = "README.md"
+keywords = ["documentation", "pre-commit", "spec", "gates", "docs-as-code"]
+categories = ["command-line-utilities", "development-tools"]
+exclude = [
+    "/comparison-docs",
+    "/reference",
+    "/examples",
+    "/_docs/decisions",
+    "/_docs/guides",
+    "/_docs/reference",
+    "/.github",
+    "/.spec-driven-docs",
+    "/scripts",
+    "/tests",
+    "/AGENTS.md",
+    "/CLAUDE.md",
+    "/flake.nix",
+    "/flake.lock",
+    "/justfile",
+    "/deny.toml",
+    "/dist-workspace.toml",
+    "/release-plz.toml",
+    "/.pre-commit-config.yaml",
+    "/.pre-commit-hooks.yaml",
+    "/.markdownlint-cli2.jsonc",
+    "/.editorconfig",
+    "/.envrc",
+    "/.config",
+    "/dprint.json",
+    "/lychee.toml",
+    "/_typos.toml",
+    "/committed.toml",
+]
+
+[[bin]]
+name = "sdd"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0.104"
+camino = { version = "1.2.5", features = ["serde1"] }
+clap = { version = "4.6.6", features = ["derive", "env", "wrap_help"] }
+clap_complete = "4.6.9"
+clap_mangen = "0.3.3"
+hex = "0.4.3"
+include_dir = "0.7.4"
+jiff = "0.2.35"
+regex = "1.13.1"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+sha2 = "0.11.0"
+tempfile = "3.27.0"
+thiserror = "2.0.20"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
+unicode-width = "0.2.2"
+walkdir = "2.5.0"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
+
+[lints.rust]
+unused_must_use = "deny"
+unsafe_code = "forbid"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+unwrap_used = "warn"
+expect_used = "warn"
+todo = "deny"
+dbg_macro = "deny"
+unimplemented = "deny"
+panic = "deny"
+wildcard_imports = "deny"
+exit = "deny"
+
+[dev-dependencies]
+assert_cmd = "2.2.2"
+insta = { version = "1.48.0", features = ["yaml"] }
+predicates = "3.1.4"
+tempfile = "3.27.0"
