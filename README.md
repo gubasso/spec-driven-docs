@@ -22,7 +22,7 @@ Prebuilt installers ship with each GitHub release, and `cargo binstall spec-driv
 - Verify an installed instance: `sdd verify` — [instance/README.md](./instance/README.md#verify).
 - Upgrade an installed instance: `sdd upgrade` — [instance/README.md](./instance/README.md#upgrade).
 - Copy stable templates: [templates/](./templates/), or `sdd template --list`.
-- Cut a release: [_docs/guides/release.md](./_docs/guides/release.md).
+- Cut a release: [_docs/guides/release.md](./_docs/guides/release.md); first-time bootstrap: [_docs/guides/release-setup.md](./_docs/guides/release-setup.md).
 
 The `sdd` CLI is the whole interface. Nothing here is tied to a particular editor or agent.
 
