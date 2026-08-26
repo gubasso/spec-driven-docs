@@ -40,6 +40,26 @@ fn sorted_files(root: &Utf8Path, dir: &str, matches: impl Fn(&str) -> bool) -> V
         .collect()
 }
 
+/// Every `skills/<name>/SKILL.md` path in the checkout, sorted by name.
+fn skill_files(root: &Utf8Path) -> Vec<String> {
+    let mut names: Vec<String> = root
+        .join("skills")
+        .read_dir_utf8()
+        .map(|entries| {
+            entries
+                .filter_map(Result::ok)
+                .filter(|entry| entry.path().is_dir())
+                .map(|entry| entry.file_name().to_string())
+                .collect()
+        })
+        .unwrap_or_default();
+    names.sort();
+    names
+        .into_iter()
+        .map(|name| format!("skills/{name}/SKILL.md"))
+        .collect()
+}
+
 /// Regenerate `.spec-driven-docs/manifest.json` in the canon checkout.
 ///
 /// # Errors
@@ -57,6 +77,13 @@ pub fn regenerate(root: &Utf8Path) -> Result<String, AppError> {
     #[allow(clippy::case_sensitive_file_extension_comparisons)]
     let jsonc = |name: &str| name.ends_with(".jsonc");
     for path in sorted_files(root, ".markdownlint", jsonc) {
+        managed.push(ManagedEntry {
+            source: path.clone().into(),
+            destination: path.clone().into(),
+            sha256: sha256_file(&root.join(&path))?,
+        });
+    }
+    for path in skill_files(root) {
         managed.push(ManagedEntry {
             source: path.clone().into(),
             destination: path.clone().into(),

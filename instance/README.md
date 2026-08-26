@@ -31,6 +31,19 @@ repos:
       - id: spec-rule-id-unique
 ```
 
+## Skills
+
+`sdd init` lands the embedded agent skills managed at `.claude/skills/`, which Claude Code reads, and `.agents/skills/`, which Codex, Gemini CLI, and Copilot read, so every agent working in the instance carries the same operating knowledge.
+
+```bash
+sdd skill list
+sdd skill show sdd-docs
+sdd skill install
+sdd skill install --apply
+```
+
+`sdd skill install` writes the same files at user scope — `~/.claude/skills` and `~/.agents/skills` — previewing by default and refusing a destination whose bytes differ from the payload unless `--force` is given. User-scope files are never recorded in an instance manifest; the embedded payload is their reference.
+
 ## Verify
 
 ```bash

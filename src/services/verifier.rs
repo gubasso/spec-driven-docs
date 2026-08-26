@@ -23,6 +23,10 @@ pub struct VerifyReport {
     pub lines: Vec<String>,
     /// How many lines are failures.
     pub failures: usize,
+    /// How many managed files are missing, symlinked, or byte-drifted.
+    pub managed_drift: usize,
+    /// How many adopted files await reconciliation.
+    pub adopted_drift: usize,
 }
 
 impl VerifyReport {
@@ -36,7 +40,7 @@ impl VerifyReport {
     }
 }
 
-fn read_manifest(target: &Utf8Path) -> Result<Manifest, AppError> {
+pub(crate) fn read_manifest(target: &Utf8Path) -> Result<Manifest, AppError> {
     let path = target.join(MANIFEST_PATH);
     if reached_through_symlink(target, Utf8Path::new(MANIFEST_PATH)) {
         return Err(AppError::ManifestInvalid(
@@ -117,19 +121,19 @@ fn check_projection(manifest: &Manifest, report: &mut VerifyReport) {
         .iter()
         .all(|projection| managed.contains(projection.source));
 
-    let mut expected: Vec<String> = Vec::new();
+    let mut expected: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
     let mut missing: Vec<String> = Vec::new();
     if self_layout {
         for projection in declaration.managed {
-            expected.push(projection.source.to_string());
+            expected.insert(projection.source.to_string());
         }
         for file in crate::embedded::SPECS.files() {
             if let Some(name) = file.path().as_os_str().to_str() {
-                expected.push(format!("_docs/specs/{name}"));
+                expected.insert(format!("_docs/specs/{name}"));
             }
         }
-        expected.push("_docs/decisions/TEMPLATE-adr.md".to_string());
-        expected.push("_docs/reference/TEMPLATE-agents-digest.md".to_string());
+        expected.insert("_docs/decisions/TEMPLATE-adr.md".to_string());
+        expected.insert("_docs/reference/TEMPLATE-agents-digest.md".to_string());
         for destination in &expected {
             if !managed.contains(destination.as_str()) && !adopted.contains(destination.as_str()) {
                 missing.push(destination.clone());
@@ -179,6 +183,7 @@ pub fn verify(target: &Utf8Path) -> Result<VerifyReport, AppError> {
     for entry in &manifest.managed_files {
         let file = target.join(&entry.destination);
         if reached_through_symlink(target, &entry.destination) {
+            report.managed_drift += 1;
             report.fail(format!(
                 "FAIL managed file reached through a symlink: {}",
                 entry.destination
@@ -186,10 +191,12 @@ pub fn verify(target: &Utf8Path) -> Result<VerifyReport, AppError> {
             continue;
         }
         if !file.is_file() {
+            report.managed_drift += 1;
             report.fail(format!("FAIL missing managed file: {}", entry.destination));
             continue;
         }
         if sha256_file(&file)? != entry.sha256 {
+            report.managed_drift += 1;
             report.fail(format!("FAIL managed drift: {}", entry.destination));
         }
     }
@@ -208,6 +215,7 @@ pub fn verify(target: &Utf8Path) -> Result<VerifyReport, AppError> {
             continue;
         }
         if sha256_file(&file)? != entry.sha256 {
+            report.adopted_drift += 1;
             report.note(format!(
                 "DRIFT adopted file requires reconciliation: {}",
                 entry.destination

@@ -220,3 +220,50 @@ fn any_older_version_upgrades_mechanically() {
         .assert()
         .success();
 }
+
+#[test]
+fn a_stale_managed_skill_file_is_pruned() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    fixture.write(".claude/skills/old-skill/SKILL.md", "stale\n");
+    let manifest: serde_json::Value =
+        serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
+    let sha = {
+        use sha2::Digest;
+        hex::encode(sha2::Sha256::digest(
+            fixture.read(".claude/skills/old-skill/SKILL.md").as_bytes(),
+        ))
+    };
+    let mut managed = manifest["managed_files"].as_array().unwrap().clone();
+    managed.push(serde_json::json!({
+        "source": "skills/old-skill/SKILL.md",
+        "destination": ".claude/skills/old-skill/SKILL.md",
+        "sha256": sha,
+    }));
+    let mut older = manifest;
+    older["managed_files"] = serde_json::Value::Array(managed);
+    older["canon_version"] = serde_json::json!("0.1.6");
+    fixture.write(
+        ".spec-driven-docs/manifest.json",
+        &(serde_json::to_string_pretty(&older).unwrap() + "\n"),
+    );
+    fixture
+        .cmd()
+        .args(["upgrade", "--target", &fixture.target()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            "removed managed file no longer owned: .claude/skills/old-skill/SKILL.md",
+        ));
+    assert!(
+        !fixture
+            .path()
+            .join(".claude/skills/old-skill/SKILL.md")
+            .exists()
+    );
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .success();
+}

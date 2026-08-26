@@ -77,6 +77,9 @@ fn read_installed(target: &Utf8Path) -> Result<Installed, AppError> {
     }
 }
 
+/// The only roots an upgrade may remove dropped managed files from.
+const PRUNABLE: &[&str] = &[".spec-driven-docs/", ".claude/skills/", ".agents/skills/"];
+
 fn prune(
     target: &Utf8Path,
     dropped: &[Utf8PathBuf],
@@ -97,7 +100,7 @@ fn prune(
             outcome.failures += 1;
             continue;
         }
-        if !raw.starts_with(".spec-driven-docs/") {
+        if !PRUNABLE.iter().any(|prefix| raw.starts_with(prefix)) {
             continue;
         }
         let mut prefix = target.to_path_buf();

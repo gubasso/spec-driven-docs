@@ -20,6 +20,8 @@ pub static MARKDOWNLINT: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/.markd
 pub static SNIPPETS: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/instance/snippets");
 /// The method chapters and glossary.
 pub static METHOD: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/method");
+/// The cross-agent skills, one `SKILL.md` per directory.
+pub static SKILLS: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/skills");
 
 /// The combined license statement naming both halves.
 pub static LICENSE: &str = include_str!("../LICENSE");
@@ -33,7 +35,27 @@ const SOURCE_ROOTS: &[(&str, &Dir<'static>)] = &[
     ("templates/", &TEMPLATES),
     (".markdownlint/", &MARKDOWNLINT),
     ("instance/snippets/", &SNIPPETS),
+    ("skills/", &SKILLS),
 ];
+
+/// Every skill name, sorted; a name is the skill's directory.
+#[must_use]
+pub fn skill_names() -> Vec<&'static str> {
+    let mut names: Vec<&'static str> = SKILLS
+        .dirs()
+        .filter_map(|dir| dir.path().as_os_str().to_str())
+        .collect();
+    names.sort_unstable();
+    names
+}
+
+/// One skill's `SKILL.md` text, by skill name.
+#[must_use]
+pub fn skill(name: &str) -> Option<&'static str> {
+    SKILLS
+        .get_file(format!("{name}/SKILL.md"))
+        .and_then(include_dir::File::contents_utf8)
+}
 
 /// Resolve a payload source path — as a profile projection names it — to its
 /// embedded bytes.

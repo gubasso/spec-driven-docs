@@ -10,6 +10,8 @@ pub mod hooks;
 pub mod init;
 pub mod license;
 pub mod read;
+pub mod skill;
+pub mod status;
 pub mod upgrade;
 pub mod verify;
 
@@ -56,6 +58,10 @@ pub enum Commands {
     Spec(read::ReadArgs),
     /// Read a document template, or list them.
     Template(read::ReadArgs),
+    /// Read the embedded skills, or install them for coding agents.
+    Skill(skill::SkillArgs),
+    /// Report an instance's state without gating on it.
+    Status(status::StatusArgs),
     /// Print the license terms this binary carries.
     License(license::LicenseArgs),
     /// Regenerate the canon checkout's own instance manifest.
@@ -64,4 +70,13 @@ pub enum Commands {
     Completions(completions::CompletionsArgs),
     /// Render the manual page.
     Man,
+}
+
+/// Every subcommand name the binary answers to.
+#[must_use]
+pub fn subcommand_names() -> Vec<String> {
+    <Cli as clap::CommandFactory>::command()
+        .get_subcommands()
+        .map(|command| command.get_name().to_string())
+        .collect()
 }

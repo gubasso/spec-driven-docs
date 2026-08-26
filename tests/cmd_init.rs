@@ -33,6 +33,19 @@ fn installs_both_profiles_and_they_verify() {
                 .join(".spec-driven-docs/markdownlint")
                 .is_dir()
         );
+        for skill in ["sdd-docs", "sdd-authoring"] {
+            for root in [".claude/skills", ".agents/skills"] {
+                assert!(
+                    fixture
+                        .path()
+                        .join(root)
+                        .join(skill)
+                        .join("SKILL.md")
+                        .is_file(),
+                    "missing {root}/{skill}"
+                );
+            }
+        }
         fixture
             .cmd()
             .args(["verify", "--target", &fixture.target()])

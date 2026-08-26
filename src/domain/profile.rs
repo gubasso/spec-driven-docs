@@ -130,6 +130,22 @@ const MANAGED: &[Projection] = &[
         ".markdownlint/relative-links.markdownlint-cli2.jsonc",
         ".spec-driven-docs/markdownlint/relative-links.markdownlint-cli2.jsonc",
     ),
+    proj(
+        "skills/sdd-docs/SKILL.md",
+        ".claude/skills/sdd-docs/SKILL.md",
+    ),
+    proj(
+        "skills/sdd-docs/SKILL.md",
+        ".agents/skills/sdd-docs/SKILL.md",
+    ),
+    proj(
+        "skills/sdd-authoring/SKILL.md",
+        ".claude/skills/sdd-authoring/SKILL.md",
+    ),
+    proj(
+        "skills/sdd-authoring/SKILL.md",
+        ".agents/skills/sdd-authoring/SKILL.md",
+    ),
 ];
 
 const ADOPTED: &[Projection] = &[

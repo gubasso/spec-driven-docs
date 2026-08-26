@@ -8,11 +8,12 @@ This repository is the canonical knowledge product for spec-driven documentation
 - Apply stated rules and cite their `<domain>:<rule>` IDs in reports and failures.
 - Do not load `_docs/decisions/` unless someone asks why a rule exists.
 - Update the owning spec in the same change as behavior.
+- Update a skill in the same change as the behavior it describes.
 
 ## Ownership boundaries
 
-- `method/`, `comparison-docs/`, `templates/`, and `reference/` are canon product files.
-- `src/` is the distribution: the `sdd` binary embeds the payload — spec seeds, templates, `.markdownlint/` configurations, `instance/snippets/`, and `method/` — at compile time from these authored paths, so canon and binary cannot drift.
+- `method/`, `comparison-docs/`, `templates/`, `reference/`, and `skills/` are canon product files.
+- `src/` is the distribution: the `sdd` binary embeds the payload — spec seeds, templates, `.markdownlint/` configurations, `instance/snippets/`, `skills/`, and `method/` — at compile time from these authored paths, so canon and binary cannot drift.
 - The delivered gate set is declared once, in the registry in `src/gates.rs`; the managed block an instance receives and the published `.pre-commit-hooks.yaml` are both rendered from it by `sdd hooks`, and a cargo test holds the published file equal to the render.
 - Checks of invariants only this repository has — the license split, version alignment — are cargo tests under `tests/`, never delivered (ADR-split-gates-by-delivery-domain).
 - `_docs/specs/`, `_docs/decisions/`, marker-delimited integrations, and instance debt are local overlays after installation.

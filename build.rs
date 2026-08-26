@@ -12,6 +12,7 @@ fn main() {
         ".markdownlint",
         "instance/snippets",
         "method",
+        "skills",
         "LICENSE",
         "LICENSE-MIT",
         "LICENSE-CC-BY-4.0",

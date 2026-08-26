@@ -32,6 +32,16 @@ build:
 
 check: lint test build
 
+# Install this checkout as the user's sdd, plus the user-scope agent skills.
+install:
+    cargo install --path . --locked
+    sdd skill install --apply
+
+# Remove the user-scope skills this project installs, then the binary.
+uninstall:
+    sh -c 'case "${HOME:-}" in /*) ;; *) echo "HOME is not an absolute path" >&2; exit 1;; esac; rm -rf "$HOME/.claude/skills/sdd-docs" "$HOME/.claude/skills/sdd-authoring" "$HOME/.agents/skills/sdd-docs" "$HOME/.agents/skills/sdd-authoring"'
+    cargo uninstall spec-driven-docs
+
 instantiate target profile="knowledge-base":
     cargo run -q -- init --target "{{target}}" --profile "{{profile}}"
 

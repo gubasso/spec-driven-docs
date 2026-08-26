@@ -9,5 +9,7 @@ pub mod hooks_render;
 pub mod installer;
 pub mod reader;
 pub mod self_manifest;
+pub mod skill_installer;
+pub mod status;
 pub mod upgrader;
 pub mod verifier;

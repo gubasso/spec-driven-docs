@@ -72,14 +72,63 @@ impl Fixture {
 
     /// A digest of every file outside `.git/`, for byte-stability checks.
     pub fn tree_digest(&self) -> String {
-        let mut entries: Vec<(PathBuf, Vec<u8>)> = walkdir::WalkDir::new(self.dir.path())
-            .into_iter()
-            .filter_entry(|e| e.file_name() != ".git")
-            .filter_map(Result::ok)
-            .filter(|e| e.file_type().is_file())
-            .map(|e| (e.path().to_path_buf(), std::fs::read(e.path()).unwrap()))
-            .collect();
-        entries.sort();
-        format!("{entries:?}")
+        tree_digest(self.dir.path())
+    }
+}
+
+/// A digest of every file under a root outside `.git/`.
+pub fn tree_digest(root: &Path) -> String {
+    let mut entries: Vec<(PathBuf, Vec<u8>)> = walkdir::WalkDir::new(root)
+        .into_iter()
+        .filter_entry(|e| e.file_name() != ".git")
+        .filter_map(Result::ok)
+        .filter(|e| e.file_type().is_file())
+        .map(|e| (e.path().to_path_buf(), std::fs::read(e.path()).unwrap()))
+        .collect();
+    entries.sort();
+    format!("{entries:?}")
+}
+
+/// One scratch home directory for user-scope installs.
+pub struct Home {
+    dir: tempfile::TempDir,
+}
+
+impl Home {
+    /// A fresh empty home.
+    pub fn new() -> Self {
+        Self {
+            dir: tempfile::tempdir().unwrap(),
+        }
+    }
+
+    /// The home's absolute path.
+    pub fn path(&self) -> &Path {
+        self.dir.path()
+    }
+
+    /// An `sdd` invocation with `HOME` pointing at this directory.
+    pub fn cmd(&self) -> Command {
+        let mut cmd = Command::cargo_bin("sdd").unwrap();
+        cmd.env_remove("RUST_LOG");
+        cmd.env("HOME", self.dir.path());
+        cmd
+    }
+
+    /// Write a file under the home, creating parents.
+    pub fn write(&self, relative: &str, content: &str) {
+        let path = self.dir.path().join(relative);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, content).unwrap();
+    }
+
+    /// Read a file under the home.
+    pub fn read(&self, relative: &str) -> String {
+        std::fs::read_to_string(self.dir.path().join(relative)).unwrap()
+    }
+
+    /// A digest of every file, for byte-stability checks.
+    pub fn tree_digest(&self) -> String {
+        tree_digest(self.dir.path())
     }
 }

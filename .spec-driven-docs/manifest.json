@@ -20,6 +20,16 @@
       "source": ".markdownlint/spec.markdownlint-cli2.jsonc",
       "destination": ".markdownlint/spec.markdownlint-cli2.jsonc",
       "sha256": "85c5697b30b980e6f130f6dfa79960d16eb5a12c77e141ff23b63b0c0e6b055a"
+    },
+    {
+      "source": "skills/sdd-authoring/SKILL.md",
+      "destination": "skills/sdd-authoring/SKILL.md",
+      "sha256": "3f1b16cb106de9296cbd5473f7684e4dc647a81719c2f083b96f95fbb5ef9506"
+    },
+    {
+      "source": "skills/sdd-docs/SKILL.md",
+      "destination": "skills/sdd-docs/SKILL.md",
+      "sha256": "d191abf2d67f8dbc02bf85ec49dfd601bed3c8b1ada515b3cbf9fe5c67ba3107"
     }
   ],
   "adopted_files": [
@@ -38,8 +48,8 @@
     {
       "source": "_docs/specs/SPEC-distribution.md",
       "destination": "_docs/specs/SPEC-distribution.md",
-      "sha256": "a09ac25bae883639d5d206263f30c2949328c9faf4ab3ed51ea169b26ce201ea",
-      "baseline_sha256": "a09ac25bae883639d5d206263f30c2949328c9faf4ab3ed51ea169b26ce201ea"
+      "sha256": "1006b5f3eb539d0c2fc56d0a68cc1f384ba692acccc2c0d0943a450ffafbb394",
+      "baseline_sha256": "1006b5f3eb539d0c2fc56d0a68cc1f384ba692acccc2c0d0943a450ffafbb394"
     },
     {
       "source": "_docs/specs/SPEC-docs-format.md",
@@ -93,7 +103,7 @@
   "integration_blocks": [
     {
       "path": ".pre-commit-config.yaml",
-      "marker_hash": "b5cab37cc063ad7e875f3cc84bcbb7a44a159ba2075fdb10453f5045997aa306"
+      "marker_hash": "fa925b0664297aa98339c969e18831dd8824f1cadc0cce8f0c55611a3332db09"
     }
   ]
 }

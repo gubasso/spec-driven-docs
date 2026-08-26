@@ -38,6 +38,8 @@ fn run(cli: Cli) -> Result<(), AppError> {
         Commands::Method(args) => commands::read::run(&ctx, &reader::METHOD, args),
         Commands::Spec(args) => commands::read::run(&ctx, &reader::SPECS, args),
         Commands::Template(args) => commands::read::run(&ctx, &reader::TEMPLATES, args),
+        Commands::Skill(args) => commands::skill::run(&ctx, args),
+        Commands::Status(args) => commands::status::run(&ctx, args),
         Commands::License(args) => commands::license::run(&ctx, args),
         Commands::SelfManifest => commands::self_manifest::run(&ctx),
         Commands::Completions(args) => commands::completions::run(&ctx, args),

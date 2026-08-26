@@ -13,5 +13,7 @@ pub mod license;
 pub mod man;
 pub mod read;
 pub mod self_manifest;
+pub mod skill;
+pub mod status;
 pub mod upgrade;
 pub mod verify;
