@@ -108,6 +108,7 @@
   entry: sdd gate prose-stays-unwrapped
   language: rust
   types: [markdown]
+  exclude: '(?:^|/)CHANGELOG\.md$'
 - id: spec-requirement-parts
   name: 'spec requirement parts'
   entry: sdd gate spec-requirement-parts

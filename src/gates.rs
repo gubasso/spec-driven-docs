@@ -331,7 +331,7 @@ pub static GATES: &[GateSpec] = &[
         name: "prose lines stay unwrapped",
         files: None,
         types: Some("markdown"),
-        exclude: None,
+        exclude: Some(r"(?:^|/)CHANGELOG\.md$"),
         always_run: false,
         cites: prose_stays_unwrapped::CITES,
         run: prose_stays_unwrapped::run,

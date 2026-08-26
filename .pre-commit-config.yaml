@@ -109,6 +109,7 @@ repos:
         entry: cargo run -q -- gate prose-stays-unwrapped
         language: system
         types: [markdown]
+        exclude: '(?:^|/)CHANGELOG\.md$'
       - id: adr-filename-shape
         name: decision record filename shape
         entry: cargo run -q -- gate adr-filename-shape

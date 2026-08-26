@@ -82,6 +82,8 @@ Verify: `pre-commit run markdownlint-cli2 --all-files`
 
 The author MUST keep each paragraph, list item, and blockquote paragraph on one source line, leaving fenced code, tables, and explicit hard breaks as the only multi-line constructs.
 
+A generated `CHANGELOG.md` is exempt: the rule binds the author, and a release tool writes that file at its own wrap width.
+
 #### Scenario: A paragraph is hard-wrapped at a column width
 
 - GIVEN a paragraph broken across source lines at an arbitrary column
