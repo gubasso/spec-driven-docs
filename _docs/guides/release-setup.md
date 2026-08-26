@@ -60,7 +60,7 @@ Every command below is a script under `scripts/release-setup/`, run from the rep
       scripts/release-setup/ruleset-master
       ```
 
-   2. Protect `develop`, which release-plz only ever pushes ordinary commits to:
+   2. Protect `develop`, which nothing in the pipeline force-pushes or deletes:
 
       ```bash
       scripts/release-setup/ruleset-develop

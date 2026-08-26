@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
-# Protect develop: no force pushes, no deletion. release-plz pushes ordinary
-# commits here, so it needs no bypass. Rerunning updates in place.
+# Protect develop: no force pushes, no deletion. Nothing in the pipeline writes
+# to develop, so it needs no bypass. Rerunning updates in place.
 set -eu
 cd "$(dirname "$0")/../.."
 : "${SDD_REPO:?run: direnv allow (it derives the slug from Cargo.toml)}"
