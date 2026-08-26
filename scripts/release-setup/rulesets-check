@@ -1,0 +1,18 @@
+#!/usr/bin/env sh
+# Verify the three rulesets exist and that the app landed as a bypass actor:
+# a wrong App ID is otherwise invisible until a release tries to push master.
+set -eu
+cd "$(dirname "$0")/../.."
+: "${SDD_REPO:?run: direnv allow (it derives the slug from Cargo.toml)}"
+
+echo 'check: lists master-protection, develop-protection, release-tags'
+gh api "repos/$SDD_REPO/rulesets" -q '.[].name'
+
+id="$(gh api "repos/$SDD_REPO/rulesets" -q '.[] | select(.name=="master-protection") | .id')"
+if [ -z "$id" ]; then
+  echo 'FAIL master-protection does not exist' >&2
+  echo 'remediation: run scripts/release-setup/ruleset-master' >&2
+  exit 1
+fi
+echo 'check: prints the app id with actor_type Integration'
+gh api "repos/$SDD_REPO/rulesets/$id" -q '.bypass_actors[]'

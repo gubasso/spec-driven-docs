@@ -1,0 +1,30 @@
+#!/usr/bin/env sh
+# Make release tags immutable: v* can be created but never moved or deleted.
+# Rerunning updates in place.
+set -eu
+cd "$(dirname "$0")/../.."
+: "${SDD_REPO:?run: direnv allow (it derives the slug from Cargo.toml)}"
+
+name=release-tags
+id="$(gh api "repos/$SDD_REPO/rulesets" -q ".[] | select(.name == \"$name\") | .id" | head -n 1)"
+
+if [ -n "$id" ]; then
+  gh api -X PUT "repos/$SDD_REPO/rulesets/$id" --input - >/dev/null
+else
+  gh api -X POST "repos/$SDD_REPO/rulesets" --input - >/dev/null
+fi <<JSON
+{
+  "name": "$name",
+  "target": "tag",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": { "include": ["refs/tags/v*"], "exclude": [] }
+  },
+  "rules": [
+    { "type": "deletion" },
+    { "type": "update" }
+  ]
+}
+JSON
+
+echo "ok $name"

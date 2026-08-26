@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+# Delete main, now that the first automated release created master.
+set -eu
+cd "$(dirname "$0")/../.."
+: "${SDD_REPO:?run: direnv allow (it derives the slug from Cargo.toml)}"
+
+gh api -X DELETE "repos/$SDD_REPO/git/refs/heads/main"
+echo 'check: prints nothing'
+git ls-remote --heads origin main

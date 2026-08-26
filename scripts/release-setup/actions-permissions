@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+# Let Actions write and open pull requests, so the workflow can act on the
+# default branch.
+set -eu
+cd "$(dirname "$0")/../.."
+: "${SDD_REPO:?run: direnv allow (it derives the slug from Cargo.toml)}"
+
+gh api -X PUT "repos/$SDD_REPO/actions/permissions/workflow" \
+  -f default_workflow_permissions=write \
+  -F can_approve_pull_request_reviews=true
+echo 'check: prints "write true"'
+gh api "repos/$SDD_REPO/actions/permissions/workflow" \
+  -q '"\(.default_workflow_permissions) \(.can_approve_pull_request_reviews)"'

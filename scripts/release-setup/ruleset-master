@@ -1,0 +1,43 @@
+#!/usr/bin/env sh
+# Protect master. Integration is the actor type for a GitHub App, and always
+# bypasses direct pushes too, which the promote job needs. Rerunning updates
+# the existing ruleset rather than adding a second one under the same name.
+set -eu
+cd "$(dirname "$0")/../.."
+: "${SDD_REPO:?run: direnv allow (it derives the slug from Cargo.toml)}"
+: "${SDD_APP_ID:?export it in .envrc.local; the App ID is on https://github.com/settings/apps/gubasso-ci-bot}"
+
+name=master-protection
+id="$(gh api "repos/$SDD_REPO/rulesets" -q ".[] | select(.name == \"$name\") | .id" | head -n 1)"
+
+if [ -n "$id" ]; then
+  gh api -X PUT "repos/$SDD_REPO/rulesets/$id" --input - >/dev/null
+else
+  gh api -X POST "repos/$SDD_REPO/rulesets" --input - >/dev/null
+fi <<JSON
+{
+  "name": "$name",
+  "target": "branch",
+  "enforcement": "active",
+  "bypass_actors": [
+    { "actor_id": $SDD_APP_ID, "actor_type": "Integration", "bypass_mode": "always" }
+  ],
+  "conditions": {
+    "ref_name": { "include": ["refs/heads/master"], "exclude": [] }
+  },
+  "rules": [
+    { "type": "deletion" },
+    { "type": "non_fast_forward" },
+    { "type": "required_linear_history" },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": false,
+        "required_status_checks": [{ "context": "test" }]
+      }
+    }
+  ]
+}
+JSON
+
+echo "ok $name"

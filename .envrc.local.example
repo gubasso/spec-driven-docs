@@ -1,0 +1,14 @@
+# shellcheck shell=bash
+# Developer-specific values for the release-setup scripts. Gitignored: this
+# file names a private key on this machine and is never committed.
+#
+# Both are empty on purpose — each script guards on its own variables, so an
+# unfilled value fails loudly instead of reaching the GitHub API.
+
+# The App ID, from the "About" section of
+# https://github.com/settings/apps/gubasso-ci-bot
+export SDD_APP_ID=''
+
+# Absolute path to the private key downloaded from the same page, e.g.
+# /home/you/Downloads/gubasso-ci-bot.2026-08-26.private-key.pem
+export SDD_APP_PEM=''
