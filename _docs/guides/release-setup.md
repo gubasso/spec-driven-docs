@@ -60,7 +60,7 @@ Every command below is a script under `scripts/release-setup/`, run from the rep
       scripts/release-setup/ruleset-master
       ```
 
-   2. Protect `develop`, which nothing in the pipeline force-pushes or deletes:
+   2. Protect `develop`, which nothing in the pipeline force-pushes or deletes. It carries no required status check, because one would also reject the direct push that opens a release; the release recipe gates that merge instead (ADR-gate-the-release-merge-in-the-recipe):
 
       ```bash
       scripts/release-setup/ruleset-develop
@@ -72,7 +72,7 @@ Every command below is a script under `scripts/release-setup/`, run from the rep
       scripts/release-setup/ruleset-tags
       ```
 
-   4. Check all three exist and that the bypass actor landed:
+   4. Check the rulesets are exactly these three, with no fourth that no script owns, and that the bypass actor landed:
 
       ```bash
       scripts/release-setup/rulesets-check

@@ -1,18 +1,46 @@
 #!/usr/bin/env sh
-# Verify the three rulesets exist and that the app landed as a bypass actor:
-# a wrong App ID is otherwise invisible until a release tries to push master.
+# Verify the rulesets are exactly the three these scripts own, and that the app
+# landed as a bypass actor: a wrong App ID is invisible until a release tries to
+# push master, and a ruleset no script owns is protection nothing here can
+# reproduce or explain.
 set -eu
 cd "$(dirname "$0")/../.."
 : "${SDD_REPO:?run: direnv allow (it derives the slug from Cargo.toml)}"
 
-echo 'check: lists master-protection, develop-protection, release-tags'
-gh api "repos/$SDD_REPO/rulesets" -q '.[].name'
+names="$(gh api "repos/$SDD_REPO/rulesets" -q '.[].name' | sort)"
+extra="$names"
+status=0
 
-id="$(gh api "repos/$SDD_REPO/rulesets" -q '.[] | select(.name=="master-protection") | .id')"
-if [ -z "$id" ]; then
-  echo 'FAIL master-protection does not exist' >&2
-  echo 'remediation: run scripts/release-setup/ruleset-master' >&2
-  exit 1
+for pair in develop-protection:ruleset-develop master-protection:ruleset-master release-tags:ruleset-tags; do
+  name="${pair%%:*}"
+  extra="$(printf '%s\n' "$extra" | grep -vxF "$name" || true)"
+  if printf '%s\n' "$names" | grep -qxF "$name"; then
+    echo "ok $name"
+    continue
+  fi
+  echo "FAIL missing ruleset: $name" >&2
+  echo "remediation: run scripts/release-setup/${pair#*:}" >&2
+  status=1
+done
+
+if [ -n "$extra" ]; then
+  echo 'FAIL rulesets no script owns:' >&2
+  printf '%s\n' "$extra" >&2
+  echo "remediation: delete each one at https://github.com/$SDD_REPO/settings/rules" >&2
+  status=1
 fi
-echo 'check: prints the app id with actor_type Integration'
-gh api "repos/$SDD_REPO/rulesets/$id" -q '.bypass_actors[]'
+
+id="$(gh api "repos/$SDD_REPO/rulesets" -q '.[] | select(.name=="master-protection") | .id' | head -n 1)"
+if [ -n "$id" ]; then
+  actor="$(gh api "repos/$SDD_REPO/rulesets/$id" -q '.bypass_actors[] | select(.actor_type=="Integration") | .actor_id' | head -n 1)"
+  if [ -n "$actor" ]; then
+    echo "ok master-protection bypass actor: app $actor"
+  else
+    echo 'FAIL master-protection has no Integration bypass actor' >&2
+    echo 'remediation: set SDD_APP_ID in .envrc.local, then run scripts/release-setup/ruleset-master' >&2
+    status=1
+  fi
+fi
+
+[ "$status" -eq 0 ] || exit 1
+echo 'ok rulesets-check'
