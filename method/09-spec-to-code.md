@@ -122,6 +122,6 @@ Two rules in this chapter no command can decide: that a unit of work which chang
 - GitHub Spec Kit, on tests written first and confirmed to fail before implementation: <https://github.com/github/spec-kit/blob/main/spec-driven.md>
 - OpenSpec, for the `ADDED` / `MODIFIED` / `REMOVED` delta typing: <https://github.com/Fission-AI/OpenSpec/blob/main/docs/concepts.md>
 - AWS Kiro, on tasks tracing to requirement identifiers: <https://kiro.dev/docs/specs/>
-- StrictDoc, for the relation marker in a source comment and its implementation and verification roles: <https://strictdoc.readthedocs.io/en/stable/sphinx/strictdoc_01_user_guide.html>
+- StrictDoc, for the relation marker in a source comment and its implementation and verification roles: <https://strictdoc.readthedocs.io/en/stable/stable/docs/strictdoc_01_user_guide.html>
 - OpenFastTrace, for coverage tags written as source comments against specification item ids: <https://github.com/itsallcode/openfasttrace>
 - DO-178C, on every source code element tracing back to a requirement: <https://www.parasoft.com/learning-center/do-178c/requirements-traceability/>
