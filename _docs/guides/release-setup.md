@@ -86,10 +86,11 @@ Every command below is a script under `scripts/release-setup/`, run from the rep
       scripts/publish-dry
       ```
 
-   2. Create a scoped token at <https://crates.io/settings/tokens>.
-      - Scopes: `publish-new`.
-      - Crates: leave unrestricted; the crate does not exist yet.
-      - Expiry: the shortest offered; step 7 revokes it either way.
+   2. Create a token at <https://crates.io/settings/tokens/new>, then Generate Token and copy it; crates.io shows it once.
+      - Name: `spec-driven-docs-bootstrap`.
+      - Expiration: `7 days`.
+      - Scopes: `publish-new` only.
+      - Crates: Add pattern, `spec-driven-docs`. Patterns match per request, so a crate that does not exist yet is fine; the "matches no crate you own" warning is expected.
    3. Authenticate and publish:
 
       ```bash

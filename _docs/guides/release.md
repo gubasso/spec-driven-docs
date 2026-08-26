@@ -1,42 +1,37 @@
 # Release
 
-Day-to-day release workflow. First time on a repository: complete [release-setup.md](./release-setup.md) first.
+Day-to-day release workflow. First time on a repository: [release-setup.md](./release-setup.md).
 
-`Cargo.toml` is the version source of truth. release-plz reads Conventional Commits, bumps the version, writes the changelog, tags, and publishes. Never author a tag; never move a published tag or version — fix a bad release with the next version.
+`Cargo.toml` is the version source of truth. release-plz reads Conventional Commits, bumps the version, writes the changelog, tags, and publishes. Never author a tag; never move a published one — fix a bad release with the next version.
 
-1. Land the work on `develop` with Conventional Commit messages (`feat:` bumps minor, `fix:` bumps patch) and a green tree:
+1. Land the work on `develop` with Conventional Commit messages (`feat:` bumps minor, `fix:` bumps patch):
 
    ```bash
    just check
    ```
 
-2. Push `develop`. release-plz opens the release pull request carrying the version bump, the changelog, and the regenerated canon manifest:
+2. Push. release-plz opens the release pull request:
 
    ```bash
    git push origin develop
-   # check: latest run completed with success
+   # check: run succeeded, release pull request is open
    gh run list --repo gubasso/spec-driven-docs --workflow release-plz.yml --limit 1
-   # check: the release pull request is open
    gh pr list --repo gubasso/spec-driven-docs --state open
    ```
 
-3. Merge the release pull request. Automation tags `v<version>`, publishes to crates.io over OIDC, builds the installers, and fast-forwards `master` to the tag:
+3. Merge it. Automation tags `v<version>`, publishes over OIDC, builds installers, fast-forwards `master`:
 
    ```bash
    gh pr merge <pr number> --repo gubasso/spec-driven-docs --squash
-   # check: the post-merge run completed with success
+   # check: post-merge run succeeded
    gh run list --repo gubasso/spec-driven-docs --workflow release-plz.yml --limit 1
    ```
 
-4. Verify the release landed everywhere:
+4. Verify:
 
    ```bash
-   # check: crates.io serves the new version
-   cargo info spec-driven-docs
-   # check: the GitHub release exists with installers attached
-   gh release view v<version> --repo gubasso/spec-driven-docs
-   # check: master sits on the tag
-   git fetch origin && git rev-parse v<version> origin/master
-   # check: the installed binary reports the new version
-   sdd --version
+   cargo info spec-driven-docs                                    # crates.io serves the new version
+   gh release view v<version> --repo gubasso/spec-driven-docs     # release exists, installers attached
+   git fetch origin && git rev-parse v<version> origin/master     # master sits on the tag
+   sdd --version                                                  # installed binary reports it
    ```
