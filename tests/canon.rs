@@ -242,11 +242,11 @@ fn every_sdd_invocation_a_skill_cites_names_a_real_subcommand() {
 
 /// SATISFIES distribution:skills-are-part-of-the-payload
 #[test]
-fn the_sdd_docs_skill_quotes_the_agents_snippet_verbatim() {
+fn the_sdd_setup_skill_quotes_the_agents_snippet_verbatim() {
     let snippet = read("instance/snippets/AGENTS-docs.md");
-    let skill = read("skills/sdd-docs/SKILL.md");
+    let skill = read("skills/sdd-setup/SKILL.md");
     assert!(
         skill.contains(snippet.trim_end()),
-        "skills/sdd-docs/SKILL.md no longer quotes instance/snippets/AGENTS-docs.md"
+        "skills/sdd-setup/SKILL.md no longer quotes instance/snippets/AGENTS-docs.md"
     );
 }

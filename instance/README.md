@@ -37,7 +37,7 @@ repos:
 
 ```bash
 sdd skill list
-sdd skill show sdd-docs
+sdd skill show sdd-setup
 sdd skill install
 sdd skill install --apply
 ```

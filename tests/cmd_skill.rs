@@ -16,10 +16,10 @@ use predicates::prelude::*;
 use support::{Fixture, Home};
 
 const DESTINATIONS: &[&str] = &[
-    ".agents/skills/sdd-authoring/SKILL.md",
-    ".agents/skills/sdd-docs/SKILL.md",
-    ".claude/skills/sdd-authoring/SKILL.md",
-    ".claude/skills/sdd-docs/SKILL.md",
+    ".agents/skills/sdd-setup/SKILL.md",
+    ".agents/skills/sdd-write-docs/SKILL.md",
+    ".claude/skills/sdd-setup/SKILL.md",
+    ".claude/skills/sdd-write-docs/SKILL.md",
 ];
 
 #[test]
@@ -29,17 +29,17 @@ fn list_prints_every_skill_name_one_per_line() {
         .args(["skill", "list"])
         .assert()
         .success()
-        .stdout("sdd-authoring\nsdd-docs\n");
+        .stdout("sdd-setup\nsdd-write-docs\n");
 }
 
 #[test]
 fn show_prints_the_frontmatter_and_body() {
     let home = Home::new();
     home.cmd()
-        .args(["skill", "show", "sdd-docs"])
+        .args(["skill", "show", "sdd-setup"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("name: sdd-docs"))
+        .stdout(predicate::str::contains("name: sdd-setup"))
         .stdout(predicate::str::contains("## Land an instance"));
 }
 
@@ -86,8 +86,8 @@ fn install_apply_writes_both_roots_for_all_agents() {
         );
     }
     assert_eq!(
-        home.read(".claude/skills/sdd-docs/SKILL.md"),
-        home.read(".agents/skills/sdd-docs/SKILL.md")
+        home.read(".claude/skills/sdd-setup/SKILL.md"),
+        home.read(".agents/skills/sdd-setup/SKILL.md")
     );
 }
 
@@ -100,7 +100,7 @@ fn install_apply_for_claude_writes_one_root() {
         .success();
     assert!(
         home.path()
-            .join(".claude/skills/sdd-docs/SKILL.md")
+            .join(".claude/skills/sdd-setup/SKILL.md")
             .is_file()
     );
     assert!(!home.path().join(".agents").exists());
@@ -129,16 +129,18 @@ fn conflicting_destinations_refuse_atomically_listing_every_conflict() {
         .args(["skill", "install", "--apply"])
         .assert()
         .success();
-    home.write(".claude/skills/sdd-docs/SKILL.md", "edited\n");
-    home.write(".agents/skills/sdd-authoring/SKILL.md", "edited\n");
+    home.write(".claude/skills/sdd-setup/SKILL.md", "edited\n");
+    home.write(".agents/skills/sdd-write-docs/SKILL.md", "edited\n");
     let digest = home.tree_digest();
     home.cmd()
         .args(["skill", "install", "--apply"])
         .assert()
         .code(73)
-        .stderr(predicate::str::contains(".claude/skills/sdd-docs/SKILL.md"))
         .stderr(predicate::str::contains(
-            ".agents/skills/sdd-authoring/SKILL.md",
+            ".claude/skills/sdd-setup/SKILL.md",
+        ))
+        .stderr(predicate::str::contains(
+            ".agents/skills/sdd-write-docs/SKILL.md",
         ))
         .stderr(predicate::str::contains("--force"));
     assert_eq!(digest, home.tree_digest());
@@ -151,14 +153,14 @@ fn force_overwrites_a_conflicting_destination() {
         .args(["skill", "install", "--apply"])
         .assert()
         .success();
-    home.write(".claude/skills/sdd-docs/SKILL.md", "edited\n");
+    home.write(".claude/skills/sdd-setup/SKILL.md", "edited\n");
     home.cmd()
         .args(["skill", "install", "--apply", "--force"])
         .assert()
         .success();
     assert!(
-        home.read(".claude/skills/sdd-docs/SKILL.md")
-            .contains("name: sdd-docs")
+        home.read(".claude/skills/sdd-setup/SKILL.md")
+            .contains("name: sdd-setup")
     );
 }
 
@@ -234,7 +236,7 @@ fn uninstall_apply_removes_payload_files_and_keeps_foreign_ones() {
         .args(["skill", "install", "--apply"])
         .assert()
         .success();
-    home.write(".claude/skills/sdd-docs/notes.md", "mine\n");
+    home.write(".claude/skills/sdd-setup/notes.md", "mine\n");
     home.cmd()
         .args(["skill", "uninstall", "--apply"])
         .assert()
@@ -246,9 +248,9 @@ fn uninstall_apply_removes_payload_files_and_keeps_foreign_ones() {
             "left behind {destination}"
         );
     }
-    assert!(!home.path().join(".agents/skills/sdd-docs").exists());
-    assert!(!home.path().join(".claude/skills/sdd-authoring").exists());
-    assert_eq!(home.read(".claude/skills/sdd-docs/notes.md"), "mine\n");
+    assert!(!home.path().join(".agents/skills/sdd-setup").exists());
+    assert!(!home.path().join(".claude/skills/sdd-write-docs").exists());
+    assert_eq!(home.read(".claude/skills/sdd-setup/notes.md"), "mine\n");
 }
 
 #[test]
@@ -262,10 +264,10 @@ fn uninstall_for_claude_leaves_the_other_root_alone() {
         .args(["skill", "uninstall", "--agent", "claude", "--apply"])
         .assert()
         .success();
-    assert!(!home.path().join(".claude/skills/sdd-docs").exists());
+    assert!(!home.path().join(".claude/skills/sdd-setup").exists());
     assert!(
         home.path()
-            .join(".agents/skills/sdd-docs/SKILL.md")
+            .join(".agents/skills/sdd-setup/SKILL.md")
             .is_file()
     );
 }

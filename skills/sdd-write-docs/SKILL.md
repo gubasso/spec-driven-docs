@@ -1,11 +1,11 @@
 ---
-name: sdd-authoring
+name: sdd-write-docs
 description: Authors documentation governed by spec-driven-docs, covering current specs, immutable decision records, agent digests, comparison documents, and known-issue records. Use when writing or editing docs in a repository that carries a .spec-driven-docs/ directory, when a pre-commit documentation gate fails citing a domain:rule ID, or when a task mentions SPEC files, ADRs, EARS requirements, sdd method, sdd spec, or sdd template.
 license: CC-BY-4.0
 compatibility: Requires the sdd binary on PATH; install with cargo install spec-driven-docs or cargo binstall spec-driven-docs.
 ---
 
-# sdd-authoring
+# sdd-write-docs
 
 Author documentation by the spec-driven-docs method. The rules live in the instance's specs and in the binary; read them with the CLI instead of restating them, because the spec text is the owner.
 

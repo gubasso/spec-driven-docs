@@ -161,8 +161,8 @@ mod tests {
             assert!(message.contains(name), "{message} misses {name}");
         }
         install(std::slice::from_ref(&skills), true, true).unwrap();
-        let text = std::fs::read_to_string(skills.join("sdd-docs/SKILL.md")).unwrap();
-        assert!(text.contains("name: sdd-docs"));
+        let text = std::fs::read_to_string(skills.join("sdd-setup/SKILL.md")).unwrap();
+        assert!(text.contains("name: sdd-setup"));
     }
 
     #[test]
@@ -170,17 +170,17 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let skills = root(&dir).join(".claude/skills");
         install(std::slice::from_ref(&skills), true, false).unwrap();
-        std::fs::write(skills.join("sdd-docs/notes.md"), "mine").unwrap();
+        std::fs::write(skills.join("sdd-setup/notes.md"), "mine").unwrap();
 
         let preview = uninstall(std::slice::from_ref(&skills), false).unwrap();
         assert_eq!(preview.last().unwrap(), "DRY RUN: no files removed");
-        assert!(skills.join("sdd-docs/SKILL.md").is_file());
+        assert!(skills.join("sdd-setup/SKILL.md").is_file());
 
         let lines = uninstall(std::slice::from_ref(&skills), true).unwrap();
-        assert!(!skills.join("sdd-docs/SKILL.md").exists());
-        assert!(!skills.join("sdd-authoring").exists());
+        assert!(!skills.join("sdd-setup/SKILL.md").exists());
+        assert!(!skills.join("sdd-write-docs").exists());
         assert_eq!(
-            std::fs::read_to_string(skills.join("sdd-docs/notes.md")).unwrap(),
+            std::fs::read_to_string(skills.join("sdd-setup/notes.md")).unwrap(),
             "mine"
         );
         assert!(

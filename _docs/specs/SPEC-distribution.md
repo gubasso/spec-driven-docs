@@ -100,7 +100,7 @@ When run without `--apply`, `sdd skill install` MUST list every destination and 
 
 #### Scenario: A home directory already carries an edited skill
 
-- GIVEN `~/.claude/skills/sdd-docs/SKILL.md` with locally changed bytes
+- GIVEN `~/.claude/skills/sdd-setup/SKILL.md` with locally changed bytes
 - WHEN `sdd skill install --apply` runs
 - THEN it exits 73 listing every conflicting destination, writes no file, and states `--force` as the override
 
@@ -112,7 +112,7 @@ When run without `--apply`, `sdd skill uninstall` MUST list every removal and de
 
 #### Scenario: A skill directory carries a user's own note
 
-- GIVEN an installed `~/.claude/skills/sdd-docs/` holding `SKILL.md` and a hand-written `notes.md`
+- GIVEN an installed `~/.claude/skills/sdd-setup/` holding `SKILL.md` and a hand-written `notes.md`
 - WHEN `sdd skill uninstall --apply` runs
 - THEN `SKILL.md` is removed, `notes.md` and its directory remain, and the kept directory is named in the output
 
