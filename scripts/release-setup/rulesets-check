@@ -33,34 +33,39 @@ fi
 id="$(gh api "repos/$SDD_REPO/rulesets" -q '.[] | select(.name=="master-protection") | .id' | head -n 1)"
 if [ -n "$id" ]; then
   body="$(gh api "repos/$SDD_REPO/rulesets/$id")"
-  types="$(printf '%s' "$body" | jq -r '.rules[].type')"
 
-  for want in pull_request required_status_checks; do
-    if printf '%s\n' "$types" | grep -qxF "$want"; then
-      echo "ok master-protection rule: $want"
+  check() {
+    label="$1"
+    expected="$2"
+    remedy="$3"
+    actual="$(printf '%s' "$body" | jq -r "$4")"
+    if [ "$actual" = "$expected" ]; then
+      echo "ok master-protection $label"
     else
-      echo "FAIL master-protection has no $want rule" >&2
-      echo 'remediation: run scripts/release-setup/ruleset-master' >&2
+      echo "FAIL master-protection $label: expected $expected, got $actual" >&2
+      echo "remediation: $remedy" >&2
       status=1
     fi
-  done
+  }
 
-  if printf '%s\n' "$types" | grep -qxF required_linear_history; then
-    echo 'FAIL master-protection still requires linear history' >&2
-    echo 'remediation: GitHub offers no fast-forward merge, so the rule rejects every release merge; run scripts/release-setup/ruleset-master' >&2
-    status=1
-  else
-    echo 'ok master-protection allows a merge commit'
-  fi
+  rerun='run scripts/release-setup/ruleset-master'
 
-  methods="$(printf '%s' "$body" | jq -r '.rules[] | select(.type=="pull_request") | .parameters.allowed_merge_methods[]?')"
-  if printf '%s\n' "$methods" | grep -qxF merge; then
-    echo 'ok master-protection allows the merge method'
-  else
-    echo 'FAIL master-protection does not allow the merge method' >&2
-    echo 'remediation: rebase and squash make master diverge from develop; run scripts/release-setup/ruleset-master' >&2
-    status=1
-  fi
+  check 'names no bypass actor' 0 "$rerun" '.bypass_actors | length'
+  check 'requires a pull request' true "$rerun" '[.rules[].type] | contains(["pull_request"])'
+  check 'requires a status check' true "$rerun" '[.rules[].type] | contains(["required_status_checks"])'
+  check 'allows a merge commit' false \
+    'GitHub offers no fast-forward merge, so linear history rejects every release merge; '"$rerun" \
+    '[.rules[].type] | contains(["required_linear_history"])'
+  check 'allows only the merge method' '["merge"]' \
+    'rebase and squash make master diverge from develop; '"$rerun" \
+    '[.rules[] | select(.type=="pull_request") | .parameters.allowed_merge_methods] | first // [] | sort | tojson'
+  check 'requires the test check' test "$rerun" \
+    '[.rules[] | select(.type=="required_status_checks") | .parameters.required_status_checks[].context] | join(",")'
+  check 'asks no approval for unattributed changes' false \
+    'an unattributed align-manifest commit would demand an approval the rule set never asks for; '"$rerun" \
+    '[.rules[] | select(.type=="pull_request") | .parameters.require_extra_approval_for_unattributed_changes] | first'
+  check 'asks for no approving review' 0 "$rerun" \
+    '[.rules[] | select(.type=="pull_request") | .parameters.required_approving_review_count] | first'
 fi
 
 [ "$status" -eq 0 ] || exit 1

@@ -4,7 +4,7 @@ Day-to-day release workflow. First time on a repository: [release-setup.md](./re
 
 `Cargo.toml` is the version source of truth. release-plz reads Conventional Commits, bumps the version, writes the changelog, tags, and publishes. Never author a tag; never move a published one — fix a bad release with the next version.
 
-A release takes two pull requests. The first, which release-plz opens against `develop`, carries the version bump and the changelog, and merging it publishes nothing. The second, `develop` into `master`, is the gate: `master` takes no direct push and requires a passing `test` check, and merging it is what tags and publishes (ADR-cut-the-release-from-master).
+A release takes two pull requests. The first, which release-plz opens against `develop`, carries the version bump and the changelog, and merging it publishes nothing. The second is the gate: automation cuts `release/v<version>` at that merged commit and opens it into `master`, which takes no direct push and requires a passing `test` check, and merging it is what tags and publishes (ADR-cut-the-release-from-master). The gate branch is pinned to one commit, so work landing on `develop` while it is open never joins the release.
 
 1. Land the work on `develop` with Conventional Commit messages (`feat:` bumps minor, `fix:` bumps patch):
 
@@ -27,23 +27,23 @@ A release takes two pull requests. The first, which release-plz opens against `d
    gh pr merge <pr number> --repo gubasso/spec-driven-docs --squash --delete-branch
    ```
 
-4. Wait for the release gate. That merge pushes `develop`, and the `open-release-gate` job opens the `develop` into `master` pull request because the new version carries no tag yet:
+4. Wait for the release gate. That merge pushes `develop`, and the `open-release-gate` job cuts `release/v<version>` at the merged commit and opens it into `master`, because the new version carries no tag yet:
 
    ```bash
-   # check: a pull request titled "release v<version>" with base master
+   # check: a pull request titled "release v<version>", base master, head release/v<version>
    gh pr list --repo gubasso/spec-driven-docs --base master --state open
    ```
 
-5. Merge the gate, once its checks are green. `master-protection` refuses the merge on its own while `test` is failing, and `gh pr checks --watch` blocks until every check settles and exits non-zero on a failure. The merge must be a merge commit: GitHub offers no fast-forward merge method, and a rebase or squash would make `master` diverge from `develop` permanently. Never pass `--delete-branch` here, because the head branch is `develop`. Merging tags `v<version>` on `master`, publishes over OIDC, and builds installers:
+5. Merge the gate, once its checks are green. `master-protection` refuses the merge on its own while `test` is failing, and `gh pr checks --watch` blocks until every check settles and exits non-zero on a failure. The merge must be a merge commit: GitHub offers no fast-forward merge method, and a rebase or squash would make `master` diverge from `develop` permanently. Merging tags `v<version>` on `master`, publishes over OIDC, and builds installers:
 
    ```bash
    gh pr checks <pr number> --repo gubasso/spec-driven-docs --watch \
-     && gh pr merge <pr number> --repo gubasso/spec-driven-docs --merge
+     && gh pr merge <pr number> --repo gubasso/spec-driven-docs --merge --delete-branch
    # check: post-merge run on master succeeded
    gh run list --repo gubasso/spec-driven-docs --workflow release-plz.yml --limit 1
    ```
 
-6. Back-merge, so `develop` reaches the tagged commit and the next release diffs cleanly. The merge commit's first parent is develop's old tip, so this is a fast-forward. Do it once the tag exists, or the gate reopens on an empty range:
+6. Back-merge, so `develop` reaches the tagged commit and the next release diffs cleanly. Do it once the tag exists, or the gate reopens on an empty range. It is a fast-forward while `develop` has not moved since the gate was cut; if work landed meanwhile, drop `--ff-only` and take the merge commit:
 
    ```bash
    git fetch origin --tags

@@ -2,7 +2,7 @@
 
 ## Context and Problem Statement
 
-Tagging and publishing ran on every push to `develop`, and a promote job fast-forwarded `master` afterwards. The irreversible step therefore fired on a merge GitHub never gated: `develop` takes direct pushes, so it can carry no required status check, and ADR-gate-the-release-merge-in-the-recipe put the gate in a shell recipe instead. A convention in a runbook is not enforcement, because a web-interface merge bypasses it, and `master` was a trailing mirror nobody reviewed.
+Tagging and publishing ran on every push to `develop`, and a promote job fast-forwarded `master` afterwards. The irreversible step therefore fired on a merge GitHub never gated: `develop` takes direct pushes, so it can carry no required status check, and ADR-gate-the-release-merge-in-the-recipe put the gate in a shell recipe instead. A runbook convention is not enforcement, because a web-interface merge bypasses it, and `master` was a mirror nobody reviewed.
 
 ## Considered Options
 
@@ -13,7 +13,7 @@ Tagging and publishing ran on every push to `develop`, and a promote job fast-fo
 
 ## Decision Outcome
 
-Chosen option: `Cut the release from master` — a branch rule GitHub applies is enforcement, and a recipe convention is not. release-plz still opens its version-bump pull request against `develop`, because `release-pr` always targets the branch it ran on, and merging it now publishes nothing. A second pull request, `develop` into `master`, carries a required `test` check; merging it as a merge commit runs `release-plz release` on `master`, which tags that commit and publishes over OIDC. `develop` then fast-forwards onto `master`, so the two never drift.
+Chosen option: `Cut the release from master` — a branch rule GitHub applies is enforcement, and a recipe convention is not. release-plz still opens its version-bump pull request against `develop`, because `release-pr` always targets the branch it ran on, and merging it now publishes nothing. A second pull request, from a `release/v<version>` branch pinned at that commit into `master`, carries a required `test` check; merging it as a merge commit runs `release-plz release` on `master`, which tags that commit and publishes over OIDC. `develop` then fast-forwards onto `master`, so the two never drift.
 
 Enforced by `release:a-tag-derives-from-the-version-file`.
 

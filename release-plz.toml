@@ -1,9 +1,9 @@
 [workspace]
 changelog_update = true
-# The gate is the develop-to-master pull request, whose head branch is not
-# release-plz-*, so the branch heuristic release_always = false relies on would
-# never fire. Releasing always is safe: the command no-ops when the registry
-# already serves this version.
+# The gate is the release/v<version> pull request into master, whose head
+# branch is not release-plz-*, so the branch heuristic release_always = false
+# relies on would never fire. Releasing always is safe: the command no-ops when
+# the registry already serves this version.
 release_always = true
 publish = true
 # The lib target exists only so this crate's own tests can link it; no
