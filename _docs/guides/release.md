@@ -57,7 +57,8 @@ A release takes two pull requests. The first, which release-plz opens against `d
 
    ```bash
    cargo info spec-driven-docs                                    # crates.io serves the new version
-   gh release view v<version> --repo gubasso/spec-driven-docs     # release exists, installers attached
+   gh release view v<version> --repo gubasso/spec-driven-docs --json assets \
+     -q '[.assets[].name] | join(", ")'                           # installers attached, never empty
    git fetch origin --tags --force                                # the first fetch can race the tag push
    git rev-parse "v<version>^{commit}" origin/master origin/develop  # all three agree
    sdd --version                                                  # installed binary reports it
