@@ -37,9 +37,10 @@ install:
     cargo install --path . --locked
     sdd skill install --apply
 
-# Remove the user-scope skills this project installs, then the binary.
+# Remove the user-scope skills, then the binary; the binary owns the file
+# list, so the skills go first, while it still exists.
 uninstall:
-    sh -c 'case "${HOME:-}" in /*) ;; *) echo "HOME is not an absolute path" >&2; exit 1;; esac; rm -rf "$HOME/.claude/skills/sdd-docs" "$HOME/.claude/skills/sdd-authoring" "$HOME/.agents/skills/sdd-docs" "$HOME/.agents/skills/sdd-authoring"'
+    sdd skill uninstall --apply
     cargo uninstall spec-driven-docs
 
 instantiate target profile="knowledge-base":

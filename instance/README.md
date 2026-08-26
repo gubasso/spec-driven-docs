@@ -42,7 +42,7 @@ sdd skill install
 sdd skill install --apply
 ```
 
-`sdd skill install` writes the same files at user scope — `~/.claude/skills` and `~/.agents/skills` — previewing by default and refusing a destination whose bytes differ from the payload unless `--force` is given. User-scope files are never recorded in an instance manifest; the embedded payload is their reference.
+`sdd skill install` writes the same files at user scope — `~/.claude/skills` and `~/.agents/skills` — previewing by default and refusing a destination whose bytes differ from the payload unless `--force` is given. User-scope files are never recorded in an instance manifest; the embedded payload is their reference. `sdd skill uninstall` reverses the install, also previewing by default; it removes only each skill's `SKILL.md` and its directory when empty, so any file you added alongside survives.
 
 ## Verify
 

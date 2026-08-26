@@ -4,7 +4,7 @@
 
 use clap::{Subcommand, ValueEnum};
 
-/// Read the embedded skills, or install them for coding agents.
+/// Read the embedded skills, or install and remove them for coding agents.
 #[derive(Debug, clap::Args)]
 pub struct SkillArgs {
     /// The verb to run.
@@ -21,6 +21,8 @@ pub enum SkillCommand {
     Show(ShowArgs),
     /// Install the skills into the agent skill directories.
     Install(InstallArgs),
+    /// Remove the installed skills from the agent skill directories.
+    Uninstall(UninstallArgs),
 }
 
 /// Print one skill's `SKILL.md`.
@@ -48,6 +50,22 @@ pub struct InstallArgs {
     /// Overwrite a destination whose bytes differ from the payload.
     #[arg(long, requires = "apply")]
     pub force: bool,
+}
+
+/// Remove the installed skills from the agent skill directories.
+#[derive(Debug, clap::Args)]
+pub struct UninstallArgs {
+    /// Which agent's skill directory to remove from.
+    #[arg(long, value_enum, default_value_t = Agent::All)]
+    pub agent: Agent,
+
+    /// Where the skills live; `user` is the home-directory scope.
+    #[arg(long, value_enum, default_value_t = Scope::User)]
+    pub scope: Scope,
+
+    /// Remove the files; without it the uninstall previews.
+    #[arg(long)]
+    pub apply: bool,
 }
 
 /// Which skill directory family to install into.

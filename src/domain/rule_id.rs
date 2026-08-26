@@ -49,6 +49,7 @@ rule_ids! {
     InstancesOperateOffline => "distribution:instances-operate-offline",
     ManifestIdentifiesEveryOwnedFile => "distribution:manifest-identifies-every-owned-file",
     SkillInstallPreviewsBeforeWriting => "distribution:skill-install-previews-before-writing",
+    SkillUninstallRemovesOnlyPayloadFiles => "distribution:skill-uninstall-removes-only-payload-files",
     SkillsArePartOfThePayload => "distribution:skills-are-part-of-the-payload",
     UpgradeConflictsAreAtomic => "distribution:upgrade-conflicts-are-atomic",
     UserScopeFilesStayUnrecorded => "distribution:user-scope-files-stay-unrecorded",

@@ -203,3 +203,80 @@ fn install_without_a_home_exits_sixty_four() {
         .code(64)
         .stderr(predicate::str::contains("HOME is not set"));
 }
+
+/// VERIFIES distribution:skill-uninstall-removes-only-payload-files
+#[test]
+fn uninstall_previews_by_default_and_removes_nothing() {
+    let home = Home::new();
+    home.cmd()
+        .args(["skill", "install", "--apply"])
+        .assert()
+        .success();
+    let digest = home.tree_digest();
+    let assert = home
+        .cmd()
+        .args(["skill", "uninstall"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("DRY RUN: no files removed"));
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+    for destination in DESTINATIONS {
+        assert!(stdout.contains(destination), "preview misses {destination}");
+    }
+    assert_eq!(digest, home.tree_digest());
+}
+
+/// VERIFIES distribution:skill-uninstall-removes-only-payload-files
+#[test]
+fn uninstall_apply_removes_payload_files_and_keeps_foreign_ones() {
+    let home = Home::new();
+    home.cmd()
+        .args(["skill", "install", "--apply"])
+        .assert()
+        .success();
+    home.write(".claude/skills/sdd-docs/notes.md", "mine\n");
+    home.cmd()
+        .args(["skill", "uninstall", "--apply"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("kept (not empty):"));
+    for destination in DESTINATIONS {
+        assert!(
+            !home.path().join(destination).exists(),
+            "left behind {destination}"
+        );
+    }
+    assert!(!home.path().join(".agents/skills/sdd-docs").exists());
+    assert!(!home.path().join(".claude/skills/sdd-authoring").exists());
+    assert_eq!(home.read(".claude/skills/sdd-docs/notes.md"), "mine\n");
+}
+
+#[test]
+fn uninstall_for_claude_leaves_the_other_root_alone() {
+    let home = Home::new();
+    home.cmd()
+        .args(["skill", "install", "--apply"])
+        .assert()
+        .success();
+    home.cmd()
+        .args(["skill", "uninstall", "--agent", "claude", "--apply"])
+        .assert()
+        .success();
+    assert!(!home.path().join(".claude/skills/sdd-docs").exists());
+    assert!(
+        home.path()
+            .join(".agents/skills/sdd-docs/SKILL.md")
+            .is_file()
+    );
+}
+
+#[test]
+fn uninstall_on_an_empty_home_is_a_no_op() {
+    let home = Home::new();
+    let digest = home.tree_digest();
+    home.cmd()
+        .args(["skill", "uninstall", "--apply"])
+        .assert()
+        .success();
+    assert_eq!(digest, home.tree_digest());
+}

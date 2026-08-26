@@ -85,6 +85,47 @@ pub fn install(roots: &[Utf8PathBuf], apply: bool, force: bool) -> Result<Vec<St
     Ok(lines)
 }
 
+/// Remove every installed skill under each root, previewing by default.
+///
+/// Only the payload's own files go: each skill's `SKILL.md`, and its
+/// directory when nothing else lives there. An absent destination is a
+/// no-op, so a re-run succeeds.
+///
+/// # Errors
+///
+/// [`AppError::Refused`] when a destination is a symlink or not a regular
+/// file, and I/O errors when a removal fails.
+pub fn uninstall(roots: &[Utf8PathBuf], apply: bool) -> Result<Vec<String>, AppError> {
+    let mut lines: Vec<String> = Vec::new();
+    let mut removable: Vec<Utf8PathBuf> = Vec::new();
+    for root in roots {
+        for name in crate::embedded::skill_names() {
+            let destination = root.join(name).join("SKILL.md");
+            check_destination(&destination)?;
+            if destination.is_file() {
+                lines.push(destination.to_string());
+                removable.push(destination);
+            }
+        }
+    }
+    if !apply {
+        lines.push("DRY RUN: no files removed".to_string());
+        return Ok(lines);
+    }
+    for destination in &removable {
+        std::fs::remove_file(destination)?;
+        let directory = destination
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("destination has no parent: {destination}"))?;
+        if std::fs::read_dir(directory)?.next().is_none() {
+            std::fs::remove_dir(directory)?;
+        } else {
+            lines.push(format!("kept (not empty): {directory}"));
+        }
+    }
+    Ok(lines)
+}
+
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unwrap_used)]
@@ -122,5 +163,33 @@ mod tests {
         install(std::slice::from_ref(&skills), true, true).unwrap();
         let text = std::fs::read_to_string(skills.join("sdd-docs/SKILL.md")).unwrap();
         assert!(text.contains("name: sdd-docs"));
+    }
+
+    #[test]
+    fn an_uninstall_removes_only_payload_files_and_keeps_foreign_ones() {
+        let dir = tempfile::tempdir().unwrap();
+        let skills = root(&dir).join(".claude/skills");
+        install(std::slice::from_ref(&skills), true, false).unwrap();
+        std::fs::write(skills.join("sdd-docs/notes.md"), "mine").unwrap();
+
+        let preview = uninstall(std::slice::from_ref(&skills), false).unwrap();
+        assert_eq!(preview.last().unwrap(), "DRY RUN: no files removed");
+        assert!(skills.join("sdd-docs/SKILL.md").is_file());
+
+        let lines = uninstall(std::slice::from_ref(&skills), true).unwrap();
+        assert!(!skills.join("sdd-docs/SKILL.md").exists());
+        assert!(!skills.join("sdd-authoring").exists());
+        assert_eq!(
+            std::fs::read_to_string(skills.join("sdd-docs/notes.md")).unwrap(),
+            "mine"
+        );
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.starts_with("kept (not empty):"))
+        );
+
+        // A re-run on the emptied roots is a no-op, not an error.
+        uninstall(std::slice::from_ref(&skills), true).unwrap();
     }
 }

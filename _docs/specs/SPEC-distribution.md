@@ -11,6 +11,7 @@
   - [`distribution:skills-are-part-of-the-payload` — Skills are part of the payload](#distributionskills-are-part-of-the-payload--skills-are-part-of-the-payload)
   - [`distribution:a-skill-obeys-the-portable-format` — A skill obeys the portable format](#distributiona-skill-obeys-the-portable-format--a-skill-obeys-the-portable-format)
   - [`distribution:skill-install-previews-before-writing` — Skill install previews before writing](#distributionskill-install-previews-before-writing--skill-install-previews-before-writing)
+  - [`distribution:skill-uninstall-removes-only-payload-files` — Skill uninstall removes only payload files](#distributionskill-uninstall-removes-only-payload-files--skill-uninstall-removes-only-payload-files)
   - [`distribution:user-scope-files-stay-unrecorded` — User-scope files stay unrecorded](#distributionuser-scope-files-stay-unrecorded--user-scope-files-stay-unrecorded)
 
 <!--TOC-->
@@ -102,6 +103,18 @@ When run without `--apply`, `sdd skill install` MUST list every destination and 
 - GIVEN `~/.claude/skills/sdd-docs/SKILL.md` with locally changed bytes
 - WHEN `sdd skill install --apply` runs
 - THEN it exits 73 listing every conflicting destination, writes no file, and states `--force` as the override
+
+Verify: `cargo nextest run -E 'binary(cmd_skill)'`
+
+### `distribution:skill-uninstall-removes-only-payload-files` — Skill uninstall removes only payload files
+
+When run without `--apply`, `sdd skill uninstall` MUST list every removal and delete nothing, and when applied it MUST remove only each embedded skill's `SKILL.md` and its directory when that directory holds nothing else.
+
+#### Scenario: A skill directory carries a user's own note
+
+- GIVEN an installed `~/.claude/skills/sdd-docs/` holding `SKILL.md` and a hand-written `notes.md`
+- WHEN `sdd skill uninstall --apply` runs
+- THEN `SKILL.md` is removed, `notes.md` and its directory remain, and the kept directory is named in the output
 
 Verify: `cargo nextest run -E 'binary(cmd_skill)'`
 
