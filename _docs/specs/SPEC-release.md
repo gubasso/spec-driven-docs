@@ -41,7 +41,7 @@ A release tag MUST be `v<version>` for the version `Cargo.toml` states at the co
 - WHEN a tag named `v0.4.0` is pushed
 - THEN the tag ruleset rejects it, because the tag resolves consumers to a version the tree does not hold
 
-Verify: reviewer confirms every `v*` tag was created by the merged release pull request
+Verify: reviewer confirms every `v*` tag was created by the release automation on `master`, never authored by hand
 
 ### `release:a-released-version-is-not-re-authored` — A released version is not re-authored
 

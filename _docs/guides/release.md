@@ -4,13 +4,15 @@ Day-to-day release workflow. First time on a repository: [release-setup.md](./re
 
 `Cargo.toml` is the version source of truth. release-plz reads Conventional Commits, bumps the version, writes the changelog, tags, and publishes. Never author a tag; never move a published one — fix a bad release with the next version.
 
+A release takes two pull requests. The first, which release-plz opens against `develop`, carries the version bump and the changelog, and merging it publishes nothing. The second is the gate: automation cuts `release/v<version>` at that merged commit and opens it into `master`, which takes no direct push and requires a passing `test` check, and merging it is what tags and publishes (ADR-cut-the-release-from-master). The gate branch is pinned to one commit, so work landing on `develop` while it is open never joins the release.
+
 1. Land the work on `develop` with Conventional Commit messages (`feat:` bumps minor, `fix:` bumps patch):
 
    ```bash
    just check
    ```
 
-2. Push. release-plz opens the release pull request:
+2. Push. release-plz opens the release pull request and realigns the canon manifest onto its branch:
 
    ```bash
    git push origin develop
@@ -19,20 +21,41 @@ Day-to-day release workflow. First time on a repository: [release-setup.md](./re
    gh pr list --repo gubasso/spec-driven-docs --state open
    ```
 
-3. Merge it, once its checks are green. `develop` takes direct pushes, so it carries no required status check and nothing on GitHub's side refuses a red merge; this chain is the gate (ADR-gate-the-release-merge-in-the-recipe). `gh pr checks --watch` blocks until every check settles and exits non-zero on a failure, so the merge never fires on a red or pending pull request. Automation then tags `v<version>`, publishes over OIDC, builds installers, fast-forwards `master`:
+3. Merge the release pull request into `develop`. It bumps the version and writes the changelog; nothing is published yet:
+
+   ```bash
+   gh pr merge <pr number> --repo gubasso/spec-driven-docs --squash --delete-branch
+   ```
+
+4. Wait for the release gate. That merge pushes `develop`, and the `open-release-gate` job cuts `release/v<version>` at the merged commit and opens it into `master`, because the new version carries no tag yet:
+
+   ```bash
+   # check: a pull request titled "release v<version>", base master, head release/v<version>
+   gh pr list --repo gubasso/spec-driven-docs --base master --state open
+   ```
+
+5. Merge the gate, once its checks are green. `master-protection` refuses the merge on its own while `test` is failing, and `gh pr checks --watch` blocks until every check settles and exits non-zero on a failure. The merge must be a merge commit: GitHub offers no fast-forward merge method, and a rebase or squash would make `master` diverge from `develop` permanently. Merging tags `v<version>` on `master`, publishes over OIDC, and builds installers:
 
    ```bash
    gh pr checks <pr number> --repo gubasso/spec-driven-docs --watch \
-     && gh pr merge <pr number> --repo gubasso/spec-driven-docs --squash
-   # check: post-merge run succeeded
+     && gh pr merge <pr number> --repo gubasso/spec-driven-docs --merge --delete-branch
+   # check: post-merge run on master succeeded
    gh run list --repo gubasso/spec-driven-docs --workflow release-plz.yml --limit 1
    ```
 
-4. Verify:
+6. Back-merge, so `develop` reaches the tagged commit and the next release diffs cleanly. Do it once the tag exists, or the gate reopens on an empty range. It is a fast-forward while `develop` has not moved since the gate was cut; if work landed meanwhile, drop `--ff-only` and take the merge commit:
+
+   ```bash
+   git fetch origin --tags
+   git checkout develop && git merge --ff-only origin/master
+   git push origin develop
+   ```
+
+7. Verify:
 
    ```bash
    cargo info spec-driven-docs                                    # crates.io serves the new version
    gh release view v<version> --repo gubasso/spec-driven-docs     # release exists, installers attached
-   git fetch origin && git rev-parse v<version> origin/master     # master sits on the tag
+   git fetch origin && git rev-parse v<version> origin/master origin/develop  # all three agree
    sdd --version                                                  # installed binary reports it
    ```

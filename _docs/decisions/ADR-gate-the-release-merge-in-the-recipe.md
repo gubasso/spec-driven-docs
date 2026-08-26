@@ -23,4 +23,4 @@ Chosen option: `Chain gh pr checks --watch before gh pr merge` — the watch blo
 
 ## Status
 
-Implemented — `_docs/guides/release.md` step 3.
+Superseded by [ADR-cut-the-release-from-master](./ADR-cut-the-release-from-master.md).

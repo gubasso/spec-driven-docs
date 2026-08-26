@@ -52,15 +52,22 @@ Every command below is a script under `scripts/release-setup/`, run from the rep
       scripts/release-setup/app-secrets
       ```
 
-4. Create three rulesets. The app from step 3 must exist first: a bypass actor is named by numeric id, so `SDD_APP_ID` must already be set from substep 3.8. Rulesets on a private repository require a paid plan.
+4. Create `master` at develop's tip and remove `main`. Do this before the rulesets: `master-protection` requires a pull request, and creating a branch is a direct push.
 
-   1. Protect `master`, naming the app as a bypass actor so the promote job can fast-forward it:
+   ```bash
+   scripts/release-setup/create-master
+   scripts/release-setup/delete-main
+   ```
+
+5. Create three rulesets. They read only `SDD_REPO`. Rulesets on a private repository require a paid plan.
+
+   1. Protect `master`. It takes no direct push, requires a passing `test` check, and merges only as a merge commit, because GitHub offers no fast-forward merge and a rebase or squash would make it diverge from `develop`. Nothing in the pipeline writes the branch, so it names no bypass actor (ADR-cut-the-release-from-master):
 
       ```bash
       scripts/release-setup/ruleset-master
       ```
 
-   2. Protect `develop`, which nothing in the pipeline force-pushes or deletes. It carries no required status check, because one would also reject the direct push that opens a release; the release recipe gates that merge instead (ADR-gate-the-release-merge-in-the-recipe):
+   2. Protect `develop`, which nothing in the pipeline force-pushes or deletes. It carries no required status check, because one would also reject the direct push that opens a release; the release is gated on `master` instead (ADR-cut-the-release-from-master):
 
       ```bash
       scripts/release-setup/ruleset-develop
@@ -72,13 +79,13 @@ Every command below is a script under `scripts/release-setup/`, run from the rep
       scripts/release-setup/ruleset-tags
       ```
 
-   4. Check the rulesets are exactly these three, with no fourth that no script owns, and that the bypass actor landed:
+   4. Check the rulesets are exactly these three, with no fourth that no script owns, and that `master-protection` carries the pull-request rule, allows the merge method, and no longer requires linear history:
 
       ```bash
       scripts/release-setup/rulesets-check
       ```
 
-5. Publish the first version by hand, because a trusted publisher can only attach to a crate that already exists.
+6. Publish the first version by hand, because a trusted publisher can only attach to a crate that already exists.
 
    1. Confirm the package builds and is publishable:
 
@@ -100,7 +107,7 @@ Every command below is a script under `scripts/release-setup/`, run from the rep
       cargo info spec-driven-docs
       ```
 
-6. Register the trusted publisher, so the workflow can publish over OIDC instead of a token.
+7. Register the trusted publisher, so the workflow can publish over OIDC instead of a token.
 
    1. Open the crate's Settings tab at <https://crates.io/crates/spec-driven-docs/settings>.
    2. Next to "Trusted Publishing", click Add.
@@ -110,25 +117,19 @@ Every command below is a script under `scripts/release-setup/`, run from the rep
       - Environment: leave empty; the release job declares no environment.
    3. Check on the same page: the publisher is listed under Trusted Publishing.
 
-7. Revoke the bootstrap token from step 5, so the crate has exactly one publishing path.
+8. Revoke the bootstrap token from step 6, so the crate has exactly one publishing path.
 
    1. Open <https://crates.io/settings/tokens>.
-   2. Revoke the token created in substep 5.2.
+   2. Revoke the token created in substep 6.2.
    3. Check on the same page: the token is gone.
 
-8. Cut the first automated release, which is what proves OIDC works before step 9 makes it mandatory.
+9. Cut the first automated release, which is what proves OIDC works before step 10 makes it mandatory.
 
    1. Follow [release.md](./release.md) end to end.
-   2. Check: its verify step passes — crates.io serves the new version, the tag exists, and `master` sits on it.
+   2. Check: its verify step passes — crates.io serves the new version, the tag exists, and `master` and `develop` both sit on it.
 
-9. Require trusted publishing, now that step 8 proved it works.
+10. Require trusted publishing, now that step 9 proved it works.
 
-   1. Open <https://crates.io/crates/spec-driven-docs/settings>.
-   2. Enable "Require trusted publishing for all new versions", which makes crates.io reject every token publish.
-   3. Check on the same page: the setting shows enabled.
-
-10. Delete `main`, now that step 8 created `master`:
-
-    ```bash
-    scripts/release-setup/delete-main
-    ```
+    1. Open <https://crates.io/crates/spec-driven-docs/settings>.
+    2. Enable "Require trusted publishing for all new versions", which makes crates.io reject every token publish.
+    3. Check on the same page: the setting shows enabled.
