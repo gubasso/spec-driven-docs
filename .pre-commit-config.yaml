@@ -250,7 +250,10 @@ repos:
       - id: lychee
         stages: [pre-push]
         types: [markdown]
-        exclude: '^tests/fixtures/'
+        # CHANGELOG.md is release-plz output, like the dprint and prose-gate
+        # exemptions: it links every version to a compare range whose endpoints
+        # it assumes are tags, and 0.2.0 was published by hand and never tagged.
+        exclude: '^(tests/fixtures/|CHANGELOG\.md$)'
         args: [--no-progress]
   - repo: https://github.com/crate-ci/committed
     rev: v1.1.11
