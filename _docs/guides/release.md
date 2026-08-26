@@ -34,7 +34,9 @@ A release takes two pull requests. The first, which release-plz opens against `d
    gh pr list --repo gubasso/spec-driven-docs --base master --state open
    ```
 
-5. Merge the gate, once its checks are green. `master-protection` refuses the merge on its own while `test` is failing, and `gh pr checks --watch` blocks until every check settles and exits non-zero on a failure. The merge must be a merge commit: GitHub offers no fast-forward merge method, and a rebase or squash would make `master` diverge from `develop` permanently. Merging tags `v<version>` on `master`, publishes over OIDC, and builds installers:
+5. Read the `CHANGELOG.md` entry in the gate diff and confirm it names every change in the release. release-plz does not always regenerate the changelog when it rebuilds a release pull request onto later commits, so a request left open while work continues can ship a changelog that omits that work. A published entry is immutable, so this is the last point it can be corrected: push the correction to `develop` and let the gate reopen.
+
+6. Merge the gate, once its checks are green. `master-protection` refuses the merge on its own while `test` is failing, and `gh pr checks --watch` blocks until every check settles and exits non-zero on a failure. The merge must be a merge commit: GitHub offers no fast-forward merge method, and a rebase or squash would make `master` diverge from `develop` permanently. Merging tags `v<version>` on `master`, publishes over OIDC, and builds installers:
 
    ```bash
    gh pr checks <pr number> --repo gubasso/spec-driven-docs --watch \
@@ -43,19 +45,22 @@ A release takes two pull requests. The first, which release-plz opens against `d
    gh run list --repo gubasso/spec-driven-docs --workflow release-plz.yml --limit 1
    ```
 
-6. Back-merge, so `develop` reaches the tagged commit and the next release diffs cleanly. Do it once the tag exists, or the gate reopens on an empty range. It is a fast-forward while `develop` has not moved since the gate was cut; if work landed meanwhile, drop `--ff-only` and take the merge commit:
+7. Back-merge, so `develop` reaches the tagged commit and the next release diffs cleanly. Do it once the tag exists, or the gate reopens on an empty range. It is a fast-forward while `develop` has not moved since the gate was cut; if work landed meanwhile, drop `--ff-only` and take the merge commit:
 
    ```bash
-   git fetch origin --tags
+   git fetch origin --tags --force
    git checkout develop && git merge --ff-only origin/master
    git push origin develop
    ```
 
-7. Verify:
+8. Verify:
 
    ```bash
    cargo info spec-driven-docs                                    # crates.io serves the new version
    gh release view v<version> --repo gubasso/spec-driven-docs     # release exists, installers attached
-   git fetch origin && git rev-parse v<version> origin/master origin/develop  # all three agree
+   git fetch origin --tags --force                                # the first fetch can race the tag push
+   git rev-parse "v<version>^{commit}" origin/master origin/develop  # all three agree
    sdd --version                                                  # installed binary reports it
    ```
+
+   release-plz writes an annotated tag, so `v<version>` names a tag object rather than a commit; `^{commit}` is what makes the three values comparable.

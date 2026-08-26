@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - *(release)* Cut the release from master
 
+### Fixed
+
+- *(release)* Pin the release gate to the release commit
+- *(release)* Keep an unattributed commit from wedging the gate
+
 ## [0.3.0](https://github.com/gubasso/spec-driven-docs/compare/v0.2.0...v0.3.0) - 2026-08-26
 
 ### Added
