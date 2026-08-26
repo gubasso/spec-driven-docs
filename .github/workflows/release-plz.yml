@@ -2,28 +2,33 @@
 # is registered at crates.io; cargo-dist's release.yml builds binaries and
 # must never be registered there.
 #
-# Two release-plz jobs, as upstream ships its own releases: the publish half
-# runs free of any concurrency group — cancelling it could skip a release —
-# while the PR half serializes per ref so racing pushes cannot fight over
-# the release pull request.
+# The two halves run on different branches. On develop, release-plz opens the
+# version-bump pull request, the manifest is realigned onto its branch, and
+# the release gate pull request is opened once a version is pending; merging
+# any of that publishes nothing. On master, reached only through that gate,
+# release-plz tags the merge commit and publishes. The publish half runs free
+# of any concurrency group — cancelling it could skip a release — while the
+# pull-request half serializes per ref so racing pushes cannot fight over the
+# release pull request.
 name: release-plz
 
 permissions: {}
 
 on:
   push:
-    branches: [develop]
+    branches: [develop, master]
 
 jobs:
+  # master is reached only through a reviewed pull request carrying a passing
+  # test check, so this is the gated half (ADR-cut-the-release-from-master).
+  # The app token is what makes the tag trigger release.yml; a tag pushed with
+  # GITHUB_TOKEN starts no further workflow.
   release-plz-release:
-    if: github.repository_owner == 'gubasso'
+    if: github.repository_owner == 'gubasso' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
-    outputs:
-      releases_created: ${{ steps.release.outputs.releases_created }}
-      releases: ${{ steps.release.outputs.releases }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -43,7 +48,7 @@ jobs:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
 
   release-plz-pr:
-    if: github.repository_owner == 'gubasso'
+    if: github.repository_owner == 'gubasso' && github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -71,9 +76,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
 
-  # The release PR bumps Cargo.toml, and the canon manifest must carry the
-  # same version, so it is regenerated onto the PR branch here. When a later
-  # develop push makes release-plz rewrite its branch, this job re-applies.
+  # The release pull request bumps Cargo.toml, and the canon manifest must
+  # carry the same version, so it is regenerated onto the pull request branch
+  # here. When a later develop push makes release-plz rewrite its branch,
+  # this job re-applies.
   align-manifest:
     needs: release-plz-pr
     if: github.repository_owner == 'gubasso' && needs.release-plz-pr.outputs.prs_created == 'true'
@@ -102,12 +108,13 @@ jobs:
             git push
           fi
 
-  # master mirrors releases. The tag release-plz pushes does not retrigger
-  # other workflows, so the promotion runs inline, guarded so master can
-  # only ever fast-forward onto a tag that develop reaches.
-  promote:
-    needs: release-plz-release
-    if: github.repository_owner == 'gubasso' && needs.release-plz-release.outputs.releases_created == 'true'
+  # The gate itself. Once the release pull request has merged, develop carries
+  # a version no tag names yet, so this opens the develop-to-master pull
+  # request that master-protection gates. Both guards matter: a missing tag is
+  # what marks the version unreleased, and the commit-count check keeps the
+  # back-merge push from racing ahead of the tag and opening an empty request.
+  open-release-gate:
+    if: github.repository_owner == 'gubasso' && github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -119,30 +126,32 @@ jobs:
           private-key: ${{ secrets.RELEASE_PLZ_APP_PRIVATE_KEY }}
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-          token: ${{ steps.app-token.outputs.token }}
-      - name: fast-forward master to the release tag
+          persist-credentials: false
+      - name: open the release gate pull request
         env:
-          RELEASES: ${{ needs.release-plz-release.outputs.releases }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -eu
-          tag="$(printf '%s' "$RELEASES" | jq -r '.[0].tag')"
-          if [ -z "$tag" ] || [ "$tag" = "null" ]; then
-            echo "::error::could not determine the release tag from release-plz output."
+          version="$(sed -n 's/^version *= *"\([^"]*\)".*/\1/p' Cargo.toml | head -n 1)"
+          if [ -z "$version" ]; then
+            echo "::error::could not read the version from Cargo.toml."
             exit 1
           fi
-          git fetch origin "refs/tags/$tag" 'refs/heads/*:refs/remotes/origin/*'
-          tag_sha="$(git rev-parse "$tag^{commit}")"
-          if ! git merge-base --is-ancestor "$tag_sha" origin/develop; then
-            echo "::error::tag $tag is not on develop; refusing to promote master."
-            exit 1
+          if [ -n "$(git ls-remote --tags origin "refs/tags/v$version")" ]; then
+            echo "v$version is already tagged; no release is pending."
+            exit 0
           fi
-          git config user.name 'release-plz-promote'
-          git config user.email 'release-plz-promote@users.noreply.github.com'
-          if git rev-parse -q --verify origin/master >/dev/null; then
-            git checkout -B master origin/master
-            git merge --ff-only "$tag_sha"
-          else
-            git checkout -B master "$tag_sha"
+          ahead="$(gh api "repos/$GH_REPO/compare/master...develop" -q '.ahead_by')"
+          if [ "$ahead" -eq 0 ]; then
+            echo "develop is not ahead of master; nothing to gate."
+            exit 0
           fi
-          git push origin master
+          open="$(gh pr list --base master --head develop --state open --json number -q 'length')"
+          if [ "$open" -gt 0 ]; then
+            echo "the release gate pull request is already open."
+            exit 0
+          fi
+          gh pr create --base master --head develop \
+            --title "release v$version" \
+            --body "Gates the release of v$version. Merging tags the commit and publishes; merge it as a merge commit."

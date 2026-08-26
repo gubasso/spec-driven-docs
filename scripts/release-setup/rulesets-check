@@ -1,8 +1,8 @@
 #!/usr/bin/env sh
-# Verify the rulesets are exactly the three these scripts own, and that the app
-# landed as a bypass actor: a wrong App ID is invisible until a release tries to
-# push master, and a ruleset no script owns is protection nothing here can
-# reproduce or explain.
+# Verify the rulesets are exactly the three these scripts own, and that
+# master-protection still has the shape a release merge needs: a ruleset that
+# rejects or corrupts that merge is invisible until the release merge, and a
+# ruleset no script owns is protection nothing here can reproduce or explain.
 set -eu
 cd "$(dirname "$0")/../.."
 : "${SDD_REPO:?run: direnv allow (it derives the slug from Cargo.toml)}"
@@ -32,12 +32,33 @@ fi
 
 id="$(gh api "repos/$SDD_REPO/rulesets" -q '.[] | select(.name=="master-protection") | .id' | head -n 1)"
 if [ -n "$id" ]; then
-  actor="$(gh api "repos/$SDD_REPO/rulesets/$id" -q '.bypass_actors[] | select(.actor_type=="Integration") | .actor_id' | head -n 1)"
-  if [ -n "$actor" ]; then
-    echo "ok master-protection bypass actor: app $actor"
+  body="$(gh api "repos/$SDD_REPO/rulesets/$id")"
+  types="$(printf '%s' "$body" | jq -r '.rules[].type')"
+
+  for want in pull_request required_status_checks; do
+    if printf '%s\n' "$types" | grep -qxF "$want"; then
+      echo "ok master-protection rule: $want"
+    else
+      echo "FAIL master-protection has no $want rule" >&2
+      echo 'remediation: run scripts/release-setup/ruleset-master' >&2
+      status=1
+    fi
+  done
+
+  if printf '%s\n' "$types" | grep -qxF required_linear_history; then
+    echo 'FAIL master-protection still requires linear history' >&2
+    echo 'remediation: GitHub offers no fast-forward merge, so the rule rejects every release merge; run scripts/release-setup/ruleset-master' >&2
+    status=1
   else
-    echo 'FAIL master-protection has no Integration bypass actor' >&2
-    echo 'remediation: set SDD_APP_ID in .envrc.local, then run scripts/release-setup/ruleset-master' >&2
+    echo 'ok master-protection allows a merge commit'
+  fi
+
+  methods="$(printf '%s' "$body" | jq -r '.rules[] | select(.type=="pull_request") | .parameters.allowed_merge_methods[]?')"
+  if printf '%s\n' "$methods" | grep -qxF merge; then
+    echo 'ok master-protection allows the merge method'
+  else
+    echo 'FAIL master-protection does not allow the merge method' >&2
+    echo 'remediation: rebase and squash make master diverge from develop; run scripts/release-setup/ruleset-master' >&2
     status=1
   fi
 fi
