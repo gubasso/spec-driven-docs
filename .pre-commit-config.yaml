@@ -33,7 +33,10 @@ repos:
     hooks:
       - id: dprint
         name: dprint check
-        entry: dprint check
+        # dprint exits 14 rather than passing when it receives only paths its
+        # own config excludes, which is what a commit touching just the
+        # generated CHANGELOG.md hands it.
+        entry: dprint check --allow-no-files
         language: system
         types_or: [markdown, json]
       - id: shfmt
