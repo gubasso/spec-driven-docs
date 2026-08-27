@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- *(release)* Check the changelog while it can still be corrected
 - *(lint)* Let dprint pass when every changed file is exempt
 - *(release)* Let cargo-dist own the GitHub release
 - *(lint)* Stop link-checking the generated changelog
