@@ -33,7 +33,10 @@ repos:
     hooks:
       - id: dprint
         name: dprint check
-        entry: dprint check
+        # dprint exits 14 rather than passing when it receives only paths its
+        # own config excludes, which is what a commit touching just the
+        # generated CHANGELOG.md hands it.
+        entry: dprint check --allow-no-files
         language: system
         types_or: [markdown, json]
       - id: shfmt
@@ -250,7 +253,10 @@ repos:
       - id: lychee
         stages: [pre-push]
         types: [markdown]
-        exclude: '^tests/fixtures/'
+        # CHANGELOG.md is release-plz output, like the dprint and prose-gate
+        # exemptions: it links every version to a compare range whose endpoints
+        # it assumes are tags, and 0.2.0 was published by hand and never tagged.
+        exclude: '^(tests/fixtures/|CHANGELOG\.md$)'
         args: [--no-progress]
   - repo: https://github.com/crate-ci/committed
     rev: v1.1.11
