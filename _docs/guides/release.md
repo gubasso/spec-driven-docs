@@ -6,6 +6,26 @@ Day-to-day release workflow. First time on a repository: [release-setup.md](./re
 
 A release takes two pull requests. The first, which release-plz opens against `develop`, carries the version bump and the changelog, and merging it publishes nothing. The second is the gate: automation cuts `release/v<version>` at that merged commit and opens it into `master`, which takes no direct push and requires a passing `test` check, and merging it is what tags and publishes (ADR-cut-the-release-from-master). The gate branch is pinned to one commit, so work landing on `develop` while it is open never joins the release.
 
+## At a glance
+
+The whole sequence, one line per numbered step below. `<repo>` is `gubasso/spec-driven-docs`.
+
+```bash
+just check                                                          # 1
+git push origin develop                                             # 2  release request opens
+#                                                                   # 3  check the changelog, correct it on its branch
+gh pr merge <release pr> --repo <repo> --squash --delete-branch     # 4  bump lands on develop
+gh pr list --repo <repo> --base master --state open                 # 5  the gate opens itself
+gh pr checks <gate pr> --repo <repo> --watch \
+  && gh pr merge <gate pr> --repo <repo> --merge --delete-branch    # 6  tags and publishes
+git fetch origin --tags --force \
+  && git merge --ff-only origin/master && git push origin develop   # 7  back-merge
+gh run watch --repo <repo> --exit-status <release.yml run>          # 8  wait, this creates the release
+#                                                                   # 9  verify
+```
+
+Two of these are easy to skip and both have bitten this repository. Step 3 is the only point a changelog correction still reaches the release, and release-plz drops entries whenever work lands while the request is open. Step 8 is why a check run straight after the merge reports the release as not found: cargo-dist creates it after every platform builds, about six minutes later.
+
 1. Land the work on `develop` with Conventional Commit messages (`feat:` bumps minor, `fix:` bumps patch):
 
    ```bash
