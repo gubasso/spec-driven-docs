@@ -54,9 +54,9 @@ A large corpus cannot be loaded, and an agent told to read the docs will either 
   session                                  session
     │                                        │
     ▼                                        ▼
-  plan/stories/rate-limit.md               "read the docs"
+  <plan-zone>/rate-limit.md                "read the docs"
     │                                        │
-    │  Governed by:                          ├─► guides/**
+    │  sources:                              ├─► guides/**
     ├─► specs/SPEC-rate-limiting.md          ├─► reference/**
     ├─► specs/SPEC-auth.md                   ├─► specs/**
     └─► reference/rate-limit-tiers.md        └─► explanation/**

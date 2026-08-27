@@ -127,11 +127,11 @@ Write the scenario that would be argued about. A scenario restating the rule in 
 A rule sometimes must be written while something about it is undecided. Mark the question at it.
 
 ```markdown
-### `plan-record:lane-holds-one-story` — A lane holds one story
+### `ingest:a-batch-holds-one-source` — A batch holds one source
 
-While a lane is active, the lane MUST hold exactly one story.
+While a batch is open, the batch MUST hold records from exactly one source.
 
-[NEEDS CLARIFICATION: a hotfix must preempt an active lane without evicting its story]
+[NEEDS CLARIFICATION: a backfill must replay a second source without closing the open batch]
 ```
 
 - A marker MUST be `[NEEDS CLARIFICATION: <question>]` and carry the question, not the topic.

@@ -250,3 +250,85 @@ fn the_sdd_setup_skill_quotes_the_agents_snippet_verbatim() {
         "skills/sdd-setup/SKILL.md no longer quotes instance/snippets/AGENTS-docs.md"
     );
 }
+
+/// The embedded payload roots, as `build.rs` names them. The license files
+/// it also embeds carry no method content and are not scanned.
+const PAYLOAD_ROOTS: &[&str] = &[
+    "_docs/specs",
+    "templates",
+    ".markdownlint",
+    "instance/snippets",
+    "method",
+    "skills",
+];
+
+/// Planning tools and planning frameworks the payload must not name.
+///
+/// Generic English that some tool also uses as its name — linear, shortcut,
+/// pivotal alone — is left out: this list holds terms whose appearance can
+/// only mean the tool. Jira is judged separately below, because it is also a
+/// tracker whose comment markup this framework documents for filing.
+const PLANNING_TOOLS: &[&str] = &[
+    "wipctl",
+    "trello",
+    "asana",
+    "clickup",
+    "youtrack",
+    "redmine",
+    "basecamp",
+    "pivotal tracker",
+    "taiga",
+    "scrum",
+    "kanban",
+    "burndown",
+    "standup",
+    "sprint",
+    "story point",
+];
+
+fn walk_files(dir: &Path, files: &mut Vec<PathBuf>) {
+    for entry in std::fs::read_dir(dir).unwrap().filter_map(Result::ok) {
+        let path = entry.path();
+        if path.is_dir() {
+            walk_files(&path, files);
+        } else {
+            files.push(path);
+        }
+    }
+}
+
+/// SATISFIES distribution:the-payload-names-no-planning-tool
+#[test]
+fn the_embedded_payload_names_no_planning_tool() {
+    let mut files = Vec::new();
+    for root in PAYLOAD_ROOTS {
+        let path = canon().join(root);
+        assert!(path.exists(), "{root} is not on disk; the payload moved");
+        if path.is_dir() {
+            walk_files(&path, &mut files);
+        } else {
+            files.push(path);
+        }
+    }
+    assert!(!files.is_empty(), "the payload scan matched no file");
+    for path in files {
+        let Ok(text) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        let relative = path.strip_prefix(canon()).unwrap().display().to_string();
+        for (index, line) in text.lines().enumerate() {
+            let number = index + 1;
+            let lower = line.to_lowercase();
+            for tool in PLANNING_TOOLS {
+                assert!(
+                    !lower.contains(tool),
+                    "{relative}:{number}: the payload names the planning tool '{tool}'"
+                );
+            }
+            assert!(
+                !lower.contains("jira") || lower.contains("tracker-markup"),
+                "{relative}:{number}: the payload names Jira outside a tracker-markup reference"
+            );
+        }
+    }
+}

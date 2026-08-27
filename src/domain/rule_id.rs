@@ -51,6 +51,7 @@ rule_ids! {
     SkillInstallPreviewsBeforeWriting => "distribution:skill-install-previews-before-writing",
     SkillUninstallRemovesOnlyPayloadFiles => "distribution:skill-uninstall-removes-only-payload-files",
     SkillsArePartOfThePayload => "distribution:skills-are-part-of-the-payload",
+    ThePayloadNamesNoPlanningTool => "distribution:the-payload-names-no-planning-tool",
     UpgradeConflictsAreAtomic => "distribution:upgrade-conflicts-are-atomic",
     UserScopeFilesStayUnrecorded => "distribution:user-scope-files-stay-unrecorded",
     AuthorInstructionsStayWithinBudget => "docs-format:author-instructions-stay-within-budget",

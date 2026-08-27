@@ -76,10 +76,10 @@ A spec is one file. Where it needs supporting artifacts, they go in a directory 
 ```text
 _docs/specs/
 ├── SPEC-auth.md
-├── SPEC-plan-record.md
-└── SPEC-plan-record/
-    ├── lane.schema.json
-    └── config.schema.json
+├── SPEC-ingest.md
+└── SPEC-ingest/
+    ├── batch.schema.json
+    └── source.schema.json
 ```
 
 - The author MUST place a spec's supporting artifacts in `<root>/specs/SPEC-<domain>/`.

@@ -23,6 +23,7 @@ sdd status --target . --json
 2. Preview: `sdd init --target "$PWD" --profile codebase`. A non-empty target defaults to a dry run and lists every destination.
 3. Review the listed paths, then apply: `sdd init --target "$PWD" --profile codebase --apply`.
 4. Confirm: `sdd verify --target "$PWD"` prints `OK spec-driven-docs <version>`.
+5. Declare the plan zone: in the landed `SPEC-spec-to-code.md`, retarget the verification command of `spec-to-code:a-spec-change-is-typed` at the directory the project's planning tool writes its work records to. Remove the requirement instead when the project keeps no plan zone. This is the only seeded value that is not portable, because the planning tool owns the record and this framework names none.
 
 The install seeds specs and templates the project owns from then on (adopted), lands byte-exact configurations and agent skills the canon owns (managed), and splices one marked block into `.pre-commit-config.yaml`. It touches nothing outside its destinations and the markers.
 

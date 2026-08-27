@@ -40,7 +40,7 @@ The author MUST place every spec at `<root>/specs/SPEC-<domain>.md`.
 - WHEN the directory is renamed
 - THEN the spec governs a path that no longer exists
 
-Verify: `find . -name 'SPEC-*.md' -not -path './_docs/specs/*' | grep . && exit 1 || exit 0`
+Verify: `find . -name 'SPEC-*.md' -not -path './.git/*' -not -path './target/*' -not -path './docs/specs/*' -not -path './_docs/specs/*' | grep . && exit 1 || exit 0`
 
 ### `docs-foundations:artifact-filenames-carry-a-kind-prefix` — A fixed-kind file carries an uppercase kind prefix
 
@@ -52,7 +52,7 @@ Where this framework fixes a file's kind, the author MUST name it `<KIND>-<slug>
 - WHEN an agent lists it
 - THEN `ADR-` and `TEMPLATE-` separate them without opening either
 
-Verify: `find _docs/specs _docs/decisions -name '*.md' | rg -v '/(SPEC|ADR|KI|TEMPLATE)-' | grep . && exit 1 || exit 0`
+Verify: `find . \( -path '*/specs/*' -o -path '*/decisions/*' \) -name '*.md' -not -path './.git/*' -not -path './target/*' | rg -v '/(SPEC|ADR|KI|TEMPLATE)-' | grep . && exit 1 || exit 0`
 
 ### `docs-foundations:a-kind-prefix-carries-a-slug` — A prefixed filename carries a slug, not a counter
 
@@ -64,7 +64,7 @@ Where a filename carries a kind prefix, the author MUST follow the prefix with t
 - WHEN they merge
 - THEN both files claim one identity, which a slug drawn from the subject cannot do
 
-Verify: `find _docs/decisions -name '*-*.md' | rg '/(ADR|KI)-[0-9]' | grep . && exit 1 || exit 0`
+Verify: `find . -name '*-*.md' -not -path './.git/*' -not -path './target/*' | rg '/(ADR|KI)-[0-9]' | grep . && exit 1 || exit 0`
 
 ### `docs-foundations:companion-artifacts-share-the-spec-name` — A spec's supporting artifacts sit in a directory named for it
 
@@ -76,4 +76,4 @@ Where a requirement names a supporting artifact, the author MUST place that arti
 - WHEN the schema has no reader who arrives without the spec
 - THEN it sits in the spec's companion directory rather than in reference
 
-Verify: `for d in _docs/specs/*/; do [ -e "$d" ] || continue; n=$(basename "$d"); [ -f "_docs/specs/$n.md" ] && [ -n "$(ls -A "$d")" ] || exit 1; done`
+Verify: `for d in docs/specs/*/ _docs/specs/*/; do [ -e "$d" ] || continue; n=$(basename "$d"); [ -f "$(dirname "${d%/}")/$n.md" ] && [ -n "$(ls -A "$d")" ] || exit 1; done`

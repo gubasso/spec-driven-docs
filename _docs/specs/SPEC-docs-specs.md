@@ -32,7 +32,7 @@ The author MUST give every requirement a title, a rule ID, a statement, a scenar
 - WHEN the author writes a title and a statement only
 - THEN the rule cannot be cited or checked, and the gate rejects the spec
 
-Verify: ``for f in _docs/specs/SPEC-*.md; do r=$(grep -cE '^### `[a-z0-9-]+:[a-z0-9-]+` . ' "$f"); h=$(grep -c '^### ' "$f"); v=$(grep -c '^Verify: ' "$f"); [ "$r" = "$h" ] && [ "$r" = "$v" ] || exit 1; done``
+Verify: ``for f in docs/specs/SPEC-*.md _docs/specs/SPEC-*.md; do [ -e "$f" ] || continue; r=$(grep -cE '^### `[a-z0-9-]+:[a-z0-9-]+` . ' "$f"); h=$(grep -c '^### ' "$f"); v=$(grep -c '^Verify: ' "$f"); [ "$r" = "$h" ] && [ "$r" = "$v" ] || exit 1; done``
 
 ### `docs-specs:statement-uses-an-ears-pattern` — A statement uses one EARS pattern
 
@@ -44,7 +44,7 @@ The author MUST write every requirement statement as one sentence in an EARS pat
 - WHEN they write "records should be kept short"
 - THEN the statement names no actor and no threshold, and the gate rejects it
 
-Verify: ``rg -UIo -r '$1' '^### `[a-z0-9-]+:[a-z0-9-]+`[^\n]*\n\n([^\n]+)' _docs/specs | rg -v '(MUST|SHALL|SHOULD|MAY|REQUIRED)' | grep . && exit 1 || exit 0``
+Verify: ``rg -UIo -r '$1' '^### `[a-z0-9-]+:[a-z0-9-]+`[^\n]*\n\n([^\n]+)' . --glob 'SPEC-*.md' | rg -v '(MUST|SHALL|SHOULD|MAY|REQUIRED)' | grep . && exit 1 || exit 0``
 
 ### `docs-specs:rule-id-is-unique-and-slugged` — A rule ID is a slug pair and is unique
 
@@ -56,7 +56,7 @@ The author MUST identify every requirement as `<spec-slug>:<rule-slug>`, unique 
 - WHEN both choose the same rule slug
 - THEN the duplicate is a real conflict about one subject, and the gate reports it
 
-Verify: ``grep -rhoE '^### `[a-z0-9-]+:[a-z0-9-]+`' _docs/specs | sort | uniq -d | grep . && exit 1 || exit 0``
+Verify: `pre-commit run spec-rule-id-unique --all-files`
 
 ### `docs-specs:rule-id-outlives-its-sentence` — A rule ID survives rewording
 
@@ -116,7 +116,7 @@ The author MUST keep a spec at or below five prohibitions, each paired with the 
 - WHEN an agent applies it
 - THEN some prohibitions are dropped unpredictably, and the gate rejects the spec
 
-Verify: `for f in _docs/specs/SPEC-*.md; do n=$(rg -c 'MUST NOT|SHALL NOT' "$f" || echo 0); [ "$n" -le 5 ] || exit 1; done`
+Verify: `for f in docs/specs/SPEC-*.md _docs/specs/SPEC-*.md; do [ -e "$f" ] || continue; n=$(rg -c 'MUST NOT|SHALL NOT' "$f" || echo 0); [ "$n" -le 5 ] || exit 1; done`
 
 ### `docs-specs:unenforced-rules-are-declared` — An unenforced rule is declared
 

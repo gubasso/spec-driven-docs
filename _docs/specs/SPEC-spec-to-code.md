@@ -17,7 +17,9 @@
 
 ## Purpose
 
-Rules governing the seam between a spec and the work that implements it. Covers requirements written before their behavior exists, how an entry document in the plan zone — this project declares it at `tests/fixtures/` — cites the rules it enacts, and how coverage is derived. The shape of a requirement is covered by the specs specification; how a spec changes is covered by its lifecycle rules.
+Rules governing the seam between a spec and the work that implements it. Covers requirements written before their behavior exists, how an entry document in the plan zone cites the rules it enacts, and how coverage is derived. The shape of a requirement is covered by the specs specification; how a spec changes is covered by its lifecycle rules.
+
+The plan zone's path is the one value in this specification a project declares for itself, because the planning tool owns the record and this framework names no planning tool. It appears in exactly one place — the verification command of `spec-to-code:a-spec-change-is-typed` — and this project declares it at `tests/fixtures/`. A project adopting this specification retargets that command at its own plan zone, or removes the requirement when it keeps no plan zone. Every other command here is layout-independent.
 
 ## Requirements
 
@@ -31,7 +33,7 @@ Where a requirement's behavior does not yet exist, the author MUST represent tha
 - WHEN a reader runs the three verification commands
 - THEN the three failures are the backlog, and no marker in the spec restates them
 
-Verify: `rg -in '^status:' _docs/specs && exit 1 || exit 0`
+Verify: `rg -in '^status:' . --glob 'SPEC-*.md' && exit 1 || exit 0`
 
 ### `spec-to-code:a-spec-change-is-typed` — A spec change is typed
 
@@ -79,7 +81,7 @@ Where a comment cites an agreement, the author MUST write `SATISFIES` or `VERIFI
 - WHEN no spec defines that ID
 - THEN the citation fails, because a citation that resolves to nothing is a fabrication
 
-Verify: `grep -rhoE "(SATISFIES|VERIFIES) [a-z0-9-]+:[a-z0-9-]+" examples tests | grep -oE "[a-z0-9-]+:[a-z0-9-]+" | sort -u > /tmp/c; grep -rhoE "^### .[a-z0-9-]+:[a-z0-9-]+." _docs/specs | grep -oE "[a-z0-9-]+:[a-z0-9-]+" | sort -u > /tmp/a; comm -13 /tmp/a /tmp/c | grep . && exit 1 || exit 0`
+Verify: `rg -oI "(SATISFIES|VERIFIES) [a-z0-9-]+:[a-z0-9-]+" . --glob '!{docs,_docs,method}/**' | rg -o "[a-z0-9-]+:[a-z0-9-]+" | sort -u > /tmp/c; rg -oI "^### .[a-z0-9-]+:[a-z0-9-]+." . --glob 'SPEC-*.md' | rg -o "[a-z0-9-]+:[a-z0-9-]+" | sort -u > /tmp/a; comm -13 /tmp/a /tmp/c | grep . && exit 1 || exit 0`
 
 ### `spec-to-code:a-gate-message-cites-the-rule` — A gate message cites the rule it enforces
 
@@ -103,7 +105,7 @@ The author MUST cite an agreement in code by its rule ID rather than by naming a
 - WHEN the author wants the reason discoverable from the code
 - THEN the comment carries the rule ID the record enforces, because the record is frozen and the rule is what binds
 
-Verify: `grep -rnE "^[[:space:]]*#.*\bADR-" examples tests && exit 1 || exit 0`
+Verify: `rg -n "^[[:space:]]*(#|//).*\bADR-[a-z0-9]" . --type-not md && exit 1 || exit 0`
 
 ### `spec-to-code:a-suppression-names-its-case` — A suppression names its known-issue case
 

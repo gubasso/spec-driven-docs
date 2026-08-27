@@ -16,7 +16,7 @@ When an author creates a decision record, the author MUST name it `ADR-<slug>.md
 - WHEN both allocate the next sequential number
 - THEN two records claim one identity, which a slug name makes impossible
 
-Verify: `find _docs/decisions -name 'ADR-*' | rg '[0-9]' && exit 1 || exit 0`
+Verify: `pre-commit run adr-filename-shape --all-files`
 
 ### `decision-records:record-is-not-revised` — A decision record is not revised
 
@@ -28,7 +28,7 @@ The author MUST NOT edit a decision record to describe a later design.
 - WHEN a later change narrows that rule
 - THEN the spec carries the narrowed rule and the record keeps its original wording
 
-Verify: `git log --format=%H -- _docs/decisions | head -50 | xargs -I{} git show --stat {}`
+Verify: `git log --format=%H -- '*/decisions/ADR-*' | head -50 | xargs -I{} git show --stat {}`
 
 ### `decision-records:merged-record-is-permanent` — A merged decision record is permanent
 
@@ -40,7 +40,7 @@ The author MUST NOT delete or rename a merged decision record.
 - WHEN the successor is written
 - THEN the original keeps its filename, gains a status, and links its successor
 
-Verify: `git log --diff-filter=DR --name-only --format= -- _docs/decisions | grep . && exit 1 || exit 0`
+Verify: `git log --diff-filter=DR --name-only --format= -- '*/decisions/ADR-*' | grep . && exit 1 || exit 0`
 
 ### `decision-records:body-stays-within-350-words` — A decision record stays within 350 words
 
@@ -52,4 +52,4 @@ The author MUST keep a filled decision record at or below 350 words.
 - WHEN it exceeds the cap
 - THEN it holds two decisions and becomes two records
 
-Verify: `for f in _docs/decisions/ADR-*.md; do [ "$(wc -w < "$f")" -le 350 ] || exit 1; done`
+Verify: `pre-commit run adr-word-cap --all-files`

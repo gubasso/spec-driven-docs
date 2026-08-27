@@ -13,6 +13,7 @@
   - [`distribution:skill-install-previews-before-writing` — Skill install previews before writing](#distributionskill-install-previews-before-writing--skill-install-previews-before-writing)
   - [`distribution:skill-uninstall-removes-only-payload-files` — Skill uninstall removes only payload files](#distributionskill-uninstall-removes-only-payload-files--skill-uninstall-removes-only-payload-files)
   - [`distribution:user-scope-files-stay-unrecorded` — User-scope files stay unrecorded](#distributionuser-scope-files-stay-unrecorded--user-scope-files-stay-unrecorded)
+  - [`distribution:the-payload-names-no-planning-tool` — The payload names no planning tool](#distributionthe-payload-names-no-planning-tool--the-payload-names-no-planning-tool)
 
 <!--TOC-->
 
@@ -129,3 +130,15 @@ Files `sdd skill install` writes outside an instance MUST NOT appear in any inst
 - THEN the report is unchanged by anything under the home directory
 
 Verify: `cargo nextest run -E 'binary(cmd_skill)'`
+
+### `distribution:the-payload-names-no-planning-tool` — The payload names no planning tool
+
+The author MUST keep every embedded payload root free of a planning tool's name, so an instance may pair this framework with any work-record convention or none.
+
+#### Scenario: A method chapter names the tool it was tested against
+
+- GIVEN a chapter edited to illustrate the seam with one planning tool by name
+- WHEN the canon test suite runs
+- THEN the check fails naming the file and the term, because a framework that names one tool stops being pairable with another
+
+Verify: `cargo nextest run -E 'binary(canon)'`

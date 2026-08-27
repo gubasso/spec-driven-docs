@@ -24,7 +24,7 @@
     {
       "source": "skills/sdd-setup/SKILL.md",
       "destination": "skills/sdd-setup/SKILL.md",
-      "sha256": "f9d8a97b1681d21c913fcb2ee8a64773c7f667f178615c62d85ffbaa09f61b84"
+      "sha256": "8ae063c5f21b558507cc5e03cffb35f69ba756a8212071b2412f705e073a0e77"
     },
     {
       "source": "skills/sdd-write-docs/SKILL.md",
@@ -42,14 +42,14 @@
     {
       "source": "_docs/specs/SPEC-decision-records.md",
       "destination": "_docs/specs/SPEC-decision-records.md",
-      "sha256": "c48acca614157d1ba00e001e7f37a08e18cbd3a5b0dff202c611d504d82a3141",
-      "baseline_sha256": "c48acca614157d1ba00e001e7f37a08e18cbd3a5b0dff202c611d504d82a3141"
+      "sha256": "79fbd0d1ce40505e994047f7320f2dcc97416cc922ba9ea43b2fa0f97a75af23",
+      "baseline_sha256": "79fbd0d1ce40505e994047f7320f2dcc97416cc922ba9ea43b2fa0f97a75af23"
     },
     {
       "source": "_docs/specs/SPEC-distribution.md",
       "destination": "_docs/specs/SPEC-distribution.md",
-      "sha256": "d79d1cae2f123ef326a11122bbb2a91b40c4c994121a356c2bbe17f05df599c1",
-      "baseline_sha256": "d79d1cae2f123ef326a11122bbb2a91b40c4c994121a356c2bbe17f05df599c1"
+      "sha256": "37c6f342d1e4d4dca66faeff390683bf523d64ad3ecea08d97c51ad9547d7f53",
+      "baseline_sha256": "37c6f342d1e4d4dca66faeff390683bf523d64ad3ecea08d97c51ad9547d7f53"
     },
     {
       "source": "_docs/specs/SPEC-docs-format.md",
@@ -60,14 +60,14 @@
     {
       "source": "_docs/specs/SPEC-docs-foundations.md",
       "destination": "_docs/specs/SPEC-docs-foundations.md",
-      "sha256": "8c06d57684e3aee64037f976e8f408f7ad42a6ea4bcedd687cbee25e49d2d3c7",
-      "baseline_sha256": "8c06d57684e3aee64037f976e8f408f7ad42a6ea4bcedd687cbee25e49d2d3c7"
+      "sha256": "8642ca01a533b43189740626596d6f243c79ee0f148ca1ecd526902dfdec02cf",
+      "baseline_sha256": "8642ca01a533b43189740626596d6f243c79ee0f148ca1ecd526902dfdec02cf"
     },
     {
       "source": "_docs/specs/SPEC-docs-specs.md",
       "destination": "_docs/specs/SPEC-docs-specs.md",
-      "sha256": "b33657e14f6014cfcccf992abe73f24f0e9bf61191eee829b21f15b0c0ecf930",
-      "baseline_sha256": "b33657e14f6014cfcccf992abe73f24f0e9bf61191eee829b21f15b0c0ecf930"
+      "sha256": "d0cfbd0f42177b7aff2977b57ab668cb70e9af84d6950ab63f7f658df670c933",
+      "baseline_sha256": "d0cfbd0f42177b7aff2977b57ab668cb70e9af84d6950ab63f7f658df670c933"
     },
     {
       "source": "_docs/specs/SPEC-known-issues.md",
@@ -84,8 +84,8 @@
     {
       "source": "_docs/specs/SPEC-spec-to-code.md",
       "destination": "_docs/specs/SPEC-spec-to-code.md",
-      "sha256": "7ebc2986681fb8cc1b534f22e8a7ec84981e32774354ca8fe3fe5d97b933c94f",
-      "baseline_sha256": "7ebc2986681fb8cc1b534f22e8a7ec84981e32774354ca8fe3fe5d97b933c94f"
+      "sha256": "9062d227a2ddba668fce74ffc51e4018afe9b403bec0555ef953b589f1ad3189",
+      "baseline_sha256": "9062d227a2ddba668fce74ffc51e4018afe9b403bec0555ef953b589f1ad3189"
     },
     {
       "source": "_docs/decisions/TEMPLATE-adr.md",
