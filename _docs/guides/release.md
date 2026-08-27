@@ -58,7 +58,7 @@ A release takes two pull requests. The first, which release-plz opens against `d
    gh run list --repo gubasso/spec-driven-docs --workflow release-plz.yml --limit 1
    ```
 
-7. Back-merge, so `develop` reaches the tagged commit and the next release diffs cleanly. Do it once the tag exists, or the gate reopens on an empty range. It is a fast-forward while `develop` has not moved since the gate was cut; if work landed meanwhile, drop `--ff-only` and take the merge commit:
+7. Back-merge, so `develop` reaches the tagged commit and the next release diffs cleanly. It runs safely before the tag lands, because the gate job refuses a commit that is not ahead of `master` and the back-merge leaves the two equal. It is a fast-forward while `develop` has not moved since the gate was cut; if work landed meanwhile, drop `--ff-only` and take the merge commit:
 
    ```bash
    git fetch origin --tags --force
@@ -66,13 +66,21 @@ A release takes two pull requests. The first, which release-plz opens against `d
    git push origin develop
    ```
 
-8. Verify:
+8. Wait for the installer build before verifying anything. cargo-dist creates the GitHub release in its final job, after every platform has built, so for about six minutes after the merge there is no release to look at and `gh release view` reports that it is not found. The tag lands sooner, around a minute in, but a check run before either arrives fails on timing rather than on the release:
+
+   ```bash
+   gh run watch --repo gubasso/spec-driven-docs --exit-status \
+     "$(gh run list --repo gubasso/spec-driven-docs --workflow release.yml \
+        --limit 1 --json databaseId -q '.[0].databaseId')"
+   ```
+
+9. Verify:
 
    ```bash
    cargo info spec-driven-docs                                    # crates.io serves the new version
    gh release view v<version> --repo gubasso/spec-driven-docs --json assets \
      -q '[.assets[].name] | join(", ")'                           # installers attached, never empty
-   git fetch origin --tags --force                                # the first fetch can race the tag push
+   git fetch origin --tags --force                                # the local clone may predate the tag push
    git rev-parse "v<version>^{commit}" origin/master origin/develop  # all three agree
    sdd --version                                                  # installed binary reports it
    ```
