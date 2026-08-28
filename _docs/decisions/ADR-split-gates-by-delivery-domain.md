@@ -14,7 +14,7 @@ Gates lived in one directory and left this repository by two routes: projected i
 
 Chosen option: `two gate directories, one declaration` — `gates/instance/` is what an instance receives, `gates/canon/` is what checks invariants only this repository has, and `instance/gates.json` declares the delivered set that both the projected block and the published manifest are rendered from.
 
-Enforced by `distribution:the-delivered-gate-set-is-declared-once` and `distribution:a-canon-gate-is-not-delivered`.
+Enforced by `release:the-delivered-gate-set-is-declared-once` and `release:a-canon-gate-is-not-delivered`.
 
 ## Consequences
 

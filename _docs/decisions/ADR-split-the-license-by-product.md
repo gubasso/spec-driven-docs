@@ -17,7 +17,7 @@ Chosen option: `CC BY 4.0 for the method and MIT for the distribution` — the b
 
 `LICENSE` states which directories fall on each side, and `LICENSE-CC-BY-4.0` and `LICENSE-MIT` carry the terms.
 
-Enforced by `distribution:license-declares-both-halves`.
+Enforced by `release:license-declares-both-halves`.
 
 ## Consequences
 

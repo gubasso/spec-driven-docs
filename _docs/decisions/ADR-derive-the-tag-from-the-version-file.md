@@ -16,7 +16,7 @@ Chosen option: `VERSION is the source of truth and the tag derives from it` — 
 
 `scripts/release.sh` computes `v<VERSION>`, refuses a dirty tree, and refuses a release with no migration guide into it. The commit gate holds the file agreement and refuses to author further under a version already tagged. CI re-checks the name at the tagged commit.
 
-Enforced by `distribution:versions-are-semantic-and-aligned`, `distribution:a-tag-derives-from-the-version-file`, `distribution:a-released-version-is-not-re-authored`, and `distribution:a-release-carries-its-migration-guide`.
+Enforced by `release:versions-are-semantic-and-aligned`, `release:a-tag-derives-from-the-version-file`, and `release:a-released-version-is-not-re-authored`.
 
 ## Consequences
 

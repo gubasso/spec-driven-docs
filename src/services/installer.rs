@@ -225,13 +225,16 @@ fn apply(target: &Utf8Path, state: &TargetState) -> Result<(), AppError> {
         }
         unrestored
     };
-    let abort = |unrestored: Vec<Utf8PathBuf>| {
+    // The cause travels with the refusal: the caller has already lost the
+    // written tree by the time it reads this, so a bare "aborted" leaves
+    // nothing to act on.
+    let abort = |unrestored: Vec<Utf8PathBuf>, cause: &str| {
         if unrestored.is_empty() {
-            AppError::Refused("apply aborted; the target was restored".to_string())
+            AppError::Refused(format!("apply aborted; the target was restored: {cause}"))
         } else {
             let paths: Vec<&str> = unrestored.iter().map(|p| p.as_str()).collect();
             AppError::Refused(format!(
-                "apply aborted and restoration is incomplete; verify by hand: {}",
+                "apply aborted and restoration is incomplete; verify by hand: {}: {cause}",
                 paths.join(" ")
             ))
         }
@@ -263,13 +266,29 @@ fn apply(target: &Utf8Path, state: &TargetState) -> Result<(), AppError> {
         Ok(())
     };
 
-    if write_all().is_err() {
-        return Err(abort(rollback(&backups)));
+    if let Err(source) = write_all() {
+        return Err(abort(
+            rollback(&backups),
+            &format!("write failed: {source}"),
+        ));
     }
 
     match verifier::verify(target) {
         Ok(report) if report.failures == 0 => Ok(()),
-        _ => Err(abort(rollback(&backups))),
+        Ok(report) => {
+            let failures: Vec<&str> = report
+                .lines
+                .iter()
+                .filter(|line| line.starts_with("FAIL"))
+                .map(String::as_str)
+                .collect();
+            let cause = failures.join("; ");
+            Err(abort(rollback(&backups), &cause))
+        }
+        Err(source) => Err(abort(
+            rollback(&backups),
+            &format!("the written target could not be verified: {source}"),
+        )),
     }
 }
 

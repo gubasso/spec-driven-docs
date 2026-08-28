@@ -14,12 +14,13 @@
   - [`distribution:skill-uninstall-removes-only-payload-files` — Skill uninstall removes only payload files](#distributionskill-uninstall-removes-only-payload-files--skill-uninstall-removes-only-payload-files)
   - [`distribution:user-scope-files-stay-unrecorded` — User-scope files stay unrecorded](#distributionuser-scope-files-stay-unrecorded--user-scope-files-stay-unrecorded)
   - [`distribution:the-payload-names-no-planning-tool` — The payload names no planning tool](#distributionthe-payload-names-no-planning-tool--the-payload-names-no-planning-tool)
+  - [`distribution:a-seeded-rule-runs-no-canon-command` — A seeded rule runs no canon command](#distributiona-seeded-rule-runs-no-canon-command--a-seeded-rule-runs-no-canon-command)
 
 <!--TOC-->
 
 ## Purpose
 
-Rules governing installation, ownership classes, offline verification, and upgrades. The distribution is one installed binary, `sdd`, that carries the payload; an instance adopts this spec, and every rule here is one an instance can verify with the binary it runs. The release rules the canon alone runs are stated in `SPEC-release.md`.
+Rules governing installation, ownership classes, offline verification, and upgrades. The distribution is one installed binary, `sdd`, that carries the payload, and every rule here binds whoever authors that binary. No instance adopts this spec: its subject is the installer, so an instance holding these rules would hold obligations it cannot violate and verifications it cannot run. What a project owes its own installation is stated in `SPEC-instance.md`; the rules the canon alone runs at release time are stated in `SPEC-release.md`.
 
 ## Requirements
 
@@ -33,7 +34,7 @@ The installer MUST record each installed file with its ownership class, destinat
 - WHEN the verifier reads the manifest
 - THEN it distinguishes managed drift from adopted reconciliation
 
-Verify: `pre-commit run instance-manifest --all-files`
+Verify: `cargo nextest run -E 'binary(cmd_verify) + binary(cmd_status)'`
 
 ### `distribution:initialization-preserves-project-content` — Initialization preserves project content
 
@@ -140,5 +141,17 @@ The author MUST keep every embedded payload root free of a planning tool's name,
 - GIVEN a chapter edited to illustrate the seam with one planning tool by name
 - WHEN the canon test suite runs
 - THEN the check fails naming the file and the term, because a framework that names one tool stops being pairable with another
+
+Verify: `cargo nextest run -E 'binary(canon)'`
+
+### `distribution:a-seeded-rule-runs-no-canon-command` — A seeded rule runs no canon command
+
+Where a spec is seeded into an instance, the author MUST keep the words `cargo` and `just` out of every shell command its verification lines carry.
+
+#### Scenario: A canon-only rule is left in a seeded spec
+
+- GIVEN a seeded spec carrying a rule verified by a cargo test
+- WHEN the canon test suite runs
+- THEN the check fails naming the spec and the command, because the adopter would read an unrunnable verification as work it owes
 
 Verify: `cargo nextest run -E 'binary(canon)'`

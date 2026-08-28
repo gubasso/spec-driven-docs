@@ -140,7 +140,7 @@ mod tests {
             ..RenderOptions::default()
         };
         let out = render_gates(&options);
-        assert!(out.starts_with("- id: adr-filename-shape\n"));
+        assert!(out.starts_with("- id: adr-cites-a-live-rule\n"));
         assert!(out.contains("  entry: sdd gate adr-filename-shape\n"));
         assert!(out.contains("  language: rust\n"));
         assert!(out.contains("  files: '^_?docs/decisions/.*\\.md$'\n"));

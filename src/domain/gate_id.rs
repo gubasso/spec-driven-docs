@@ -13,6 +13,8 @@ use clap::ValueEnum;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, ValueEnum)]
 #[value(rename_all = "kebab-case")]
 pub enum GateId {
+    /// Decision record citations resolve to a live rule.
+    AdrCitesALiveRule,
     /// Decision record filenames are dated-free slugs.
     AdrFilenameShape,
     /// Decision record bodies stay within the word cap.
@@ -64,6 +66,7 @@ pub enum GateId {
 impl GateId {
     /// Every delivered gate, in id order.
     pub const ALL: &'static [Self] = &[
+        Self::AdrCitesALiveRule,
         Self::AdrFilenameShape,
         Self::AdrWordCap,
         Self::AgentsDigestSize,
@@ -93,6 +96,7 @@ impl GateId {
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
+            Self::AdrCitesALiveRule => "adr-cites-a-live-rule",
             Self::AdrFilenameShape => "adr-filename-shape",
             Self::AdrWordCap => "adr-word-cap",
             Self::AgentsDigestSize => "agents-digest-size",
@@ -148,7 +152,7 @@ mod tests {
         for gate in GateId::ALL {
             assert!(seen.insert(gate.as_str()), "{gate} is duplicated");
         }
-        assert_eq!(GateId::ALL.len(), 23);
+        assert_eq!(GateId::ALL.len(), 24);
     }
 
     #[test]

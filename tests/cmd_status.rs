@@ -57,7 +57,7 @@ fn a_fresh_install_is_aligned_and_ok() {
 fn an_adopted_edit_counts_as_adopted_drift_and_stays_ok() {
     let fixture = Fixture::new();
     fixture.install("knowledge-base");
-    fixture.write("_docs/specs/SPEC-distribution.md", "# Edited\n");
+    fixture.write("_docs/specs/SPEC-instance.md", "# Edited\n");
     let report = status_json(&fixture);
     assert_eq!(report["adopted_drift"], 1);
     assert_eq!(report["managed_drift"], 0);

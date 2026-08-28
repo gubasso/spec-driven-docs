@@ -154,8 +154,8 @@ const ADOPTED: &[Projection] = &[
         "{docs_root}/specs/SPEC-decision-records.md",
     ),
     proj(
-        "_docs/specs/SPEC-distribution.md",
-        "{docs_root}/specs/SPEC-distribution.md",
+        "_docs/specs/SPEC-instance.md",
+        "{docs_root}/specs/SPEC-instance.md",
     ),
     proj(
         "_docs/specs/SPEC-docs-format.md",

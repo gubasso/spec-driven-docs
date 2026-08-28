@@ -8,6 +8,12 @@
 # repository into its own hook environment, so a consumer needs cargo and
 # nothing else. A hook scoped by `files:` here states the default a consumer
 # can narrow or widen in their own `.pre-commit-config.yaml`.
+- id: adr-cites-a-live-rule
+  name: 'decision record citations resolve'
+  entry: sdd gate adr-cites-a-live-rule
+  language: rust
+  always_run: true
+  pass_filenames: false
 - id: adr-filename-shape
   name: 'decision record filename shape'
   entry: sdd gate adr-filename-shape

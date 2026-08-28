@@ -240,28 +240,30 @@ The `awk` attributes a marker to the requirement heading above it, not to one in
 
 These rules are real and no command decides them. A reviewer does.
 
-| Rule                                                     | Why no command                            |
-| -------------------------------------------------------- | ----------------------------------------- |
-| A requirement names a subject that can act               | requires reading the sentence             |
-| A requirement statement is one sentence                  | requires reading the sentence             |
-| A reference is one level from the entry document         | requires knowing the entry document       |
-| A scenario names the contested case, not a restatement   | requires knowing the ambiguity            |
-| A deferral's reopening condition is checkable            | requires domain knowledge                 |
-| Prose is spent only on a decision, hazard, or constraint | requires judging necessity                |
-| A document contains no bold or italic text               | stated without a gate by decision         |
-| One term for one concept                                 | requires knowing which terms are synonyms |
-| A fact has exactly one owner                             | requires knowing what the fact is         |
-| A spec introduces no section outside its shape           | its trailing wildcard admits any heading  |
-| A run of records about one domain means a missing spec   | requires reading the corpus               |
-| A spec change is declared as a typed clause              | a command cannot see an omitted clause    |
-| A typed clause's type matches the diff                   | requires reading both sides               |
-| A step is one action, and an unprinted outcome is a step | requires reading the step                 |
-| An artifact token names one artifact, never a step       | requires judging the name                 |
-| A comment holds only what the code cannot express        | requires reading the code beside it       |
-| A claim about code quotes the code that shows it         | requires reading the code beside it       |
-| A report leads with a run before its supporting detail   | requires reading the document             |
-| A pointer carries only what orients the reader           | requires knowing what the target owns     |
-| An operational document carries every part of its shape  | requires knowing which shape it is        |
-| A destructive step shows its dry run and its loss        | requires knowing the tool's forms         |
+| Rule                                                        | Why no command                            |
+| ----------------------------------------------------------- | ----------------------------------------- |
+| A requirement names a subject that can act                  | requires reading the sentence             |
+| A requirement statement is one sentence                     | requires reading the sentence             |
+| A reference is one level from the entry document            | requires knowing the entry document       |
+| A scenario names the contested case, not a restatement      | requires knowing the ambiguity            |
+| A deferral's reopening condition is checkable               | requires domain knowledge                 |
+| Prose is spent only on a decision, hazard, or constraint    | requires judging necessity                |
+| A document contains no bold or italic text                  | stated without a gate by decision         |
+| One term for one concept                                    | requires knowing which terms are synonyms |
+| A fact has exactly one owner                                | requires knowing what the fact is         |
+| A spec introduces no section outside its shape              | its trailing wildcard admits any heading  |
+| A run of records about one domain means a missing spec      | requires reading the corpus               |
+| A seeded rule states an obligation its adopter can violate  | requires reading the rule's subject       |
+| A seeded rule's verification is one the adopter can perform | requires knowing the adopter's tools      |
+| A spec change is declared as a typed clause                 | a command cannot see an omitted clause    |
+| A typed clause's type matches the diff                      | requires reading both sides               |
+| A step is one action, and an unprinted outcome is a step    | requires reading the step                 |
+| An artifact token names one artifact, never a step          | requires judging the name                 |
+| A comment holds only what the code cannot express           | requires reading the code beside it       |
+| A claim about code quotes the code that shows it            | requires reading the code beside it       |
+| A report leads with a run before its supporting detail      | requires reading the document             |
+| A pointer carries only what orients the reader              | requires knowing what the target owns     |
+| An operational document carries every part of its shape     | requires knowing which shape it is        |
+| A destructive step shows its dry run and its loss           | requires knowing the tool's forms         |
 
 [99 — Checklist](./99-checklist.md) is where these are asked at review time.

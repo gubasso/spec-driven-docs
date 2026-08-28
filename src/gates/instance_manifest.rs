@@ -11,7 +11,7 @@ use crate::domain::rule_id::RuleId;
 use crate::gates::{GateCtx, GateResult, Violation};
 
 /// The rules this gate can cite.
-pub const CITES: &[RuleId] = &[RuleId::ManifestIdentifiesEveryOwnedFile];
+pub const CITES: &[RuleId] = &[RuleId::TheManifestStaysReadable];
 
 /// Judge the manifest's shape.
 ///
@@ -21,7 +21,7 @@ pub const CITES: &[RuleId] = &[RuleId::ManifestIdentifiesEveryOwnedFile];
 pub fn run(ctx: &GateCtx, _files: &[String]) -> GateResult {
     let violation = |detail: &str| {
         vec![Violation::Finding(Finding::on_file(
-            RuleId::ManifestIdentifiesEveryOwnedFile,
+            RuleId::TheManifestStaysReadable,
             MANIFEST_PATH,
             detail,
         ))]
@@ -79,7 +79,7 @@ mod tests {
     fn rejects_a_missing_or_older_manifest() {
         let missing = run_with_manifest(None);
         assert_eq!(missing.len(), 1);
-        assert!(missing[0].contains("distribution:manifest-identifies-every-owned-file"));
+        assert!(missing[0].contains("instance:the-manifest-stays-readable"));
 
         let older = VALID.replace("\"schema_version\": 2", "\"schema_version\": 1");
         let out = run_with_manifest(Some(&older));

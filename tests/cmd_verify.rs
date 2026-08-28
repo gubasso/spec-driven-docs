@@ -116,7 +116,7 @@ fn a_duplicate_local_rule_id_fails_red() {
     fixture.install("knowledge-base");
     fixture.write(
         "_docs/specs/SPEC-local.md",
-        "# Local Specification\n\n### `distribution:instances-operate-offline` — Duplicated\n\nVerify: `true`\n",
+        "# Local Specification\n\n### `instance:the-manifest-stays-readable` — Duplicated\n\nVerify: `true`\n",
     );
     fixture
         .cmd()
@@ -127,7 +127,7 @@ fn a_duplicate_local_rule_id_fails_red() {
             "FAIL duplicate rule ID in local specs",
         ))
         .stdout(predicate::str::contains(
-            "### `distribution:instances-operate-offline`",
+            "### `instance:the-manifest-stays-readable`",
         ));
 }
 

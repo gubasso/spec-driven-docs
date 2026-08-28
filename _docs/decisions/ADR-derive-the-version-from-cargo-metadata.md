@@ -16,7 +16,7 @@ Chosen option: `Cargo.toml is the source of truth; release-plz derives everythin
 
 The canon's own manifest must carry the crate version, held by a canon test, and exactly one migration guide must lead into it — the checks that replaced the version gate.
 
-Enforced by `release:versions-are-semantic-and-aligned`, `release:a-tag-derives-from-the-version-file`, and `release:a-release-carries-its-migration-guide`.
+Enforced by `release:versions-are-semantic-and-aligned` and `release:a-tag-derives-from-the-version-file`.
 
 ## Consequences
 

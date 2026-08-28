@@ -24,7 +24,7 @@ fn installs_both_profiles_and_they_verify() {
             fixture
                 .path()
                 .join(root)
-                .join("specs/SPEC-distribution.md")
+                .join("specs/SPEC-instance.md")
                 .is_file()
         );
         assert!(
@@ -88,7 +88,7 @@ fn reinstall_is_byte_stable() {
 fn an_adopted_edit_survives_reinstall_and_reports_drift_until_rerecorded() {
     let fixture = Fixture::new();
     fixture.install("knowledge-base");
-    let spec = "_docs/specs/SPEC-distribution.md";
+    let spec = "_docs/specs/SPEC-instance.md";
     let edited = fixture.read(spec) + "\nLocal addition.\n";
     fixture.write(spec, &edited);
 
@@ -314,7 +314,7 @@ fn a_symlinked_destination_is_refused_and_nothing_is_written() {
 #[test]
 fn a_directory_at_a_file_destination_is_refused() {
     let fixture = Fixture::new();
-    std::fs::create_dir_all(fixture.path().join("_docs/specs/SPEC-distribution.md")).unwrap();
+    std::fs::create_dir_all(fixture.path().join("_docs/specs/SPEC-instance.md")).unwrap();
     fixture
         .cmd()
         .args([
@@ -346,4 +346,38 @@ fn a_dangling_symlink_counts_as_content() {
         .assert()
         .success()
         .stdout(predicate::str::contains("DRY RUN"));
+}
+
+/// VERIFIES distribution:initialization-preserves-project-content
+#[test]
+fn a_refused_apply_names_what_made_it_refuse() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    // A second spec claiming a seeded rule ID: the target writes, then fails
+    // verification. The refusal has to carry that reason, because the tree it
+    // describes is rolled back before the caller can look at it.
+    fixture.write(
+        "_docs/specs/SPEC-copy.md",
+        "# Copy Specification\n\n### `instance:the-manifest-stays-readable` — Duplicated\n\nVerify: `true`\n",
+    );
+    let digest = fixture.tree_digest();
+    fixture
+        .cmd()
+        .args([
+            "init",
+            "--target",
+            &fixture.target(),
+            "--profile",
+            "knowledge-base",
+            "--apply",
+        ])
+        .assert()
+        .code(73)
+        .stderr(predicate::str::contains("apply aborted"))
+        .stderr(predicate::str::contains("duplicate rule ID in local specs"));
+    assert_eq!(
+        digest,
+        fixture.tree_digest(),
+        "a refused apply changed bytes"
+    );
 }

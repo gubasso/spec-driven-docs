@@ -9,6 +9,7 @@
 
 pub mod paths;
 
+pub mod adr_cites_a_live_rule;
 pub mod adr_filename_shape;
 pub mod adr_word_cap;
 pub mod agents_digest_size;
@@ -156,6 +157,16 @@ pub fn spec(id: GateId) -> &'static GateSpec {
 
 /// The delivered gate set, in [`GateId::ALL`] order.
 pub static GATES: &[GateSpec] = &[
+    GateSpec {
+        id: GateId::AdrCitesALiveRule,
+        name: "decision record citations resolve",
+        files: None,
+        types: None,
+        exclude: None,
+        always_run: true,
+        cites: adr_cites_a_live_rule::CITES,
+        run: adr_cites_a_live_rule::run,
+    },
     GateSpec {
         id: GateId::AdrFilenameShape,
         name: "decision record filename shape",

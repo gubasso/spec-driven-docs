@@ -2,7 +2,7 @@
 name: sdd-setup
 description: Lands and operates a spec-driven-docs instance in a project through the sdd CLI. Use when asked to install or set up spec-driven docs, detect whether a repository has an instance, verify or upgrade an installed instance, splice the documentation section into AGENTS.md, or diagnose sdd verify failures. Triggers include spec-driven-docs, sdd init, sdd status, sdd verify, sdd upgrade, and docs governance instance.
 license: CC-BY-4.0
-compatibility: Requires the sdd binary on PATH; install with cargo install spec-driven-docs or cargo binstall spec-driven-docs.
+compatibility: Requires the sdd binary on PATH; install with cargo install spec-driven-docs or cargo binstall spec-driven-docs. Requires pre-commit, which runs the delivered gates the install wires into .pre-commit-config.yaml.
 ---
 
 # sdd-setup
@@ -56,6 +56,8 @@ sdd upgrade --target .
 ```
 
 Install the newer `sdd` first. A locally edited managed file aborts the whole upgrade with every conflict listed in one run; revert or reconcile, then re-run. Adopted files and content outside the markers survive upgrades.
+
+An adopted seed the canon stops shipping is left in place, because the project owns it from the moment it lands. An upgrade that stops seeding one names it in the release notes; delete the file once nothing local cites its rules. `SPEC-distribution.md` is the first: it states the installer's obligations, which no project can meet or check, and `SPEC-instance.md` now carries what a project owes its own installation.
 
 ## Defaults
 

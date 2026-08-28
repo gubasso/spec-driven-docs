@@ -332,3 +332,99 @@ fn the_embedded_payload_names_no_planning_tool() {
         }
     }
 }
+
+/// The canon's own build drivers. The installer wires neither into an
+/// adopting project: `sdd`, `pre-commit`, and plain shell are what an
+/// instance actually has.
+const CANON_ONLY_COMMANDS: &[&str] = &["cargo", "just"];
+
+/// The canon-only driver a shell command names, if any.
+///
+/// Whole words, not substrings, and not command position: deciding which
+/// token a shell would execute needs a shell parser, and this rejects the
+/// word wherever it appears instead. That over-rejects — `rg -q cargo x`
+/// names no invocation — and the trade is deliberate: rewording a
+/// verification line is cheap and visible, while a canon command reaching
+/// every adopter is neither. `/` separates, so `/usr/bin/cargo` is caught;
+/// `-` and `_` do not, so `cargo-audit` and `just-in-time` are words of
+/// their own.
+fn names_a_canon_command(command: &str) -> Option<&'static str> {
+    let is_word = |c: char| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.');
+    command
+        .split(|c: char| !is_word(c))
+        .find_map(|token| CANON_ONLY_COMMANDS.iter().copied().find(|d| *d == token))
+}
+
+/// A `Verify:` value that is a shell command, or `None` for a named human
+/// procedure, which carries no command and is held by the unenforced table.
+fn verification_command(verification: &str) -> Option<&str> {
+    verification
+        .starts_with('`')
+        .then(|| verification.trim_matches('`'))
+}
+
+#[test]
+fn a_canon_command_is_recognized_by_token() {
+    assert_eq!(names_a_canon_command("cargo nextest run"), Some("cargo"));
+    assert_eq!(names_a_canon_command("just"), Some("just"));
+    assert_eq!(names_a_canon_command("  just   check  "), Some("just"));
+    assert_eq!(names_a_canon_command("sh -c 'cargo build'"), Some("cargo"));
+    // A path-qualified invocation is still the command.
+    assert_eq!(names_a_canon_command("/usr/bin/cargo check"), Some("cargo"));
+    // Deliberate over-rejection: the word is rejected wherever it appears,
+    // because command position needs a shell parser.
+    assert_eq!(
+        names_a_canon_command("rg -q cargo README.md"),
+        Some("cargo")
+    );
+    // The word only as part of a longer token is not the word.
+    assert_eq!(names_a_canon_command("rg cargo-audit ."), None);
+    assert_eq!(names_a_canon_command("pre-commit run adr-word-cap"), None);
+    assert_eq!(names_a_canon_command("just-in-time"), None);
+    assert_eq!(names_a_canon_command("sdd verify --target ."), None);
+}
+
+#[test]
+fn a_human_procedure_carries_no_command() {
+    assert_eq!(
+        verification_command("reviewer confirms just the diff"),
+        None
+    );
+    assert_eq!(verification_command("`true`"), Some("true"));
+    assert_eq!(verification_command("``rg -o 'x' .``"), Some("rg -o 'x' ."));
+}
+
+/// SATISFIES distribution:a-seeded-rule-runs-no-canon-command
+#[test]
+fn a_seeded_rule_runs_no_canon_command() {
+    let seeds: Vec<&str> = spec_driven_docs::domain::profile::ProfileId::KnowledgeBase
+        .profile()
+        .adopted
+        .iter()
+        .map(|entry| entry.source)
+        .filter(|source| source.contains("/SPEC-"))
+        .collect();
+    assert!(!seeds.is_empty(), "the profile seeds no spec");
+    let mut commands = 0usize;
+    for source in seeds {
+        let path = canon().join(source);
+        let text = std::fs::read_to_string(&path)
+            .unwrap_or_else(|_| panic!("{source} is seeded but not on disk"));
+        for (index, line) in text.lines().enumerate() {
+            let Some(verification) = line.strip_prefix("Verify: ") else {
+                continue;
+            };
+            let Some(command) = verification_command(verification) else {
+                continue;
+            };
+            commands += 1;
+            assert!(
+                names_a_canon_command(command).is_none(),
+                "{source}:{}: a seeded rule is verified by `{}`, which no instance runs",
+                index + 1,
+                names_a_canon_command(command).unwrap_or_default()
+            );
+        }
+    }
+    assert!(commands > 0, "no seeded rule carries a command to judge");
+}
