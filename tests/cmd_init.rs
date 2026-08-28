@@ -33,19 +33,19 @@ fn installs_both_profiles_and_they_verify() {
                 .join(".spec-driven-docs/markdownlint")
                 .is_dir()
         );
-        for skill in ["sdd-setup", "sdd-write-docs"] {
-            for root in [".claude/skills", ".agents/skills"] {
-                assert!(
-                    fixture
-                        .path()
-                        .join(root)
-                        .join(skill)
-                        .join("SKILL.md")
-                        .is_file(),
-                    "missing {root}/{skill}"
-                );
-            }
+        // VERIFIES distribution:a-skill-has-one-owner: an instance carries no
+        // skill, so a session opened here sees the user-scope copy alone.
+        for root in [".claude/skills", ".agents/skills"] {
+            assert!(
+                !fixture.path().join(root).exists(),
+                "the instance installed {root}"
+            );
         }
+        assert!(
+            !fixture
+                .read(".spec-driven-docs/manifest.json")
+                .contains("skills/")
+        );
         fixture
             .cmd()
             .args(["verify", "--target", &fixture.target()])

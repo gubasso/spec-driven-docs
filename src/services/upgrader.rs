@@ -80,6 +80,26 @@ fn read_installed(target: &Utf8Path) -> Result<Installed, AppError> {
 /// The only roots an upgrade may remove dropped managed files from.
 const PRUNABLE: &[&str] = &[".spec-driven-docs/", ".claude/skills/", ".agents/skills/"];
 
+/// Remove the directory a pruned file leaves empty, never the prunable root.
+///
+/// A skill is a directory holding one `SKILL.md`, so pruning the file alone
+/// leaves an empty directory carrying the old skill's name — which some
+/// agents still list.
+fn prune_empty_parent(full: &Utf8Path, raw: &str, prunable: &str) {
+    let Some((relative_parent, _)) = raw.rsplit_once('/') else {
+        return;
+    };
+    if relative_parent == prunable.trim_end_matches('/') {
+        return;
+    }
+    let Some(directory) = full.parent() else {
+        return;
+    };
+    if std::fs::read_dir(directory).is_ok_and(|mut entries| entries.next().is_none()) {
+        let _ = std::fs::remove_dir(directory);
+    }
+}
+
 fn prune(
     target: &Utf8Path,
     dropped: &[Utf8PathBuf],
@@ -100,9 +120,9 @@ fn prune(
             outcome.failures += 1;
             continue;
         }
-        if !PRUNABLE.iter().any(|prefix| raw.starts_with(prefix)) {
+        let Some(prunable) = PRUNABLE.iter().find(|prefix| raw.starts_with(**prefix)) else {
             continue;
-        }
+        };
         let mut prefix = target.to_path_buf();
         let parts: Vec<&str> = raw.split('/').collect();
         let mut escapes = false;
@@ -127,6 +147,7 @@ fn prune(
             outcome
                 .lines
                 .push(format!("removed managed file no longer owned: {raw}"));
+            prune_empty_parent(&full, raw, prunable);
         } else {
             unremoved.push(destination.clone());
         }

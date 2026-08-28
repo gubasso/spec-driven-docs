@@ -33,7 +33,7 @@ repos:
 
 ## Skills
 
-`sdd init` lands the embedded agent skills managed at `.claude/skills/`, which Claude Code reads, and `.agents/skills/`, which Codex, Gemini CLI, and Copilot read, so every agent working in the instance carries the same operating knowledge.
+The binary embeds the agent skills, and `sdd skill install` is the only thing that lands them. They install at user scope alone — an instance carries none — because an agent resolves a skill by its name, so an instance copy beside the user-scope one would offer the same skill twice under one name.
 
 ```bash
 sdd skill list
@@ -42,7 +42,9 @@ sdd skill install
 sdd skill install --apply
 ```
 
-`sdd skill install` writes the same files at user scope — `~/.claude/skills` and `~/.agents/skills` — previewing by default and refusing a destination whose bytes it cannot account for unless `--force` is given. It accounts for two things: the payload it carries, and `~/.local/state/spec-driven-docs/skills.json`, which records the digest each successful apply wrote. A copy an older release left is replaced without asking; a file you edited refuses. An apply that fails partway restores every destination, so the two roots never end up on different versions of one skill. User-scope files are never recorded in an instance manifest, and no verification reads that state file. `sdd skill uninstall` reverses the install, also previewing by default; it removes only each skill's `SKILL.md` and its directory when empty, so any file you added alongside survives.
+`sdd skill install` writes into `~/.claude/skills`, which Claude Code reads, and `~/.agents/skills`, which Codex, Gemini CLI, and Copilot read, previewing by default and refusing a destination whose bytes it cannot account for unless `--force` is given. It accounts for two things: the payload it carries, and `~/.local/state/spec-driven-docs/skills.json`, which records the digest each successful apply wrote. A copy an older release left is replaced without asking; a file you edited refuses. An apply that fails partway restores every destination, so the two roots never end up on different versions of one skill. User-scope files are never recorded in an instance manifest, and no verification reads that state file.
+
+Both verbs also sweep: a destination the record vouches for that the current payload no longer carries is removed along with the directory it empties, so a skill the canon renamed leaves nothing for an agent to keep offering. `sdd skill uninstall` reverses the install, also previewing by default; it removes each skill's `SKILL.md` and its directory when empty, so any file you added alongside survives, as does any leftover you edited yourself.
 
 ## Verify
 

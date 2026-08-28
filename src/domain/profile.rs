@@ -117,6 +117,12 @@ pub struct Profile {
     pub adopted: &'static [Projection],
 }
 
+/// Byte projections every profile installs.
+///
+/// No skill appears here. A skill name is what an agent's picker keys on,
+/// so an instance copy and the user-scope copy of one skill are two entries
+/// under one name in every session opened inside that instance. User scope
+/// owns them alone (ADR-give-every-skill-one-owner).
 const MANAGED: &[Projection] = &[
     proj(
         ".markdownlint/adr.markdownlint-cli2.jsonc",
@@ -129,22 +135,6 @@ const MANAGED: &[Projection] = &[
     proj(
         ".markdownlint/relative-links.markdownlint-cli2.jsonc",
         ".spec-driven-docs/markdownlint/relative-links.markdownlint-cli2.jsonc",
-    ),
-    proj(
-        "skills/sdd-setup/SKILL.md",
-        ".claude/skills/sdd-setup/SKILL.md",
-    ),
-    proj(
-        "skills/sdd-setup/SKILL.md",
-        ".agents/skills/sdd-setup/SKILL.md",
-    ),
-    proj(
-        "skills/sdd-write-docs/SKILL.md",
-        ".claude/skills/sdd-write-docs/SKILL.md",
-    ),
-    proj(
-        "skills/sdd-write-docs/SKILL.md",
-        ".agents/skills/sdd-write-docs/SKILL.md",
     ),
 ];
 

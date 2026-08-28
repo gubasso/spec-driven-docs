@@ -69,7 +69,10 @@ fn an_adopted_edit_counts_as_adopted_drift_and_stays_ok() {
 fn a_managed_edit_counts_as_managed_drift_and_is_not_ok() {
     let fixture = Fixture::new();
     fixture.install("knowledge-base");
-    fixture.write(".claude/skills/sdd-setup/SKILL.md", "edited\n");
+    fixture.write(
+        ".spec-driven-docs/markdownlint/adr.markdownlint-cli2.jsonc",
+        "// edited\n",
+    );
     let report = status_json(&fixture);
     assert_eq!(report["managed_drift"], 1);
     assert_eq!(report["ok"], false);

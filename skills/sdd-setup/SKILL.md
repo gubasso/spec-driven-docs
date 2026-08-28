@@ -63,4 +63,5 @@ An adopted seed the canon stops shipping is left in place, because the project o
 
 - One instance per repository, at the repository root.
 - Prefer `sdd status --json` for machine decisions; stdout is one JSON object.
-- Leave managed files alone: `.spec-driven-docs/` and the installed skill files under `.claude/skills/` and `.agents/skills/` belong to the canon, and `sdd verify` fails on any edit.
+- Leave managed files alone: everything under `.spec-driven-docs/` belongs to the canon, and `sdd verify` fails on any edit.
+- An instance carries no skill file. The skills live at user scope, where `sdd skill install` puts them; a copy under the repository's `.claude/skills/` or `.agents/skills/` is a leftover from a version before that rule, and `sdd upgrade` removes it.

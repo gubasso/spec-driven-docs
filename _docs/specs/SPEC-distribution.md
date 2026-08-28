@@ -9,11 +9,13 @@
   - [`distribution:instances-operate-offline` — Instances operate offline](#distributioninstances-operate-offline--instances-operate-offline)
   - [`distribution:upgrade-conflicts-are-atomic` — Upgrade conflicts are atomic](#distributionupgrade-conflicts-are-atomic--upgrade-conflicts-are-atomic)
   - [`distribution:skills-are-part-of-the-payload` — Skills are part of the payload](#distributionskills-are-part-of-the-payload--skills-are-part-of-the-payload)
+  - [`distribution:a-skill-has-one-owner` — A skill has one owner](#distributiona-skill-has-one-owner--a-skill-has-one-owner)
   - [`distribution:a-skill-obeys-the-portable-format` — A skill obeys the portable format](#distributiona-skill-obeys-the-portable-format--a-skill-obeys-the-portable-format)
   - [`distribution:skill-install-previews-before-writing` — Skill install previews before writing](#distributionskill-install-previews-before-writing--skill-install-previews-before-writing)
   - [`distribution:a-stale-skill-is-not-a-conflict` — A stale skill is not a conflict](#distributiona-stale-skill-is-not-a-conflict--a-stale-skill-is-not-a-conflict)
   - [`distribution:a-skill-install-restores-on-failure` — A skill install restores on failure](#distributiona-skill-install-restores-on-failure--a-skill-install-restores-on-failure)
-  - [`distribution:skill-uninstall-removes-only-payload-files` — Skill uninstall removes only payload files](#distributionskill-uninstall-removes-only-payload-files--skill-uninstall-removes-only-payload-files)
+  - [`distribution:skill-uninstall-removes-only-what-it-wrote` — Skill uninstall removes only what it wrote](#distributionskill-uninstall-removes-only-what-it-wrote--skill-uninstall-removes-only-what-it-wrote)
+  - [`distribution:an-install-sweeps-what-the-payload-dropped` — An install sweeps what the payload dropped](#distributionan-install-sweeps-what-the-payload-dropped--an-install-sweeps-what-the-payload-dropped)
   - [`distribution:user-scope-files-stay-unrecorded` — User-scope files stay unrecorded](#distributionuser-scope-files-stay-unrecorded--user-scope-files-stay-unrecorded)
   - [`distribution:the-payload-names-no-planning-tool` — The payload names no planning tool](#distributionthe-payload-names-no-planning-tool--the-payload-names-no-planning-tool)
   - [`distribution:a-seeded-rule-runs-no-canon-command` — A seeded rule runs no canon command](#distributiona-seeded-rule-runs-no-canon-command--a-seeded-rule-runs-no-canon-command)
@@ -76,13 +78,25 @@ Verify: `cargo nextest run -E 'binary(cmd_upgrade)'`
 
 ### `distribution:skills-are-part-of-the-payload` — Skills are part of the payload
 
-The distribution MUST embed every skill authored under `skills/` and install each one as a managed file in every profile.
+The distribution MUST embed every skill authored under `skills/`, so a binary carries the skills of its own version and no instance fetches them.
 
-#### Scenario: A project is initialized for any coding agent
+#### Scenario: A skill is authored under the canon's skills directory
 
-- GIVEN a target repository with no instance
+- GIVEN a skill directory added under `skills/`
+- WHEN the binary is built
+- THEN `sdd skill list` names it and `sdd skill show` prints it byte-identical to the authored file
+
+Verify: `cargo nextest run -E 'binary(cmd_skill)'`
+
+### `distribution:a-skill-has-one-owner` — A skill has one owner
+
+The distribution MUST install every skill at user scope alone; no profile may project a skill into an instance, because an agent resolves a skill by name and a second copy under one name is a second entry offering the same skill.
+
+#### Scenario: A project is initialized inside a home that already carries the skills
+
+- GIVEN a home directory holding the skills and a target repository with no instance
 - WHEN `sdd init --apply` runs with either profile
-- THEN `.claude/skills/` and `.agents/skills/` carry every skill byte-identical to the payload, recorded managed in the manifest
+- THEN the target carries no `.claude/skills/` or `.agents/skills/` file and the manifest records none, so each skill resolves to exactly one file
 
 Verify: `cargo nextest run -E 'binary(cmd_init) + binary(cmd_skill)'`
 
@@ -134,15 +148,27 @@ Where an apply fails partway, `sdd skill install` MUST restore every destination
 
 Verify: `cargo nextest run -E 'binary(cmd_skill)'`
 
-### `distribution:skill-uninstall-removes-only-payload-files` — Skill uninstall removes only payload files
+### `distribution:skill-uninstall-removes-only-what-it-wrote` — Skill uninstall removes only what it wrote
 
-When run without `--apply`, `sdd skill uninstall` MUST list every removal and delete nothing, and when applied it MUST remove only each embedded skill's `SKILL.md` and its directory when that directory holds nothing else.
+When run without `--apply`, `sdd skill uninstall` MUST list every removal and delete nothing, and when applied it MUST remove each embedded skill's `SKILL.md`, every other destination the record vouches for, and a directory left holding nothing else, while leaving every file it did not write.
 
 #### Scenario: A skill directory carries a user's own note
 
 - GIVEN an installed `~/.claude/skills/sdd-setup/` holding `SKILL.md` and a hand-written `notes.md`
 - WHEN `sdd skill uninstall --apply` runs
 - THEN `SKILL.md` is removed, `notes.md` and its directory remain, and the kept directory is named in the output
+
+Verify: `cargo nextest run -E 'binary(cmd_skill)'`
+
+### `distribution:an-install-sweeps-what-the-payload-dropped` — An install sweeps what the payload dropped
+
+Where the user-scope record vouches for a destination the current payload no longer carries, `sdd skill install --apply` and `sdd skill uninstall --apply` MUST remove it and the directory it leaves empty, and MUST leave a destination the record cannot vouch for alone.
+
+#### Scenario: A release renames a skill
+
+- GIVEN a home directory holding a skill under its old name, recorded by the apply that wrote it
+- WHEN a newer `sdd skill install --apply` runs
+- THEN the old name's `SKILL.md` and its directory are gone, the new name is installed, and only one entry is offered under either name
 
 Verify: `cargo nextest run -E 'binary(cmd_skill)'`
 

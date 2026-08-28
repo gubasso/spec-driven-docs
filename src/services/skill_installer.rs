@@ -11,7 +11,7 @@
 //! partial apply across two roots leaves an agent reading one version of a
 //! skill and another agent reading a different one.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use camino::{Utf8Path, Utf8PathBuf};
 
@@ -80,13 +80,64 @@ fn conflicts(planned: &[Planned], record: &SkillRecord) -> Result<Vec<String>, A
     Ok(conflicts)
 }
 
+/// Recorded destinations under `roots` that this install no longer plans.
+///
+/// A skill the canon renamed, dropped, or moved to another root leaves its
+/// file behind otherwise, and a stale name is not inert: an agent's picker
+/// keys on the name, so the leftover shows up beside the skill that replaced
+/// it. Only bytes the record still vouches for are swept — a leftover the
+/// user has since edited is theirs, and a symlink is never followed.
+fn leftovers(
+    roots: &[Utf8PathBuf],
+    record: &SkillRecord,
+    keep: &[Utf8PathBuf],
+) -> Vec<Utf8PathBuf> {
+    let kept: BTreeSet<&Utf8Path> = keep.iter().map(Utf8PathBuf::as_path).collect();
+    record
+        .written
+        .iter()
+        .filter(|(destination, digest)| {
+            !kept.contains(destination.as_path())
+                && roots.iter().any(|root| destination.starts_with(root))
+                && !destination.is_symlink()
+                && destination.is_file()
+                && std::fs::read(destination).is_ok_and(|found| Sha256::of(&found) == **digest)
+        })
+        .map(|(destination, _)| destination.clone())
+        .collect()
+}
+
+/// Remove one installed destination, and its directory when nothing else is
+/// left there.
+fn remove_installed(destination: &Utf8Path, lines: &mut Vec<String>) -> Result<(), AppError> {
+    std::fs::remove_file(destination)?;
+    let directory = destination
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("destination has no parent: {destination}"))?;
+    if std::fs::read_dir(directory)?.next().is_none() {
+        std::fs::remove_dir(directory)?;
+    } else {
+        lines.push(format!("kept (not empty): {directory}"));
+    }
+    Ok(())
+}
+
 /// Restore every backed-up destination, returning those that would not go back.
+///
+/// A destination already holding what it held is restored, whatever a write
+/// to it would do. Nothing else distinguishes the two ways an apply reaches
+/// here — the write loop stopped before this destination, or a read-only
+/// root refused every write including this one — and reporting the second as
+/// unrestored sends the operator to verify files no write ever reached.
 fn rollback(backups: &BTreeMap<Utf8PathBuf, Option<Vec<u8>>>) -> Vec<Utf8PathBuf> {
     let mut unrestored = Vec::new();
     for (destination, previous) in backups {
         let restored = previous.as_ref().map_or_else(
-            || std::fs::remove_file(destination).is_ok() || !destination.exists(),
-            |bytes| crate::adapters::fs::write_file(destination, bytes).is_ok(),
+            || !destination.exists() || std::fs::remove_file(destination).is_ok(),
+            |bytes| {
+                std::fs::read(destination).is_ok_and(|found| &found == bytes)
+                    || crate::adapters::fs::write_file(destination, bytes).is_ok()
+            },
         );
         if !restored {
             unrestored.push(destination.clone());
@@ -135,12 +186,20 @@ pub fn install(
         check_destination(&entry.destination)?;
         lines.push(entry.destination.to_string());
     }
+    let mut record = SkillRecord::load(record_path);
+    let kept: Vec<Utf8PathBuf> = planned
+        .iter()
+        .map(|entry| entry.destination.clone())
+        .collect();
+    let stale = leftovers(roots, &record, &kept);
+    for destination in &stale {
+        lines.push(format!("sweep (no longer in the payload): {destination}"));
+    }
     if !apply {
         lines.push("DRY RUN: no files written".to_string());
         return Ok(lines);
     }
 
-    let mut record = SkillRecord::load(record_path);
     if !force {
         let conflicts = conflicts(&planned, &record)?;
         if !conflicts.is_empty() {
@@ -172,6 +231,19 @@ pub fn install(
                 &format!("writing {} failed: {source}", entry.destination),
             ));
         }
+    }
+
+    // Sweep after the writes, never before: a refusal must leave the home
+    // exactly as it found it, and a leftover is harmless until the install
+    // that supersedes it has actually landed.
+    for destination in &stale {
+        if let Err(source) = remove_installed(destination, &mut lines) {
+            lines.push(format!(
+                "could not remove {destination}; remove it by hand: {source}"
+            ));
+            continue;
+        }
+        record.written.remove(destination);
     }
 
     for entry in &planned {
@@ -215,23 +287,22 @@ pub fn uninstall(
             }
         }
     }
+    let mut record = SkillRecord::load(record_path);
+    // A skill the payload has since dropped is still ours to take back, and
+    // an uninstall that leaves it behind is the leftover an agent's picker
+    // keeps offering. The record is what names it; the payload cannot.
+    for destination in leftovers(roots, &record, &removable) {
+        lines.push(format!("sweep (no longer in the payload): {destination}"));
+        removable.push(destination);
+    }
     if !apply {
         lines.push("DRY RUN: no files removed".to_string());
         return Ok(lines);
     }
     for destination in &removable {
-        std::fs::remove_file(destination)?;
-        let directory = destination
-            .parent()
-            .ok_or_else(|| anyhow::anyhow!("destination has no parent: {destination}"))?;
-        if std::fs::read_dir(directory)?.next().is_none() {
-            std::fs::remove_dir(directory)?;
-        } else {
-            lines.push(format!("kept (not empty): {directory}"));
-        }
+        remove_installed(destination, &mut lines)?;
     }
 
-    let mut record = SkillRecord::load(record_path);
     for destination in &removable {
         record.written.remove(destination);
     }
@@ -411,6 +482,102 @@ mod tests {
             !blocked.join("SKILL.md").exists(),
             "a destination that did not exist before was left behind"
         );
+    }
+
+    /// A destination the record vouches for but the payload dropped is a
+    /// leftover, not a skill: an agent still offers it under the name the
+    /// canon renamed away from.
+    #[test]
+    fn a_recorded_destination_the_payload_dropped_is_swept_by_both_verbs() {
+        for sweep_with_uninstall in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let (roots, record_path) = home(&dir);
+            install(&roots, &record_path, true, false).unwrap();
+
+            let dropped = roots[0].join("sdd-old-name/SKILL.md");
+            crate::adapters::fs::write_file(&dropped, b"older\n").unwrap();
+            let mut record = SkillRecord::load(&record_path);
+            record
+                .written
+                .insert(dropped.clone(), Sha256::of(b"older\n"));
+            crate::adapters::fs::write_file(&record_path, record.to_json().as_bytes()).unwrap();
+
+            if sweep_with_uninstall {
+                uninstall(&roots, &record_path, true).unwrap();
+            } else {
+                install(&roots, &record_path, true, false).unwrap();
+            }
+            assert!(!dropped.exists(), "the leftover file survived");
+            assert!(
+                !roots[0].join("sdd-old-name").exists(),
+                "the leftover directory survived"
+            );
+            assert!(
+                !SkillRecord::load(&record_path)
+                    .written
+                    .contains_key(&dropped)
+            );
+        }
+    }
+
+    /// The record vouches for bytes, so a leftover the user rewrote is
+    /// theirs and no sweep may take it.
+    #[test]
+    fn an_edited_leftover_is_left_where_it_is() {
+        let dir = tempfile::tempdir().unwrap();
+        let (roots, record_path) = home(&dir);
+        install(&roots, &record_path, true, false).unwrap();
+
+        let dropped = roots[0].join("sdd-old-name/SKILL.md");
+        crate::adapters::fs::write_file(&dropped, b"older\n").unwrap();
+        let mut record = SkillRecord::load(&record_path);
+        record
+            .written
+            .insert(dropped.clone(), Sha256::of(b"older\n"));
+        crate::adapters::fs::write_file(&record_path, record.to_json().as_bytes()).unwrap();
+        crate::adapters::fs::write_file(&dropped, b"mine\n").unwrap();
+
+        install(&roots, &record_path, true, false).unwrap();
+        assert_eq!(std::fs::read(&dropped).unwrap(), b"mine\n");
+        uninstall(&roots, &record_path, true).unwrap();
+        assert_eq!(std::fs::read(&dropped).unwrap(), b"mine\n");
+    }
+
+    /// A root no write can reach leaves every destination as it was, so the
+    /// refusal must say the destinations were restored rather than sending
+    /// the operator to verify files nothing touched.
+    #[test]
+    fn a_root_that_refuses_every_write_reports_a_clean_restore() {
+        let dir = tempfile::tempdir().unwrap();
+        let (roots, record_path) = home(&dir);
+        install(&roots, &record_path, true, false).unwrap();
+
+        // `.agents` is the first root, so its refusal lands before any
+        // destination has been rewritten.
+        let mut locked = Vec::new();
+        for name in crate::embedded::skill_names() {
+            let destination = roots[0].join(name).join("SKILL.md");
+            let mut permissions = std::fs::metadata(&destination).unwrap().permissions();
+            std::os::unix::fs::PermissionsExt::set_mode(&mut permissions, 0o444);
+            std::fs::set_permissions(&destination, permissions).unwrap();
+            locked.push(destination);
+        }
+
+        let message = install(&roots, &record_path, true, true)
+            .unwrap_err()
+            .to_string();
+
+        for destination in &locked {
+            let mut permissions = std::fs::metadata(destination).unwrap().permissions();
+            std::os::unix::fs::PermissionsExt::set_mode(&mut permissions, 0o644);
+            std::fs::set_permissions(destination, permissions).unwrap();
+        }
+
+        assert!(
+            message.contains("the destinations were restored"),
+            "{message}"
+        );
+        assert!(!message.contains("restoration is incomplete"), "{message}");
     }
 
     #[test]

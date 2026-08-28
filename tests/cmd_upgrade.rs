@@ -261,6 +261,12 @@ fn a_stale_managed_skill_file_is_pruned() {
             .join(".claude/skills/old-skill/SKILL.md")
             .exists()
     );
+    // A skill is a directory holding one file, so pruning the file alone
+    // would leave the old skill's name behind for an agent to offer.
+    assert!(
+        !fixture.path().join(".claude/skills/old-skill").exists(),
+        "the pruned skill left its directory behind"
+    );
     fixture
         .cmd()
         .args(["verify", "--target", &fixture.target()])

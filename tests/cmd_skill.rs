@@ -74,7 +74,7 @@ fn install_previews_by_default_and_writes_nothing() {
     assert_eq!(digest, home.tree_digest());
 }
 
-/// VERIFIES distribution:skills-are-part-of-the-payload
+/// VERIFIES distribution:a-skill-has-one-owner
 #[test]
 fn install_apply_writes_both_roots_for_all_agents() {
     let home = Home::new();
@@ -310,6 +310,108 @@ fn a_user_scope_install_leaves_instance_verification_unchanged() {
     assert!(!manifest.contains(home.path().to_str().unwrap()));
 }
 
+/// Leave one destination under a name the payload does not carry, recorded
+/// as this tool's own work — the state a release that renamed a skill leaves.
+fn as_a_rename_left_it(home: &Home) -> String {
+    let dropped = ".claude/skills/sdd-old-name/SKILL.md";
+    home.write(dropped, OLDER);
+    let path = Utf8PathBuf::from_path_buf(home.path().join(dropped)).unwrap();
+    let record_path = Utf8PathBuf::from_path_buf(home.path().join(RECORD)).unwrap();
+    let mut record = SkillRecord::load(&record_path);
+    record.written.insert(path, Sha256::of(OLDER.as_bytes()));
+    home.write(RECORD, &record.to_json());
+    dropped.to_string()
+}
+
+/// VERIFIES distribution:an-install-sweeps-what-the-payload-dropped
+#[test]
+fn an_install_sweeps_a_skill_the_payload_no_longer_carries() {
+    let home = Home::new();
+    home.cmd()
+        .args(["skill", "install", "--apply"])
+        .assert()
+        .success();
+    let dropped = as_a_rename_left_it(&home);
+
+    home.cmd()
+        .args(["skill", "install", "--apply"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("sweep (no longer in the payload)"))
+        .stdout(predicate::str::contains("sdd-old-name"));
+
+    assert!(!home.path().join(&dropped).exists(), "left {dropped}");
+    assert!(
+        !home.path().join(".claude/skills/sdd-old-name").exists(),
+        "the swept skill left its directory behind"
+    );
+    let record = SkillRecord::load(&Utf8PathBuf::from_path_buf(home.path().join(RECORD)).unwrap());
+    assert!(!record.to_json().contains("sdd-old-name"));
+    for destination in DESTINATIONS {
+        assert!(home.path().join(destination).is_file());
+    }
+}
+
+/// VERIFIES distribution:an-install-sweeps-what-the-payload-dropped
+///
+/// A preview names the sweep and performs none of it, and the sweep is what
+/// an uninstall owes too — the leftover is ours whichever verb takes it back.
+#[test]
+fn a_preview_names_the_sweep_and_an_uninstall_performs_it() {
+    let home = Home::new();
+    home.cmd()
+        .args(["skill", "install", "--apply"])
+        .assert()
+        .success();
+    let dropped = as_a_rename_left_it(&home);
+    let digest = home.tree_digest();
+
+    home.cmd()
+        .args(["skill", "install"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("sdd-old-name"));
+    assert_eq!(digest, home.tree_digest());
+
+    home.cmd()
+        .args(["skill", "uninstall", "--apply"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("sdd-old-name"));
+    assert!(!home.path().join(&dropped).exists());
+    // The shared root itself stays: other tools install skills beside ours.
+    assert!(home.path().join(".claude/skills").is_dir());
+    assert!(!home.path().join(".claude/skills/sdd-old-name").exists());
+    assert!(!home.path().join(".claude/skills/sdd-setup").exists());
+}
+
+/// VERIFIES distribution:skill-uninstall-removes-only-what-it-wrote
+///
+/// The record vouches for bytes, so a leftover the user has since rewritten
+/// is theirs and survives both verbs.
+#[test]
+fn an_edited_leftover_is_never_swept() {
+    let home = Home::new();
+    home.cmd()
+        .args(["skill", "install", "--apply"])
+        .assert()
+        .success();
+    let dropped = as_a_rename_left_it(&home);
+    home.write(&dropped, "mine\n");
+
+    home.cmd()
+        .args(["skill", "install", "--apply"])
+        .assert()
+        .success();
+    assert_eq!(home.read(&dropped), "mine\n");
+
+    home.cmd()
+        .args(["skill", "uninstall", "--apply"])
+        .assert()
+        .success();
+    assert_eq!(home.read(&dropped), "mine\n");
+}
+
 #[test]
 fn install_without_a_home_exits_sixty_four() {
     let home = Home::new();
@@ -321,7 +423,7 @@ fn install_without_a_home_exits_sixty_four() {
         .stderr(predicate::str::contains("HOME is not set"));
 }
 
-/// VERIFIES distribution:skill-uninstall-removes-only-payload-files
+/// VERIFIES distribution:skill-uninstall-removes-only-what-it-wrote
 #[test]
 fn uninstall_previews_by_default_and_removes_nothing() {
     let home = Home::new();
@@ -343,7 +445,7 @@ fn uninstall_previews_by_default_and_removes_nothing() {
     assert_eq!(digest, home.tree_digest());
 }
 
-/// VERIFIES distribution:skill-uninstall-removes-only-payload-files
+/// VERIFIES distribution:skill-uninstall-removes-only-what-it-wrote
 #[test]
 fn uninstall_apply_removes_payload_files_and_keeps_foreign_ones() {
     let home = Home::new();
