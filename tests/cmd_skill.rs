@@ -12,7 +12,10 @@
 
 mod support;
 
+use camino::Utf8PathBuf;
 use predicates::prelude::*;
+use spec_driven_docs::domain::ownership::Sha256;
+use spec_driven_docs::domain::skill_record::SkillRecord;
 use support::{Fixture, Home};
 
 const DESTINATIONS: &[&str] = &[
@@ -119,6 +122,118 @@ fn a_reinstall_is_idempotent() {
         .assert()
         .success();
     assert_eq!(digest, home.tree_digest());
+}
+
+const RECORD: &str = ".local/state/spec-driven-docs/skills.json";
+const OLDER: &str = "older canon bytes\n";
+
+/// Leave every destination holding `OLDER`, recorded as this tool's own
+/// work — the state an older release's successful apply left behind.
+fn as_a_previous_release_left_it(home: &Home) {
+    let mut record = SkillRecord::new();
+    for destination in DESTINATIONS {
+        home.write(destination, OLDER);
+        let path = Utf8PathBuf::from_path_buf(home.path().join(destination)).unwrap();
+        record.written.insert(path, Sha256::of(OLDER.as_bytes()));
+    }
+    home.write(RECORD, &record.to_json());
+}
+
+/// VERIFIES distribution:a-stale-skill-is-not-a-conflict
+///
+/// The regression this rule exists for: `just install` after a release that
+/// edited a skill refused on every destination, because the payload was the
+/// installer's only reference and a previous release's bytes are
+/// indistinguishable from an edit.
+#[test]
+fn a_copy_a_previous_release_wrote_is_replaced_without_force() {
+    let home = Home::new();
+    as_a_previous_release_left_it(&home);
+    home.cmd()
+        .args(["skill", "install", "--apply"])
+        .assert()
+        .success();
+    for destination in DESTINATIONS {
+        assert!(
+            home.read(destination).contains("name: sdd"),
+            "{destination} was not replaced"
+        );
+    }
+}
+
+/// VERIFIES distribution:a-stale-skill-is-not-a-conflict
+///
+/// The record vouches for bytes, not for paths: an edit on top of a stale
+/// copy is still the user's and still refuses.
+#[test]
+fn an_edit_over_a_stale_copy_still_refuses() {
+    let home = Home::new();
+    as_a_previous_release_left_it(&home);
+    home.write(".claude/skills/sdd-setup/SKILL.md", "mine\n");
+    home.cmd()
+        .args(["skill", "install", "--apply"])
+        .assert()
+        .code(73)
+        .stderr(predicate::str::contains(
+            ".claude/skills/sdd-setup/SKILL.md",
+        ))
+        .stderr(predicate::str::contains("--force"));
+    assert_eq!(home.read(".claude/skills/sdd-setup/SKILL.md"), "mine\n");
+    assert_eq!(home.read(".agents/skills/sdd-setup/SKILL.md"), OLDER);
+}
+
+/// VERIFIES distribution:user-scope-files-stay-unrecorded
+///
+/// The record is the installer's own state and no verification reads it, so
+/// a home with no record still installs — it only loses the benefit of the
+/// doubt, which is the pre-record behaviour.
+#[test]
+fn a_home_with_no_record_installs_and_writes_one() {
+    let home = Home::new();
+    home.cmd()
+        .args(["skill", "install", "--apply"])
+        .assert()
+        .success();
+    let record = SkillRecord::load(&Utf8PathBuf::from_path_buf(home.path().join(RECORD)).unwrap());
+    for destination in DESTINATIONS {
+        let path = Utf8PathBuf::from_path_buf(home.path().join(destination)).unwrap();
+        assert!(
+            record.written.contains_key(&path),
+            "{destination} unrecorded"
+        );
+    }
+}
+
+/// VERIFIES distribution:a-skill-install-restores-on-failure
+#[test]
+fn an_apply_that_cannot_write_the_second_root_restores_the_first() {
+    let home = Home::new();
+    as_a_previous_release_left_it(&home);
+
+    // `.claude` is the second root, so the first is already rewritten when
+    // this destination refuses: its file is gone and its directory denies
+    // the creation.
+    let blocked = home.path().join(".claude/skills/sdd-setup");
+    std::fs::remove_file(blocked.join("SKILL.md")).unwrap();
+    let mut permissions = std::fs::metadata(&blocked).unwrap().permissions();
+    std::os::unix::fs::PermissionsExt::set_mode(&mut permissions, 0o500);
+    std::fs::set_permissions(&blocked, permissions.clone()).unwrap();
+
+    home.cmd()
+        .args(["skill", "install", "--apply", "--force"])
+        .assert()
+        .code(73)
+        .stderr(predicate::str::contains("skill install aborted"))
+        .stderr(predicate::str::contains(
+            ".claude/skills/sdd-setup/SKILL.md",
+        ));
+
+    std::os::unix::fs::PermissionsExt::set_mode(&mut permissions, 0o700);
+    std::fs::set_permissions(&blocked, permissions).unwrap();
+    assert_eq!(home.read(".agents/skills/sdd-setup/SKILL.md"), OLDER);
+    assert_eq!(home.read(".agents/skills/sdd-write-docs/SKILL.md"), OLDER);
+    assert_eq!(home.read(".claude/skills/sdd-write-docs/SKILL.md"), OLDER);
+    assert!(!blocked.join("SKILL.md").exists());
 }
 
 /// VERIFIES distribution:skill-install-previews-before-writing

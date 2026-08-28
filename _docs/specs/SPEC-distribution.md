@@ -11,6 +11,8 @@
   - [`distribution:skills-are-part-of-the-payload` — Skills are part of the payload](#distributionskills-are-part-of-the-payload--skills-are-part-of-the-payload)
   - [`distribution:a-skill-obeys-the-portable-format` — A skill obeys the portable format](#distributiona-skill-obeys-the-portable-format--a-skill-obeys-the-portable-format)
   - [`distribution:skill-install-previews-before-writing` — Skill install previews before writing](#distributionskill-install-previews-before-writing--skill-install-previews-before-writing)
+  - [`distribution:a-stale-skill-is-not-a-conflict` — A stale skill is not a conflict](#distributiona-stale-skill-is-not-a-conflict--a-stale-skill-is-not-a-conflict)
+  - [`distribution:a-skill-install-restores-on-failure` — A skill install restores on failure](#distributiona-skill-install-restores-on-failure--a-skill-install-restores-on-failure)
   - [`distribution:skill-uninstall-removes-only-payload-files` — Skill uninstall removes only payload files](#distributionskill-uninstall-removes-only-payload-files--skill-uninstall-removes-only-payload-files)
   - [`distribution:user-scope-files-stay-unrecorded` — User-scope files stay unrecorded](#distributionuser-scope-files-stay-unrecorded--user-scope-files-stay-unrecorded)
   - [`distribution:the-payload-names-no-planning-tool` — The payload names no planning tool](#distributionthe-payload-names-no-planning-tool--the-payload-names-no-planning-tool)
@@ -98,13 +100,37 @@ Verify: `cargo nextest run -E 'binary(canon)'`
 
 ### `distribution:skill-install-previews-before-writing` — Skill install previews before writing
 
-When run without `--apply`, `sdd skill install` MUST list every destination and write nothing, and when a destination holds bytes that differ from the payload, an apply MUST refuse atomically, listing every conflict.
+When run without `--apply`, `sdd skill install` MUST list every destination and write nothing, and when a destination holds bytes neither the payload nor the user-scope record accounts for, an apply MUST refuse atomically, listing every conflict.
 
 #### Scenario: A home directory already carries an edited skill
 
-- GIVEN `~/.claude/skills/sdd-setup/SKILL.md` with locally changed bytes
+- GIVEN `~/.claude/skills/sdd-setup/SKILL.md` with bytes the user wrote
 - WHEN `sdd skill install --apply` runs
 - THEN it exits 73 listing every conflicting destination, writes no file, and states `--force` as the override
+
+Verify: `cargo nextest run -E 'binary(cmd_skill)'`
+
+### `distribution:a-stale-skill-is-not-a-conflict` — A stale skill is not a conflict
+
+Where a user-scope destination holds the bytes a previous apply recorded writing there, `sdd skill install --apply` MUST replace it without `--force`.
+
+#### Scenario: A release edits a skill the user never touched
+
+- GIVEN a home directory whose installed skills came from an older release
+- WHEN a newer `sdd skill install --apply` runs
+- THEN every destination is rewritten and none is reported as a conflict, because bytes this tool wrote are not the user's work
+
+Verify: `cargo nextest run -E 'binary(cmd_skill)'`
+
+### `distribution:a-skill-install-restores-on-failure` — A skill install restores on failure
+
+Where an apply fails partway, `sdd skill install` MUST restore every destination it backed up and name the path that failed.
+
+#### Scenario: The second skill root cannot be written
+
+- GIVEN two skill roots, the second holding a destination the process cannot write
+- WHEN `sdd skill install --apply` has already rewritten the first root
+- THEN it exits 73 naming the unwritable path and leaves both roots as found, because one agent reading a newer skill than another is worse than neither being upgraded
 
 Verify: `cargo nextest run -E 'binary(cmd_skill)'`
 
@@ -122,7 +148,7 @@ Verify: `cargo nextest run -E 'binary(cmd_skill)'`
 
 ### `distribution:user-scope-files-stay-unrecorded` — User-scope files stay unrecorded
 
-Files `sdd skill install` writes outside an instance MUST NOT appear in any instance manifest; the embedded payload is the reference the installer compares them against.
+Files `sdd skill install` writes outside an instance MUST NOT appear in any instance manifest; the payload and the user-scope record are the references the installer compares them against, and no verification reads either.
 
 #### Scenario: An instance is verified after a user-scope install
 

@@ -2,22 +2,27 @@
 //!
 //! Lists, prints, installs, and removes the embedded skills. Install and
 //! uninstall semantics live in `services::skill_installer`; this handler
-//! only resolves the home directory and the chosen roots.
+//! only resolves the home directory, the chosen roots, and the user-scope
+//! record that sits beside them.
 
-use camino::Utf8PathBuf;
+use camino::{Utf8Path, Utf8PathBuf};
 
 use crate::cli::skill::{Agent, SkillArgs, SkillCommand};
 use crate::context::AppContext;
+use crate::domain::skill_record::RECORD_PATH;
 use crate::error::AppError;
 use crate::output;
 use crate::services::skill_installer;
 
-fn roots(agent: Agent) -> Result<Vec<Utf8PathBuf>, AppError> {
-    let home = std::env::var("HOME")
+fn home() -> Result<Utf8PathBuf, AppError> {
+    std::env::var("HOME")
         .ok()
         .filter(|home| !home.is_empty())
-        .ok_or_else(|| AppError::Usage("HOME is not set".to_string()))?;
-    let home = Utf8PathBuf::from(home);
+        .map(Utf8PathBuf::from)
+        .ok_or_else(|| AppError::Usage("HOME is not set".to_string()))
+}
+
+fn roots(home: &Utf8Path, agent: Agent) -> Vec<Utf8PathBuf> {
     let mut roots = Vec::new();
     if matches!(agent, Agent::Codex | Agent::All) {
         roots.push(home.join(".agents/skills"));
@@ -25,7 +30,7 @@ fn roots(agent: Agent) -> Result<Vec<Utf8PathBuf>, AppError> {
     if matches!(agent, Agent::Claude | Agent::All) {
         roots.push(home.join(".claude/skills"));
     }
-    Ok(roots)
+    roots
 }
 
 /// List, print, install, or uninstall the embedded skills.
@@ -50,16 +55,20 @@ pub fn run(_ctx: &AppContext, args: SkillArgs) -> Result<(), AppError> {
             Ok(())
         }
         SkillCommand::Install(install) => {
-            let roots = roots(install.agent)?;
-            let lines = skill_installer::install(&roots, install.apply, install.force)?;
+            let home = home()?;
+            let roots = roots(&home, install.agent);
+            let record = home.join(RECORD_PATH);
+            let lines = skill_installer::install(&roots, &record, install.apply, install.force)?;
             for line in lines {
                 output::line(line);
             }
             Ok(())
         }
         SkillCommand::Uninstall(uninstall) => {
-            let roots = roots(uninstall.agent)?;
-            let lines = skill_installer::uninstall(&roots, uninstall.apply)?;
+            let home = home()?;
+            let roots = roots(&home, uninstall.agent);
+            let record = home.join(RECORD_PATH);
+            let lines = skill_installer::uninstall(&roots, &record, uninstall.apply)?;
             for line in lines {
                 output::line(line);
             }
