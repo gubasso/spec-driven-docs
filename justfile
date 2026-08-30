@@ -15,7 +15,6 @@ lint:
     markdownlint-cli2 "**/*.md" "#tests/fixtures/**" "#target/**"
     check-jsonschema --schemafile instance/manifest.schema.json .spec-driven-docs/manifest.json
     pre-commit validate-config .pre-commit-config.yaml
-    pre-commit validate-manifest .pre-commit-hooks.yaml
     pre-commit run --files $(rg --files --hidden -g '!.git/**')
 
 test:

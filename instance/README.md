@@ -21,15 +21,7 @@ sdd init --target /path/to/your-project --profile codebase --apply
 
 Use `knowledge-base` to select `_docs/`; `codebase` selects `docs/`. Review the managed pre-commit block before applying it to a heavily commented configuration. The block is spliced into the top-level `repos:` sequence, so a configuration without that key is refused rather than rewritten.
 
-Lightweight consumers may use the public remote hooks with an immutable release tag; pre-commit builds the binary from this repository with cargo:
-
-```yaml
-repos:
-  - repo: https://github.com/gubasso/spec-driven-docs
-    rev: v0.2.0
-    hooks:
-      - id: spec-rule-id-unique
-```
+The gates reach a repository by installation, not by remote reference. This repository publishes no `.pre-commit-hooks.yaml`, so it cannot be named as a `repo:` in someone else's configuration: most gates read the layout an instance has, and a repository that never adopted the framework would wire checks that fail on its first commit. Run `sdd init` to become an instance, and the block arrives wired to the layout the profile selected.
 
 ## Skills
 

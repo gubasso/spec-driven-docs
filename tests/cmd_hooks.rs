@@ -1,6 +1,8 @@
-//! Integration: `sdd hooks` renders the registry, and the committed
-//! published manifest equals the render — the delivered set is declared
-//! once and reaches both deliveries.
+//! Integration: `sdd hooks` renders the registry as the managed block.
+//!
+//! The block is the registry's one delivery, rendered at install time and
+//! committed nowhere, so what these hold is that every registered gate
+//! reaches the wiring — not that some checked-in copy still agrees.
 
 // Integration tests: assertion style is the point, so the production
 // restrictions on unwrap/panic and string building do not apply here.
@@ -18,46 +20,9 @@ use predicates::prelude::*;
 use support::Fixture;
 
 #[test]
-fn the_published_manifest_is_the_rendered_registry() {
+fn the_block_carries_markers_verifier_and_every_gate() {
     let fixture = Fixture::new();
-    let assert = fixture
-        .cmd()
-        .args([
-            "hooks",
-            "--style",
-            "manifest",
-            "--docs-root",
-            "_?docs",
-            "--language",
-            "rust",
-        ])
-        .assert()
-        .success();
-    let rendered = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
-
-    let published = std::fs::read_to_string(
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(".pre-commit-hooks.yaml"),
-    )
-    .unwrap();
-    let body: String = published
-        .lines()
-        .skip_while(|line| !line.starts_with("- id: "))
-        .map(|line| format!("{line}\n"))
-        .collect();
-    assert_eq!(
-        body, rendered,
-        ".pre-commit-hooks.yaml does not match the rendered registry"
-    );
-}
-
-#[test]
-fn the_block_style_carries_markers_verifier_and_every_gate() {
-    let fixture = Fixture::new();
-    let assert = fixture
-        .cmd()
-        .args(["hooks", "--style", "block"])
-        .assert()
-        .success();
+    let assert = fixture.cmd().args(["hooks"]).assert().success();
     let block = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
     assert!(block.starts_with("# BEGIN spec-driven-docs managed\n"));
     assert!(block.trim_end().ends_with("# END spec-driven-docs managed"));
@@ -74,7 +39,7 @@ fn a_custom_entry_prefix_reaches_every_entry() {
     let fixture = Fixture::new();
     fixture
         .cmd()
-        .args(["hooks", "--style", "block", "--entry", "cargo run -q --"])
+        .args(["hooks", "--entry", "cargo run -q --"])
         .assert()
         .success()
         .stdout(predicate::str::contains("entry: cargo run -q -- verify"))

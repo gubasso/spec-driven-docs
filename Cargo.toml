@@ -30,7 +30,6 @@ exclude = [
     "/dist-workspace.toml",
     "/release-plz.toml",
     "/.pre-commit-config.yaml",
-    "/.pre-commit-hooks.yaml",
     "/.markdownlint-cli2.jsonc",
     "/.editorconfig",
     "/.envrc",

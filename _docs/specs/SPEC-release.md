@@ -69,19 +69,19 @@ Verify: `pre-commit run cargo-test --all-files`
 
 ### `release:the-delivered-gate-set-is-declared-once` — The delivered gate set is declared once
 
-Every gate the release delivers MUST be declared in the one registry that the projection into an instance and the manifest published to a consumer are both rendered from.
+Every gate the release delivers MUST be declared in the one registry that the projection into an instance is rendered from.
 
 #### Scenario: A gate reaches the payload but no wiring
 
 - GIVEN a gate compiled into the binary and named by no pre-commit entry
 - WHEN the instance runs its hooks
-- THEN the gate exists and never runs, so both deliveries are rendered from the registry and held equal to it
+- THEN the gate exists and never runs, so the projection is rendered from the registry at install time rather than copied from a committed file that can fall behind it
 
 Verify: `pre-commit run cargo-test --all-files`
 
 ### `release:a-canon-gate-is-not-delivered` — A canon gate is not delivered
 
-A check of an invariant only this repository has MUST stay a canon-side test, and MUST reach neither the projection nor the published manifest.
+A check of an invariant only this repository has MUST stay a canon-side test rather than reaching the projection an instance receives.
 
 #### Scenario: An instance receives the release checks
 

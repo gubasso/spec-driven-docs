@@ -1,9 +1,9 @@
 //! Canon invariants: checks only this repository has.
 //!
 //! These never reach an instance — an instance holding them would be gated
-//! on a release process it does not run. The delivered-set drift check
-//! lives in `cmd_hooks.rs`; here live the license split and the version
-//! alignment.
+//! on a release process it does not run. The delivered-set wiring check
+//! lives in `cmd_hooks.rs`; here live the license split, the version
+//! alignment, and the boundary keeping a canon check out of the delivery.
 
 // Integration tests: assertion style is the point, so the production
 // restrictions on unwrap/panic and string building do not apply here.
@@ -61,13 +61,18 @@ fn the_canon_manifest_carries_this_crate_version() {
 }
 
 /// SATISFIES release:a-canon-gate-is-not-delivered
+///
+/// The block an instance receives is rendered at install time and committed
+/// nowhere, so the render itself is what this reads.
 #[test]
-fn the_published_manifest_carries_no_canon_check() {
-    let published = read(".pre-commit-hooks.yaml");
+fn the_delivered_block_carries_no_canon_check() {
+    use spec_driven_docs::services::hooks_render::{RenderOptions, render_block};
+
+    let delivered = render_block(&RenderOptions::default());
     for canon_only in ["cargo-test", "cargo-clippy", "cargo-fmt", "self-manifest"] {
         assert!(
-            !published.contains(&format!("- id: {canon_only}")),
-            "{canon_only} is a canon-side check and must not be published"
+            !delivered.contains(&format!("- id: {canon_only}")),
+            "{canon_only} is a canon-side check and must not be delivered"
         );
     }
 }

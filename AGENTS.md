@@ -14,7 +14,7 @@ This repository is the canonical knowledge product for spec-driven documentation
 
 - `method/`, `comparison-docs/`, `templates/`, `reference/`, and `skills/` are canon product files.
 - `src/` is the distribution: the `sdd` binary embeds the payload — spec seeds, templates, `.markdownlint/` configurations, `instance/snippets/`, `skills/`, and `method/` — at compile time from these authored paths, so canon and binary cannot drift.
-- The delivered gate set is declared once, in the registry in `src/gates.rs`; the managed block an instance receives and the published `.pre-commit-hooks.yaml` are both rendered from it by `sdd hooks`, and a cargo test holds the published file equal to the render.
+- The delivered gate set is declared once, in the registry in `src/gates.rs`; the managed block an instance receives is rendered from it at install time and committed nowhere, so there is no copy to hold equal. This repository publishes no `.pre-commit-hooks.yaml`: the gates serve instances, not repositories that reference them remotely.
 - Checks of invariants only this repository has — the license split, version alignment — are cargo tests under `tests/`, never delivered (ADR-split-gates-by-delivery-domain).
 - `_docs/specs/`, `_docs/decisions/`, marker-delimited integrations, and instance debt are local overlays after installation.
 - Keep each durable fact in one owner and link to it elsewhere.

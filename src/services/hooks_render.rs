@@ -1,53 +1,44 @@
-//! Render the gate registry as pre-commit hook entries.
+//! Render the gate registry as the managed pre-commit block.
 //!
-//! One renderer serves both deliveries: the managed block spliced into an
-//! instance's configuration, and the manifest published to consumers who
-//! install this repository as a pre-commit repo. Rendering both from the
-//! registry is what keeps a gate from reaching one delivery and missing the
-//! other. What the registry contains is `gates`' business; where the output
-//! lands is the caller's.
+//! The registry is the one declaration and this is its one delivery: the
+//! block an instance's configuration carries, rendered at install time and
+//! never committed anywhere in between. A gate reaches an instance because
+//! it is in the registry, so it cannot reach the payload and miss the
+//! wiring. What the registry contains is `gates`' business; where the
+//! output lands is the caller's.
+//!
+//! There is deliberately no second shape. A `.pre-commit-hooks.yaml` would
+//! serve repositories that never adopt this framework, and most gates read
+//! an instance layout those repositories do not have.
 
 use std::fmt::Write as _;
-
-use clap::ValueEnum;
 
 use crate::domain::marker;
 use crate::gates::GATES;
 
-/// The two output shapes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-pub enum Style {
-    /// Entries nested under a `hooks:` key inside a consumer's `repos:`
-    /// sequence.
-    Block,
-    /// The top-level sequence a `.pre-commit-hooks.yaml` is.
-    Manifest,
-}
+/// The pre-commit language every entry declares.
+///
+/// An instance runs `sdd` from its own PATH, which is what `system` means;
+/// no other language has a caller.
+const LANGUAGE: &str = "system";
 
 /// Everything a render depends on.
 #[derive(Debug, Clone)]
 pub struct RenderOptions {
-    /// The output shape.
-    pub style: Style,
-    /// What replaces `{docs_root}` in wiring patterns — a literal root for
-    /// an instance, a pattern for the published manifest.
+    /// What replaces `{docs_root}` in wiring patterns — the literal root
+    /// the instance's profile selected.
     pub docs_root: String,
     /// The command prefix an entry invokes, e.g. `sdd` or `cargo run -q --`.
     pub entry: String,
-    /// The pre-commit language the entries declare.
-    pub language: String,
-    /// The sequence-item indentation of the consumer's `repos:` entries;
-    /// only the block style reads it.
+    /// The sequence-item indentation of the consumer's `repos:` entries.
     pub indent: String,
 }
 
 impl Default for RenderOptions {
     fn default() -> Self {
         Self {
-            style: Style::Block,
             docs_root: "_docs".to_string(),
             entry: "sdd".to_string(),
-            language: "system".to_string(),
             indent: "  ".to_string(),
         }
     }
@@ -64,22 +55,16 @@ fn substitute_root(pattern: &str, docs_root: &str) -> String {
     pattern.replace("{docs_root}", docs_root)
 }
 
-/// Render the gate entries alone, in the requested style.
-#[must_use]
-pub fn render_gates(options: &RenderOptions) -> String {
-    let (item, field) = match options.style {
-        Style::Block => (
-            format!("{0}    - ", options.indent),
-            format!("{0}      ", options.indent),
-        ),
-        Style::Manifest => ("- ".to_string(), "  ".to_string()),
-    };
+/// Render the gate entries alone, without the markers or the verifier.
+fn render_gates(options: &RenderOptions) -> String {
+    let item = format!("{0}    - ", options.indent);
+    let field = format!("{0}      ", options.indent);
     let mut out = String::new();
     for gate in GATES {
         let _ = writeln!(out, "{item}id: {}", gate.id);
         let _ = writeln!(out, "{field}name: {}", quoted(gate.name));
         let _ = writeln!(out, "{field}entry: {} gate {}", options.entry, gate.id);
-        let _ = writeln!(out, "{field}language: {}", options.language);
+        let _ = writeln!(out, "{field}language: {LANGUAGE}");
         if let Some(files) = gate.files {
             let _ = writeln!(
                 out,
@@ -118,7 +103,7 @@ pub fn render_block(options: &RenderOptions) -> String {
     let _ = writeln!(out, "{indent}    - id: spec-driven-docs-verify");
     let _ = writeln!(out, "{indent}      name: verify spec-driven docs instance");
     let _ = writeln!(out, "{indent}      entry: {} verify", options.entry);
-    let _ = writeln!(out, "{indent}      language: {}", options.language);
+    let _ = writeln!(out, "{indent}      language: {LANGUAGE}");
     let _ = writeln!(out, "{indent}      always_run: true");
     let _ = writeln!(out, "{indent}      pass_filenames: false");
     out.push_str(&render_gates(options));
@@ -132,20 +117,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn manifest_style_renders_top_level_entries() {
-        let options = RenderOptions {
-            style: Style::Manifest,
-            docs_root: "_?docs".to_string(),
-            language: "rust".to_string(),
-            ..RenderOptions::default()
-        };
-        let out = render_gates(&options);
-        assert!(out.starts_with("- id: adr-cites-a-live-rule\n"));
-        assert!(out.contains("  entry: sdd gate adr-filename-shape\n"));
-        assert!(out.contains("  language: rust\n"));
-        assert!(out.contains("  files: '^_?docs/decisions/.*\\.md$'\n"));
-        assert!(out.contains("  types: [markdown]\n"));
+    fn every_gate_renders_its_wiring_fields() {
+        let out = render_gates(&RenderOptions::default());
+        assert!(out.starts_with("      - id: adr-cites-a-live-rule\n"));
+        assert!(out.contains("        entry: sdd gate adr-filename-shape\n"));
+        assert!(out.contains("        language: system\n"));
+        assert!(out.contains("        types: [markdown]\n"));
         assert_eq!(out.matches("- id: ").count(), crate::gates::GATES.len());
+    }
+
+    /// The profile picks the root, so a `docs` instance wires `docs` paths.
+    #[test]
+    fn the_docs_root_reaches_every_templated_pattern() {
+        let out = render_gates(&RenderOptions {
+            docs_root: "docs".to_string(),
+            ..RenderOptions::default()
+        });
+        assert!(out.contains("        files: '^docs/decisions/.*\\.md$'\n"));
+        assert!(out.contains("        exclude: '^docs/decisions/'\n"));
+        assert!(!out.contains("{docs_root}"));
     }
 
     #[test]
