@@ -10,6 +10,7 @@
   - [`release:license-declares-both-halves` — The license declares both halves](#releaselicense-declares-both-halves--the-license-declares-both-halves)
   - [`release:the-delivered-gate-set-is-declared-once` — The delivered gate set is declared once](#releasethe-delivered-gate-set-is-declared-once--the-delivered-gate-set-is-declared-once)
   - [`release:a-canon-gate-is-not-delivered` — A canon gate is not delivered](#releasea-canon-gate-is-not-delivered--a-canon-gate-is-not-delivered)
+  - [`release:the-canon-record-describes-its-tree` — The canon record describes its tree](#releasethe-canon-record-describes-its-tree--the-canon-record-describes-its-tree)
 
 <!--TOC-->
 
@@ -88,5 +89,17 @@ A check of an invariant only this repository has MUST stay a canon-side test rat
 - GIVEN a check holding the crate version against the instance manifest of the canon
 - WHEN it is delivered to a knowledge base that cuts no release
 - THEN the instance is gated on a process it does not run, so the boundary is asserted rather than assumed
+
+Verify: `pre-commit run cargo-test --all-files`
+
+### `release:the-canon-record-describes-its-tree` — The canon record describes its tree
+
+This repository is an instance of itself, so its committed instance record MUST name and hash the files the same commit carries.
+
+#### Scenario: An adopted spec is edited and the record is not regenerated
+
+- GIVEN a requirement reworded in `_docs/specs/` without running `sdd self-manifest`
+- WHEN the release checks run
+- THEN they fail naming the file, because `sdd verify` reports an adopted edit as a note every other instance is entitled to carry
 
 Verify: `pre-commit run cargo-test --all-files`

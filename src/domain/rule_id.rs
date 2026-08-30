@@ -96,6 +96,7 @@ rule_ids! {
     ReleasedVersionIsNotReAuthored => "release:a-released-version-is-not-re-authored",
     TagDerivesFromTheVersionFile => "release:a-tag-derives-from-the-version-file",
     LicenseDeclaresBothHalves => "release:license-declares-both-halves",
+    CanonRecordDescribesItsTree => "release:the-canon-record-describes-its-tree",
     DeliveredGateSetIsDeclaredOnce => "release:the-delivered-gate-set-is-declared-once",
     VersionsAreSemanticAndAligned => "release:versions-are-semantic-and-aligned",
     CommentCitesTheRule => "spec-to-code:a-comment-cites-the-rule",

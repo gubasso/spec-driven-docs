@@ -15,6 +15,7 @@ This repository is the canonical knowledge product for spec-driven documentation
 - `method/`, `comparison-docs/`, `templates/`, `reference/`, and `skills/` are canon product files.
 - `src/` is the distribution: the `sdd` binary embeds the payload — spec seeds, templates, `.markdownlint/` configurations, `instance/snippets/`, `skills/`, and `method/` — at compile time from these authored paths, so canon and binary cannot drift.
 - The delivered gate set is declared once, in the registry in `src/gates.rs`; the managed block an instance receives is rendered from it at install time and committed nowhere, so there is no copy to hold equal. This repository publishes no `.pre-commit-hooks.yaml`: the gates serve instances, not repositories that reference them remotely.
+- This repository is an instance of itself, and the one whose block no installer wrote: the managed region of its own `.pre-commit-config.yaml` is maintained by hand, so a new gate is wired there in the same change, and the release checks hold that region to the registry.
 - Checks of invariants only this repository has — the license split, version alignment — are cargo tests under `tests/`, never delivered (ADR-split-gates-by-delivery-domain).
 - `_docs/specs/`, `_docs/decisions/`, marker-delimited integrations, and instance debt are local overlays after installation.
 - Keep each durable fact in one owner and link to it elsewhere.
@@ -35,7 +36,7 @@ This repository is the canonical knowledge product for spec-driven documentation
 - Rust follows the exobrain CLI conventions: clap derive in `src/cli/`, one handler per subcommand in `src/commands/`, typed errors with a tested exit-code matrix in `src/error.rs`.
 - Every gate change lands with its unit tests, and every failure message a gate prints cites a rule ID that a spec defines; the registry test holds the citable set to the specs.
 - Run `just check` before handoff. It lints, tests, and installs into a scratch target.
-- Run `just manifest` after editing anything the canon manifest records: `.markdownlint/`, `_docs/specs/`, the recorded templates, or the managed pre-commit block.
+- Run `just manifest` after editing anything the canon manifest records: `.markdownlint/`, `_docs/specs/`, the recorded templates, or the managed pre-commit block. `sdd verify` reports the omission as a note rather than a failure, because an instance owns its adopted files; here `release:the-canon-record-describes-its-tree` fails instead.
 - `Cargo.toml` is the release source of truth. Write Conventional Commits; release-plz derives the version, the changelog, and the tag. Never author a tag: `_docs/guides/release.md` owns the sequence.
 - Manage dependencies through cargo (`cargo add`, `cargo remove`, `cargo update`); never hand-edit versions in `Cargo.toml`.
 

@@ -3,7 +3,10 @@
 //! These never reach an instance — an instance holding them would be gated
 //! on a release process it does not run. The delivered-set wiring check
 //! lives in `cmd_hooks.rs`; here live the license split, the version
-//! alignment, and the boundary keeping a canon check out of the delivery.
+//! alignment, the boundary keeping a canon check out of the delivery, and
+//! the two obligations this repository carries because it is an instance of
+//! itself: its record is regenerated rather than owned, and its managed
+//! block is hand-maintained rather than installed.
 
 // Integration tests: assertion style is the point, so the production
 // restrictions on unwrap/panic and string building do not apply here.
@@ -73,6 +76,104 @@ fn the_delivered_block_carries_no_canon_check() {
         assert!(
             !delivered.contains(&format!("- id: {canon_only}")),
             "{canon_only} is a canon-side check and must not be delivered"
+        );
+    }
+}
+
+fn digest(relative: &str) -> String {
+    let bytes = std::fs::read(canon().join(relative))
+        .unwrap_or_else(|_| panic!("{relative} is recorded but missing"));
+    spec_driven_docs::domain::ownership::Sha256::of(&bytes).to_string()
+}
+
+fn recorded_manifest() -> serde_json::Value {
+    serde_json::from_str(&read(".spec-driven-docs/manifest.json")).unwrap()
+}
+
+fn recorded_destinations(manifest: &serde_json::Value, class: &str) -> Vec<String> {
+    manifest[class]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|entry| entry["destination"].as_str().unwrap().to_string())
+        .collect()
+}
+
+/// SATISFIES release:the-canon-record-describes-its-tree
+///
+/// `sdd verify` reports an adopted edit as a note rather than a failure,
+/// which is right for an instance that owns its specs and wrong here: this
+/// record is generated from the tree, so a difference means `sdd
+/// self-manifest` was not run.
+#[test]
+fn the_canon_record_hashes_every_file_the_tree_carries() {
+    let manifest = recorded_manifest();
+    for class in ["managed_files", "adopted_files"] {
+        for entry in manifest[class].as_array().unwrap() {
+            let destination = entry["destination"].as_str().unwrap();
+            assert_eq!(
+                entry["sha256"].as_str().unwrap(),
+                digest(destination),
+                "{destination} differs from its record; run 'just manifest'"
+            );
+        }
+    }
+
+    let mut specs: Vec<String> = std::fs::read_dir(canon().join("_docs/specs"))
+        .unwrap()
+        .filter_map(Result::ok)
+        .map(|entry| entry.file_name().to_str().unwrap().to_string())
+        .filter(|name| name.starts_with("SPEC-") && name.ends_with(".md"))
+        .map(|name| format!("_docs/specs/{name}"))
+        .collect();
+    specs.sort();
+    let adopted = recorded_destinations(&manifest, "adopted_files");
+    for spec in &specs {
+        assert!(
+            adopted.contains(spec),
+            "{spec} is on disk but absent from the record; run 'just manifest'"
+        );
+    }
+    for destination in &adopted {
+        if destination.starts_with("_docs/specs/") {
+            assert!(
+                specs.contains(destination),
+                "{destination} is recorded but gone from the tree; run 'just manifest'"
+            );
+        }
+    }
+
+    let block = manifest["integration_blocks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|entry| entry["path"] == ".pre-commit-config.yaml")
+        .expect("no integration block recorded for .pre-commit-config.yaml");
+    let hashed = spec_driven_docs::domain::marker::block_hash(&read(".pre-commit-config.yaml"))
+        .expect("no managed block in .pre-commit-config.yaml");
+    assert_eq!(
+        block["marker_hash"].as_str().unwrap(),
+        hashed.to_string(),
+        "the managed block differs from its record; run 'just manifest'"
+    );
+}
+
+/// SATISFIES release:the-delivered-gate-set-is-declared-once
+///
+/// This repository is an instance of itself, but the one whose managed block
+/// is maintained by hand rather than rendered by an installer, so nothing but
+/// this holds that copy to the registry it is a copy of.
+#[test]
+fn the_canon_managed_block_wires_every_registered_gate() {
+    let (_, block) =
+        spec_driven_docs::domain::marker::split_block(&read(".pre-commit-config.yaml"))
+            .expect("malformed managed markers");
+    let block = block.expect("no managed block in .pre-commit-config.yaml");
+    for gate in spec_driven_docs::gates::GATES {
+        assert!(
+            block.contains(&format!("- id: {}\n", gate.id)),
+            "{} is registered but this repository's managed block does not wire it",
+            gate.id
         );
     }
 }
