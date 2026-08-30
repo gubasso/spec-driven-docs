@@ -101,6 +101,11 @@ repos:
         language: system
         always_run: true
         pass_filenames: false
+      - id: no-personal-path
+        name: no personal path
+        entry: cargo run -q -- gate no-personal-path
+        language: system
+        types: [text]
       - id: no-self-narration
         name: documents state the present
         entry: cargo run -q -- gate no-self-narration

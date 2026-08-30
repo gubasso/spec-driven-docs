@@ -18,6 +18,8 @@
   - [`distribution:an-install-sweeps-what-the-payload-dropped` — An install sweeps what the payload dropped](#distributionan-install-sweeps-what-the-payload-dropped--an-install-sweeps-what-the-payload-dropped)
   - [`distribution:user-scope-files-stay-unrecorded` — User-scope files stay unrecorded](#distributionuser-scope-files-stay-unrecorded--user-scope-files-stay-unrecorded)
   - [`distribution:the-payload-names-no-planning-tool` — The payload names no planning tool](#distributionthe-payload-names-no-planning-tool--the-payload-names-no-planning-tool)
+  - [`distribution:the-payload-names-no-other-project` — The payload names no other project](#distributionthe-payload-names-no-other-project--the-payload-names-no-other-project)
+  - [`distribution:the-payload-roots-are-declared-once` — The payload roots are declared once](#distributionthe-payload-roots-are-declared-once--the-payload-roots-are-declared-once)
   - [`distribution:a-seeded-rule-runs-no-canon-command` — A seeded rule runs no canon command](#distributiona-seeded-rule-runs-no-canon-command--a-seeded-rule-runs-no-canon-command)
 
 <!--TOC-->
@@ -195,6 +197,30 @@ The author MUST keep every embedded payload root free of a planning tool's name,
 - THEN the check fails naming the file and the term, because a framework that names one tool stops being pairable with another
 
 Verify: `cargo nextest run -E 'binary(canon)'`
+
+### `distribution:the-payload-names-no-other-project` — The payload names no other project
+
+The author MUST keep every embedded payload root free of the name of a project, repository, or organization outside this one, apart from the forges, agents, and reference works the method documents as integrations.
+
+#### Scenario: A chapter carries an example from the repository it was drafted in
+
+- GIVEN a chapter or skill that names a sibling project while illustrating a rule
+- WHEN the canon test suite runs
+- THEN the check fails naming the file and the term, because a reader who lacks that project meets a reference they cannot follow
+
+Verify: `cargo nextest run -E 'binary(canon)'`
+
+### `distribution:the-payload-roots-are-declared-once` — The payload roots are declared once
+
+The author MUST declare the embedded payload roots in one place that the binary, the build script, and the canon suite all read.
+
+#### Scenario: A seventh root is embedded
+
+- GIVEN a new root added to the embedding module alone
+- WHEN the canon suite scans the payload for what it may not carry
+- THEN the scan walks a list that no longer describes the payload, so the root ships unscanned unless one declaration feeds all three
+
+Verify: `cargo nextest run -E 'kind(lib)'`
 
 ### `distribution:a-seeded-rule-runs-no-canon-command` — A seeded rule runs no canon command
 

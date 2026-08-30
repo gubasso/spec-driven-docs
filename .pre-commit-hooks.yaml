@@ -103,6 +103,11 @@
   language: rust
   always_run: true
   pass_filenames: false
+- id: no-personal-path
+  name: 'no personal path'
+  entry: sdd gate no-personal-path
+  language: rust
+  types: [text]
 - id: no-self-narration
   name: 'documents state the present'
   entry: sdd gate no-self-narration

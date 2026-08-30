@@ -47,6 +47,8 @@ pub enum GateId {
     KiReportBody,
     /// Known-issue records carry a retirement condition.
     KiRetireWhen,
+    /// Files carry no absolute path into a person's home directory.
+    NoPersonalPath,
     /// Documents state the present rather than narrate their edits.
     NoSelfNarration,
     /// Paragraphs occupy one source line rather than hard-wrap.
@@ -83,6 +85,7 @@ impl GateId {
         Self::KiMechanismWalkthrough,
         Self::KiReportBody,
         Self::KiRetireWhen,
+        Self::NoPersonalPath,
         Self::NoSelfNarration,
         Self::ProseStaysUnwrapped,
         Self::SpecRequirementParts,
@@ -113,6 +116,7 @@ impl GateId {
             Self::KiMechanismWalkthrough => "ki-mechanism-walkthrough",
             Self::KiReportBody => "ki-report-body",
             Self::KiRetireWhen => "ki-retire-when",
+            Self::NoPersonalPath => "no-personal-path",
             Self::NoSelfNarration => "no-self-narration",
             Self::ProseStaysUnwrapped => "prose-stays-unwrapped",
             Self::SpecRequirementParts => "spec-requirement-parts",
@@ -152,7 +156,7 @@ mod tests {
         for gate in GateId::ALL {
             assert!(seen.insert(gate.as_str()), "{gate} is duplicated");
         }
-        assert_eq!(GateId::ALL.len(), 24);
+        assert_eq!(GateId::ALL.len(), 25);
     }
 
     #[test]

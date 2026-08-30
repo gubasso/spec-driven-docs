@@ -10,6 +10,8 @@ use std::collections::BTreeSet;
 
 use include_dir::{Dir, include_dir};
 
+pub use crate::payload_roots::PAYLOAD_ROOTS;
+
 /// The spec seeds an instance adopts, and the canon-only specs beside them.
 pub static SPECS: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/_docs/specs");
 /// The stable document templates.
@@ -30,12 +32,17 @@ pub static LICENSE_MIT: &str = include_str!("../LICENSE-MIT");
 /// The CC BY 4.0 license covering the method.
 pub static LICENSE_CC_BY: &str = include_str!("../LICENSE-CC-BY-4.0");
 
-const SOURCE_ROOTS: &[(&str, &Dir<'static>)] = &[
-    ("_docs/specs/", &SPECS),
-    ("templates/", &TEMPLATES),
-    (".markdownlint/", &MARKDOWNLINT),
-    ("instance/snippets/", &SNIPPETS),
-    ("skills/", &SKILLS),
+/// Every embedded root paired with the authored path it came from, in
+/// [`PAYLOAD_ROOTS`] order. A unit test holds the two equal, so a root
+/// embedded here but missing from the declaration — or the reverse — fails
+/// the build rather than shipping unscanned.
+const EMBEDDED_ROOTS: &[(&str, &Dir<'static>)] = &[
+    ("_docs/specs", &SPECS),
+    ("templates", &TEMPLATES),
+    (".markdownlint", &MARKDOWNLINT),
+    ("instance/snippets", &SNIPPETS),
+    ("method", &METHOD),
+    ("skills", &SKILLS),
 ];
 
 /// Every skill name, sorted; a name is the skill's directory.
@@ -61,8 +68,8 @@ pub fn skill(name: &str) -> Option<&'static str> {
 /// embedded bytes.
 #[must_use]
 pub fn asset(source: &str) -> Option<&'static [u8]> {
-    SOURCE_ROOTS.iter().find_map(|(prefix, dir)| {
-        let rest = source.strip_prefix(prefix)?;
+    EMBEDDED_ROOTS.iter().find_map(|(root, dir)| {
+        let rest = source.strip_prefix(root)?.strip_prefix('/')?;
         dir.get_file(rest).map(include_dir::File::contents)
     })
 }
@@ -112,6 +119,16 @@ mod tests {
         assert_eq!(
             from_specs, from_enum,
             "RuleId and the specs disagree; update the enum and the specs together"
+        );
+    }
+
+    #[test]
+    fn the_embedded_roots_are_the_declared_payload_roots() {
+        let embedded: Vec<&str> = EMBEDDED_ROOTS.iter().map(|(root, _)| *root).collect();
+        assert_eq!(
+            embedded,
+            PAYLOAD_ROOTS.to_vec(),
+            "payload_roots.rs and the embedded statics disagree; a root missing from the declaration ships unscanned"
         );
     }
 

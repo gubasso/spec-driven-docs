@@ -26,6 +26,7 @@ pub mod ki_filename_shape;
 pub mod ki_mechanism_walkthrough;
 pub mod ki_report_body;
 pub mod ki_retire_when;
+pub mod no_personal_path;
 pub mod no_self_narration;
 pub mod prose_stays_unwrapped;
 pub mod spec_requirement_parts;
@@ -326,6 +327,16 @@ pub static GATES: &[GateSpec] = &[
         always_run: true,
         cites: ki_retire_when::CITES,
         run: ki_retire_when::run,
+    },
+    GateSpec {
+        id: GateId::NoPersonalPath,
+        name: "no personal path",
+        files: None,
+        types: Some("text"),
+        exclude: None,
+        always_run: false,
+        cites: no_personal_path::CITES,
+        run: no_personal_path::run,
     },
     GateSpec {
         id: GateId::NoSelfNarration,

@@ -134,6 +134,21 @@ A reader must be able to tell whether a document is project state from its path 
 
 Forward-looking is not the same as provisional. A ranked plan with declared scope is binding and belongs in the plan zone under version control, however early it is. The test is not whether the document is finished but whether the project is working under it. [07 — Lifecycle](./07-lifecycle.md) owns the promotion procedure.
 
+## A project's documents stand on their own
+
+- A document MUST NOT carry an absolute path into a person's home directory; write `~/`, `$HOME/`, or a bracketed placeholder instead.
+- A document MUST state the rules the project's own domain owns rather than sending the reader to another project's documentation for them.
+
+Two different leaks, one test: a reader who is not the author, on a machine that is not the author's, must be able to act on the document.
+
+The first leak is the author's terminal. A command pasted from a working session carries a home directory that resolves for one person, misleads everyone else, and names someone who never agreed to be named in a file that ships. The placeholder form costs nothing and says more, because it shows which part the reader supplies.
+
+The second leak is harder to see, because the pointer usually works. Where the project requires a convention that another project happens to document well, linking there instead of stating it hands that project a rule this one is bound by: it changes when they edit it, and a reader without access to it cannot learn what binds them. State the rule; then cite the source beside it.
+
+Citing outward is the opposite of leaking, and this chapter does it below. A link that supports a claim — a specification, an upstream manual, a paper — is evidence a reader may follow or ignore. A link that carries the claim is a dependency. The difference is whether deleting the link removes something the reader needed from this project.
+
+Two exemptions, both by purpose. A file whose whole job is one person's environment — `.env`, `.envrc.local`, and the sample copies that show where those values go — is where a real path belongs. And a file the project does not track was never published in the first place.
+
 ## Boundary tests
 
 - A document that answers two reader questions is two documents.

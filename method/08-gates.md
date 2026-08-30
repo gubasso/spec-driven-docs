@@ -199,6 +199,12 @@ sdd gate no-self-narration "$f"
 
 The emphasis rule is stated without a gate; see the table below. The wrap rule is the third prose rule: `sdd gate prose-stays-unwrapped` reports the continuation line a hard wrap leaves behind, exempting the blocks that own their line structure — fences, tables, definitions, hard breaks.
 
+## Personal paths
+
+`sdd gate no-personal-path` reports an absolute path into a home directory — `/home/<name>`, `/Users/<name>`, and the Windows spelling — in any file the commit carries.
+
+This is the one prose check that does not strip code first. A fenced command carrying a real home directory is the leak, not a quotation of it, so a document teaching the shape writes a placeholder segment: `<user>`, `$USER`, `~`. Two exemptions are by purpose rather than path — a file whose job is one person's environment (`.env`, `.envrc.local`, and their sample copies), and any file git ignores, which never reaches a hook at all.
+
 ## Comment citations
 
 Two checks, and the second is the one that matters. Scope both to the code, excluding the docs root: a chapter stating either rule necessarily writes the strings it forbids.
@@ -251,6 +257,7 @@ These rules are real and no command decides them. A reviewer does.
 | A document contains no bold or italic text                  | stated without a gate by decision         |
 | One term for one concept                                    | requires knowing which terms are synonyms |
 | A fact has exactly one owner                                | requires knowing what the fact is         |
+| A document owns what it governs                             | requires knowing the project's own domain |
 | A spec introduces no section outside its shape              | its trailing wildcard admits any heading  |
 | A run of records about one domain means a missing spec      | requires reading the corpus               |
 | A seeded rule states an obligation its adopter can violate  | requires reading the rule's subject       |

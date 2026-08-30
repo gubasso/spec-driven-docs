@@ -106,7 +106,7 @@ mod tests {
         let file = path(&dir, "skills.json");
         let mut record = SkillRecord::new();
         record.written.insert(
-            Utf8PathBuf::from("/home/a/.claude/skills/s/SKILL.md"),
+            Utf8PathBuf::from("/home/<user>/.claude/skills/s/SKILL.md"),
             Sha256::of(b"x"),
         );
         std::fs::write(&file, record.to_json()).unwrap();
@@ -116,11 +116,11 @@ mod tests {
     #[test]
     fn wrote_answers_only_for_the_exact_path_and_digest() {
         let mut record = SkillRecord::new();
-        let destination = Utf8PathBuf::from("/home/a/SKILL.md");
+        let destination = Utf8PathBuf::from("/home/<user>/SKILL.md");
         record.written.insert(destination.clone(), Sha256::of(b"x"));
         assert!(record.wrote(&destination, &Sha256::of(b"x")));
         assert!(!record.wrote(&destination, &Sha256::of(b"y")));
-        assert!(!record.wrote(Utf8Path::new("/home/b/SKILL.md"), &Sha256::of(b"x")));
+        assert!(!record.wrote(Utf8Path::new("/home/<other>/SKILL.md"), &Sha256::of(b"x")));
     }
 
     /// A caller that cannot read the record loses the benefit of the doubt

@@ -251,16 +251,22 @@ fn the_sdd_setup_skill_quotes_the_agents_snippet_verbatim() {
     );
 }
 
-/// The embedded payload roots, as `build.rs` names them. The license files
-/// it also embeds carry no method content and are not scanned.
-const PAYLOAD_ROOTS: &[&str] = &[
-    "_docs/specs",
-    "templates",
-    ".markdownlint",
-    "instance/snippets",
-    "method",
-    "skills",
-];
+/// The embedded payload roots, read from the one declaration the binary and
+/// `build.rs` also read. The license files carry no method content and are
+/// embedded individually rather than as a root, so they are not scanned.
+use spec_driven_docs::payload_roots::PAYLOAD_ROOTS;
+
+/// Projects, products, and organizations outside this one that the payload
+/// must not name.
+///
+/// This list is a denylist rather than a judgement: it holds the specific
+/// names a reader of this repository alone could not resolve. The forges,
+/// agents, and reference works the method genuinely documents — GitHub,
+/// Claude, Bugzilla, Diátaxis — are integrations this framework describes,
+/// and naming them is what makes the chapter useful. What may not appear is
+/// a sibling project of this author's, because a reader who lacks it meets
+/// a reference they cannot follow.
+const FOREIGN_PROJECTS: &[&str] = &["release-kit", "release_kit", "exobrain", "gubasso"];
 
 /// Planning tools and planning frameworks the payload must not name.
 ///
@@ -297,25 +303,34 @@ fn walk_files(dir: &Path, files: &mut Vec<PathBuf>) {
     }
 }
 
-/// SATISFIES distribution:the-payload-names-no-planning-tool
-#[test]
-fn the_embedded_payload_names_no_planning_tool() {
-    let mut files = Vec::new();
+/// Every file under every declared payload root, with its repository-relative
+/// path, ready to be scanned line by line.
+fn payload_files() -> Vec<(String, String)> {
+    let mut paths = Vec::new();
     for root in PAYLOAD_ROOTS {
         let path = canon().join(root);
         assert!(path.exists(), "{root} is not on disk; the payload moved");
         if path.is_dir() {
-            walk_files(&path, &mut files);
+            walk_files(&path, &mut paths);
         } else {
-            files.push(path);
+            paths.push(path);
         }
     }
-    assert!(!files.is_empty(), "the payload scan matched no file");
-    for path in files {
-        let Ok(text) = std::fs::read_to_string(&path) else {
-            continue;
-        };
-        let relative = path.strip_prefix(canon()).unwrap().display().to_string();
+    assert!(!paths.is_empty(), "the payload scan matched no file");
+    paths
+        .into_iter()
+        .filter_map(|path| {
+            let text = std::fs::read_to_string(&path).ok()?;
+            let relative = path.strip_prefix(canon()).unwrap().display().to_string();
+            Some((relative, text))
+        })
+        .collect()
+}
+
+/// SATISFIES distribution:the-payload-names-no-planning-tool
+#[test]
+fn the_embedded_payload_names_no_planning_tool() {
+    for (relative, text) in payload_files() {
         for (index, line) in text.lines().enumerate() {
             let number = index + 1;
             let lower = line.to_lowercase();
@@ -329,6 +344,23 @@ fn the_embedded_payload_names_no_planning_tool() {
                 !lower.contains("jira") || lower.contains("tracker-markup"),
                 "{relative}:{number}: the payload names Jira outside a tracker-markup reference"
             );
+        }
+    }
+}
+
+/// SATISFIES distribution:the-payload-names-no-other-project
+#[test]
+fn the_embedded_payload_names_no_other_project() {
+    for (relative, text) in payload_files() {
+        for (index, line) in text.lines().enumerate() {
+            let lower = line.to_lowercase();
+            for project in FOREIGN_PROJECTS {
+                assert!(
+                    !lower.contains(project),
+                    "{relative}:{}: the payload names the outside project '{project}'",
+                    index + 1
+                );
+            }
         }
     }
 }
