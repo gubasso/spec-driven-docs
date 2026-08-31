@@ -11,12 +11,14 @@
   - [`distribution:skills-are-part-of-the-payload` — Skills are part of the payload](#distributionskills-are-part-of-the-payload--skills-are-part-of-the-payload)
   - [`distribution:a-skill-has-one-owner` — A skill has one owner](#distributiona-skill-has-one-owner--a-skill-has-one-owner)
   - [`distribution:a-skill-obeys-the-portable-format` — A skill obeys the portable format](#distributiona-skill-obeys-the-portable-format--a-skill-obeys-the-portable-format)
+  - [`distribution:a-skill-plans-before-it-acts` — A skill plans before it acts](#distributiona-skill-plans-before-it-acts--a-skill-plans-before-it-acts)
   - [`distribution:skill-install-previews-before-writing` — Skill install previews before writing](#distributionskill-install-previews-before-writing--skill-install-previews-before-writing)
   - [`distribution:a-stale-skill-is-not-a-conflict` — A stale skill is not a conflict](#distributiona-stale-skill-is-not-a-conflict--a-stale-skill-is-not-a-conflict)
   - [`distribution:a-skill-install-restores-on-failure` — A skill install restores on failure](#distributiona-skill-install-restores-on-failure--a-skill-install-restores-on-failure)
   - [`distribution:skill-uninstall-removes-only-what-it-wrote` — Skill uninstall removes only what it wrote](#distributionskill-uninstall-removes-only-what-it-wrote--skill-uninstall-removes-only-what-it-wrote)
   - [`distribution:an-install-sweeps-what-the-payload-dropped` — An install sweeps what the payload dropped](#distributionan-install-sweeps-what-the-payload-dropped--an-install-sweeps-what-the-payload-dropped)
   - [`distribution:user-scope-files-stay-unrecorded` — User-scope files stay unrecorded](#distributionuser-scope-files-stay-unrecorded--user-scope-files-stay-unrecorded)
+  - [`distribution:shared-skill-artifacts-have-one-home` — Shared skill artifacts have one home](#distributionshared-skill-artifacts-have-one-home--shared-skill-artifacts-have-one-home)
   - [`distribution:the-payload-names-no-planning-tool` — The payload names no planning tool](#distributionthe-payload-names-no-planning-tool--the-payload-names-no-planning-tool)
   - [`distribution:the-payload-names-no-other-project` — The payload names no other project](#distributionthe-payload-names-no-other-project--the-payload-names-no-other-project)
   - [`distribution:the-payload-roots-are-declared-once` — The payload roots are declared once](#distributionthe-payload-roots-are-declared-once--the-payload-roots-are-declared-once)
@@ -114,6 +116,18 @@ Every skill MUST carry only the portable Agent Skills frontmatter fields, a `nam
 
 Verify: `cargo nextest run -E 'binary(canon)'`
 
+### `distribution:a-skill-plans-before-it-acts` — A skill plans before it acts
+
+Every skill MUST open its body with a section that directs the agent to read the shared plan gate before the first action of a task and to hold its three phases — plan, validate, execute — for the whole task, ahead of every other section.
+
+#### Scenario: A skill gains a section above the gate
+
+- GIVEN a skill edited so another section precedes the gate section
+- WHEN the canon test suite runs
+- THEN the conformance test fails naming the skill, because an agent acts on the first instruction it reads
+
+Verify: `cargo nextest run -E 'binary(canon)'`
+
 ### `distribution:skill-install-previews-before-writing` — Skill install previews before writing
 
 When run without `--apply`, `sdd skill install` MUST list every destination and write nothing, and when a destination holds bytes neither the payload nor the user-scope record accounts for, an apply MUST refuse atomically, listing every conflict.
@@ -186,6 +200,18 @@ Files `sdd skill install` writes outside an instance MUST NOT appear in any inst
 
 Verify: `cargo nextest run -E 'binary(cmd_skill)'`
 
+### `distribution:shared-skill-artifacts-have-one-home` — Shared skill artifacts have one home
+
+The distribution MUST install every artifact the skills share exactly once, at the state root the user-scope record lives in, whichever agent an install selects, and an uninstall MUST retain those artifacts while any agent root still holds an installed skill.
+
+#### Scenario: One agent family's skills are uninstalled
+
+- GIVEN both agent roots holding installed skills and the shared artifacts landed
+- WHEN `sdd skill uninstall --agent codex --apply` runs
+- THEN the shared artifacts remain, because the other root's skills still name them, and only the uninstall that takes the last skills takes the artifacts along
+
+Verify: `cargo nextest run -E 'binary(cmd_skill)'`
+
 ### `distribution:the-payload-names-no-planning-tool` — The payload names no planning tool
 
 The author MUST keep every embedded payload root free of a planning tool's name, so an instance may pair this framework with any work-record convention or none.
@@ -214,7 +240,7 @@ Verify: `cargo nextest run -E 'binary(canon)'`
 
 The author MUST declare the embedded payload roots in one place that the binary, the build script, and the canon suite all read.
 
-#### Scenario: A seventh root is embedded
+#### Scenario: An eighth root is embedded
 
 - GIVEN a new root added to the embedding module alone
 - WHEN the canon suite scans the payload for what it may not carry

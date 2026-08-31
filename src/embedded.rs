@@ -24,6 +24,8 @@ pub static SNIPPETS: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/instance/s
 pub static METHOD: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/method");
 /// The cross-agent skills, one `SKILL.md` per directory.
 pub static SKILLS: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/skills");
+/// The artifacts every skill shares, installed once outside the skill roots.
+pub static SKILL_SHARED: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/skill-shared");
 
 /// The combined license statement naming both halves.
 pub static LICENSE: &str = include_str!("../LICENSE");
@@ -43,6 +45,7 @@ const EMBEDDED_ROOTS: &[(&str, &Dir<'static>)] = &[
     ("instance/snippets", &SNIPPETS),
     ("method", &METHOD),
     ("skills", &SKILLS),
+    ("skill-shared", &SKILL_SHARED),
 ];
 
 /// Every skill name, sorted; a name is the skill's directory.
@@ -62,6 +65,30 @@ pub fn skill(name: &str) -> Option<&'static str> {
     SKILLS
         .get_file(format!("{name}/SKILL.md"))
         .and_then(include_dir::File::contents_utf8)
+}
+
+/// Every artifact the skills share, as `(path under the root, bytes)`,
+/// sorted by path.
+///
+/// These land once, outside the agent skill roots, because every skill names
+/// the same absolute path for them. A copy per skill would be one file to
+/// correct per agent root per skill; one copy is one.
+#[must_use]
+pub fn shared_artifacts() -> Vec<(String, &'static [u8])> {
+    fn walk(dir: &Dir<'static>, out: &mut Vec<(String, &'static [u8])>) {
+        for file in dir.files() {
+            if let Some(path) = file.path().to_str() {
+                out.push((path.to_string(), file.contents()));
+            }
+        }
+        for sub in dir.dirs() {
+            walk(sub, out);
+        }
+    }
+    let mut out = Vec::new();
+    walk(&SKILL_SHARED, &mut out);
+    out.sort_by(|a, b| a.0.cmp(&b.0));
+    out
 }
 
 /// Resolve a payload source path — as a profile projection names it — to its

@@ -90,6 +90,16 @@ pub fn regenerate(root: &Utf8Path) -> Result<String, AppError> {
             sha256: sha256_file(&root.join(&path))?,
         });
     }
+    // The shared skill artifacts are payload the same way the skills are:
+    // the embedded inventory names them, so the record cannot miss one.
+    for (path, _) in crate::embedded::shared_artifacts() {
+        let path = format!("skill-shared/{path}");
+        managed.push(ManagedEntry {
+            source: path.clone().into(),
+            destination: path.clone().into(),
+            sha256: sha256_file(&root.join(&path))?,
+        });
+    }
 
     #[allow(clippy::case_sensitive_file_extension_comparisons)]
     let spec = |name: &str| name.starts_with("SPEC-") && name.ends_with(".md");

@@ -10,11 +10,12 @@
 // comments only — no `use`, no inner doc comments, no other modules.
 
 /// Every authored root the binary embeds, in one place.
-pub const PAYLOAD_ROOTS: [&str; 6] = [
+pub const PAYLOAD_ROOTS: [&str; 7] = [
     "_docs/specs",
     "templates",
     ".markdownlint",
     "instance/snippets",
     "method",
     "skills",
+    "skill-shared",
 ];

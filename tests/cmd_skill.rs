@@ -19,11 +19,17 @@ use spec_driven_docs::domain::skill_record::SkillRecord;
 use support::{Fixture, Home};
 
 const DESTINATIONS: &[&str] = &[
+    ".agents/skills/sdd-migrate/SKILL.md",
     ".agents/skills/sdd-setup/SKILL.md",
     ".agents/skills/sdd-write-docs/SKILL.md",
+    ".claude/skills/sdd-migrate/SKILL.md",
     ".claude/skills/sdd-setup/SKILL.md",
     ".claude/skills/sdd-write-docs/SKILL.md",
+    SHARED_GATE,
 ];
+
+/// The one shared artifact, written once whichever agent an install selects.
+const SHARED_GATE: &str = ".local/state/spec-driven-docs/skills/shared/plan-gate.md";
 
 #[test]
 fn list_prints_every_skill_name_one_per_line() {
@@ -32,7 +38,7 @@ fn list_prints_every_skill_name_one_per_line() {
         .args(["skill", "list"])
         .assert()
         .success()
-        .stdout("sdd-setup\nsdd-write-docs\n");
+        .stdout("sdd-migrate\nsdd-setup\nsdd-write-docs\n");
 }
 
 #[test]
@@ -107,6 +113,7 @@ fn install_apply_for_claude_writes_one_root() {
             .is_file()
     );
     assert!(!home.path().join(".agents").exists());
+    assert!(home.path().join(SHARED_GATE).is_file());
 }
 
 #[test]
@@ -154,8 +161,9 @@ fn a_copy_a_previous_release_wrote_is_replaced_without_force() {
         .assert()
         .success();
     for destination in DESTINATIONS {
-        assert!(
-            home.read(destination).contains("name: sdd"),
+        assert_ne!(
+            home.read(destination),
+            OLDER,
             "{destination} was not replaced"
         );
     }
@@ -487,6 +495,32 @@ fn uninstall_for_claude_leaves_the_other_root_alone() {
             .join(".agents/skills/sdd-setup/SKILL.md")
             .is_file()
     );
+    // The shared artifacts stay while the other root's skills still name them.
+    assert!(home.path().join(SHARED_GATE).is_file());
+}
+
+/// VERIFIES distribution:shared-skill-artifacts-have-one-home
+///
+/// The uninstall that takes the last installed skills takes the shared
+/// artifacts with them; until then every uninstall leaves them alone.
+#[test]
+fn the_last_uninstall_takes_the_shared_artifacts_along() {
+    let home = Home::new();
+    home.cmd()
+        .args(["skill", "install", "--apply"])
+        .assert()
+        .success();
+    home.cmd()
+        .args(["skill", "uninstall", "--agent", "codex", "--apply"])
+        .assert()
+        .success();
+    assert!(home.path().join(SHARED_GATE).is_file());
+    home.cmd()
+        .args(["skill", "uninstall", "--agent", "claude", "--apply"])
+        .assert()
+        .success();
+    assert!(!home.path().join(SHARED_GATE).exists());
+    assert!(!home.path().join(RECORD).exists());
 }
 
 #[test]

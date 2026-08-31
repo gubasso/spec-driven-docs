@@ -12,7 +12,7 @@ use crate::context::AppContext;
 use crate::domain::skill_record::RECORD_PATH;
 use crate::error::AppError;
 use crate::output;
-use crate::services::skill_installer;
+use crate::services::skill_installer::{self, Layout};
 
 fn home() -> Result<Utf8PathBuf, AppError> {
     std::env::var("HOME")
@@ -20,6 +20,26 @@ fn home() -> Result<Utf8PathBuf, AppError> {
         .filter(|home| !home.is_empty())
         .map(Utf8PathBuf::from)
         .ok_or_else(|| AppError::Usage("HOME is not set".to_string()))
+}
+
+/// The root holding what the skills share, relative to the home directory.
+///
+/// Home-relative rather than `XDG_STATE_HOME`-relative for the reason the
+/// record states: the skills naming these artifacts live under
+/// `$HOME/.agents` and `$HOME/.claude`, which no XDG variable moves, and a
+/// shared file reachable under a different home than the skills reading it
+/// would be worse than no shared file at all.
+const SHARED_ROOT: &str = ".local/state/spec-driven-docs/skills/shared";
+
+/// The roots one run touches, and the record that vouches for them.
+fn layout(agent: Agent) -> Result<Layout, AppError> {
+    let home = home()?;
+    Ok(Layout {
+        roots: roots(&home, agent),
+        every_root: roots(&home, Agent::All),
+        shared: home.join(SHARED_ROOT),
+        record: home.join(RECORD_PATH),
+    })
 }
 
 fn roots(home: &Utf8Path, agent: Agent) -> Vec<Utf8PathBuf> {
@@ -55,20 +75,16 @@ pub fn run(_ctx: &AppContext, args: SkillArgs) -> Result<(), AppError> {
             Ok(())
         }
         SkillCommand::Install(install) => {
-            let home = home()?;
-            let roots = roots(&home, install.agent);
-            let record = home.join(RECORD_PATH);
-            let lines = skill_installer::install(&roots, &record, install.apply, install.force)?;
+            let layout = layout(install.agent)?;
+            let lines = skill_installer::install(&layout, install.apply, install.force)?;
             for line in lines {
                 output::line(line);
             }
             Ok(())
         }
         SkillCommand::Uninstall(uninstall) => {
-            let home = home()?;
-            let roots = roots(&home, uninstall.agent);
-            let record = home.join(RECORD_PATH);
-            let lines = skill_installer::uninstall(&roots, &record, uninstall.apply)?;
+            let layout = layout(uninstall.agent)?;
+            let lines = skill_installer::uninstall(&layout, uninstall.apply)?;
             for line in lines {
                 output::line(line);
             }

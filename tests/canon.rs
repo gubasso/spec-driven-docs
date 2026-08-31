@@ -119,6 +119,15 @@ fn the_canon_record_hashes_every_file_the_tree_carries() {
         }
     }
 
+    let managed = recorded_destinations(&manifest, "managed_files");
+    for (path, _) in spec_driven_docs::embedded::shared_artifacts() {
+        let path = format!("skill-shared/{path}");
+        assert!(
+            managed.contains(&path),
+            "{path} is in the payload but absent from the record; run 'just manifest'"
+        );
+    }
+
     let mut specs: Vec<String> = std::fs::read_dir(canon().join("_docs/specs"))
         .unwrap()
         .filter_map(Result::ok)
@@ -307,6 +316,37 @@ fn every_skill_carries_the_portable_frontmatter_and_stays_within_budget() {
             body.len() <= 150,
             "{dir}: body is {} lines, budget is 150",
             body.len()
+        );
+    }
+}
+
+/// SATISFIES distribution:a-skill-plans-before-it-acts
+#[test]
+fn every_skill_routes_to_the_plan_gate_before_acting() {
+    for (dir, text) in skill_dirs() {
+        let (_, body) = split_frontmatter(&text);
+        let sections: Vec<usize> = body
+            .iter()
+            .enumerate()
+            .filter(|(_, line)| line.starts_with("## "))
+            .map(|(index, _)| index)
+            .collect();
+        let first = *sections
+            .first()
+            .unwrap_or_else(|| panic!("{dir}: the body has no sections"));
+        assert_eq!(
+            body[first], "## Before acting",
+            "{dir}: the plan gate does not lead every other section"
+        );
+        let end = sections.get(1).copied().unwrap_or(body.len());
+        let section = body[first..end].join("\n");
+        assert!(
+            section.contains("~/.local/state/spec-driven-docs/skills/shared/plan-gate.md"),
+            "{dir}: the gate section does not name the shared gate path"
+        );
+        assert!(
+            section.contains("--no-plan"),
+            "{dir}: the gate section does not state the --no-plan rule"
         );
     }
 }

@@ -9,6 +9,14 @@ compatibility: Requires the sdd binary on PATH; install with cargo install spec-
 
 Author documentation by the spec-driven-docs method. The rules live in the instance's specs and in the binary; read them with the CLI instead of restating them, because the spec text is the owner.
 
+## Before acting
+
+Read `~/.local/state/spec-driven-docs/skills/shared/plan-gate.md` before the first action of a task, and hold it for the whole task. It binds three phases: plan and present the plan for approval, validate that plan against every preview and read-only source phase 2 names, then execute it.
+
+The gate is the whole reason this skill is safe to run unattended: every change below rewrites a documentation zone the instance governs.
+
+When the request carries `--no-plan`, skip the approval turn only. Still state the ordered plan before acting, and still validate it as phase 2 directs.
+
 ## Route to the rules
 
 | Need                                | Command                |

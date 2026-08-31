@@ -14,6 +14,7 @@ This repository is the canonical knowledge product for spec-driven documentation
 
 - `method/`, `comparison-docs/`, `templates/`, `reference/`, and `skills/` are canon product files.
 - `src/` is the distribution: the `sdd` binary embeds the payload — spec seeds, templates, `.markdownlint/` configurations, `instance/snippets/`, `skills/`, and `method/` — at compile time from these authored paths, so canon and binary cannot drift.
+- `skill-shared/` is what every skill shares, installed once to `~/.local/state/spec-driven-docs/skills/shared/` and named there by absolute path: the two agent roots make no relative path reach one file from both. The plan gate every skill routes to lives there.
 - The delivered gate set is declared once, in the registry in `src/gates.rs`; the managed block an instance receives is rendered from it at install time and committed nowhere, so there is no copy to hold equal. This repository publishes no `.pre-commit-hooks.yaml`: the gates serve instances, not repositories that reference them remotely.
 - This repository is an instance of itself, and the one whose block no installer wrote: the managed region of its own `.pre-commit-config.yaml` is maintained by hand, so a new gate is wired there in the same change, and the release checks hold that region to the registry.
 - Checks of invariants only this repository has — the license split, version alignment — are cargo tests under `tests/`, never delivered (ADR-split-gates-by-delivery-domain).

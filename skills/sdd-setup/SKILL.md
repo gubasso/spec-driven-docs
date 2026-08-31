@@ -9,6 +9,14 @@ compatibility: Requires the sdd binary on PATH; install with cargo install spec-
 
 Operate a project's spec-driven-docs instance through the `sdd` CLI. The CLI is the whole interface: every binding rule is readable with `sdd spec <name>` and every method chapter with `sdd method <chapter>`.
 
+## Before acting
+
+Read `~/.local/state/spec-driven-docs/skills/shared/plan-gate.md` before the first action of a task, and hold it for the whole task. It binds three phases: plan and present the plan for approval, validate that plan against every preview and read-only source phase 2 names, then execute it.
+
+The gate is the whole reason this skill is safe to run unattended: every verb below writes files into a repository or under the user's home.
+
+When the request carries `--no-plan`, skip the approval turn only. Still state the ordered plan before acting, and still validate it as phase 2 directs.
+
 ## Detect
 
 ```bash
