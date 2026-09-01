@@ -265,6 +265,13 @@ These rules are real and no command decides them. A reviewer does.
 | A spec change is declared as a typed clause                 | a command cannot see an omitted clause    |
 | A typed clause's type matches the diff                      | requires reading both sides               |
 | A step is one action, and an unprinted outcome is a step    | requires reading the step                 |
+| Every step carries a check a reader can judge               | requires reading the step                 |
+| A manual step enumerates every field and value              | requires knowing the interface            |
+| A step's inputs are produced by an earlier step             | requires tracing the procedure            |
+| A guide opens with preconditions and closes with a check    | requires reading the guide                |
+| A divergent result states its condition and destination     | requires knowing the tool's behavior      |
+| An upstream-owned fact is verified against its source       | requires fetching the source              |
+| An upstream citation is dated and lives in reference        | requires reading the reference zone       |
 | An artifact token names one artifact, never a step          | requires judging the name                 |
 | A comment holds only what the code cannot express           | requires reading the code beside it       |
 | A claim about code quotes the code that shows it            | requires reading the code beside it       |

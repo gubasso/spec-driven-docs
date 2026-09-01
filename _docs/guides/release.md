@@ -6,6 +6,11 @@ Day-to-day release workflow. First time on a repository: [release-setup.md](./re
 
 A release takes two pull requests. The first, which release-plz opens against `develop`, carries the version bump and the changelog, and merging it publishes nothing. The second is the gate: automation cuts `release/v<version>` at that merged commit and opens it into `master`, which takes no direct push and requires a passing `test` check, and merging it is what tags and publishes (ADR-cut-the-release-from-master). The gate branch is pinned to one commit, so work landing on `develop` while it is open never joins the release.
 
+## Preconditions
+
+- `gh` authenticated for this repository: `gh auth status`
+- The one-time setup is done, through [release-setup.md](./release-setup.md): `gh api repos/gubasso/spec-driven-docs/rulesets --jq length` prints 3
+
 ## At a glance
 
 The whole sequence, in order. Each step is expanded below. `<repo>` is `gubasso/spec-driven-docs`.
@@ -45,6 +50,7 @@ Two of these are easy to skip and both have bitten this repository. Step 3 is th
 
    ```bash
    just check
+   # check: exits 0; lint, tests, and the scratch install all pass
    ```
 
 2. Push. release-plz opens the release pull request and realigns the canon manifest onto its branch:
@@ -61,6 +67,7 @@ Two of these are easy to skip and both have bitten this repository. Step 3 is th
    ```bash
    git fetch origin --tags --force
    git log --oneline "v<previous version>^{commit}..origin/develop"
+   # check: the changelog entry names every change this range shows
    ```
 
    Correct it on the release pull request branch, before merging. That is the last point a correction reaches the release: merging cuts the gate at the merge commit, the gate branch stays pinned there, and a published entry can never be edited.
@@ -69,12 +76,14 @@ Two of these are easy to skip and both have bitten this repository. Step 3 is th
    git fetch origin <release branch> && git switch --detach FETCH_HEAD
    # edit CHANGELOG.md, then commit and push it back
    git push origin HEAD:<release branch>
+   # check: the release pull request shows the corrected entry
    ```
 
 4. Merge the release pull request into `develop`. It bumps the version and writes the changelog; nothing is published yet:
 
    ```bash
    gh pr merge <pr number> --repo gubasso/spec-driven-docs --squash --delete-branch
+   # check: exits 0; develop's tip now carries the version bump and the changelog
    ```
 
 5. Wait for the release gate. That merge pushes `develop`, and the `open-release-gate` job cuts `release/v<version>` at the merged commit and opens it into `master`, because the new version carries no tag yet:
@@ -93,12 +102,14 @@ Two of these are easy to skip and both have bitten this repository. Step 3 is th
    gh run list --repo gubasso/spec-driven-docs --workflow release-plz.yml --limit 1
    ```
 
-7. Back-merge, so `develop` reaches the tagged commit and the next release diffs cleanly. It runs safely before the tag lands, because the gate job refuses a commit that is not ahead of `master` and the back-merge leaves the two equal. It is a fast-forward while `develop` has not moved since the gate was cut; if work landed meanwhile, drop `--ff-only` and take the merge commit:
+7. Back-merge, so `develop` reaches the tagged commit and the next release diffs cleanly. It runs safely before the tag lands, because the gate job refuses a commit that is not ahead of `master` and the back-merge leaves the two equal. It is a fast-forward while `develop` has not moved since the gate was cut:
 
    ```bash
    git fetch origin --tags --force
    git checkout develop && git merge --ff-only origin/master
    git push origin develop
+   # check: the push succeeds and develop now contains origin/master
+   # the fast-forward refuses: work landed meanwhile, so drop --ff-only and take the merge commit
    ```
 
 8. Wait for the installer build before verifying anything. cargo-dist creates the GitHub release in its final job, after every platform has built, so for about six minutes after the merge there is no release to look at and `gh release view` reports that it is not found. The tag lands sooner, around a minute in, but a check run before either arrives fails on timing rather than on the release:
@@ -107,6 +118,7 @@ Two of these are easy to skip and both have bitten this repository. Step 3 is th
    gh run watch --repo gubasso/spec-driven-docs --exit-status \
      "$(gh run list --repo gubasso/spec-driven-docs --workflow release.yml \
         --limit 1 --json databaseId -q '.[0].databaseId')"
+   # check: the watched run concludes success
    ```
 
 9. Verify:
@@ -124,9 +136,11 @@ Two of these are easy to skip and both have bitten this repository. Step 3 is th
 
    # all three agree
    git rev-parse "v<version>^{commit}" origin/master origin/develop
+   # check: three identical SHAs
 
    # the installed binary reports it
    sdd --version
+   # check: prints the new version
    ```
 
    release-plz writes an annotated tag, so `v<version>` names a tag object rather than a commit; `^{commit}` is what makes the three values comparable.

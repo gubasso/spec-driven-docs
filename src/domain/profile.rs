@@ -172,6 +172,10 @@ const ADOPTED: &[Projection] = &[
         "{docs_root}/specs/SPEC-spec-to-code.md",
     ),
     proj(
+        "_docs/specs/SPEC-guides.md",
+        "{docs_root}/specs/SPEC-guides.md",
+    ),
+    proj(
         "templates/TEMPLATE-spec.md",
         "{docs_root}/specs/TEMPLATE-spec.md",
     ),
@@ -182,6 +186,10 @@ const ADOPTED: &[Projection] = &[
     proj(
         "templates/TEMPLATE-agents-digest.md",
         "{docs_root}/reference/TEMPLATE-agents-digest.md",
+    ),
+    proj(
+        "templates/TEMPLATE-guide.md",
+        "{docs_root}/guides/TEMPLATE-guide.md",
     ),
 ];
 

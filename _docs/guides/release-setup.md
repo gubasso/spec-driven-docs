@@ -93,11 +93,20 @@ Every command below is a script under `scripts/release-setup/`, run from the rep
       scripts/publish-dry
       ```
 
-   2. Create a token at <https://crates.io/settings/tokens/new>, then Generate Token and copy it; crates.io shows it once.
-      - Name: `spec-driven-docs-bootstrap`.
-      - Expiration: `7 days`.
-      - Scopes: `publish-new` only.
-      - Crates: Add pattern, `spec-driven-docs`. Patterns match per request, so a crate that does not exist yet is fine; the "matches no crate you own" warning is expected.
+   2. Create the token; crates.io shows the value once. The form's fields are verified in [release-setup-sources.md](../reference/release-setup-sources.md).
+
+      1. Open <https://crates.io/settings/tokens/new>.
+      2. Name: `spec-driven-docs-bootstrap`.
+      3. Expiration: pick `7 days` from the dropdown; it defaults to 90 days.
+      4. Scopes: check `publish-new` only, leaving `change-owners`, `publish-update`, `trusted-publishing`, and `yank` unchecked.
+      5. Crates: click Add pattern, then enter `spec-driven-docs`. Patterns match per request, so a crate that does not exist yet is fine; the "matches no crate you own" warning is expected.
+      6. Click Generate Token.
+         - check: the new row reads Scopes: publish-new, Crates: spec-driven-docs, and Expires in 7 days
+      7. Copy the value from the new row.
+         - the copy icon renders only where the browser exposes a clipboard; without one, select the shown value and copy it by hand
+         - check: the icon reports "Copied to clipboard!"
+         - "Copy to clipboard failed!": select the shown value and copy it by hand
+         - the value is shown this once; a token left uncopied is revoked and reminted, never guessed
    3. Authenticate and publish:
 
       ```bash

@@ -28,8 +28,8 @@ When the request carries `--no-plan`, skip the approval turn only. Still state t
 ## The greenfield sweep
 
 1. Inventory every place the project documents itself: the docs root, README files, decision directories, scattered specs, contributor guides, wiki exports. List every file; the list is part of the plan the gate presents.
-2. Classify each durable fact by the placement chapter's decision procedure — `sdd method 01-placement` serves it. What binds now becomes a spec; why-at-the-time becomes a decision record; task recipes become guides; exact values become reference; the rest is explanation, or not durable at all.
-3. Land the instance: choose the profile — `codebase` keeps records under `docs/`, `knowledge-base` under `_docs/` — preview `sdd init --target "$PWD" --profile <profile>`, review the listed paths, then re-run with `--apply`.
+2. Classify each durable fact by the placement chapter's decision procedure — `sdd method 01-placement` serves it. What binds now becomes a spec; why-at-the-time becomes a decision record; task recipes become guides, started from `sdd template guide` and written to the adopted guides spec; exact values become reference; the rest is explanation, or not durable at all.
+3. Land the instance: choose the profile — `codebase` keeps records under `docs/`, `knowledge-base` under `_docs/` — preview `sdd init --target "$PWD" --profile <profile>`, review the listed paths, then re-run with `--apply`, and wire the documentation section into the project's `AGENTS.md` exactly as the sdd-setup skill states it.
 4. Rewrite, never move. Promotion into a zone is a rewrite into that zone's format and budgets, not a file move; old prose usually splits into a spec half stating what holds now and a decision half stating why it was chosen.
 5. Retire the old convention. Remove each superseded file only after its facts are placed, and only when the approved plan named the removal; anything not yet placed goes to `.draft/` rather than being dropped.
 6. Close: `sdd verify --target .`, then `pre-commit run --all-files` for the delivered gates.

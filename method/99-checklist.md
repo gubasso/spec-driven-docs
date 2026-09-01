@@ -124,6 +124,10 @@ Owner: [10 — Procedures](./10-procedures.md).
 - [ ] Every artifact token is upper-snake, names the artifact rather than the step, and carries no realistic value.
 - [ ] Every phase of a multi-phase guide carries an inputs line naming each producer, and every phase that produces an artifact ends with an outputs block.
 - [ ] No outputs block was promoted to a heading, and none defines the artifact it names.
+- [ ] Every step carries its check, and a manual step enumerates every field, control, and value the reader sets.
+- [ ] Every value a step consumes is produced by an earlier step or a stated precondition.
+- [ ] Every known divergence states its condition and the step or page the reader goes to.
+- [ ] Every upstream-owned fact was verified against the official source and carries a dated citation in the reference zone.
 
 ## Operational documents
 

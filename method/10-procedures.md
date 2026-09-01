@@ -48,6 +48,40 @@ A guide states what must be true before step one and how the reader knows they a
 
 Preconditions are tools installed, access held, and state assumed, each one checkable. The closing step is where an outcome no command printed becomes visible: a background job, a remote state change, a silent success. A guide whose verification is that it should work now has not been finished.
 
+## The check
+
+A check is the step's expected result, placed where the reader's eye already is: a comment line inside the fence for a command step, a closing observation for a manual step.
+
+- A command step's check MUST state what success prints, as a `# check:` comment line in the fence or as the one sentence after the command.
+- Where a rerun or a known failure prints something else, the step MUST add a comment line stating the condition and where the reader goes next.
+- A manual step MUST enumerate each field, control, and value as sub-items, and MUST close with a check the reader can confirm in the interface.
+
+````markdown
+2. Make the trunk the default branch.
+
+   ```bash
+   forge repo edit --default-branch trunk
+   forge repo view --default-branch
+   # check: prints trunk, whether this run set it or found it set
+   ```
+````
+
+The check line covers what the command itself shows; an outcome no command prints is still its own verification step. The divergence line reads as condition, then destination: `# already stored: the values are overwritten, which is the rotation path`.
+
+A manual step happens in an interface the guide does not control, so nothing is left to guess: the reader arrives at the form knowing every value before the page loads.
+
+```markdown
+3. Register the application in the forge's form.
+   1. Open the forge's new-application form.
+   2. Name: <the application's name>, unique across the forge.
+   3. Webhook, Active: uncheck it.
+   4. Every other field: leave it.
+   5. Click Create.
+      - check: the page lands on the new application's settings, showing its numeric id
+```
+
+An enumerated form is a claim about an upstream interface. Every fact an upstream owns — a field, a default, a tool's behavior — is verified against the official upstream source before the guide states it, and the citation lands in the reference zone as a dated entry the guide links once, so the procedure stays lean and the audit trail stays findable.
+
 ## The artifact token
 
 An artifact is anything a phase produces that something later needs: a string, a passphrase, a file, a name the project has to agree on, a record written to paper. Name each one once, as an upper-snake token in angle brackets.

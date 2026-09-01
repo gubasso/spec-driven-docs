@@ -13,6 +13,7 @@ Copy the block below into the project's root author-instructions file. It tells 
 - Add a decision record only when the choice is cross-cutting, expensive to reverse, constraining, or rejects an alternative someone will propose again.
 - Never rename or delete a merged decision record, and never edit one to describe the present.
 - Keep exploratory material in `.draft/`; promotion is a rewrite into the owning zone.
+- Write step-by-step guides to the guides spec: every step carries its check, a manual step enumerates its fields and values, and upstream facts carry dated citations in the reference zone.
 - Report documentation changes by ownership: which spec changed, which rule IDs, which hooks passed.
 - Stay inside the budget for the artifact class: `<root>` author instructions 100 lines, a subtree's 150, a spec 300, a record 350 words, a chapter 200, a catalog 300. Every one of these is gated; a document that wants more room splits.
 ```
