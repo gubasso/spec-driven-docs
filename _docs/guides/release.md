@@ -1,76 +1,56 @@
 # Release
 
-Day-to-day release workflow. First time on a repository: [release-setup.md](./release-setup.md).
+Day-to-day release workflow under the release-kit trunk convention. First time on a repository: [release-setup.md](./release-setup.md). The generic runbook is `rk guide release`; this guide carries the sequence with this repository's own facts filled in.
 
-`Cargo.toml` is the version source of truth. release-plz reads Conventional Commits, bumps the version, writes the changelog, tags, and publishes. Never author a tag; never move a published one — fix a bad release with the next version.
-
-A release takes two pull requests. The first, which release-plz opens against `develop`, carries the version bump and the changelog, and merging it publishes nothing. The second is the gate: automation cuts `release/v<version>` at that merged commit and opens it into `master`, which takes no direct push and requires a passing `test` check, and merging it is what tags and publishes (ADR-cut-the-release-from-master). The gate branch is pinned to one commit, so work landing on `develop` while it is open never joins the release.
+`Cargo.toml` is the version source of truth. release-plz reads the Conventional Commit titles squash-merged onto `master`, maintains one release pull request carrying the bump and the changelog, and merging that request is the release: it tags, publishes to crates.io over OIDC, and hands the tag to cargo-dist, which builds and attests the installers (ADR-adopt-the-release-kit-trunk-convention). Never author a tag; never move a published one — fix a bad release with the next version.
 
 ## Preconditions
 
 - `gh` authenticated for this repository: `gh auth status`
-- The one-time setup is done, through [release-setup.md](./release-setup.md): `gh api repos/gubasso/spec-driven-docs/rulesets --jq length` prints 3
+- `rk` on `PATH`: `rk --version`
+- The landing and the forge setup are green: `rk status --check --target .` and `rk setup check --target .` both exit 0
 
 ## At a glance
 
 The whole sequence, in order. Each step is expanded below. `<repo>` is `gubasso/spec-driven-docs`.
 
 ```bash
-# 1. land the work
-just check
+# 1. land the work through squash-merged pull requests; the bot refreshes its release request
+gh pr list --repo <repo> --state open
 
-# 2. push; release-plz opens the release request
-git push origin develop
+# 2. read the changelog on the request, and correct it on its branch just before merging
 
-# 3. read the changelog in that request, and correct it on its branch before merging
+# 3. merge the release request; this is the release decision
+gh pr merge <release pr> --repo <repo> --squash
 
-# 4. merge the release request; the bump lands on develop
-gh pr merge <release pr> --repo <repo> --squash --delete-branch
+# 4. the merge tags and publishes; watch the publish half
+gh run list --repo <repo> --workflow release-plz.yml --limit 1
 
-# 5. the gate opens itself
-gh pr list --repo <repo> --base master --state open
-
-# 6. merge the gate; this tags and publishes
-gh pr checks <gate pr> --repo <repo> --watch \
-  && gh pr merge <gate pr> --repo <repo> --merge --delete-branch
-
-# 7. back-merge
-git fetch origin --tags --force \
-  && git merge --ff-only origin/master && git push origin develop
-
-# 8. wait for the build that creates the release
+# 5. wait for the build that creates the GitHub release
 gh run watch --repo <repo> --exit-status <release.yml run>
 
-# 9. verify
+# 6. verify
 ```
 
-Two of these are easy to skip and both have bitten this repository. Step 3 is the only point a changelog correction still reaches the release, and release-plz drops entries whenever work lands while the request is open. Step 8 is why a check run straight after the merge reports the release as not found: cargo-dist creates it after every platform builds, about six minutes later.
+Two of these are easy to skip and both have bitten this repository. Step 2 is the only point a changelog correction still reaches the release, and release-plz rewrites its branch — corrections included — whenever work lands on `master` while the request is open. Step 5 is why a check run straight after the merge reports the release as not found: cargo-dist creates it after every platform builds, about six minutes later.
 
-1. Land the work on `develop` with Conventional Commit messages (`feat:` bumps minor, `fix:` bumps patch):
-
-   ```bash
-   just check
-   # check: exits 0; lint, tests, and the scratch install all pass
-   ```
-
-2. Push. release-plz opens the release pull request and realigns the canon manifest onto its branch:
+1. Land the work on `master` through its one path: a short-lived branch in its worktree, a pull request whose title is a scoped Conventional Commit, a squash merge. Each landing makes release-plz refresh the release pull request so it always proposes releasing the trunk's tip:
 
    ```bash
-   git push origin develop
-   # check: run succeeded, release pull request is open
-   gh run list --repo gubasso/spec-driven-docs --workflow release-plz.yml --limit 1
    gh pr list --repo gubasso/spec-driven-docs --state open
+   # check: a request titled "chore: release v<version>" is open, and align-manifest has realigned the canon manifest on its branch
+   # none open: the trunk matches the last published version; there is nothing to release
    ```
 
-3. Read the `CHANGELOG.md` entry in the release pull request and confirm it names every change the release carries. release-plz writes that entry when it opens the request and does not regenerate it as later work lands, so a request left open while you keep committing ships a changelog that omits the newer work. Compare it against the range:
+2. Read the `CHANGELOG.md` entry on the release pull request and confirm it names every change the release carries. Compare it against the range since the last tag:
 
    ```bash
    git fetch origin --tags --force
-   git log --oneline "v<previous version>^{commit}..origin/develop"
+   git log --oneline "v<previous version>^{commit}..origin/master"
    # check: the changelog entry names every change this range shows
    ```
 
-   Correct it on the release pull request branch, before merging. That is the last point a correction reaches the release: merging cuts the gate at the merge commit, the gate branch stays pinned there, and a published entry can never be edited.
+   Correct it on the release pull request branch, just before merging. A later push to `master` makes release-plz rewrite that branch and the correction with it, so correct when the trunk is quiet and merge before it moves:
 
    ```bash
    git fetch origin <release branch> && git switch --detach FETCH_HEAD
@@ -79,40 +59,22 @@ Two of these are easy to skip and both have bitten this repository. Step 3 is th
    # check: the release pull request shows the corrected entry
    ```
 
-4. Merge the release pull request into `develop`. It bumps the version and writes the changelog; nothing is published yet:
-
-   ```bash
-   gh pr merge <pr number> --repo gubasso/spec-driven-docs --squash --delete-branch
-   # check: exits 0; develop's tip now carries the version bump and the changelog
-   ```
-
-5. Wait for the release gate. That merge pushes `develop`, and the `open-release-gate` job cuts `release/v<version>` at the merged commit and opens it into `master`, because the new version carries no tag yet:
-
-   ```bash
-   # check: a pull request titled "release v<version>", base master, head release/v<version>
-   gh pr list --repo gubasso/spec-driven-docs --base master --state open
-   ```
-
-6. Merge the gate, once its checks are green. `master-protection` refuses the merge on its own while `test` is failing, and `gh pr checks --watch` blocks until every check settles and exits non-zero on a failure. The merge must be a merge commit: GitHub offers no fast-forward merge method, and a rebase or squash would make `master` diverge from `develop` permanently. Merging tags `v<version>` on `master`, publishes over OIDC, and builds installers:
+3. Merge the release pull request, once its checks are green. This is the release decision: the squash lands the bump on `master`, and the push of that squash is what the publish half keys on. Closing the request instead abandons the release at no cost:
 
    ```bash
    gh pr checks <pr number> --repo gubasso/spec-driven-docs --watch \
-     && gh pr merge <pr number> --repo gubasso/spec-driven-docs --merge --delete-branch
-   # check: post-merge run on master succeeded
-   gh run list --repo gubasso/spec-driven-docs --workflow release-plz.yml --limit 1
+     && gh pr merge <pr number> --repo gubasso/spec-driven-docs --squash
+   # check: exits 0; master's tip carries the version bump and the changelog
    ```
 
-7. Back-merge, so `develop` reaches the tagged commit and the next release diffs cleanly. It runs safely before the tag lands, because the gate job refuses a commit that is not ahead of `master` and the back-merge leaves the two equal. It is a fast-forward while `develop` has not moved since the gate was cut:
+4. Watch the publish half. On the bump push, `release-plz.yml` tags `v<version>` and publishes to crates.io over OIDC; the tag, pushed with the bot's token, triggers `release.yml`:
 
    ```bash
-   git fetch origin --tags --force
-   git checkout develop && git merge --ff-only origin/master
-   git push origin develop
-   # check: the push succeeds and develop now contains origin/master
-   # the fast-forward refuses: work landed meanwhile, so drop --ff-only and take the merge commit
+   gh run list --repo gubasso/spec-driven-docs --workflow release-plz.yml --limit 1
+   # check: the newest run on master concluded success
    ```
 
-8. Wait for the installer build before verifying anything. cargo-dist creates the GitHub release in its final job, after every platform has built, so for about six minutes after the merge there is no release to look at and `gh release view` reports that it is not found. The tag lands sooner, around a minute in, but a check run before either arrives fails on timing rather than on the release:
+5. Wait for the installer build before verifying anything. cargo-dist creates the GitHub release in its host job, after every platform has built and its artifacts are attested, so for about six minutes after the merge there is no release to look at and `gh release view` reports that it is not found:
 
    ```bash
    gh run watch --repo gubasso/spec-driven-docs --exit-status \
@@ -121,7 +83,7 @@ Two of these are easy to skip and both have bitten this repository. Step 3 is th
    # check: the watched run concludes success
    ```
 
-9. Verify:
+6. Verify:
 
    ```bash
    # crates.io serves the new version
@@ -131,16 +93,26 @@ Two of these are easy to skip and both have bitten this repository. Step 3 is th
    gh release view v<version> --repo gubasso/spec-driven-docs --json assets \
      -q '[.assets[].name] | join(", ")'
 
+   # the artifacts attest to this repository
+   gh release download v<version> --repo gubasso/spec-driven-docs \
+     --pattern 'spec-driven-docs-installer.sh' --dir /tmp/rk-verify --clobber \
+     && gh attestation verify /tmp/rk-verify/spec-driven-docs-installer.sh \
+        --repo gubasso/spec-driven-docs
+   # check: verification succeeded
+
    # the local clone may predate the tag push
    git fetch origin --tags --force
 
-   # all three agree
-   git rev-parse "v<version>^{commit}" origin/master origin/develop
-   # check: three identical SHAs
+   # the tag and the trunk agree
+   git rev-parse "v<version>^{commit}" origin/master
+   # check: two identical SHAs
+   # they differ: work landed after the release merge, so the tag sits one or more commits behind the tip; compare against the bump commit instead
 
    # the installed binary reports it
    sdd --version
    # check: prints the new version
    ```
 
-   release-plz writes an annotated tag, so `v<version>` names a tag object rather than a commit; `^{commit}` is what makes the three values comparable.
+   release-plz writes an annotated tag, so `v<version>` names a tag object rather than a commit; `^{commit}` is what makes the values comparable.
+
+Recovery — a failed publish, a wedged run, a yank, a hand publish while CI is down — is `rk method recovery`, and the changelog-correction window above is the only pre-merge repair a release needs.

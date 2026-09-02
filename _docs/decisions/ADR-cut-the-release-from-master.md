@@ -26,4 +26,4 @@ Enforced by `release:a-tag-derives-from-the-version-file`.
 
 ## Status
 
-Accepted — supersedes [ADR-gate-the-release-merge-in-the-recipe](./ADR-gate-the-release-merge-in-the-recipe.md).
+Superseded by [ADR-adopt-the-release-kit-trunk-convention](./ADR-adopt-the-release-kit-trunk-convention.md); supersedes [ADR-gate-the-release-merge-in-the-recipe](./ADR-gate-the-release-merge-in-the-recipe.md).

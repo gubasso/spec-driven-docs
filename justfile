@@ -5,6 +5,10 @@ fmt:
     cargo fmt
     dprint fmt
 
+# The pre-commit sweep commits nothing, so the commit-location guards are
+# skipped as the worktree convention directs; rk-status-check joins them
+# because the nix devshell CI runs this in does not carry the rk binary.
+# Each still fires at commit time in a clone that has it.
 lint:
     cargo fmt --check
     cargo clippy --all-targets --all-features -- -D warnings
@@ -15,7 +19,7 @@ lint:
     markdownlint-cli2 "**/*.md" "#tests/fixtures/**" "#target/**"
     check-jsonschema --schemafile instance/manifest.schema.json .spec-driven-docs/manifest.json
     pre-commit validate-config .pre-commit-config.yaml
-    pre-commit run --files $(rg --files --hidden -g '!.git/**')
+    SKIP=no-commit-to-branch,rk-worktree-location,rk-status-check pre-commit run --files $(rg --files --hidden -g '!.git' -g '!.git/**')
 
 test:
     cargo nextest run
