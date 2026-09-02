@@ -326,7 +326,11 @@ repos:
         # exemptions: it links every version to a compare range whose endpoints
         # it assumes are tags, and 0.2.0 was published by hand and never tagged.
         exclude: '^(tests/fixtures/|CHANGELOG\.md$)'
-        args: [--no-progress]
+        # The first argument pins the binary version the wrapper installs,
+        # because under a git hook GIT_DIR leaks into the wrapper's tag
+        # lookup and its version detection resolves this repository instead
+        # of its own checkout. Keep the value equal to the rev above.
+        args: ['LYCHEE_VERSION=0.24.2', --no-progress]
   - repo: https://github.com/crate-ci/committed
     rev: v1.1.11
     hooks:
