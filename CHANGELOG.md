@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0](https://github.com/gubasso/spec-driven-docs/compare/v0.3.2...v0.4.0) - 2026-09-02
+
+### Added
+
+- *(specs)* Bind the guides document class and land it in instances
+- *(skills)* Gate every skill on plan, validate, then execute
+- *(docs-foundations)* [**breaking**] Make self-containment a rule instances run
+- *(distribution/skills)* [**breaking**] Give every skill one owner
+- *(distribution/skills)* Record what a skill install wrote
+- *(distribution)* [**breaking**] Seed only rules the adopting project can run
+- *(distribution)* Enforce agnosticism to the planning tool
+
+### Fixed
+
+- *(skill-shared/plan-gate)* Make the --no-plan path executable
+
+### Other
+
+- *(release)* Check the canon record and block against their sources
+- *(release)* [**breaking**] Serve instances, not remote consumers
+
 ## [0.3.2](https://github.com/gubasso/spec-driven-docs/compare/v0.3.1...v0.3.2) - 2026-08-26
 
 ### Fixed
