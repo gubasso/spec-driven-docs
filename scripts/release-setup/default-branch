@@ -1,9 +1,0 @@
-#!/usr/bin/env sh
-# Make develop the default branch, so pushes to develop drive release-plz.
-set -eu
-cd "$(dirname "$0")/../.."
-: "${SDD_REPO:?run: direnv allow (it derives the slug from Cargo.toml)}"
-
-gh repo edit "$SDD_REPO" --default-branch develop
-echo 'check: prints "develop"'
-gh repo view "$SDD_REPO" --json defaultBranchRef -q .defaultBranchRef.name

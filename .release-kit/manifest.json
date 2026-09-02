@@ -1,0 +1,82 @@
+{
+  "schema_version": 2,
+  "rk_version": "0.2.8",
+  "payload_sha256": "4854afb9acd674220e20e383616023d61ee871692d711a129db8e3230aae9556",
+  "origin": "init",
+  "tech": "rust",
+  "forge": "github",
+  "landed_at": "2026-09-02T20:44:07Z",
+  "parameters": {
+    "repo": "gubasso/spec-driven-docs",
+    "scopes": [
+      "release",
+      "gates",
+      "skills",
+      "skill-shared",
+      "distribution",
+      "specs",
+      "docs",
+      "guides",
+      "method",
+      "comparison-docs",
+      "templates",
+      "reference",
+      "instance",
+      "deps",
+      "ci",
+      "lint"
+    ],
+    "workflow": "worktree"
+  },
+  "files": [
+    {
+      "destination": ".github/workflows/pr-title.yml",
+      "kind": "rendered",
+      "sha256": "ac1f62d5881e596d3de46f47df1a0e2a35117d30ced18858a6c09db5e8f1b4f1",
+      "baseline_sha256": "8fe464039815a02dba2a5feb9b5c10c3332729ef982ef209a4560b45aa5cb396"
+    },
+    {
+      "destination": ".github/workflows/release-plz.yml",
+      "kind": "rendered",
+      "sha256": "319cd6699bd166e6c03fe1ca4ed70034659f93b6e480fe1599102742e1fc077c",
+      "baseline_sha256": "f1c0f656480a3b653ba4cd9409b453fbf3a6650279bd9b1b1b4ae87202547dea"
+    },
+    {
+      "destination": ".pre-commit-config.yaml",
+      "kind": "rendered",
+      "sha256": "707fa9fb6d6bf06f6d71394c9d8c2fa5a3a6be0bc6f039cee5642905d81780ba",
+      "baseline_sha256": "c8a628ef3ed94761fee8c55e830714f8a0dc3dbc84c1699a1a97e1696652aa7a"
+    },
+    {
+      "destination": "AGENTS.md",
+      "kind": "rendered",
+      "sha256": "7f5360c80825125b0143c7e3e91a6fe9d24cf087b3426660de2960c0303d980b",
+      "baseline_sha256": "590006b7fb873a8b5af79e89baea29276b02cc59bfea7fb2a680f6855b097317"
+    },
+    {
+      "destination": "dist-workspace.toml",
+      "kind": "seeded",
+      "sha256": "d51e679ff879c46e87d722fc3572a52a2e9e2ca85796c0635a580506622c47bb",
+      "baseline_sha256": "d51e679ff879c46e87d722fc3572a52a2e9e2ca85796c0635a580506622c47bb"
+    },
+    {
+      "destination": "release-plz.toml",
+      "kind": "seeded",
+      "sha256": "0983ed155c83959d08f4446b91fb9dfcfebc80284babe49969bed4eaa0e55f1d",
+      "baseline_sha256": "0983ed155c83959d08f4446b91fb9dfcfebc80284babe49969bed4eaa0e55f1d"
+    }
+  ],
+  "pins": {
+    "attest": "4",
+    "cargo-dist": "0.32.0",
+    "checkout": "4",
+    "conventional-pre-commit": "4.4.0",
+    "create-github-app-token": "3",
+    "dist-checkout": "6",
+    "dist-download-artifact": "8",
+    "dist-upload-artifact": "7",
+    "pre-commit-hooks": "6.0.0",
+    "release-plz": "0.3.160",
+    "rust-toolchain": "stable"
+  }
+}

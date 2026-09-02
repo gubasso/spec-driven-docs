@@ -19,10 +19,3 @@ tracked:
     why: referenced tools and guidance evolve
     revalidate: read the current primary documentation
     dependents: []
-  - path: _docs/reference/release-setup-sources.md
-    last_checked: 2026-09-01
-    cadence: 90d
-    why: the crates.io token form and cargo credential paths change upstream
-    revalidate: re-read the crates.io frontend source and the Cargo book publishing chapter
-    dependents:
-      - _docs/guides/release-setup.md
