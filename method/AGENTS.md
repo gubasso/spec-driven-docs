@@ -1,6 +1,6 @@
 ---
 digest-of: method/
-last-synced: 2026-08-24
+last-synced: 2026-09-03
 token-estimate: 560
 ---
 
@@ -8,7 +8,7 @@ token-estimate: 560
 
 ## Scope
 
-The spec-driven documentation method: artifact ownership, placement, rules, decision records, agent context, format, lifecycle, traceability, procedures, operational documents, and gates.
+The spec-driven documentation method: artifact ownership, placement, rules, decision records, agent context, format, lifecycle, traceability, procedures, operational documents, gates, and migration.
 
 ## How to use this shelf
 
@@ -30,6 +30,7 @@ Load this digest, then the one chapter that owns the question. Load `_docs/specs
 | Spec-to-code traceability         | `09-spec-to-code.md`  |
 | Procedures                        | `10-procedures.md`    |
 | Operational documents             | `11-operational.md`   |
+| Migrating an existing corpus      | `12-migration.md`     |
 | Review                            | `99-checklist.md`     |
 
 Stable copies live under `../templates/`. Installation and ownership live under `../instance/`.

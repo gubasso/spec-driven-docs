@@ -5,6 +5,7 @@
 //! parsing stays in `cli`, printing in `output`; nothing here reads argv or
 //! writes a terminal.
 
+pub mod assess;
 pub mod hooks_render;
 pub mod installer;
 pub mod reader;
