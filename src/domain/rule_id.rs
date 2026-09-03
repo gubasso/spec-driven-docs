@@ -45,6 +45,7 @@ rule_ids! {
     FilenameCarriesNoDigit => "decision-records:filename-carries-no-digit",
     MergedRecordIsPermanent => "decision-records:merged-record-is-permanent",
     RecordIsNotRevised => "decision-records:record-is-not-revised",
+    LandingClassifiesItsTargetFirst => "distribution:a-landing-classifies-its-target-first",
     SeededRuleRunsNoCanonCommand => "distribution:a-seeded-rule-runs-no-canon-command",
     SkillChecksItsHostBeforeItPlans => "distribution:a-skill-checks-its-host-before-it-plans",
     SkillHasOneOwner => "distribution:a-skill-has-one-owner",

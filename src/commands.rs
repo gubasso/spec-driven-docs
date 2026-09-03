@@ -5,6 +5,7 @@
 //! the gates or services, renders through `output`, and returns a typed
 //! error. No clap derives here.
 
+pub mod assess;
 pub mod completions;
 pub mod doctor;
 pub mod gate;

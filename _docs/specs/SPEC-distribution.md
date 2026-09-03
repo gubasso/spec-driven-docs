@@ -11,6 +11,7 @@
   - [`distribution:skills-are-part-of-the-payload` — Skills are part of the payload](#distributionskills-are-part-of-the-payload--skills-are-part-of-the-payload)
   - [`distribution:a-skill-has-one-owner` — A skill has one owner](#distributiona-skill-has-one-owner--a-skill-has-one-owner)
   - [`distribution:a-skill-obeys-the-portable-format` — A skill obeys the portable format](#distributiona-skill-obeys-the-portable-format--a-skill-obeys-the-portable-format)
+  - [`distribution:a-landing-classifies-its-target-first` — A landing classifies its target first](#distributiona-landing-classifies-its-target-first--a-landing-classifies-its-target-first)
   - [`distribution:a-skill-checks-its-host-before-it-plans` — A skill checks its host before it plans](#distributiona-skill-checks-its-host-before-it-plans--a-skill-checks-its-host-before-it-plans)
   - [`distribution:the-doctor-answers-for-the-installed-skills` — The doctor answers for the installed skills](#distributionthe-doctor-answers-for-the-installed-skills--the-doctor-answers-for-the-installed-skills)
   - [`distribution:a-skill-plans-before-it-acts` — A skill plans before it acts](#distributiona-skill-plans-before-it-acts--a-skill-plans-before-it-acts)
@@ -117,6 +118,18 @@ Every skill MUST carry only the portable Agent Skills frontmatter fields, a `nam
 - THEN the conformance test fails and names the offending field
 
 Verify: `cargo nextest run -E 'binary(canon)'`
+
+### `distribution:a-landing-classifies-its-target-first` — A landing classifies its target first
+
+Where a setup or migration task finds no instance at a target, the skills and the shared pre-flight gate MUST route by `sdd assess`, which MUST report its evidence and exactly one verdict — `brownfield` where a documentation root is populated or a methodology marker exists, `greenfield` where no document beyond root metadata exists, and `needs-decision` otherwise — writing nothing, with every produced classification exiting 0.
+
+#### Scenario: A documented target carries no instance
+
+- GIVEN a repository holding a populated documentation root and no instance manifest
+- WHEN `sdd assess --target . --json` runs
+- THEN the report classifies `brownfield` and exits 0, so the routing skill loads the migration path instead of landing seeds beside the corpus
+
+Verify: `cargo nextest run -E 'binary(cmd_assess) + binary(canon)'`
 
 ### `distribution:a-skill-checks-its-host-before-it-plans` — A skill checks its host before it plans
 

@@ -418,6 +418,30 @@ fn the_payload_carries_both_shared_gates() {
     );
 }
 
+/// SATISFIES distribution:a-landing-classifies-its-target-first
+#[test]
+fn the_skills_and_the_gate_route_by_the_classification() {
+    let gate = read("skill-shared/pre-flight-gate.md");
+    assert!(
+        gate.contains("sdd assess"),
+        "the pre-flight gate does not name the classification step"
+    );
+    let setup = read("skills/sdd-setup/SKILL.md");
+    let migrate = read("skills/sdd-migrate/SKILL.md");
+    for (name, text) in [("sdd-setup", &setup), ("sdd-migrate", &migrate)] {
+        assert!(
+            text.contains("sdd assess"),
+            "{name}: does not route by sdd assess"
+        );
+        for verdict in ["greenfield", "brownfield", "needs-decision"] {
+            assert!(
+                text.contains(verdict),
+                "{name}: does not route the {verdict} verdict"
+            );
+        }
+    }
+}
+
 /// SATISFIES distribution:skills-are-part-of-the-payload
 #[test]
 fn every_sdd_invocation_a_skill_cites_names_a_real_subcommand() {

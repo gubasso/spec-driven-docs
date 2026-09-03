@@ -28,6 +28,12 @@ sdd status --target . --json
 
 `"instance": false` means the repository has no instance; any other result reports the installed profile, version alignment, and drift counts. `sdd status` exits 0 whether or not an instance exists.
 
+With no instance, classify before landing: `sdd assess --target . --json` reads the evidence and answers one of three verdicts. Route by it:
+
+- `greenfield`: land an instance, below.
+- `brownfield`: the target already documents itself; load the sdd-migrate skill and follow it — landing seeds over a settled corpus starts a second convention beside the first.
+- `needs-decision`: durable prose sits outside any recognized home; present the report's evidence with `AskUserQuestion` and let the operator pick the route.
+
 ## Land an instance
 
 1. Choose the profile: `codebase` keeps records under `docs/`; `knowledge-base` keeps them under `_docs/`.

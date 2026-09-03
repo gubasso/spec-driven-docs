@@ -4,6 +4,7 @@
 //! Per-subcommand arg structs live in sibling files (`cli/<name>.rs`). No
 //! business logic anywhere in this module tree.
 
+pub mod assess;
 pub mod completions;
 pub mod doctor;
 pub mod gate;
@@ -65,6 +66,8 @@ pub enum Commands {
     Status(status::StatusArgs),
     /// Probe this host's readiness and report by class; never fails.
     Doctor(doctor::DoctorArgs),
+    /// Classify a target repository before anything lands; every classification exits 0.
+    Assess(assess::AssessArgs),
     /// Print the license terms this binary carries.
     License(license::LicenseArgs),
     /// Regenerate the canon checkout's own instance manifest.
