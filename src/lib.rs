@@ -28,4 +28,5 @@ pub mod gates;
 pub mod logging;
 pub mod output;
 pub mod payload_roots;
+pub mod probes;
 pub mod services;

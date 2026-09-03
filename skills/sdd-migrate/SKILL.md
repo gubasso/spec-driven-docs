@@ -11,11 +11,14 @@ Take a repository from however it documents itself today to the current spec-dri
 
 ## Before acting
 
-Read `~/.local/state/spec-driven-docs/skills/shared/plan-gate.md` before the first action of a task, and hold it for the whole task. It binds three phases: plan and present the plan for approval, validate that plan against every preview and read-only source phase 2 names, then execute it.
+Read two shared files before the first action of a task, in this order, and hold both for the whole task.
 
-The gate is the whole reason this skill is safe to run unattended: the sweep rewrites and retires files the project authored, and nothing restores them but version control.
+1. `~/.local/state/spec-driven-docs/skills/shared/pre-flight-gate.md` — run it whatever the request carries. It checks this host with `sdd doctor` and stops the task on what no plan can work around. No flag skips it.
+2. `~/.local/state/spec-driven-docs/skills/shared/plan-gate.md` — it binds three phases: plan and present the plan for approval, validate that plan against every preview and read-only source phase 2 names, then execute it.
 
-When the request carries `--no-plan`, skip the approval turn only. Still state the ordered plan before acting, and still validate it as phase 2 directs.
+The two gates are why this skill is safe to run unattended: the sweep rewrites and retires files the project authored, nothing restores them but version control, and the pre-flight says whether this host carries the tools the sweep leans on.
+
+When the request carries `--no-plan`, skip the plan gate's approval turn only. Still run the pre-flight, still state the ordered plan before acting, and still validate it as phase 2 directs.
 
 ## Detect
 

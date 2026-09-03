@@ -5,6 +5,7 @@
 //! business logic anywhere in this module tree.
 
 pub mod completions;
+pub mod doctor;
 pub mod gate;
 pub mod hooks;
 pub mod init;
@@ -62,6 +63,8 @@ pub enum Commands {
     Skill(skill::SkillArgs),
     /// Report an instance's state without gating on it.
     Status(status::StatusArgs),
+    /// Probe this host's readiness and report by class; never fails.
+    Doctor(doctor::DoctorArgs),
     /// Print the license terms this binary carries.
     License(license::LicenseArgs),
     /// Regenerate the canon checkout's own instance manifest.

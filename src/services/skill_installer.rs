@@ -19,6 +19,35 @@ use crate::domain::ownership::Sha256;
 use crate::domain::skill_record::SkillRecord;
 use crate::error::AppError;
 
+/// The root holding what the skills share, relative to the home directory.
+///
+/// Home-relative rather than `XDG_STATE_HOME`-relative for the reason the
+/// record states: the skills naming these artifacts live under
+/// `$HOME/.agents` and `$HOME/.claude`, which no XDG variable moves, and a
+/// shared file reachable under a different home than the skills reading it
+/// would be worse than no shared file at all.
+pub const SHARED_ROOT: &str = ".local/state/spec-driven-docs/skills/shared";
+
+/// The skill root Claude Code reads, relative to the home directory.
+pub const CLAUDE_ROOT: &str = ".claude/skills";
+
+/// The skill root Codex, Gemini CLI, and Copilot read, relative to the home
+/// directory.
+pub const AGENTS_ROOT: &str = ".agents/skills";
+
+/// The invoking user's home directory.
+///
+/// # Errors
+///
+/// [`AppError::Usage`] when `HOME` is unset or empty.
+pub fn home() -> Result<Utf8PathBuf, AppError> {
+    std::env::var("HOME")
+        .ok()
+        .filter(|home| !home.is_empty())
+        .map(Utf8PathBuf::from)
+        .ok_or_else(|| AppError::Usage("HOME is not set".to_string()))
+}
+
 /// One planned write: where, and which bytes.
 struct Planned {
     destination: Utf8PathBuf,
@@ -739,6 +768,7 @@ mod tests {
             let layout = home(&dir);
             install(&select(&layout, index), true, false).unwrap();
             assert!(layout.shared.join("plan-gate.md").is_file());
+            assert!(layout.shared.join("pre-flight-gate.md").is_file());
         }
     }
 
@@ -751,6 +781,7 @@ mod tests {
         install(&layout, true, false).unwrap();
         uninstall(&select(&layout, 1), true).unwrap();
         assert!(layout.shared.join("plan-gate.md").is_file());
+        assert!(layout.shared.join("pre-flight-gate.md").is_file());
         uninstall(&select(&layout, 0), true).unwrap();
         assert!(!layout.shared.exists());
         assert!(!layout.record.exists());
@@ -764,9 +795,11 @@ mod tests {
         let layout = home(&dir);
         install(&layout, true, false).unwrap();
         let lines = uninstall(&layout, false).unwrap();
-        let shared = layout.shared.join("plan-gate.md");
-        assert!(lines.iter().any(|line| line == shared.as_str()));
-        assert!(shared.is_file());
+        for artifact in ["plan-gate.md", "pre-flight-gate.md"] {
+            let shared = layout.shared.join(artifact);
+            assert!(lines.iter().any(|line| line == shared.as_str()));
+            assert!(shared.is_file());
+        }
     }
 
     /// An edited shared artifact is a conflict like an edited skill: the

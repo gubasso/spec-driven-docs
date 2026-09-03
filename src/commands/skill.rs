@@ -12,24 +12,7 @@ use crate::context::AppContext;
 use crate::domain::skill_record::RECORD_PATH;
 use crate::error::AppError;
 use crate::output;
-use crate::services::skill_installer::{self, Layout};
-
-fn home() -> Result<Utf8PathBuf, AppError> {
-    std::env::var("HOME")
-        .ok()
-        .filter(|home| !home.is_empty())
-        .map(Utf8PathBuf::from)
-        .ok_or_else(|| AppError::Usage("HOME is not set".to_string()))
-}
-
-/// The root holding what the skills share, relative to the home directory.
-///
-/// Home-relative rather than `XDG_STATE_HOME`-relative for the reason the
-/// record states: the skills naming these artifacts live under
-/// `$HOME/.agents` and `$HOME/.claude`, which no XDG variable moves, and a
-/// shared file reachable under a different home than the skills reading it
-/// would be worse than no shared file at all.
-const SHARED_ROOT: &str = ".local/state/spec-driven-docs/skills/shared";
+use crate::services::skill_installer::{self, AGENTS_ROOT, CLAUDE_ROOT, Layout, SHARED_ROOT, home};
 
 /// The roots one run touches, and the record that vouches for them.
 fn layout(agent: Agent) -> Result<Layout, AppError> {
@@ -45,10 +28,10 @@ fn layout(agent: Agent) -> Result<Layout, AppError> {
 fn roots(home: &Utf8Path, agent: Agent) -> Vec<Utf8PathBuf> {
     let mut roots = Vec::new();
     if matches!(agent, Agent::Codex | Agent::All) {
-        roots.push(home.join(".agents/skills"));
+        roots.push(home.join(AGENTS_ROOT));
     }
     if matches!(agent, Agent::Claude | Agent::All) {
-        roots.push(home.join(".claude/skills"));
+        roots.push(home.join(CLAUDE_ROOT));
     }
     roots
 }

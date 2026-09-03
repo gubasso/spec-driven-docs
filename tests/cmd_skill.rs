@@ -26,10 +26,13 @@ const DESTINATIONS: &[&str] = &[
     ".claude/skills/sdd-setup/SKILL.md",
     ".claude/skills/sdd-write-docs/SKILL.md",
     SHARED_GATE,
+    SHARED_PREFLIGHT,
 ];
 
-/// The one shared artifact, written once whichever agent an install selects.
+/// The shared artifacts, written once whichever agent an install selects.
+const SHARED: &[&str] = &[SHARED_GATE, SHARED_PREFLIGHT];
 const SHARED_GATE: &str = ".local/state/spec-driven-docs/skills/shared/plan-gate.md";
+const SHARED_PREFLIGHT: &str = ".local/state/spec-driven-docs/skills/shared/pre-flight-gate.md";
 
 #[test]
 fn list_prints_every_skill_name_one_per_line() {
@@ -113,7 +116,9 @@ fn install_apply_for_claude_writes_one_root() {
             .is_file()
     );
     assert!(!home.path().join(".agents").exists());
-    assert!(home.path().join(SHARED_GATE).is_file());
+    for artifact in SHARED {
+        assert!(home.path().join(artifact).is_file(), "missing {artifact}");
+    }
 }
 
 #[test]
@@ -496,7 +501,9 @@ fn uninstall_for_claude_leaves_the_other_root_alone() {
             .is_file()
     );
     // The shared artifacts stay while the other root's skills still name them.
-    assert!(home.path().join(SHARED_GATE).is_file());
+    for artifact in SHARED {
+        assert!(home.path().join(artifact).is_file(), "missing {artifact}");
+    }
 }
 
 /// VERIFIES distribution:shared-skill-artifacts-have-one-home
@@ -514,12 +521,16 @@ fn the_last_uninstall_takes_the_shared_artifacts_along() {
         .args(["skill", "uninstall", "--agent", "codex", "--apply"])
         .assert()
         .success();
-    assert!(home.path().join(SHARED_GATE).is_file());
+    for artifact in SHARED {
+        assert!(home.path().join(artifact).is_file(), "missing {artifact}");
+    }
     home.cmd()
         .args(["skill", "uninstall", "--agent", "claude", "--apply"])
         .assert()
         .success();
-    assert!(!home.path().join(SHARED_GATE).exists());
+    for artifact in SHARED {
+        assert!(!home.path().join(artifact).exists(), "kept {artifact}");
+    }
     assert!(!home.path().join(RECORD).exists());
 }
 
