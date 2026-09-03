@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1](https://github.com/gubasso/spec-driven-docs/compare/v0.4.0...v0.4.1) - 2026-09-03
+
+### Added
+
+- *(distribution)* Classify the target and land the migration workflow ([#12](https://github.com/gubasso/spec-driven-docs/pull/12))
+- *(distribution)* Land the pre-flight gate and sdd doctor ([#10](https://github.com/gubasso/spec-driven-docs/pull/10))
+
 ## [0.4.0](https://github.com/gubasso/spec-driven-docs/compare/v0.3.2...v0.4.0) - 2026-09-02
 
 ### Added
