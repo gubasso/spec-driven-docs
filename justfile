@@ -6,9 +6,8 @@ fmt:
     dprint fmt
 
 # The pre-commit sweep commits nothing, so the commit-location guards are
-# skipped as the worktree convention directs; rk-status-check joins them
-# because the nix devshell CI runs this in does not carry the rk binary.
-# Each still fires at commit time in a clone that has it.
+# skipped as the worktree convention directs; each still fires at commit time.
+# rk-status-check runs here, because the devshell carries the rk binary.
 lint:
     cargo fmt --check
     cargo clippy --all-targets --all-features -- -D warnings
@@ -19,14 +18,21 @@ lint:
     markdownlint-cli2 "**/*.md" "#tests/fixtures/**" "#target/**"
     check-jsonschema --schemafile instance/manifest.schema.json .spec-driven-docs/manifest.json
     pre-commit validate-config .pre-commit-config.yaml
-    SKIP=no-commit-to-branch,rk-worktree-location,rk-status-check pre-commit run --files $(rg --files --hidden -g '!.git' -g '!.git/**')
+    SKIP=no-commit-to-branch,rk-worktree-location pre-commit run --files $(rg --files --hidden -g '!.git' -g '!.git/**')
 
 test:
     cargo nextest run
+    bats tests/rk-autobump.bats tests/rk-bump.bats
 
 manifest:
     cargo run -q -- self-manifest
     dprint fmt .spec-driven-docs/manifest.json
+
+# Move the rk pin to release-kit's latest release. The script owns the
+# transaction: nix-update edits the pin in place, so a failed or interrupted
+# run has to leave the previous pin behind rather than a half-written one.
+rk-bump:
+    ./scripts/rk-bump.sh
 
 # Install into a scratch repository and verify it, end to end, with the real
 # binary.
