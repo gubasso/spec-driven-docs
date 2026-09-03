@@ -11,11 +11,14 @@ Operate a project's spec-driven-docs instance through the `sdd` CLI. The CLI is 
 
 ## Before acting
 
-Read `~/.local/state/spec-driven-docs/skills/shared/plan-gate.md` before the first action of a task, and hold it for the whole task. It binds three phases: plan and present the plan for approval, validate that plan against every preview and read-only source phase 2 names, then execute it.
+Read two shared files before the first action of a task, in this order, and hold both for the whole task.
 
-The gate is the whole reason this skill is safe to run unattended: every verb below writes files into a repository or under the user's home.
+1. `~/.local/state/spec-driven-docs/skills/shared/pre-flight-gate.md` — run it whatever the request carries. It checks this host with `sdd doctor` and stops the task on what no plan can work around. No flag skips it.
+2. `~/.local/state/spec-driven-docs/skills/shared/plan-gate.md` — it binds three phases: plan and present the plan for approval, validate that plan against every preview and read-only source phase 2 names, then execute it.
 
-When the request carries `--no-plan`, skip the approval turn only. Still state the ordered plan before acting, and still validate it as phase 2 directs.
+The two gates are why this skill is safe to run unattended: every verb below writes files into a repository or under the user's home, the pre-flight says whether this host can run those verbs at all, and the plan gate states which steps stay the operator's own.
+
+When the request carries `--no-plan`, skip the plan gate's approval turn only. Still run the pre-flight, still state the ordered plan before acting, and still validate it as phase 2 directs.
 
 ## Detect
 

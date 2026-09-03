@@ -6,6 +6,7 @@
 //! error. No clap derives here.
 
 pub mod completions;
+pub mod doctor;
 pub mod gate;
 pub mod hooks;
 pub mod init;

@@ -11,6 +11,8 @@
   - [`distribution:skills-are-part-of-the-payload` — Skills are part of the payload](#distributionskills-are-part-of-the-payload--skills-are-part-of-the-payload)
   - [`distribution:a-skill-has-one-owner` — A skill has one owner](#distributiona-skill-has-one-owner--a-skill-has-one-owner)
   - [`distribution:a-skill-obeys-the-portable-format` — A skill obeys the portable format](#distributiona-skill-obeys-the-portable-format--a-skill-obeys-the-portable-format)
+  - [`distribution:a-skill-checks-its-host-before-it-plans` — A skill checks its host before it plans](#distributiona-skill-checks-its-host-before-it-plans--a-skill-checks-its-host-before-it-plans)
+  - [`distribution:the-doctor-answers-for-the-installed-skills` — The doctor answers for the installed skills](#distributionthe-doctor-answers-for-the-installed-skills--the-doctor-answers-for-the-installed-skills)
   - [`distribution:a-skill-plans-before-it-acts` — A skill plans before it acts](#distributiona-skill-plans-before-it-acts--a-skill-plans-before-it-acts)
   - [`distribution:skill-install-previews-before-writing` — Skill install previews before writing](#distributionskill-install-previews-before-writing--skill-install-previews-before-writing)
   - [`distribution:a-stale-skill-is-not-a-conflict` — A stale skill is not a conflict](#distributiona-stale-skill-is-not-a-conflict--a-stale-skill-is-not-a-conflict)
@@ -116,9 +118,33 @@ Every skill MUST carry only the portable Agent Skills frontmatter fields, a `nam
 
 Verify: `cargo nextest run -E 'binary(canon)'`
 
+### `distribution:a-skill-checks-its-host-before-it-plans` — A skill checks its host before it plans
+
+Every skill MUST direct the agent to run the shared pre-flight gate — which observes the host with `sdd doctor` — before planning, whatever flags the request carries; the `--no-plan` flag changes only when the plan gate asks for approval.
+
+#### Scenario: A request says to skip the checks
+
+- GIVEN a request carrying `--no-plan` and an instruction to act immediately
+- WHEN the agent follows the skill's opening section
+- THEN the pre-flight still runs, because the task's steps have the same dependencies whatever the request says, and only the plan gate's approval turn is skipped
+
+Verify: `cargo nextest run -E 'binary(canon)'`
+
+### `distribution:the-doctor-answers-for-the-installed-skills` — The doctor answers for the installed skills
+
+`sdd doctor` MUST run every probe in the catalog and exit 0 whatever they find, and its skill probes MUST pick the remediation by the user-scope record: drift the record vouches for is a stale install corrected by a plain apply, and drift it cannot account for is the user's own, corrected only with `--force`.
+
+#### Scenario: A home holds a skill an older release installed
+
+- GIVEN an agent root holding a `SKILL.md` whose digest the user-scope record vouches for
+- WHEN `sdd doctor --json` runs
+- THEN the `skill-payload` probe fails naming `sdd skill install --apply` without `--force`, and the exit code is 0
+
+Verify: `cargo nextest run -E 'binary(cmd_doctor)'`
+
 ### `distribution:a-skill-plans-before-it-acts` — A skill plans before it acts
 
-Every skill MUST open its body with a section that directs the agent to read the shared plan gate before the first action of a task and to hold its three phases — plan, validate, execute — for the whole task, ahead of every other section.
+Every skill MUST open its body with one section that directs the agent to read the two shared gates in order — the pre-flight gate first, then the plan gate — before the first action of a task and to hold the plan gate's three phases — plan, validate, execute — for the whole task, ahead of every other section.
 
 #### Scenario: A skill gains a section above the gate
 

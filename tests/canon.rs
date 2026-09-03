@@ -340,15 +340,82 @@ fn every_skill_routes_to_the_plan_gate_before_acting() {
         );
         let end = sections.get(1).copied().unwrap_or(body.len());
         let section = body[first..end].join("\n");
+        // Both shared artifacts are named, by the absolute path they install
+        // to: the two agent roots make no relative path reach one file from
+        // both, so the skills name them the one way that resolves.
+        for artifact in ["pre-flight-gate.md", "plan-gate.md"] {
+            let named = format!("~/.local/state/spec-driven-docs/skills/shared/{artifact}");
+            assert!(
+                section.contains(&named),
+                "{dir}: the gate section does not name {named}"
+            );
+        }
+        // The spec binds the order too: the pre-flight is read first,
+        // because the plan gate takes its findings as inputs.
+        let pre_flight = section
+            .find("shared/pre-flight-gate.md")
+            .unwrap_or_default();
+        let plan = section.find("shared/plan-gate.md").unwrap_or_default();
         assert!(
-            section.contains("~/.local/state/spec-driven-docs/skills/shared/plan-gate.md"),
-            "{dir}: the gate section does not name the shared gate path"
+            pre_flight < plan,
+            "{dir}: the gate section names the plan gate before the pre-flight gate"
         );
         assert!(
             section.contains("--no-plan"),
             "{dir}: the gate section does not state the --no-plan rule"
         );
+        assert!(
+            section.contains("No flag skips it"),
+            "{dir}: the gate section does not state that the pre-flight is unconditional"
+        );
     }
+}
+
+/// SATISFIES distribution:a-skill-checks-its-host-before-it-plans
+///
+/// The shared artifacts are files, carried by the payload and installed
+/// once, so correcting one corrects every skill under every agent root.
+/// Each has its own duty and the payload carries both.
+#[test]
+fn the_payload_carries_both_shared_gates() {
+    let plan = read("skill-shared/plan-gate.md");
+    for phase in ["## 1. Plan", "## 2. Validate", "## 3. Execute"] {
+        assert!(plan.contains(phase), "the plan gate lost {phase}");
+    }
+    assert!(
+        plan.contains("--no-plan"),
+        "the plan gate does not state the --no-plan rule"
+    );
+    assert!(
+        plan.contains("pre-flight-gate.md"),
+        "the plan gate does not take the pre-flight's findings as inputs"
+    );
+
+    let pre_flight = read("skill-shared/pre-flight-gate.md");
+    assert!(
+        pre_flight.contains("sdd doctor"),
+        "the pre-flight gate does not run the probe catalog"
+    );
+    // Read from the catalog's own declaration, not listed here: a skill
+    // probe added without a line in the pre-flight gate is a probe no agent
+    // following it ever reads.
+    for id in spec_driven_docs::probes::SKILL_PROBES {
+        assert!(
+            pre_flight.contains(id),
+            "the pre-flight gate does not read the {id} probe"
+        );
+    }
+    // The pre-flight runs whatever the request carries; only the plan gate
+    // has a flag. A pre-flight that could be waived is one no skill can
+    // rely on having run.
+    assert!(
+        pre_flight.contains("No flag skips it"),
+        "the pre-flight gate does not state that it is unconditional"
+    );
+    assert!(
+        pre_flight.contains("plan-gate.md"),
+        "the pre-flight gate does not hand the task to the plan gate"
+    );
 }
 
 /// SATISFIES distribution:skills-are-part-of-the-payload

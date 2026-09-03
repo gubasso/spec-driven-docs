@@ -37,6 +37,7 @@ fn regenerates_a_schema_two_manifest_in_a_canon_shaped_checkout() {
     );
     fixture.write(".markdownlint/spec.markdownlint-cli2.jsonc", "{}\n");
     fixture.write("skill-shared/plan-gate.md", "# The plan gate\n");
+    fixture.write("skill-shared/pre-flight-gate.md", "# The pre-flight gate\n");
     fixture.write(
         "_docs/specs/SPEC-sample.md",
         "### `sample:works` — Works\n\nVerify: `true`\n",
@@ -68,6 +69,7 @@ fn regenerates_a_schema_two_manifest_in_a_canon_shaped_checkout() {
     assert!(manifest.contains("_docs/specs/SPEC-sample.md"));
     assert!(manifest.contains(".markdownlint/spec.markdownlint-cli2.jsonc"));
     assert!(manifest.contains("skill-shared/plan-gate.md"));
+    assert!(manifest.contains("skill-shared/pre-flight-gate.md"));
 
     let repeat = fixture.read(".spec-driven-docs/manifest.json");
     fixture
