@@ -266,15 +266,42 @@ both_files_unchanged() {
   grep -q 'release-kit/v0.2.7' "$FLAKE"
 }
 
-@test "a quoted decoy sharing the pin's own line does not take the rewrite" {
+@test "a pin line that is not a clean assignment refuses rather than guessing" {
   sed 's|url = "github:gubasso/release-kit/v0.2.8";|/* was "github:gubasso/release-kit/v0.2.7" */ url = "github:gubasso/release-kit/v0.2.8";|' "$FLAKE" >"$FLAKE.tmp"
   mv "$FLAKE.tmp" "$FLAKE"
   cp "$FLAKE" "$ORIG_FLAKE"
   run bash "$REPO/scripts/rk-bump.sh" v0.2.9
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"found 0"* ]]
+  both_files_unchanged
+  [ ! -e "$STUB_CALLED" ]
+}
+
+@test "a commented copy of the assignment neither counts nor takes the rewrite" {
+  printf '  # url = "github:gubasso/release-kit/v0.2.7";\n' >>"$FLAKE"
+  cp "$FLAKE" "$ORIG_FLAKE"
+  run bash "$REPO/scripts/rk-bump.sh" v0.2.9
   [ "$status" -eq 0 ]
-  grep -q 'url = "github:gubasso/release-kit/v0.2.9"' "$FLAKE"
-  grep -q '"github:gubasso/release-kit/v0.2.7"' "$FLAKE"
-  grep -q 'lock for v0.2.9' "$LOCKFILE"
+  flake_moved_only_to v0.2.9
+  grep -q '# url = "github:gubasso/release-kit/v0.2.7";' "$FLAKE"
+}
+
+@test "a git status that fails refuses before any mutation" {
+  mkdir -p "$REPO/gitstub"
+  cat >"$REPO/gitstub/git" <<'STUB'
+#!/usr/bin/env bash
+case "$*" in
+  *rev-parse*) exit 0 ;;
+  *status*) echo boom >&2; exit 128 ;;
+  *) exit 0 ;;
+esac
+STUB
+  chmod +x "$REPO/gitstub/git"
+  PATH="$REPO/gitstub:$PATH" run bash "$REPO/scripts/rk-bump.sh" v0.2.9
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"cannot be judged"* ]]
+  both_files_unchanged
+  [ ! -e "$STUB_CALLED" ]
 }
 
 @test "the nix invocations carry the exact load-bearing vectors" {
