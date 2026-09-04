@@ -104,8 +104,9 @@ pub fn regenerate(root: &Utf8Path) -> Result<String, AppError> {
     #[allow(clippy::case_sensitive_file_extension_comparisons)]
     let spec = |name: &str| name.starts_with("SPEC-") && name.ends_with(".md");
     let mut adopted_paths = sorted_files(root, "_docs/specs", spec);
-    adopted_paths.push("_docs/decisions/TEMPLATE-adr.md".to_string());
-    adopted_paths.push("_docs/reference/TEMPLATE-agents-digest.md".to_string());
+    for template in crate::domain::profile::CANON_TEMPLATES {
+        adopted_paths.push((*template).to_string());
+    }
     let mut adopted = Vec::new();
     for path in adopted_paths {
         let digest = sha256_file(&root.join(&path))?;

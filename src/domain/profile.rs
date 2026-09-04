@@ -138,6 +138,18 @@ const MANAGED: &[Projection] = &[
     ),
 ];
 
+/// The template copies this repository keeps in its own documentation tree.
+///
+/// A canon-side copy exists only for a class this repository authors, so
+/// this list is shorter than the template projections above: the record
+/// generator writes these and the self-layout check expects them. One
+/// declaration is what stops the two from disagreeing, which is how a
+/// template once reached the tree that neither of them named.
+pub const CANON_TEMPLATES: &[&str] = &[
+    "_docs/decisions/TEMPLATE-adr.md",
+    "_docs/reference/TEMPLATE-agents-digest.md",
+];
+
 const ADOPTED: &[Projection] = &[
     proj(
         "_docs/specs/SPEC-decision-records.md",
