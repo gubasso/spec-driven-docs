@@ -12,7 +12,7 @@
       # Bumped by scripts/rk-bump.sh: the tag in this URL is the version,
       # flake.lock is the content pin, and nothing else in this repository
       # names an rk version.
-      url = "github:gubasso/release-kit/v0.2.13";
+      url = "github:gubasso/release-kit/v0.2.16";
       # A deliberate deal, not a tidy-up: with follows, rk rebuilds against
       # this repository's nixpkgs rather than the revision it tested
       # upstream, so this consumer owns that compatibility — proven by the
