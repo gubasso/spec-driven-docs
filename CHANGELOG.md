@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.3](https://github.com/gubasso/spec-driven-docs/compare/v0.4.2...v0.4.3) - 2026-09-04
+
+### Added
+
+- *(specs)* Split a known-issue record into two governed axes ([#15](https://github.com/gubasso/spec-driven-docs/pull/15))
+
+### Fixed
+
+- *(distribution)* Close two blind spots in the canon layout checks ([#17](https://github.com/gubasso/spec-driven-docs/pull/17))
+
 ## [0.4.2](https://github.com/gubasso/spec-driven-docs/compare/v0.4.1...v0.4.2) - 2026-09-03
 
 ### Other
