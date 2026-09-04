@@ -167,6 +167,16 @@ if [ "$rewritten" -ne 1 ] || [ "$remaining" -ne 1 ]; then
   exit 1
 fi
 (cd "$root" && nix flake update release-kit)
+# The outcome judged, not only the text: whatever the matcher did, the
+# lock's release-kit node must now reference the wanted tag. This is what
+# catches a decoy the text matcher could not — a live input refactored
+# into a shape the anchored line no longer matches while an old copy
+# lingers in a block comment — because the lock reflects the input Nix
+# actually resolved.
+if ! grep -q "\"ref\": \"$want\"" "$lock"; then
+  echo "rk-bump: the lock's release-kit node does not reference $want; the pin the rewrite touched is not the live input" >&2
+  exit 1
+fi
 # --no-link: .envrc triggers this on directory entry, and a routine cd must
 # not drop a result symlink into the working tree. The build is also the
 # proof the follows deal demands: a release that does not evaluate or build

@@ -46,7 +46,8 @@ case "$1" in
     printf 'x86_64-linux'
     ;;
   flake)
-    grep -oE 'release-kit/v[0-9][0-9.]*' flake.nix | sed 's|^|lock for |; s|release-kit/||' >flake.lock
+    tag="$(grep -oE 'release-kit/v[0-9][0-9.]*' flake.nix | head -n 1 | sed 's|release-kit/||')"
+    printf '"ref": "%s"\n' "${RK_STUB_LOCK_REF:-$tag}" >flake.lock
     ;;
   build)
     if [ "${NIX_STUB_MODE:-ok}" = fail ]; then exit 1; fi
@@ -117,7 +118,7 @@ both_files_unchanged() {
   run bash "$REPO/scripts/rk-bump.sh"
   [ "$status" -eq 0 ]
   flake_moved_only_to v0.2.9
-  grep -q 'lock for v0.2.9' "$LOCKFILE"
+  grep -q '"ref": "v0.2.9"' "$LOCKFILE"
 }
 
 @test "a same-version bump writes nothing" {
@@ -284,6 +285,26 @@ both_files_unchanged() {
   [ "$status" -eq 0 ]
   flake_moved_only_to v0.2.9
   grep -q '# url = "github:gubasso/release-kit/v0.2.7";' "$FLAKE"
+}
+
+@test "a decoy the text matcher hits is caught by the lock outcome" {
+  cat >"$FLAKE" <<'FLAKE'
+{
+  inputs = {
+    /* the old shape:
+    url = "github:gubasso/release-kit/v0.2.8";
+    */
+    release-kit.url = "github:gubasso/release-kit/v0.2.8";
+  };
+}
+FLAKE
+  cp "$FLAKE" "$ORIG_FLAKE"
+  # The override stands in for Nix resolving the live, unchanged input
+  # while the text rewrite landed inside the block comment.
+  RK_STUB_LOCK_REF=v0.2.8 run bash "$REPO/scripts/rk-bump.sh" v0.2.9
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"not the live input"* ]]
+  both_files_unchanged
 }
 
 @test "a git status that fails refuses before any mutation" {
