@@ -10,7 +10,7 @@
 use camino::{Utf8Path, Utf8PathBuf};
 
 use crate::domain::manifest::MANIFEST_PATH;
-use crate::gates::GateCtx;
+use crate::gates::{GateCtx, GateError};
 
 /// The instance's documentation root, relative to the repository.
 #[must_use]
@@ -44,32 +44,65 @@ pub fn ki_record_roots(ctx: &GateCtx, args: &[String]) -> Vec<Utf8PathBuf> {
     ["_docs", "docs"]
         .into_iter()
         .map(|candidate| Utf8Path::new(candidate).join("reference/known-issues"))
-        .filter(|root| ctx.path(root).is_dir())
+        .filter(|root| discovered(ctx, root))
         .collect()
 }
 
+/// Whether a discovered candidate is a root the caller must read.
+///
+/// A candidate whose metadata cannot be read is kept rather than dropped.
+/// `is_dir` answers false for a directory the process cannot stat, so
+/// dropping it there would report an unreadable zone as a zone the
+/// repository does not keep. Kept, it reaches `ki_records`, which raises
+/// the failure and names it.
+fn discovered(ctx: &GateCtx, root: &Utf8Path) -> bool {
+    match std::fs::metadata(ctx.path(root)) {
+        Ok(metadata) => metadata.is_dir(),
+        Err(source) => source.kind() != std::io::ErrorKind::NotFound,
+    }
+}
+
 /// Every known-issue record under the resolved roots, repository-relative.
-#[must_use]
-pub fn ki_records(ctx: &GateCtx, args: &[String]) -> Vec<Utf8PathBuf> {
+///
+/// A root that is not there is a zone the repository does not keep, and it
+/// is skipped. Every other failure is raised: a directory the process
+/// cannot read holds records this returns none of, and reporting that as an
+/// empty zone would read as a clean review.
+///
+/// # Errors
+///
+/// [`crate::gates::GateError::Io`] when a present root cannot be listed.
+pub fn ki_records(ctx: &GateCtx, args: &[String]) -> Result<Vec<Utf8PathBuf>, GateError> {
     let mut records = Vec::new();
     for root in ki_record_roots(ctx, args) {
-        let Ok(entries) = ctx.path(&root).read_dir_utf8() else {
-            continue;
+        let entries = match ctx.path(&root).read_dir_utf8() {
+            Ok(entries) => entries,
+            Err(source) if source.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(source) => return Err(GateError::io(&root, source)),
         };
-        let mut names: Vec<String> = entries
-            .filter_map(Result::ok)
-            .filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_file()))
-            .map(|entry| entry.file_name().to_string())
-            .filter(|name| {
-                name.strip_prefix("KI-")
-                    .and_then(|rest| rest.strip_suffix(".md"))
-                    .is_some_and(|slug| !slug.is_empty())
-            })
-            .collect();
+        let mut names = Vec::new();
+        for entry in entries {
+            let entry = entry.map_err(|source| GateError::io(&root, source))?;
+            if !entry
+                .file_type()
+                .map_err(|source| GateError::io(&root, source))?
+                .is_file()
+            {
+                continue;
+            }
+            let name = entry.file_name().to_string();
+            if name
+                .strip_prefix("KI-")
+                .and_then(|rest| rest.strip_suffix(".md"))
+                .is_some_and(|slug| !slug.is_empty())
+            {
+                names.push(name);
+            }
+        }
         names.sort();
         records.extend(names.into_iter().map(|name| root.join(name)));
     }
-    records
+    Ok(records)
 }
 
 #[cfg(test)]
@@ -136,7 +169,7 @@ mod tests {
             "# not a record\n",
         );
         assert_eq!(
-            ki_records(&ctx(&dir), &[]),
+            ki_records(&ctx(&dir), &[]).unwrap(),
             vec![Utf8PathBuf::from(
                 "docs/reference/known-issues/KI-vendor.md"
             )]
@@ -149,11 +182,42 @@ mod tests {
         write(&dir, "docs/reference/known-issues/KI-a.md", "# A\n");
         write(&dir, "docs/reference/known-issues/KI-b.md", "# B\n");
         assert_eq!(
-            ki_records(&ctx(&dir), &[]),
+            ki_records(&ctx(&dir), &[]).unwrap(),
             vec![
                 Utf8PathBuf::from("docs/reference/known-issues/KI-a.md"),
                 Utf8PathBuf::from("docs/reference/known-issues/KI-b.md"),
             ]
         );
+    }
+
+    #[test]
+    fn an_unsearchable_ancestor_is_raised_rather_than_discovered_away() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("docs/reference/known-issues")).unwrap();
+        let ancestor = dir.path().join("docs/reference");
+        let mut mode = std::fs::metadata(&ancestor).unwrap().permissions();
+        std::os::unix::fs::PermissionsExt::set_mode(&mut mode, 0o000);
+        std::fs::set_permissions(&ancestor, mode.clone()).unwrap();
+        let raised = ki_records(&ctx(&dir), &[]).is_err();
+        std::os::unix::fs::PermissionsExt::set_mode(&mut mode, 0o755);
+        std::fs::set_permissions(&ancestor, mode).unwrap();
+        assert!(raised, "an unsearchable ancestor listed as no zone");
+    }
+
+    #[test]
+    fn an_absent_zone_is_skipped_and_an_unreadable_one_is_raised() {
+        let dir = tempfile::tempdir().unwrap();
+        write(&dir, "docs/specs/SPEC-a.md", "# A\n");
+        assert!(ki_records(&ctx(&dir), &[]).unwrap().is_empty());
+
+        let zone = dir.path().join("docs/reference/known-issues");
+        std::fs::create_dir_all(&zone).unwrap();
+        let mut mode = std::fs::metadata(&zone).unwrap().permissions();
+        std::os::unix::fs::PermissionsExt::set_mode(&mut mode, 0o000);
+        std::fs::set_permissions(&zone, mode.clone()).unwrap();
+        let raised = ki_records(&ctx(&dir), &[]).is_err();
+        std::os::unix::fs::PermissionsExt::set_mode(&mut mode, 0o755);
+        std::fs::set_permissions(&zone, mode).unwrap();
+        assert!(raised, "an unreadable zone listed as empty");
     }
 }

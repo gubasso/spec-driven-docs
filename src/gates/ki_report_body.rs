@@ -1,30 +1,21 @@
-//! Gate: a record filed upstream carries the body it was filed with.
+//! Gate: a filed known-issue record carries the body it was filed with,
+//! and the issue it was filed as.
 //!
-//! Once `upstream:` names one issue rather than a tracker, the report exists
-//! in two places, and only one of them is under review here. What the gate
-//! can see is the pairing: a specific upstream reference and a `## Report`
-//! section. That the section is the filed text, in the tracker's markup, is
-//! held by review.
-
-use std::sync::LazyLock;
-
-use regex::Regex;
+//! Once `filing:` reads `filed`, the report exists in two places and only
+//! one of them is under review here. What the gate can see is the pairing:
+//! a named upstream issue and a `## Report` section. That the section is
+//! the filed text, in the tracker's markup, is held by review.
 
 use crate::domain::finding::Finding;
 use crate::domain::rule_id::RuleId;
+use crate::gates::ki_record::{FILINGS, axis};
 use crate::gates::paths::ki_records;
-use crate::gates::{GateCtx, GateResult, Violation, read_text};
+use crate::gates::{GateCtx, GateResult, Violation, front_matter_values, read_text};
 
 /// The rules this gate can cite.
 pub const CITES: &[RuleId] = &[RuleId::FiledRecordCarriesItsReport];
 
-/// A specific item: an id introduced by `/`, `#` or `=` anywhere in the
-/// value. The `=` form is a canonical Bugzilla link's `show_bug.cgi?id=`,
-/// and the right edge is unanchored because a citation routinely carries
-/// more than the id — a comment anchor, a status note, or a second link.
-static FILED: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^[ \t]*[Uu]pstream:.*[/#=][0-9]+").unwrap_or_else(|_| unreachable!())
-});
+const RULE: RuleId = RuleId::FiledRecordCarriesItsReport;
 
 /// Judge every known-issue record under the resolved roots.
 ///
@@ -32,33 +23,40 @@ static FILED: LazyLock<Regex> = LazyLock::new(|| {
 ///
 /// [`crate::gates::GateError::Io`] when a record cannot be read.
 pub fn run(ctx: &GateCtx, args: &[String]) -> GateResult {
-    let mut bad = String::new();
-    for record in ki_records(ctx, args) {
+    let mut violations = Vec::new();
+    for record in ki_records(ctx, args)? {
         let text = read_text(ctx, &record)?;
-        if text.lines().any(|line| FILED.is_match(line))
-            && !text.lines().any(|line| line == "## Report")
-        {
-            bad.push(' ');
-            bad.push_str(record.as_str());
+        if axis(&text, "filing", &FILINGS).as_deref() != Some("filed") {
+            continue;
+        }
+        let named = front_matter_values(&text, "upstream")
+            .iter()
+            .any(|value| !value.is_empty());
+        if !named {
+            violations.push(Violation::Finding(Finding::on_file(
+                RULE,
+                &record,
+                "a filed record names no upstream:",
+            )));
+        }
+        if !text.lines().any(|line| line == "## Report") {
+            violations.push(Violation::Finding(Finding::on_file(
+                RULE,
+                &record,
+                "a filed record carries no ## Report section",
+            )));
         }
     }
-    if bad.is_empty() {
-        Ok(vec![])
-    } else {
-        Ok(vec![Violation::Finding(Finding::global(
-            RuleId::FiledRecordCarriesItsReport,
-            bad.trim_start().to_string(),
-        ))])
-    }
+    Ok(violations)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::gates::tests_support::ki_fixture_upstream;
+    use crate::gates::tests_support::ki_fixture_filing;
 
-    fn run_on(upstream: &str, body: &str) -> Vec<String> {
-        let dir = ki_fixture_upstream(upstream, body);
+    fn run_on(filing: &str, upstream: &str, body: &str) -> Vec<String> {
+        let dir = ki_fixture_filing(filing, upstream, body);
         let ctx = GateCtx::new(dir.path().to_str().unwrap());
         run(&ctx, &[])
             .unwrap()
@@ -68,28 +66,35 @@ mod tests {
     }
 
     #[test]
-    fn a_tracker_reference_needs_no_report() {
-        assert!(run_on("https://example.invalid/issues", "# V\n").is_empty());
+    fn an_unfiled_record_needs_no_report() {
+        for filing in ["gathering", "ready", "deferred"] {
+            assert!(
+                run_on(filing, "https://example.invalid/issues", "# V\n").is_empty(),
+                "filing {filing:?}"
+            );
+        }
     }
 
     #[test]
-    fn a_filed_reference_demands_the_report_section() {
-        for upstream in [
-            "https://example.invalid/issues/123",
-            "https://example.invalid/issues/123 (open)",
-            "https://example.invalid/issues/123#c4",
-            "https://bugzilla.example/show_bug.cgi?id=123",
-        ] {
-            let out = run_on(upstream, "# V\n");
-            assert_eq!(out.len(), 1, "upstream {upstream:?}");
-            assert!(out[0].starts_with("FAIL known-issues:a-filed-record-carries-its-report: "));
-        }
+    fn a_filed_record_demands_the_report_section() {
+        let out = run_on("filed", "https://example.invalid/issues/123", "# V\n");
+        assert_eq!(out.len(), 1);
+        assert!(out[0].starts_with("FAIL known-issues:a-filed-record-carries-its-report "));
+        assert!(out[0].ends_with(": a filed record carries no ## Report section"));
+    }
+
+    #[test]
+    fn a_filed_record_demands_the_issue_it_was_filed_as() {
+        let out = run_on("filed", "", "# V\n## Report\n```text\nbody\n```\n");
+        assert_eq!(out.len(), 1);
+        assert!(out[0].ends_with(": a filed record names no upstream:"));
     }
 
     #[test]
     fn a_filed_record_with_its_report_passes() {
         assert!(
             run_on(
+                "filed",
                 "https://example.invalid/issues/123",
                 "# V\n## Report\n```text\nbody\n```\n"
             )

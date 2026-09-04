@@ -99,6 +99,8 @@ A bug in a dependency, platform, or service that the project must work around is
 ---
 upstream: https://github.com/<org>/<repo>/issues/1234
 affects: <component>
+state: masked
+filing: filed
 workaround: <what the project does instead>
 retire_when: upstream release >= 2.4.0
 ---
@@ -116,11 +118,11 @@ A record that only names the defect, as in "the formatter moves the marker", is 
 
 The walkthrough is what the case id buys. A suppression cites that id from source, and whoever follows the citation arrives knowing nothing about the bug; the walkthrough is the only part of the record written for them.
 
-- A record filed upstream MUST carry the body it was filed with, in the tracker's own markup.
+- A record whose filing state is `filed` MUST carry a non-empty upstream reference and the body it was filed with, in the tracker's own markup.
 
 Filing is where the record leaves the repository. A record written only for the project is written a second time in the tracker, under whatever deadline made the bug worth filing — and the two drift from that moment on. A `## Report` section that is the filed text, title on its own line and body in the tracker's markup, makes the filing a paste and keeps the repository holding what was actually said upstream.
 
-A record carries one state, and the state says what has to happen next.
+A record carries two states, and each one says what has to happen next. `state:` says how this project handles the defect.
 
 | State           | Means                                                                |
 | --------------- | -------------------------------------------------------------------- |
@@ -129,8 +131,19 @@ A record carries one state, and the state says what has to happen next.
 | `masked`        | a temporary workaround is in the tree, carrying its retire condition |
 | `monitoring`    | the upstream fix is believed deployed                                |
 
-- A record MUST carry exactly one state.
+`filing:` says where the case stands upstream, so a grep for `filing: ready` answers which cases someone can file today without reading every record.
+
+| Filing      | Means                                                            |
+| ----------- | ---------------------------------------------------------------- |
+| `gathering` | the evidence is not ticket-ready, so the investigation continues |
+| `ready`     | the evidence carries the case, and nothing blocks the filing     |
+| `filed`     | the case is filed, and `upstream:` names the issue               |
+| `deferred`  | the case is file-ready, and someone holds the filing on purpose  |
+
+- A record MUST carry exactly one state and exactly one filing state.
 - A masked record MUST carry a retire condition, and a mitigated one MUST NOT.
+
+The two axes are separate because they move independently. A masked workaround in the tree says nothing about whether the evidence behind it is ticket-ready, and a filed case is handled the same way the day before the fix ships as the day after. One word carrying both answers neither question by itself.
 
 The pair that earns the vocabulary is `mitigated` against `masked`, because they look alike in the diff and retire oppositely. A readiness check that waits for a service to report healthy is part of the design and outlives the bug that exposed the need for it. A fixed sleep that hides the same race is a mask, and it leaves when the bug does. One case can carry both.
 

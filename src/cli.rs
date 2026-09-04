@@ -10,6 +10,7 @@ pub mod doctor;
 pub mod gate;
 pub mod hooks;
 pub mod init;
+pub mod ki;
 pub mod license;
 pub mod read;
 pub mod skill;
@@ -54,6 +55,8 @@ pub enum Commands {
     Gate(gate::GateArgs),
     /// Render the delivered gate set as pre-commit hook entries.
     Hooks(hooks::HooksArgs),
+    /// Read the known-issue zone.
+    Ki(ki::KiArgs),
     /// Read a method chapter, or list them.
     Method(read::ReadArgs),
     /// Read a spec seed, or list them.

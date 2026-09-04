@@ -21,7 +21,7 @@ pub const CITES: &[RuleId] = &[RuleId::RecordWalksTheMechanism];
 /// [`crate::gates::GateError::Io`] when a record cannot be read.
 pub fn run(ctx: &GateCtx, args: &[String]) -> GateResult {
     let mut bad = String::new();
-    for record in ki_records(ctx, args) {
+    for record in ki_records(ctx, args)? {
         if !read_text(ctx, &record)?
             .lines()
             .any(|line| line == "## How it works")

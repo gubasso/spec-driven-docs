@@ -83,7 +83,7 @@ fn judge(record: &str, text: &str, violations: &mut Vec<Violation>) {
 /// [`crate::gates::GateError::Io`] when a record cannot be read.
 pub fn run(ctx: &GateCtx, args: &[String]) -> GateResult {
     let mut violations = Vec::new();
-    for record in ki_records(ctx, args) {
+    for record in ki_records(ctx, args)? {
         let text = read_text(ctx, &record)?;
         judge(record.as_str(), &text, &mut violations);
     }

@@ -30,12 +30,13 @@ When the request carries `--no-plan`, skip the plan gate's approval turn only. S
 | Read the binding rules for a domain | adopted `specs/SPEC-<domain>.md`; else `sdd spec <domain>` |
 | List templates                      | `sdd template --list`                                      |
 | Start a new document                | `sdd template <name>`                                      |
+| List the known-issue cases          | `sdd ki list`                                              |
 
 ## Before writing
 
 1. Run `sdd status --target . --json`; confirm the repository is an instance and note `docs_root`.
 2. Load the adopted spec for each domain the change touches, from `specs/` under `docs_root`: `SPEC-docs-format.md` always, `SPEC-docs-specs.md` for SPEC files, `SPEC-decision-records.md` for ADRs, `SPEC-comparison-docs.md` for comparisons, `SPEC-known-issues.md` for known-issue records, `SPEC-guides.md` for step-by-step guides. `sdd spec <domain>` prints the canon baseline where a domain is not adopted.
-3. Start from the matching template: `sdd template spec`, `sdd template adr`, `sdd template comparison`, `sdd template agents-digest`, or `sdd template guide`.
+3. Start from the matching template: `sdd template spec`, `sdd template adr`, `sdd template comparison`, `sdd template agents-digest`, `sdd template guide`, or `sdd template known-issue`.
 
 ## Format defaults
 

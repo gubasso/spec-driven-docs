@@ -33,6 +33,8 @@ Terms this framework fixes, each resolved at the chapter that owns it. A term is
 | Known-issue case         | a live defect in a system the project does not own, recorded once       | `07-lifecycle.md`     |
 | Case id                  | `KI-<slug>`, the known-issue record's filename and citation token       | `07-lifecycle.md`     |
 | Mask                     | a temporary workaround, carrying the condition that removes it          | `07-lifecycle.md`     |
+| State                    | how this project handles a known-issue case, as one word                | `07-lifecycle.md`     |
+| Filing state             | where a known-issue case stands upstream, as one word                   | `07-lifecycle.md`     |
 | Mitigation               | a permanent guard that stays after the upstream fix                     | `07-lifecycle.md`     |
 | Clarification marker     | `[NEEDS CLARIFICATION: <question>]` at an undecided requirement         | `03-rules.md`         |
 | Catalog                  | a document holding one entry per rule and no argument                   | `06-format.md`        |

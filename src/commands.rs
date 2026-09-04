@@ -11,6 +11,7 @@ pub mod doctor;
 pub mod gate;
 pub mod hooks;
 pub mod init;
+pub mod ki;
 pub mod license;
 pub mod man;
 pub mod read;

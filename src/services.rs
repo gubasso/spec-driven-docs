@@ -8,6 +8,7 @@
 pub mod assess;
 pub mod hooks_render;
 pub mod installer;
+pub mod known_issues;
 pub mod reader;
 pub mod self_manifest;
 pub mod skill_installer;

@@ -2,6 +2,7 @@
 upstream: https://github.com/example/vendor-sdk/issues/1234
 affects: upload client
 state: masked
+filing: filed
 workaround: treat an empty 200 body as the cached result rather than a failed write
 retire_when: vendor-sdk release >= 2.4.0
 ---

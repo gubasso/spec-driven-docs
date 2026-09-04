@@ -103,6 +103,8 @@ rule_ids! {
     BugzillaReportBodyFitsReportWidth => "known-issues:a-bugzilla-report-body-fits-in-79-columns",
     FiledRecordCarriesItsReport => "known-issues:a-filed-record-carries-its-report",
     RecordCarriesItsRetirementCondition => "known-issues:a-record-carries-its-retirement-condition",
+    RecordCarriesOneFilingState => "known-issues:a-record-carries-one-filing-state",
+    RecordCarriesOneState => "known-issues:a-record-carries-one-state",
     RecordWalksTheMechanism => "known-issues:a-record-walks-the-mechanism",
     CaseIdIsASlug => "known-issues:case-id-is-a-slug",
     CanonGateIsNotDelivered => "release:a-canon-gate-is-not-delivered",
