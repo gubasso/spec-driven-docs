@@ -107,7 +107,7 @@ Verify: `pre-commit run cargo-test --all-files`
 
 ### `release:the-rk-pin-has-two-facts-and-one-mover` — The rk pin has two facts and one mover
 
-The devshell MUST take the release-workflow CLI it pins from a flake input at that project's release tag — the version owned by the tag in the input URL in `flake.nix`, the content owned by the `flake.lock` node, and nothing else in the tree naming that tool's version — and every move of the pin MUST go through `scripts/rk-bump.sh`, which treats the two files as one transaction: both snapshot before any mutation, both restore on any failure or interrupt, a refusal before mutating while either carries staged or unstaged changes, and a devshell build inside the envelope as the fence for the input's `follows` on nixpkgs.
+`scripts/rk-bump.sh` — the one mover of the devshell's pinned release-workflow CLI, whose version is the tag in the `flake.nix` input URL and whose content is the `flake.lock` node — MUST treat the two files as one transaction: both snapshot before any mutation, both restore on any failure or interrupt, a refusal before mutating while either carries staged or unstaged changes or the tree cannot be judged, a rewrite that must land on exactly the one pin assignment, and a devshell build inside the envelope as the fence for the input's `follows` on nixpkgs.
 
 #### Scenario: A bump dies after the lock moved
 

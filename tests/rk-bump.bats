@@ -226,7 +226,7 @@ both_files_unchanged() {
   [ "$status" -eq 1 ]
   [[ "$output" == *"found 0"* ]]
   cp "$ORIG_FLAKE" "$FLAKE"
-  printf '      other = "github:gubasso/release-kit/v0.2.7";\n' >>"$FLAKE"
+  printf '      url = "github:gubasso/release-kit/v0.2.7";\n' >>"$FLAKE"
   run bash "$REPO/scripts/rk-bump.sh" v0.2.9
   [ "$status" -eq 1 ]
   [[ "$output" == *"found 2"* ]]
@@ -257,13 +257,24 @@ both_files_unchanged() {
   [ ! -e "$STUB_CALLED" ]
 }
 
-@test "a version named outside the quoted pin neither counts nor takes the rewrite" {
+@test "a version named outside the pin assignment neither counts nor takes the rewrite" {
   printf '  # the previous pin was release-kit/v0.2.7\n' >>"$FLAKE"
   cp "$FLAKE" "$ORIG_FLAKE"
   run bash "$REPO/scripts/rk-bump.sh" v0.2.9
   [ "$status" -eq 0 ]
   flake_moved_only_to v0.2.9
   grep -q 'release-kit/v0.2.7' "$FLAKE"
+}
+
+@test "a quoted decoy sharing the pin's own line does not take the rewrite" {
+  sed 's|url = "github:gubasso/release-kit/v0.2.8";|/* was "github:gubasso/release-kit/v0.2.7" */ url = "github:gubasso/release-kit/v0.2.8";|' "$FLAKE" >"$FLAKE.tmp"
+  mv "$FLAKE.tmp" "$FLAKE"
+  cp "$FLAKE" "$ORIG_FLAKE"
+  run bash "$REPO/scripts/rk-bump.sh" v0.2.9
+  [ "$status" -eq 0 ]
+  grep -q 'url = "github:gubasso/release-kit/v0.2.9"' "$FLAKE"
+  grep -q '"github:gubasso/release-kit/v0.2.7"' "$FLAKE"
+  grep -q 'lock for v0.2.9' "$LOCKFILE"
 }
 
 @test "the nix invocations carry the exact load-bearing vectors" {
