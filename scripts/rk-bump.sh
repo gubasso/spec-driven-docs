@@ -23,6 +23,17 @@ if ! command -v flock >/dev/null 2>&1; then
   echo "rk-bump: flock is required to serialize the update; enter the devshell" >&2
   exit 1
 fi
+if ! command -v jq >/dev/null 2>&1; then
+  echo "rk-bump: jq is required to verify the lock's outcome; enter the devshell" >&2
+  exit 1
+fi
+
+# The lock's answer for the release-kit input: the node the root's input
+# map names, followed through the lock's own structure, so no other
+# input's ref can stand in for it.
+locked_ref() {
+  jq -r '.nodes[.root].inputs["release-kit"] as $node | .nodes[$node].original.ref // empty' "$lock" 2>/dev/null || true
+}
 
 # Repo-local and gitignored, so the lock is per checkout and never committed.
 lockdir="$root/.direnv"
@@ -113,11 +124,17 @@ if [ "$matches" -ne 1 ]; then
   exit 1
 fi
 
-# A no-op bump writes nothing: same version, byte-identical tree.
+# A no-op bump writes nothing — but only a true no-op: the text and the
+# lock's own answer must agree on the tag, or a decoy at the requested
+# version could masquerade as done while the live input sits elsewhere.
 current="$(grep -E "$pin" "$flake" | head -n 1)"
 current="${current##*release-kit/}"
 if [ "${current%%\";*}" = "$want" ]; then
-  exit 0
+  if [ "$(locked_ref)" = "$want" ]; then
+    exit 0
+  fi
+  echo "rk-bump: the pin reads $want but the lock's release-kit node does not reference it; the flake's input shape needs a human look" >&2
+  exit 1
 fi
 
 backup_flake="$(mktemp)"
@@ -168,12 +185,13 @@ if [ "$rewritten" -ne 1 ] || [ "$remaining" -ne 1 ]; then
 fi
 (cd "$root" && nix flake update release-kit)
 # The outcome judged, not only the text: whatever the matcher did, the
-# lock's release-kit node must now reference the wanted tag. This is what
-# catches a decoy the text matcher could not — a live input refactored
-# into a shape the anchored line no longer matches while an old copy
-# lingers in a block comment — because the lock reflects the input Nix
-# actually resolved.
-if ! grep -q "\"ref\": \"$want\"" "$lock"; then
+# lock's release-kit node — followed through the lock's own structure, so
+# no other input's ref can stand in — must now reference the wanted tag.
+# This is what catches a decoy the text matcher could not: a live input
+# refactored into a shape the anchored line no longer matches while an
+# old copy lingers in a block comment, because the lock reflects the
+# input Nix actually resolved.
+if [ "$(locked_ref)" != "$want" ]; then
   echo "rk-bump: the lock's release-kit node does not reference $want; the pin the rewrite touched is not the live input" >&2
   exit 1
 fi

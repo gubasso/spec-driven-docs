@@ -22,7 +22,7 @@ setup() {
   };
 }
 FLAKE
-  printf 'lock for v0.2.8\n' >"$LOCKFILE"
+  printf '{"root":"root","nodes":{"root":{"inputs":{"release-kit":"release-kit"}},"release-kit":{"original":{"ref":"v0.2.8"}}}}\n' >"$LOCKFILE"
   ORIG_FLAKE="$REPO/flake.nix.orig"
   ORIG_LOCK="$REPO/flake.lock.orig"
   cp "$FLAKE" "$ORIG_FLAKE"
@@ -47,7 +47,7 @@ case "$1" in
     ;;
   flake)
     tag="$(grep -oE 'release-kit/v[0-9][0-9.]*' flake.nix | head -n 1 | sed 's|release-kit/||')"
-    printf '"ref": "%s"\n' "${RK_STUB_LOCK_REF:-$tag}" >flake.lock
+    printf '{"root":"root","nodes":{"root":{"inputs":{"release-kit":"release-kit"}},"release-kit":{"original":{"ref":"%s"}}}}\n' "${RK_STUB_LOCK_REF:-$tag}" >flake.lock
     ;;
   build)
     if [ "${NIX_STUB_MODE:-ok}" = fail ]; then exit 1; fi
@@ -118,7 +118,7 @@ both_files_unchanged() {
   run bash "$REPO/scripts/rk-bump.sh"
   [ "$status" -eq 0 ]
   flake_moved_only_to v0.2.9
-  grep -q '"ref": "v0.2.9"' "$LOCKFILE"
+  [ "$(jq -r '.nodes["release-kit"].original.ref' "$LOCKFILE")" = v0.2.9 ]
 }
 
 @test "a same-version bump writes nothing" {
@@ -302,6 +302,41 @@ FLAKE
   # The override stands in for Nix resolving the live, unchanged input
   # while the text rewrite landed inside the block comment.
   RK_STUB_LOCK_REF=v0.2.8 run bash "$REPO/scripts/rk-bump.sh" v0.2.9
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"not the live input"* ]]
+  both_files_unchanged
+}
+
+@test "a no-op is believed only when the lock agrees" {
+  # The pin reads the requested tag, but the lock's release-kit node
+  # references another: a decoy at the requested version must not
+  # masquerade as done.
+  printf '{"root":"root","nodes":{"root":{"inputs":{"release-kit":"release-kit"}},"release-kit":{"original":{"ref":"v0.2.7"}}}}\n' >"$LOCKFILE"
+  cp "$LOCKFILE" "$ORIG_LOCK"
+  run bash "$REPO/scripts/rk-bump.sh" v0.2.8
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"needs a human look"* ]]
+  both_files_unchanged
+  [ ! -e "$STUB_CALLED" ]
+}
+
+@test "another input's ref cannot stand in for the release-kit node" {
+  # The rewrite lands, but the resolved release-kit node stays at the old
+  # tag while a second input carries the wanted ref: the scoped check
+  # must refuse and restore.
+  cat >"$REPO/stub/nix" <<'STUB'
+#!/usr/bin/env bash
+printf '%s\n' "$@" >>"$RK_STUB_CALLED"
+case "$1" in
+  eval) printf 'x86_64-linux' ;;
+  flake)
+    printf '{"root":"root","nodes":{"root":{"inputs":{"release-kit":"release-kit","other":"other"}},"release-kit":{"original":{"ref":"v0.2.8"}},"other":{"original":{"ref":"v0.2.9"}}}}\n' >flake.lock
+    ;;
+esac
+exit 0
+STUB
+  chmod +x "$REPO/stub/nix"
+  run bash "$REPO/scripts/rk-bump.sh" v0.2.9
   [ "$status" -ne 0 ]
   [[ "$output" == *"not the live input"* ]]
   both_files_unchanged
