@@ -28,9 +28,10 @@ manifest:
     cargo run -q -- self-manifest
     dprint fmt .spec-driven-docs/manifest.json
 
-# Move the rk pin to release-kit's latest release. The script owns the
-# transaction: nix-update edits the pin in place, so a failed or interrupted
-# run has to leave the previous pin behind rather than a half-written one.
+# Move the release-kit flake input to its latest release. The script owns
+# the transaction: the bump spans flake.nix and flake.lock, so a failed or
+# interrupted run has to leave both files behind unchanged rather than a new
+# URL against an old lock.
 rk-bump:
     ./scripts/rk-bump.sh
 

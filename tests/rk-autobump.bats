@@ -6,12 +6,12 @@
 
 setup() {
   REPO="$(mktemp -d)"
-  mkdir -p "$REPO/scripts" "$REPO/nix" "$REPO/stub/rk" "$REPO/stub/curl" "$REPO/calls"
+  mkdir -p "$REPO/scripts" "$REPO/stub/rk" "$REPO/stub/curl" "$REPO/calls"
   cp "$BATS_TEST_DIRNAME/../scripts/rk-autobump.sh" "$REPO/scripts/rk-autobump.sh"
 
-  PIN="$REPO/nix/rk.nix"
-  ORIG="$REPO/nix/rk.nix.orig"
-  printf 'version = "0.2.8";\n' >"$PIN"
+  PIN="$REPO/flake.nix"
+  ORIG="$REPO/flake.nix.orig"
+  printf 'url = "github:gubasso/release-kit/v0.2.8";\n' >"$PIN"
   cp "$PIN" "$ORIG"
 
   DIRENV_LAYOUT_DIR="$REPO/.direnv"
@@ -40,7 +40,7 @@ STUB
 : >"$CALLS/bump"
 printf '%s\n' "${RK_BUMP_NONBLOCK:-}" >"$CALLS/bump-nonblock"
 if [ -n "${BUMP_STUB_FAIL:-}" ]; then exit 1; fi
-printf 'version = "%s";\n' "${CURL_STUB_LATEST:-0.2.9}" >"$RK_PIN"
+printf 'url = "github:gubasso/release-kit/v%s";\n' "${CURL_STUB_LATEST:-0.2.9}" >"$RK_PIN"
 STUB
 
   chmod +x "$REPO/stub/rk/rk" "$REPO/stub/curl/curl" "$REPO/scripts/rk-bump.sh"

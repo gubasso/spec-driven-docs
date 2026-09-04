@@ -1,21 +1,23 @@
 #!/usr/bin/env bash
-# Move the rk pin to release-kit's latest release, transactionally and under
-# one lock.
+# Move the release-kit flake input to a release tag — the argument, or the
+# latest GitHub release — transactionally and under one lock.
 #
-# nix-update rewrites the pin in place and writes the version before it
-# resolves either hash, so an interrupted or failing run leaves a version
-# whose hashes no longer match: a pin that evaluates to nothing buildable,
-# which the watch in .envrc then feeds straight into the next shell. Every
-# caller reaches the updater through this script, so one snapshot discipline
-# and one lock cover all of them — two overlapping callers could otherwise
-# snapshot each other's half-written state and restore it over a good result.
+# The operation mutates flake.nix, then updates flake.lock, then builds:
+# three steps over two files. An interrupt or failure between them leaves a
+# new input URL against an old lock — a pin that evaluates to nothing
+# buildable, which the flake watch in .envrc then feeds straight into the
+# next shell. Every caller reaches the rewrite through this script, so one
+# snapshot discipline and one lock cover all of them — two overlapping
+# callers could otherwise snapshot each other's half-written state and
+# restore it over a good result.
 #
 # Invoke it by its real path: it locates the repository from its own, and
 # follows no symlink to get there.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-pin="$root/nix/rk.nix"
+flake="$root/flake.nix"
+lock="$root/flake.lock"
 
 if ! command -v flock >/dev/null 2>&1; then
   echo "rk-bump: flock is required to serialize the update; enter the devshell" >&2
@@ -45,23 +47,85 @@ if [ "$lock_rc" -ne 0 ]; then
   exit 1
 fi
 
-backup="$(mktemp)"
-cp "$pin" "$backup"
+# The named repository decides, never a caller's exported git context: a run
+# from inside a git hook must judge $root, not the hook's own repository.
+git_here() {
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX \
+    git -C "$root" "$@"
+}
+
+# Refuse before mutating when the operator already has edits in the two files
+# this run would snapshot and later restore: the envelope must never be
+# blamed for losing work it did not create.
+if command -v git >/dev/null 2>&1 &&
+  git_here rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  if ! git_here diff --quiet -- flake.nix flake.lock; then
+    echo "rk-bump: flake.nix or flake.lock carries uncommitted changes; commit or stash them first" >&2
+    exit 1
+  fi
+fi
+
+# Normalize the three input shapes into a bare tag, each form on its own: a
+# suffix strip written for the URL form would hand the argument form a
+# doubled prefix (vv0.2.9), a tag that does not exist.
+if [ -n "${1:-}" ]; then
+  raw="$1"
+else
+  # /releases/latest redirects to the newest tag that is neither a draft nor
+  # a prerelease, and needs no token.
+  if ! raw="$(curl -fsSL --max-time 30 -o /dev/null -w '%{url_effective}' \
+    https://github.com/gubasso/release-kit/releases/latest)"; then
+    echo "rk-bump: the latest release tag could not be discovered from GitHub" >&2
+    exit 1
+  fi
+fi
+case "$raw" in
+  https://* | http://*) want="${raw##*/}" ;;
+  v*) want="$raw" ;;
+  *) want="v$raw" ;;
+esac
+if ! printf '%s\n' "$want" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+  echo "rk-bump: not a release tag: $want" >&2
+  exit 1
+fi
+
+# Exactly one pin line may match: zero means the flake changed shape, more
+# than one is an ambiguity a blind rewrite would resolve wrongly.
+matches=$(grep -cE 'release-kit/v[0-9]+\.[0-9]+\.[0-9]+' "$flake") || matches=0
+if [ "$matches" -ne 1 ]; then
+  echo "rk-bump: expected 1 pin line in flake.nix, found $matches" >&2
+  exit 1
+fi
+
+# A no-op bump writes nothing: same version, byte-identical tree.
+current="$(grep -oE 'release-kit/v[0-9]+\.[0-9]+\.[0-9]+' "$flake" | head -n 1)"
+if [ "${current#release-kit/}" = "$want" ]; then
+  exit 0
+fi
+
+backup_flake="$(mktemp)"
+backup_lock="$(mktemp)"
+cp "$flake" "$backup_flake"
+cp "$lock" "$backup_lock"
 bump_ok=""
 
 # Restoration is the exit path's responsibility, not a statement after the
-# updater, so an interrupt lands on it too.
+# update, so an interrupt lands on it too. Both files restore together:
+# atomicity per file is not atomicity per operation.
 finish() {
-  [ -e "$backup" ] || return 0
+  [ -e "$backup_flake" ] || return 0
   if [ -n "$bump_ok" ]; then
-    rm -f "$backup"
+    rm -f "$backup_flake" "$backup_lock"
     return 0
   fi
-  if cp "$backup" "$pin"; then
-    rm -f "$backup"
+  restore_failed=""
+  cp "$backup_flake" "$flake" || restore_failed=1
+  cp "$backup_lock" "$lock" || restore_failed=1
+  if [ -z "$restore_failed" ]; then
+    rm -f "$backup_flake" "$backup_lock"
     echo "rk-bump: the update failed and the pin is unchanged" >&2
   else
-    echo "rk-bump: the pin could not be restored; its previous contents are at $backup" >&2
+    echo "rk-bump: the pin could not be restored; its previous contents are at $backup_flake and $backup_lock" >&2
   fi
 }
 # A signal arriving between commands would otherwise kill the shell outright,
@@ -71,11 +135,16 @@ trap finish EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-# --url overrides the version oracle without touching src, so release-kit's
-# GitHub releases decide the version while crates.io serves the bytes.
-# --build then builds what was selected, so a release that does not compile
-# fails inside this envelope rather than in the next shell.
-(cd "$root" && nix run nixpkgs#nix-update -- --flake --build \
-  --url https://github.com/gubasso/release-kit \
-  --use-github-releases --version=stable release-kit)
+# A temp file and a rename, not `sed -i`: GNU takes -i where BSD requires
+# -i '', and the devshell supports Darwin.
+sed "s|release-kit/v[0-9][0-9.]*|release-kit/$want|" "$flake" >"$flake.tmp"
+mv "$flake.tmp" "$flake"
+(cd "$root" && nix flake update release-kit)
+# --no-link: .envrc triggers this on directory entry, and a routine cd must
+# not drop a result symlink into the working tree. The build is also the
+# proof the follows deal demands: a release that does not evaluate or build
+# against this repository's nixpkgs fails inside this envelope rather than
+# in the next shell.
+(cd "$root" && nix build --no-link \
+  ".#devShells.$(nix eval --impure --raw --expr builtins.currentSystem).default")
 bump_ok=1
