@@ -61,7 +61,13 @@ git_here() {
 # tree against the index, so a staged edit would slip through it.
 if command -v git >/dev/null 2>&1 &&
   git_here rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  if [ -n "$(git_here status --porcelain -- flake.nix flake.lock)" ]; then
+  # Captured separately so a status that fails outright refuses too: a
+  # check that cannot judge the tree must fail closed, never proceed.
+  if ! pending="$(git_here status --porcelain -- flake.nix flake.lock)"; then
+    echo "rk-bump: git status failed, so the tree cannot be judged clean; refusing" >&2
+    exit 1
+  fi
+  if [ -n "$pending" ]; then
     echo "rk-bump: flake.nix or flake.lock carries uncommitted changes; commit or stash them first" >&2
     exit 1
   fi
@@ -92,21 +98,23 @@ if ! printf '%s\n' "$want" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
 fi
 
 # One anchored matcher for counting, reading, rewriting, and verifying:
-# the full quoted input URL, closing quote included, so a version named in
-# a comment — or a suffixed tag like v0.2.8-beta — never counts as the pin
-# and never takes the rewrite. Exactly one line may match: zero means the
-# flake changed shape, more than one is an ambiguity a blind rewrite would
-# resolve wrongly.
-pin='github:gubasso/release-kit/v[0-9]+\.[0-9]+\.[0-9]+"'
-matches=$(grep -cE "$pin" "$flake") || matches=0
+# the whole input assignment, `url =` through the closing quote, so a
+# version named in a comment — quoted or not — and a suffixed tag like
+# v0.2.8-beta never count as the pin and never take the rewrite.
+# Occurrences are counted, not lines, so a second assignment sharing a
+# line cannot hide. Exactly one may exist: zero means the flake changed
+# shape, more than one is an ambiguity a blind rewrite would resolve
+# wrongly.
+pin='url[[:space:]]*=[[:space:]]*"github:gubasso/release-kit/v[0-9]+\.[0-9]+\.[0-9]+"'
+matches=$(grep -oE "$pin" "$flake" | wc -l) || matches=0
 if [ "$matches" -ne 1 ]; then
-  echo "rk-bump: expected 1 pin line in flake.nix, found $matches" >&2
+  echo "rk-bump: expected 1 pin assignment in flake.nix, found $matches" >&2
   exit 1
 fi
 
 # A no-op bump writes nothing: same version, byte-identical tree.
 current="$(grep -oE "$pin" "$flake" | head -n 1)"
-current="${current#github:gubasso/release-kit/}"
+current="${current##*release-kit/}"
 if [ "${current%\"}" = "$want" ]; then
   exit 0
 fi
@@ -146,13 +154,15 @@ trap 'exit 143' TERM
 # A temp file and a rename, not `sed -i`: GNU takes -i where BSD requires
 # -i '', and the devshell supports Darwin. The rewrite uses the same
 # anchored shape as the matcher, and the result is verified before the
-# lock moves: a rewrite that landed anywhere but the one pin fails inside
-# the envelope, which restores both files.
-sed -E "s|github:gubasso/release-kit/v[0-9]+\.[0-9]+\.[0-9]+\"|github:gubasso/release-kit/$want\"|" "$flake" >"$flake.tmp"
+# lock moves: the assignment must now carry exactly the wanted tag, once,
+# or the run fails inside the envelope, which restores both files.
+sed -E "s|(url[[:space:]]*=[[:space:]]*\")github:gubasso/release-kit/v[0-9]+\.[0-9]+\.[0-9]+\"|\1github:gubasso/release-kit/$want\"|" "$flake" >"$flake.tmp"
 mv "$flake.tmp" "$flake"
-rewritten=$(grep -cE "github:gubasso/release-kit/$want\"" "$flake") || rewritten=0
-if [ "$rewritten" -ne 1 ]; then
-  echo "rk-bump: the rewrite did not land on exactly the pin line; found $rewritten" >&2
+wanted="url[[:space:]]*=[[:space:]]*\"github:gubasso/release-kit/$want\""
+rewritten=$(grep -oE "$wanted" "$flake" | wc -l) || rewritten=0
+remaining=$(grep -oE "$pin" "$flake" | wc -l) || remaining=0
+if [ "$rewritten" -ne 1 ] || [ "$remaining" -ne 1 ]; then
+  echo "rk-bump: the rewrite did not land on exactly the pin assignment; found $rewritten new and $remaining total" >&2
   exit 1
 fi
 (cd "$root" && nix flake update release-kit)
