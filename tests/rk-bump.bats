@@ -226,7 +226,7 @@ both_files_unchanged() {
   [ "$status" -eq 1 ]
   [[ "$output" == *"found 0"* ]]
   cp "$ORIG_FLAKE" "$FLAKE"
-  printf '  # release-kit/v0.2.7 also here\n' >>"$FLAKE"
+  printf '      other = "github:gubasso/release-kit/v0.2.7";\n' >>"$FLAKE"
   run bash "$REPO/scripts/rk-bump.sh" v0.2.9
   [ "$status" -eq 1 ]
   [[ "$output" == *"found 2"* ]]
@@ -237,6 +237,54 @@ both_files_unchanged() {
 @test "the rewrite goes through a temp file, never sed -i" {
   ! grep -qE 'sed +-i' "$REPO/scripts/rk-bump.sh"
   grep -q 'flake.nix.tmp\|"$flake.tmp"' "$REPO/scripts/rk-bump.sh"
+}
+
+@test "staged edits refuse exactly as unstaged ones" {
+  scrubbed_git() {
+    env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_PREFIX \
+      git -C "$REPO" "$@"
+  }
+  scrubbed_git init -q
+  scrubbed_git add flake.nix flake.lock
+  scrubbed_git -c user.email=t@t -c user.name=t commit -q -m seed --no-verify
+  printf '# staged, not committed\n' >>"$FLAKE"
+  scrubbed_git add flake.nix
+  run bash "$REPO/scripts/rk-bump.sh" v0.2.9
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"uncommitted changes"* ]]
+  grep -q 'staged, not committed' "$FLAKE"
+  grep -q 'release-kit/v0.2.8' "$FLAKE"
+  [ ! -e "$STUB_CALLED" ]
+}
+
+@test "a version named outside the quoted pin neither counts nor takes the rewrite" {
+  printf '  # the previous pin was release-kit/v0.2.7\n' >>"$FLAKE"
+  cp "$FLAKE" "$ORIG_FLAKE"
+  run bash "$REPO/scripts/rk-bump.sh" v0.2.9
+  [ "$status" -eq 0 ]
+  flake_moved_only_to v0.2.9
+  grep -q 'release-kit/v0.2.7' "$FLAKE"
+}
+
+@test "the nix invocations carry the exact load-bearing vectors" {
+  run bash "$REPO/scripts/rk-bump.sh" v0.2.9
+  [ "$status" -eq 0 ]
+  cat >"$REPO/expected" <<'ARGS'
+flake
+update
+release-kit
+eval
+--impure
+--raw
+--expr
+builtins.currentSystem
+build
+--no-link
+.#devShells.x86_64-linux.default
+ARGS
+  # The whole vectors, so dropping --no-link, updating the wrong input, or
+  # building a different attribute cannot drift unnoticed.
+  diff "$REPO/expected" "$STUB_CALLED"
 }
 
 @test "a lock that cannot be taken is reported rather than passed over" {
