@@ -11,6 +11,7 @@
   - [`release:the-delivered-gate-set-is-declared-once` — The delivered gate set is declared once](#releasethe-delivered-gate-set-is-declared-once--the-delivered-gate-set-is-declared-once)
   - [`release:a-canon-gate-is-not-delivered` — A canon gate is not delivered](#releasea-canon-gate-is-not-delivered--a-canon-gate-is-not-delivered)
   - [`release:the-canon-record-describes-its-tree` — The canon record describes its tree](#releasethe-canon-record-describes-its-tree--the-canon-record-describes-its-tree)
+  - [`release:the-rk-pin-has-two-facts-and-one-mover` — The rk pin has two facts and one mover](#releasethe-rk-pin-has-two-facts-and-one-mover--the-rk-pin-has-two-facts-and-one-mover)
 
 <!--TOC-->
 
@@ -103,3 +104,15 @@ This repository is an instance of itself, so its committed instance record MUST 
 - THEN they fail naming the file, because `sdd verify` reports an adopted edit as a note every other instance is entitled to carry
 
 Verify: `pre-commit run cargo-test --all-files`
+
+### `release:the-rk-pin-has-two-facts-and-one-mover` — The rk pin has two facts and one mover
+
+The devshell MUST take the release-workflow CLI it pins from a flake input at that project's release tag — the version owned by the tag in the input URL in `flake.nix`, the content owned by the `flake.lock` node, and nothing else in the tree naming that tool's version — and every move of the pin MUST go through `scripts/rk-bump.sh`, which treats the two files as one transaction: both snapshot before any mutation, both restore on any failure or interrupt, a refusal before mutating while either carries staged or unstaged changes, and a devshell build inside the envelope as the fence for the input's `follows` on nixpkgs.
+
+#### Scenario: A bump dies after the lock moved
+
+- GIVEN a bump whose devshell build fails or is interrupted after `nix flake update` rewrote the lock
+- WHEN the envelope's exit path runs
+- THEN `flake.nix` and `flake.lock` are byte-identical to their pre-run state
+
+Verify: `bats tests/rk-bump.bats`

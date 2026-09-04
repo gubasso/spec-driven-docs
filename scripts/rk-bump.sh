@@ -56,10 +56,12 @@ git_here() {
 
 # Refuse before mutating when the operator already has edits in the two files
 # this run would snapshot and later restore: the envelope must never be
-# blamed for losing work it did not create.
+# blamed for losing work it did not create. Porcelain status covers the
+# staged and the unstaged form alike — plain diff compares only the working
+# tree against the index, so a staged edit would slip through it.
 if command -v git >/dev/null 2>&1 &&
   git_here rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  if ! git_here diff --quiet -- flake.nix flake.lock; then
+  if [ -n "$(git_here status --porcelain -- flake.nix flake.lock)" ]; then
     echo "rk-bump: flake.nix or flake.lock carries uncommitted changes; commit or stash them first" >&2
     exit 1
   fi
@@ -89,17 +91,23 @@ if ! printf '%s\n' "$want" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
   exit 1
 fi
 
-# Exactly one pin line may match: zero means the flake changed shape, more
-# than one is an ambiguity a blind rewrite would resolve wrongly.
-matches=$(grep -cE 'release-kit/v[0-9]+\.[0-9]+\.[0-9]+' "$flake") || matches=0
+# One anchored matcher for counting, reading, rewriting, and verifying:
+# the full quoted input URL, closing quote included, so a version named in
+# a comment — or a suffixed tag like v0.2.8-beta — never counts as the pin
+# and never takes the rewrite. Exactly one line may match: zero means the
+# flake changed shape, more than one is an ambiguity a blind rewrite would
+# resolve wrongly.
+pin='github:gubasso/release-kit/v[0-9]+\.[0-9]+\.[0-9]+"'
+matches=$(grep -cE "$pin" "$flake") || matches=0
 if [ "$matches" -ne 1 ]; then
   echo "rk-bump: expected 1 pin line in flake.nix, found $matches" >&2
   exit 1
 fi
 
 # A no-op bump writes nothing: same version, byte-identical tree.
-current="$(grep -oE 'release-kit/v[0-9]+\.[0-9]+\.[0-9]+' "$flake" | head -n 1)"
-if [ "${current#release-kit/}" = "$want" ]; then
+current="$(grep -oE "$pin" "$flake" | head -n 1)"
+current="${current#github:gubasso/release-kit/}"
+if [ "${current%\"}" = "$want" ]; then
   exit 0
 fi
 
@@ -136,9 +144,17 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 # A temp file and a rename, not `sed -i`: GNU takes -i where BSD requires
-# -i '', and the devshell supports Darwin.
-sed "s|release-kit/v[0-9][0-9.]*|release-kit/$want|" "$flake" >"$flake.tmp"
+# -i '', and the devshell supports Darwin. The rewrite uses the same
+# anchored shape as the matcher, and the result is verified before the
+# lock moves: a rewrite that landed anywhere but the one pin fails inside
+# the envelope, which restores both files.
+sed -E "s|github:gubasso/release-kit/v[0-9]+\.[0-9]+\.[0-9]+\"|github:gubasso/release-kit/$want\"|" "$flake" >"$flake.tmp"
 mv "$flake.tmp" "$flake"
+rewritten=$(grep -cE "github:gubasso/release-kit/$want\"" "$flake") || rewritten=0
+if [ "$rewritten" -ne 1 ]; then
+  echo "rk-bump: the rewrite did not land on exactly the pin line; found $rewritten" >&2
+  exit 1
+fi
 (cd "$root" && nix flake update release-kit)
 # --no-link: .envrc triggers this on directory entry, and a routine cd must
 # not drop a result symlink into the working tree. The build is also the
