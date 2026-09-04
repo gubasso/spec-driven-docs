@@ -23,7 +23,7 @@ pub fn docs_root(ctx: &GateCtx) -> Utf8PathBuf {
         return Utf8PathBuf::from(root);
     }
     for candidate in ["_docs", "docs"] {
-        if ctx.path(candidate).join("specs").is_dir() {
+        if discovered(ctx, &Utf8Path::new(candidate).join("specs")) {
             return Utf8PathBuf::from(candidate);
         }
     }
@@ -48,13 +48,14 @@ pub fn ki_record_roots(ctx: &GateCtx, args: &[String]) -> Vec<Utf8PathBuf> {
         .collect()
 }
 
-/// Whether a discovered candidate is a root the caller must read.
+/// Whether a discovered candidate is a directory the caller must read.
 ///
 /// A candidate whose metadata cannot be read is kept rather than dropped.
 /// `is_dir` answers false for a directory the process cannot stat, so
-/// dropping it there would report an unreadable zone as a zone the
-/// repository does not keep. Kept, it reaches `ki_records`, which raises
-/// the failure and names it.
+/// dropping it there would report an unreadable layout as a layout the
+/// repository does not keep. Kept, it reaches the reader, which raises the
+/// failure or reports the layout as moved rather than judging a tree it
+/// never opened.
 fn discovered(ctx: &GateCtx, root: &Utf8Path) -> bool {
     match std::fs::metadata(ctx.path(root)) {
         Ok(metadata) => metadata.is_dir(),
@@ -187,6 +188,25 @@ mod tests {
                 Utf8PathBuf::from("docs/reference/known-issues/KI-a.md"),
                 Utf8PathBuf::from("docs/reference/known-issues/KI-b.md"),
             ]
+        );
+    }
+
+    #[test]
+    fn an_unreadable_layout_is_not_read_as_an_absent_one() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("docs/specs")).unwrap();
+        assert_eq!(docs_root(&ctx(&dir)), "docs");
+
+        let specs = dir.path().join("docs/specs");
+        let mut mode = std::fs::metadata(&specs).unwrap().permissions();
+        std::os::unix::fs::PermissionsExt::set_mode(&mut mode, 0o000);
+        std::fs::set_permissions(dir.path().join("docs"), mode.clone()).unwrap();
+        let resolved = docs_root(&ctx(&dir));
+        std::os::unix::fs::PermissionsExt::set_mode(&mut mode, 0o755);
+        std::fs::set_permissions(dir.path().join("docs"), mode).unwrap();
+        assert_eq!(
+            resolved, "docs",
+            "an unreadable layout fell through to the default root"
         );
     }
 
