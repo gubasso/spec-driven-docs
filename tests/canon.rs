@@ -152,6 +152,29 @@ fn the_canon_record_hashes_every_file_the_tree_carries() {
         }
     }
 
+    for template in spec_driven_docs::domain::profile::CANON_TEMPLATES {
+        assert!(
+            canon().join(template).is_file(),
+            "{template} is declared but gone from the tree"
+        );
+        assert!(
+            adopted.contains(&(*template).to_string()),
+            "{template} is on disk but absent from the record; run 'just manifest'"
+        );
+    }
+    for destination in &adopted {
+        if destination
+            .rsplit('/')
+            .next()
+            .is_some_and(|name| name.starts_with("TEMPLATE-"))
+        {
+            assert!(
+                spec_driven_docs::domain::profile::CANON_TEMPLATES.contains(&destination.as_str()),
+                "{destination} is recorded but no longer declared; a canon-side template has one owner"
+            );
+        }
+    }
+
     let block = manifest["integration_blocks"]
         .as_array()
         .unwrap()

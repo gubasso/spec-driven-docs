@@ -132,8 +132,9 @@ fn check_projection(manifest: &Manifest, report: &mut VerifyReport) {
                 expected.insert(format!("_docs/specs/{name}"));
             }
         }
-        expected.insert("_docs/decisions/TEMPLATE-adr.md".to_string());
-        expected.insert("_docs/reference/TEMPLATE-agents-digest.md".to_string());
+        for template in crate::domain::profile::CANON_TEMPLATES {
+            expected.insert((*template).to_string());
+        }
         for destination in &expected {
             if !managed.contains(destination.as_str()) && !adopted.contains(destination.as_str()) {
                 missing.push(destination.clone());
