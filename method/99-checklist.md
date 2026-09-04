@@ -97,9 +97,9 @@ Owner: [07 — Lifecycle](./07-lifecycle.md).
 - [ ] No exploratory material entered the docs root, and any promoted draft was deleted.
 - [ ] A fact depending on an external source has an entry in the tracking registry.
 - [ ] A workaround added here names the condition that retires it, and a workaround whose condition is met was removed along with its record.
-- [ ] Every known-issue record is named `KI-<slug>.md`, carries exactly one state, and a masked one carries a retire condition where a mitigated one carries none.
+- [ ] Every known-issue record is named `KI-<slug>.md`, carries exactly one state and exactly one filing state, and a masked one carries a retire condition where a mitigated one carries none.
 - [ ] Every known-issue record walks its mechanism step by step, showing the state each step leaves behind, rather than naming the defect once.
-- [ ] Every record filed upstream carries a `## Report` section holding the filed body in the tracker's own markup.
+- [ ] Every record at `filing: filed` names its upstream issue and carries a `## Report` section holding the filed body in the tracker's own markup.
 - [ ] A resolved symptom that could recur and be misread left a diagnostic entry, and no archive of resolved cases was created.
 
 ## Spec to code

@@ -191,6 +191,10 @@ const ADOPTED: &[Projection] = &[
         "templates/TEMPLATE-guide.md",
         "{docs_root}/guides/TEMPLATE-guide.md",
     ),
+    proj(
+        "templates/TEMPLATE-known-issue.md",
+        "{docs_root}/reference/TEMPLATE-known-issue.md",
+    ),
 ];
 
 static CODEBASE: Profile = Profile {

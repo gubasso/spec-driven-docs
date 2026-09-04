@@ -240,6 +240,13 @@ repos:
         entry: cargo run -q -- gate ki-filename-shape
         language: system
         files: '^(_?docs/reference/known-issues|tests/fixtures)/KI-.*\.md$'
+      - id: ki-filing
+        name: known issue filing state
+        entry: cargo run -q -- gate ki-filing
+        language: system
+        always_run: true
+        pass_filenames: false
+        args: ['tests/fixtures']
       - id: ki-mechanism-walkthrough
         name: known issue mechanism walkthrough
         entry: cargo run -q -- gate ki-mechanism-walkthrough
@@ -257,6 +264,13 @@ repos:
       - id: ki-retire-when
         name: known issue retirement condition
         entry: cargo run -q -- gate ki-retire-when
+        language: system
+        always_run: true
+        pass_filenames: false
+        args: ['tests/fixtures']
+      - id: ki-state
+        name: known issue state
+        entry: cargo run -q -- gate ki-state
         language: system
         always_run: true
         pass_filenames: false

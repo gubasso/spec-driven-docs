@@ -95,7 +95,7 @@ pub fn run(ctx: &GateCtx, args: &[String]) -> GateResult {
         }
     }
 
-    let known: BTreeSet<String> = ki_records(ctx, args)
+    let known: BTreeSet<String> = ki_records(ctx, args)?
         .iter()
         .filter_map(|record| {
             record

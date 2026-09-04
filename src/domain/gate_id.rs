@@ -41,12 +41,16 @@ pub enum GateId {
     KiBugzillaReportWidth,
     /// Known-issue filenames are slugged case IDs.
     KiFilenameShape,
+    /// Known-issue records carry one filing state.
+    KiFiling,
     /// Known-issue records walk the mechanism.
     KiMechanismWalkthrough,
     /// Filed known-issue records carry their report body.
     KiReportBody,
     /// Known-issue records carry a retirement condition.
     KiRetireWhen,
+    /// Known-issue records carry one state.
+    KiState,
     /// Files carry no absolute path into a person's home directory.
     NoPersonalPath,
     /// Documents state the present rather than narrate their edits.
@@ -82,9 +86,11 @@ impl GateId {
         Self::InstanceManifest,
         Self::KiBugzillaReportWidth,
         Self::KiFilenameShape,
+        Self::KiFiling,
         Self::KiMechanismWalkthrough,
         Self::KiReportBody,
         Self::KiRetireWhen,
+        Self::KiState,
         Self::NoPersonalPath,
         Self::NoSelfNarration,
         Self::ProseStaysUnwrapped,
@@ -113,9 +119,11 @@ impl GateId {
             Self::InstanceManifest => "instance-manifest",
             Self::KiBugzillaReportWidth => "ki-bugzilla-report-width",
             Self::KiFilenameShape => "ki-filename-shape",
+            Self::KiFiling => "ki-filing",
             Self::KiMechanismWalkthrough => "ki-mechanism-walkthrough",
             Self::KiReportBody => "ki-report-body",
             Self::KiRetireWhen => "ki-retire-when",
+            Self::KiState => "ki-state",
             Self::NoPersonalPath => "no-personal-path",
             Self::NoSelfNarration => "no-self-narration",
             Self::ProseStaysUnwrapped => "prose-stays-unwrapped",
@@ -156,7 +164,7 @@ mod tests {
         for gate in GateId::ALL {
             assert!(seen.insert(gate.as_str()), "{gate} is duplicated");
         }
-        assert_eq!(GateId::ALL.len(), 25);
+        assert_eq!(GateId::ALL.len(), 27);
     }
 
     #[test]

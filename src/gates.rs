@@ -23,9 +23,12 @@ pub mod gate_message_cites_a_rule;
 pub mod instance_manifest;
 pub mod ki_bugzilla_report_width;
 pub mod ki_filename_shape;
+pub mod ki_filing;
 pub mod ki_mechanism_walkthrough;
+pub mod ki_record;
 pub mod ki_report_body;
 pub mod ki_retire_when;
+pub mod ki_state;
 pub mod no_personal_path;
 pub mod no_self_narration;
 pub mod prose_stays_unwrapped;
@@ -299,6 +302,16 @@ pub static GATES: &[GateSpec] = &[
         run: ki_filename_shape::run,
     },
     GateSpec {
+        id: GateId::KiFiling,
+        name: "known issue filing state",
+        files: None,
+        types: None,
+        exclude: None,
+        always_run: true,
+        cites: ki_filing::CITES,
+        run: ki_filing::run,
+    },
+    GateSpec {
         id: GateId::KiMechanismWalkthrough,
         name: "known issue mechanism walkthrough",
         files: None,
@@ -327,6 +340,16 @@ pub static GATES: &[GateSpec] = &[
         always_run: true,
         cites: ki_retire_when::CITES,
         run: ki_retire_when::run,
+    },
+    GateSpec {
+        id: GateId::KiState,
+        name: "known issue state",
+        files: None,
+        types: None,
+        exclude: None,
+        always_run: true,
+        cites: ki_state::CITES,
+        run: ki_state::run,
     },
     GateSpec {
         id: GateId::NoPersonalPath,
@@ -430,6 +453,28 @@ pub fn read_text(ctx: &GateCtx, relative: impl AsRef<Utf8Path>) -> Result<String
     std::fs::read_to_string(ctx.path(relative)).map_err(|source| GateError::io(relative, source))
 }
 
+/// Every value a front-matter key carries, in the order the keys appear.
+///
+/// The scan is the leading `---` block alone, so a `state:` line in the
+/// prose below it is text about the record rather than the record's own
+/// field. A key stated twice yields two entries, which is what makes
+/// "exactly one" decidable.
+#[must_use]
+pub fn front_matter_values(text: &str, key: &str) -> Vec<String> {
+    let mut lines = text.lines();
+    if lines.next() != Some("---") {
+        return Vec::new();
+    }
+    lines
+        .take_while(|line| *line != "---")
+        .filter_map(|line| {
+            line.strip_prefix(key)
+                .and_then(|rest| rest.strip_prefix(':'))
+        })
+        .map(|value| value.trim().to_string())
+        .collect()
+}
+
 /// Walk the repository, pruning [`PRUNED_DIRS`], and yield every file as a
 /// `./`-prefixed repository-relative path in sorted order.
 #[must_use]
@@ -458,11 +503,11 @@ pub fn walk_files(ctx: &GateCtx) -> Vec<Utf8PathBuf> {
 
 #[cfg(test)]
 pub(crate) mod tests_support {
-    /// A repository holding one known-issue record with the given
-    /// `retire_when:` line and a conforming body.
-    pub fn ki_fixture(retire_line: &str) -> tempfile::TempDir {
+    /// A repository holding one known-issue record with the given `state:`
+    /// value and `retire_when:` line.
+    pub fn ki_fixture_state(state: &str, retire_line: &str) -> tempfile::TempDir {
         ki_record(&format!(
-            "---\nupstream: https://example.invalid/issues\n{retire_line}---\n# Vendor issue\n## How it works\nRun.\n"
+            "---\nupstream: https://example.invalid/issues\nstate: {state}\nfiling: gathering\n{retire_line}---\n# Vendor issue\n## How it works\nRun.\n"
         ))
     }
 
@@ -470,15 +515,21 @@ pub(crate) mod tests_support {
     /// frontmatter and the given body.
     pub fn ki_fixture_body(body: &str) -> tempfile::TempDir {
         ki_record(&format!(
-            "---\nupstream: https://example.invalid/issues\nretire_when: release >= 2.0\n---\n{body}"
+            "---\nupstream: https://example.invalid/issues\nstate: masked\nfiling: gathering\nretire_when: release >= 2.0\n---\n{body}"
         ))
     }
 
-    /// A repository holding one known-issue record with the given
+    /// A repository holding one filed known-issue record with the given
     /// `upstream:` value and body.
     pub fn ki_fixture_upstream(upstream: &str, body: &str) -> tempfile::TempDir {
+        ki_fixture_filing("filed", upstream, body)
+    }
+
+    /// A repository holding one known-issue record with the given `filing:`
+    /// value, `upstream:` value and body.
+    pub fn ki_fixture_filing(filing: &str, upstream: &str, body: &str) -> tempfile::TempDir {
         ki_record(&format!(
-            "---\nupstream: {upstream}\nretire_when: release >= 2.0\n---\n{body}"
+            "---\nupstream: {upstream}\nstate: masked\nfiling: {filing}\nretire_when: release >= 2.0\n---\n{body}"
         ))
     }
 
