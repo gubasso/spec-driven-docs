@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Keep the devshell's rk pin at release-kit's latest GitHub release.
+# Keep the release-kit flake input at the latest GitHub release.
 # Runs from .envrc, so direnv alone triggers it and `nix develop` in CI never
 # does. Every failure path exits 0: entering the directory offline must still
 # produce a working shell.
