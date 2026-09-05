@@ -15,3 +15,10 @@ jobs:
       - uses: DeterminateSystems/nix-installer-action@v19
       - uses: DeterminateSystems/magic-nix-cache-action@v13
       - run: nix develop --command just check
+      # The Nix side of the same tree. nix flake check builds only the checks
+      # output, so the package is named on its own line as well: without it a
+      # green run would prove nothing about nix/package.nix. Both run in the
+      # job branch protection requires, so the packaging cannot go stale
+      # unnoticed.
+      - run: nix build .#default
+      - run: nix flake check

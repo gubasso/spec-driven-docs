@@ -1,7 +1,7 @@
 {
-  "schema_version": 2,
-  "rk_version": "0.2.8",
-  "payload_sha256": "4854afb9acd674220e20e383616023d61ee871692d711a129db8e3230aae9556",
+  "schema_version": 4,
+  "rk_version": "0.2.18",
+  "payload_sha256": "bc0aa39283d3424cb3eb8f8ea97bc0d6b537ef9f841c2e4dca238b35cb3e9ebd",
   "origin": "init",
   "tech": "rust",
   "forge": "github",
@@ -26,7 +26,9 @@
       "ci",
       "lint"
     ],
-    "workflow": "worktree"
+    "workflow": "worktree",
+    "style": "trunk",
+    "nix": true
   },
   "files": [
     {
@@ -38,8 +40,8 @@
     {
       "destination": ".github/workflows/release-plz.yml",
       "kind": "rendered",
-      "sha256": "319cd6699bd166e6c03fe1ca4ed70034659f93b6e480fe1599102742e1fc077c",
-      "baseline_sha256": "f1c0f656480a3b653ba4cd9409b453fbf3a6650279bd9b1b1b4ae87202547dea"
+      "sha256": "c6caff0323bb4489ea637178c99ac836c3c55c40ac4b4437e1345da12be272b7",
+      "baseline_sha256": "f67151adc5f1c8a215e2320edef81151435c71a837e175e7f4aeed5cf8d77ff1"
     },
     {
       "destination": ".pre-commit-config.yaml",
@@ -60,9 +62,15 @@
       "baseline_sha256": "d51e679ff879c46e87d722fc3572a52a2e9e2ca85796c0635a580506622c47bb"
     },
     {
+      "destination": "nix/package.nix",
+      "kind": "seeded",
+      "sha256": "bd1537cc2c4ef5e46c29d65a9149bdeaafbc448632f9fabd37aeff6deeb2a3eb",
+      "baseline_sha256": "bd1537cc2c4ef5e46c29d65a9149bdeaafbc448632f9fabd37aeff6deeb2a3eb"
+    },
+    {
       "destination": "release-plz.toml",
       "kind": "seeded",
-      "sha256": "0983ed155c83959d08f4446b91fb9dfcfebc80284babe49969bed4eaa0e55f1d",
+      "sha256": "ebda41e2283305369c865aa8bdfce86d97cbc51c77fe79f80a9e13884f388edc",
       "baseline_sha256": "0983ed155c83959d08f4446b91fb9dfcfebc80284babe49969bed4eaa0e55f1d"
     }
   ],
@@ -75,6 +83,8 @@
     "dist-checkout": "6",
     "dist-download-artifact": "8",
     "dist-upload-artifact": "7",
+    "magic-nix-cache-action": "13",
+    "nix-installer-action": "19",
     "pre-commit-hooks": "6.0.0",
     "release-plz": "0.3.160",
     "rust-toolchain": "stable"

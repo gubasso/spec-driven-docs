@@ -107,12 +107,12 @@ Verify: `pre-commit run cargo-test --all-files`
 
 ### `release:the-rk-pin-has-two-facts-and-one-mover` — The rk pin has two facts and one mover
 
-`scripts/rk-bump.sh` — the one mover of the devshell's pinned release-workflow CLI, whose version is the tag in the `flake.nix` input URL and whose content is the `flake.lock` node — MUST treat the two files as one transaction: both snapshot before any mutation, both restore on any failure or interrupt, a refusal before mutating while either carries staged or unstaged changes or the tree cannot be judged, a rewrite that must land on exactly the one pin assignment, and a devshell build inside the envelope as the fence for the input's `follows` on nixpkgs.
+The devshell's pinned release-workflow CLI MUST have two facts and one mover: its version is the tag in its flake input URL in `flake.nix`, its content is that input's node in `flake.lock`, and `rk devshell sync`, invoked from `.envrc`, is the only thing that moves either. This project MUST carry no second mechanism over those two files, because the transaction over them belongs to the CLI's own verb and two movers undo each other.
 
-#### Scenario: A bump dies after the lock moved
+#### Scenario: A second mechanism rewrites the pin
 
-- GIVEN a bump whose devshell build fails or is interrupted after `nix flake update` rewrote the lock
-- WHEN the envelope's exit path runs
-- THEN `flake.nix` and `flake.lock` are byte-identical to their pre-run state
+- GIVEN a script or a recipe in this project that rewrites that input URL or its lock node
+- WHEN the devshell wiring is judged
+- THEN it is reported as a leftover of a predecessor mechanism, because one project runs one mover
 
-Verify: `bats tests/rk-bump.bats`
+Verify: `rk devshell status --target . --json` reports `ready` and an empty `leftovers` list

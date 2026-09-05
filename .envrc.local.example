@@ -13,5 +13,5 @@ export RK_BOT_APP_ID=''
 # /home/you/Downloads/gubasso-ci-bot.2026-08-26.private-key.pem
 export RK_BOT_PRIVATE_KEY_FILE=''
 
-# Set to any value to stop the devshell from bumping the rk pin on entry.
-export RK_SKIP_AUTOBUMP=''
+# Set to 0 to stop `rk devshell sync` from moving the rk pin on entry.
+export RK_DEVSHELL_SYNC=0

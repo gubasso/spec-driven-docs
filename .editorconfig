@@ -17,7 +17,7 @@ indent_size = 2
 indent_style = tab
 
 # The release helper scripts; 2-space matches the shfmt default (shfmt -i 2).
-[*.{sh,bash,bats}]
+[*.{sh,bash}]
 indent_style = space
 indent_size = 2
 

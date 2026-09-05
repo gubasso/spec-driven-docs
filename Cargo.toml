@@ -25,6 +25,7 @@ exclude = [
     "/CLAUDE.md",
     "/flake.nix",
     "/flake.lock",
+    "/nix",
     "/justfile",
     "/deny.toml",
     "/dist-workspace.toml",
