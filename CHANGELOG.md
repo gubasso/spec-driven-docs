@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.5](https://github.com/gubasso/spec-driven-docs/compare/v0.4.4...v0.4.5) - 2026-09-05
+
+### Added
+
+- *(skills)* Route the migration skill and gate what the operator owns ([#28](https://github.com/gubasso/spec-driven-docs/pull/28))
+
 ## [0.4.4](https://github.com/gubasso/spec-driven-docs/compare/v0.4.3...v0.4.4) - 2026-09-05
 
 ### Added
