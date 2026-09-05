@@ -22,18 +22,10 @@ lint:
 
 test:
     cargo nextest run
-    bats tests/rk-autobump.bats tests/rk-bump.bats
 
 manifest:
     cargo run -q -- self-manifest
     dprint fmt .spec-driven-docs/manifest.json
-
-# Move the release-kit flake input to its latest release. The script owns
-# the transaction: the bump spans flake.nix and flake.lock, so a failed or
-# interrupted run has to leave both files behind unchanged rather than a new
-# URL against an old lock.
-rk-bump:
-    ./scripts/rk-bump.sh
 
 # Install into a scratch repository and verify it, end to end, with the real
 # binary.
