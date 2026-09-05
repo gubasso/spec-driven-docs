@@ -43,6 +43,16 @@ pub enum AppError {
     #[error("{0}")]
     Refused(String),
 
+    /// A tracked-upstream lookup failed. The code is the sysexit the failure
+    /// class maps to, chosen where the `git` adapter is called.
+    #[error("git: {message}")]
+    Git {
+        /// The redacted failure reason.
+        message: String,
+        /// The sysexit code for this failure class.
+        code: u8,
+    },
+
     /// Filesystem failure, classified by its I/O kind.
     #[error("io: {0}")]
     Io(#[from] std::io::Error),
@@ -65,6 +75,7 @@ impl AppError {
             Self::ManifestInvalid(_) | Self::Marker(_) => 65,
             Self::ManifestMissing(_) => 66,
             Self::Refused(_) => 73,
+            Self::Git { code, .. } => *code,
             Self::Io(e) if e.kind() == std::io::ErrorKind::NotFound => 66,
             Self::Io(e) if e.kind() == std::io::ErrorKind::PermissionDenied => 77,
             Self::Io(_) => 74,
@@ -82,6 +93,7 @@ impl AppError {
             Self::ManifestInvalid(_) => "ManifestInvalid",
             Self::Marker(_) => "Marker",
             Self::Refused(_) => "Refused",
+            Self::Git { .. } => "Git",
             Self::Io(_) => "Io",
             Self::Other(_) => "Other",
         }

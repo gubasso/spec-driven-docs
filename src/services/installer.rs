@@ -102,6 +102,7 @@ struct TargetState {
     lines: Vec<String>,
 }
 
+#[allow(clippy::too_many_lines)]
 fn compute_target_state(target: &Utf8Path, profile: ProfileId) -> Result<TargetState, AppError> {
     let declaration = profile.profile();
     let mut files: Vec<(Utf8PathBuf, Vec<u8>)> = Vec::new();
@@ -164,6 +165,56 @@ fn compute_target_state(target: &Utf8Path, profile: ProfileId) -> Result<TargetS
         spliced.into_bytes(),
     ));
 
+    let mut integration_blocks = vec![IntegrationBlock {
+        path: ".pre-commit-config.yaml".into(),
+        marker_hash,
+    }];
+
+    // The root AGENTS.md documentation block: the seam that makes SimpleEnglish
+    // arrive by default. A symlinked host is refused before it is read, so a
+    // link cannot redirect the read outside the target.
+    let agents_relative = Utf8Path::new("AGENTS.md");
+    if target.join(agents_relative).is_symlink() {
+        return Err(AppError::Refused(
+            "AGENTS.md is a symlink; refusing to write the documentation block through it"
+                .to_string(),
+        ));
+    }
+    let agents_host = if target.join(agents_relative).is_file() {
+        std::fs::read_to_string(target.join(agents_relative))?
+    } else {
+        String::new()
+    };
+    let agents_block =
+        crate::services::agents_render::render_block(&declaration.docs_root.to_string());
+    let agents = crate::domain::marker::place_agents_block(&agents_host, &agents_block)?;
+    let agents_hash = crate::domain::marker::block_hash_with(
+        &agents,
+        crate::domain::marker::AGENTS_BEGIN,
+        crate::domain::marker::AGENTS_END,
+    )
+    .ok_or_else(|| anyhow::anyhow!("the rendered AGENTS.md block lost its markers"))?;
+    // An old unmarked documentation section is preserved, never deleted; the
+    // note tells the operator to remove the duplicate by hand.
+    if agents_host.contains("## Documentation")
+        && crate::domain::marker::block_region_with(
+            &agents_host,
+            crate::domain::marker::AGENTS_BEGIN,
+            crate::domain::marker::AGENTS_END,
+        )
+        .is_none()
+    {
+        lines.push(
+            "note: AGENTS.md carries an unmarked '## Documentation' section; the managed block was appended and the old section left in place — remove it by hand".to_string(),
+        );
+    }
+    lines.push("AGENTS.md".to_string());
+    files.push((agents_relative.to_path_buf(), agents.into_bytes()));
+    integration_blocks.push(IntegrationBlock {
+        path: "AGENTS.md".into(),
+        marker_hash: agents_hash,
+    });
+
     let manifest = Manifest {
         schema_version: SCHEMA_VERSION,
         canon_version: CanonVersion::current(),
@@ -173,10 +224,7 @@ fn compute_target_state(target: &Utf8Path, profile: ProfileId) -> Result<TargetS
         installed_at: installed_at(target),
         managed_files: managed_entries,
         adopted_files: adopted_entries,
-        integration_blocks: vec![IntegrationBlock {
-            path: ".pre-commit-config.yaml".into(),
-            marker_hash,
-        }],
+        integration_blocks,
     };
     lines.push(MANIFEST_PATH.to_string());
     files.push((

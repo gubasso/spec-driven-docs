@@ -1,0 +1,165 @@
+{
+  "project": "SimpleEnglish",
+  "repository": "https://github.com/AminBlg/SimpleEnglish",
+  "release": "v2.0.0",
+  "reference": "refs/tags/v2.0.0",
+  "revision": "d9e523409686e88df175623f7a692d025aff95b1",
+  "license": "MIT",
+  "digest_algorithm": "sha256",
+  "files": [
+    {
+      "path": "LICENSE",
+      "scope": "instance",
+      "sha256": "10b2f9435643bae609e4c1a7690131b2aeb6941e9d867e934bc80619935a6f8f"
+    },
+    {
+      "path": "prompts/system-prompt.md",
+      "scope": "instance",
+      "sha256": "73dacf384adf2f158646c03fba3eb2899880c906631e4206e4e9d96ecbcd0b9d"
+    },
+    {
+      "path": "skills/simple-english/SKILL.md",
+      "scope": "instance",
+      "sha256": "22f0e2cadcdb906177bb88352544e64dfda190ef994713049962559ef6693766"
+    },
+    {
+      "path": "skills/simple-english/references/checklist.md",
+      "scope": "instance",
+      "sha256": "56c8296bd382a20912c4f789b2dd259d42f194c6a6686a25ea028f51aa0e130b"
+    },
+    {
+      "path": "skills/simple-english/references/strict-vocabulary.md",
+      "scope": "instance",
+      "sha256": "3f34ef3a878d9dc83de68191b5ddd6220fdb4e3c99eafc89425adfabd46258a7"
+    },
+    {
+      "path": "skills/simple-english/references/use-cases.md",
+      "scope": "instance",
+      "sha256": "6c5b342f706d346255466b86400d11d558c4db677a2f7ca5ec4dedb978df8a7c"
+    },
+    {
+      "path": "skills/simple-english/references/word-swaps.md",
+      "scope": "instance",
+      "sha256": "e6cbc5677e3a910190eedf3d87fce49540b42863a6f2166cd1211dcce2074378"
+    },
+    {
+      "path": "hooks/hooks.json",
+      "scope": "canon",
+      "sha256": "e351c3e9c3d7d345c2962d7542124bc87224791429561a8741500ddb798b1bfc"
+    },
+    {
+      "path": "src/hooks/README.md",
+      "scope": "canon",
+      "sha256": "dc33e6531071efe26fa657a35a602e2f250308e9edaf323dec7964de6d02a1e8"
+    },
+    {
+      "path": "src/hooks/package.json",
+      "scope": "canon",
+      "sha256": "8005a3491db7d92f36ac66369861589f9c47123d3a7c71e643fc2c06168cd45a"
+    },
+    {
+      "path": "src/hooks/simple-english-activate.js",
+      "scope": "canon",
+      "sha256": "2c101cc4667e746c42f4edecb58d19048078384561c1652eb3ef005db50c125c"
+    },
+    {
+      "path": "src/hooks/simple-english-activate.test.js",
+      "scope": "canon",
+      "sha256": "d60cfd579045cd4b0bf9b7374016d9b79a3bce268e2e29300edcc69c207fa813"
+    },
+    {
+      "path": "src/hooks/lint_hook.py",
+      "scope": "canon",
+      "sha256": "17ab36ae9d9a891f69922ae096dae571347e9ab9fd3ccab5bd1eedefa92fb71d"
+    },
+    {
+      "path": "src/hooks/test_lint_hook.py",
+      "scope": "canon",
+      "sha256": "cb36182b08e37eead3c7ad57f7f5ba026bfaee25221b9964423c3350d6152499"
+    },
+    {
+      "path": "evals/ste_lint.py",
+      "scope": "canon",
+      "sha256": "d0daa40a5d5a0689ce9e52e1b1e76dfb798f8b00c70a8464942d23a122cb051f"
+    },
+    {
+      "path": "evals/slop.tsv",
+      "scope": "canon",
+      "sha256": "1e65bf53d00c1495781a70c562e91296b3481c6bc0b37feb2cc6ea275b77e4dc"
+    }
+  ],
+  "excluded": [
+    {
+      "path": ".agents/plugins/marketplace.json",
+      "reason": "plugin manifest: the convention arrives through the instance integration, not a plugin install"
+    },
+    {
+      "path": ".claude-plugin/marketplace.json",
+      "reason": "plugin manifest: the convention arrives through the instance integration, not a plugin install"
+    },
+    {
+      "path": ".claude-plugin/plugin.json",
+      "reason": "plugin manifest: the convention arrives through the instance integration, not a plugin install"
+    },
+    {
+      "path": ".codex-plugin/plugin.json",
+      "reason": "plugin manifest: the convention arrives through the instance integration, not a plugin install"
+    },
+    {
+      "path": ".gitignore",
+      "reason": "repository administration: nothing here is executed or read"
+    },
+    {
+      "path": "README.md",
+      "reason": "upstream marketing and repository routing: nothing here is executed or read"
+    },
+    {
+      "path": "examples/before-after.md",
+      "reason": "upstream marketing example: nothing here is executed or read"
+    },
+    {
+      "path": "output-styles/simple-english.md",
+      "reason": "harness-specific configuration: the instance integration replaces it"
+    },
+    {
+      "path": "evals/pressure-tests.md",
+      "reason": "benchmark evidence: development corpus, not the runtime dependency surface"
+    },
+    {
+      "path": "evals/reply_scenarios.json",
+      "reason": "benchmark input: development corpus, not the runtime dependency surface"
+    },
+    {
+      "path": "evals/scenarios.json",
+      "reason": "benchmark input: development corpus, not the runtime dependency surface"
+    },
+    {
+      "path": "evals/run_bench.py",
+      "reason": "benchmark runner: development tooling, not the runtime dependency surface"
+    },
+    {
+      "path": "evals/run_pi_bench.py",
+      "reason": "benchmark runner: development tooling, not the runtime dependency surface"
+    },
+    {
+      "path": "evals/run_reply_bench.py",
+      "reason": "benchmark runner: development tooling, not the runtime dependency surface"
+    },
+    {
+      "path": "evals/score_text_dir.py",
+      "reason": "benchmark runner: development tooling, not the runtime dependency surface"
+    },
+    {
+      "path": "evals/test_run_pi_bench.py",
+      "reason": "benchmark runner test: development tooling, not the runtime dependency surface"
+    },
+    {
+      "path": "evals/results/",
+      "reason": "recorded benchmark results: development evidence, not the runtime dependency surface"
+    },
+    {
+      "path": "package/",
+      "reason": "recorded benchmark results: development evidence, not the runtime dependency surface"
+    }
+  ]
+}

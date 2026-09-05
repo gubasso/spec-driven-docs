@@ -26,6 +26,9 @@ pub static METHOD: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/method");
 pub static SKILLS: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/skills");
 /// The artifacts every skill shares, installed once outside the skill roots.
 pub static SKILL_SHARED: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/skill-shared");
+/// The vendored `SimpleEnglish` dependency surface, byte-for-byte from upstream.
+pub static SIMPLE_ENGLISH: Dir<'static> =
+    include_dir!("$CARGO_MANIFEST_DIR/third-party/simpleenglish");
 
 /// The combined license statement naming both halves.
 pub static LICENSE: &str = include_str!("../LICENSE");
@@ -33,6 +36,8 @@ pub static LICENSE: &str = include_str!("../LICENSE");
 pub static LICENSE_MIT: &str = include_str!("../LICENSE-MIT");
 /// The CC BY 4.0 license covering the method.
 pub static LICENSE_CC_BY: &str = include_str!("../LICENSE-CC-BY-4.0");
+/// The attribution notice for every vendored dependency the payload carries.
+pub static THIRD_PARTY_NOTICES: &str = include_str!("../THIRD_PARTY_NOTICES.md");
 
 /// Every embedded root paired with the authored path it came from, in
 /// [`PAYLOAD_ROOTS`] order. A unit test holds the two equal, so a root
@@ -46,6 +51,7 @@ const EMBEDDED_ROOTS: &[(&str, &Dir<'static>)] = &[
     ("method", &METHOD),
     ("skills", &SKILLS),
     ("skill-shared", &SKILL_SHARED),
+    ("third-party/simpleenglish", &SIMPLE_ENGLISH),
 ];
 
 /// Every skill name, sorted; a name is the skill's directory.

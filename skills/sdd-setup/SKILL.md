@@ -46,17 +46,7 @@ The install seeds specs and templates the project owns from then on (adopted), l
 
 ## Wire agent context
 
-Add the documentation section to the project's `AGENTS.md`, creating the file when absent:
-
-```markdown
-## Documentation
-
-- Load the affected specs before editing governed content.
-- Treat decision records as immutable rationale and load them only when asked why.
-- Write and edit step-by-step guides to the adopted guides spec, `specs/SPEC-guides.md` under the docs root.
-- Run `sdd verify` before handoff.
-- Keep adopted specs and local integration instance-owned.
-```
+`sdd init` manages this for you. The install writes a marker-delimited documentation block into the root `AGENTS.md`, creating the file when absent, and records it as an integration block. The block routes an agent to the affected specs and names SimpleEnglish `Plain` as the default mode for technical text, loaded from `specs/SPEC-simple-english.md` and the vendored `.spec-driven-docs/upstreams/simpleenglish/skills/simple-english/SKILL.md`. Every byte outside the markers is your own. Do not hand-copy the block: an edit inside the markers is a conflict `sdd upgrade` refuses, and an edit outside them survives.
 
 ## Verify
 

@@ -29,14 +29,17 @@ pub mod ki_record;
 pub mod ki_report_body;
 pub mod ki_retire_when;
 pub mod ki_state;
+pub mod markdown_prose;
 pub mod no_personal_path;
 pub mod no_self_narration;
 pub mod prose_stays_unwrapped;
+pub mod simple_english;
 pub mod spec_requirement_parts;
 pub mod spec_rule_id_unique;
 pub mod spec_size_cap;
 pub mod spec_verify_hooks_exist;
 pub mod suppression_names_its_case;
+pub mod tracking_registry;
 
 use std::fmt;
 
@@ -430,6 +433,28 @@ pub static GATES: &[GateSpec] = &[
         always_run: true,
         cites: suppression_names_its_case::CITES,
         run: suppression_names_its_case::run,
+    },
+    GateSpec {
+        id: GateId::SimpleEnglish,
+        name: "prose follows SimpleEnglish",
+        files: None,
+        types: Some("markdown"),
+        exclude: Some(
+            r"^_docs/decisions/|^docs/decisions/|(?:^|/)CHANGELOG\.md$|^third-party/|^\.spec-driven-docs/|(?:^|/)tests/fixtures/",
+        ),
+        always_run: false,
+        cites: simple_english::CITES,
+        run: simple_english::run,
+    },
+    GateSpec {
+        id: GateId::TrackingRegistry,
+        name: "tracking registry is valid and current",
+        files: None,
+        types: None,
+        exclude: None,
+        always_run: true,
+        cites: tracking_registry::CITES,
+        run: tracking_registry::run,
     },
 ];
 

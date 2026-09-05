@@ -13,9 +13,9 @@ lint:
     cargo clippy --all-targets --all-features -- -D warnings
     cargo deny check
     dprint check
-    editorconfig-checker -disable-insert-final-newline
+    editorconfig-checker -disable-insert-final-newline -exclude "^third-party/"
     typos
-    markdownlint-cli2 "**/*.md" "#tests/fixtures/**" "#target/**"
+    markdownlint-cli2 "**/*.md" "#tests/fixtures/**" "#target/**" "#third-party/**"
     check-jsonschema --schemafile instance/manifest.schema.json .spec-driven-docs/manifest.json
     pre-commit validate-config .pre-commit-config.yaml
     SKIP=no-commit-to-branch,rk-worktree-location pre-commit run --files $(rg --files --hidden -g '!.git' -g '!.git/**')

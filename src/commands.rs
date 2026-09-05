@@ -18,5 +18,6 @@ pub mod read;
 pub mod self_manifest;
 pub mod skill;
 pub mod status;
+pub mod track;
 pub mod upgrade;
 pub mod verify;

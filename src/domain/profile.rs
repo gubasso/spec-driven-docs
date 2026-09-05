@@ -136,6 +136,53 @@ const MANAGED: &[Projection] = &[
         ".markdownlint/relative-links.markdownlint-cli2.jsonc",
         ".spec-driven-docs/markdownlint/relative-links.markdownlint-cli2.jsonc",
     ),
+    // The vendored SimpleEnglish surface an installed author or an offline
+    // command reads, projected under a stable managed root while keeping the
+    // upstream relative layout. Canon-only oracles under
+    // `third-party/simpleenglish/` are not projected: no instance runs them.
+    proj(
+        "third-party/simpleenglish/LICENSE",
+        ".spec-driven-docs/upstreams/simpleenglish/LICENSE",
+    ),
+    proj(
+        "third-party/simpleenglish/prompts/system-prompt.md",
+        ".spec-driven-docs/upstreams/simpleenglish/prompts/system-prompt.md",
+    ),
+    proj(
+        "third-party/simpleenglish/skills/simple-english/SKILL.md",
+        ".spec-driven-docs/upstreams/simpleenglish/skills/simple-english/SKILL.md",
+    ),
+    proj(
+        "third-party/simpleenglish/skills/simple-english/references/checklist.md",
+        ".spec-driven-docs/upstreams/simpleenglish/skills/simple-english/references/checklist.md",
+    ),
+    proj(
+        "third-party/simpleenglish/skills/simple-english/references/strict-vocabulary.md",
+        ".spec-driven-docs/upstreams/simpleenglish/skills/simple-english/references/strict-vocabulary.md",
+    ),
+    proj(
+        "third-party/simpleenglish/skills/simple-english/references/use-cases.md",
+        ".spec-driven-docs/upstreams/simpleenglish/skills/simple-english/references/use-cases.md",
+    ),
+    proj(
+        "third-party/simpleenglish/skills/simple-english/references/word-swaps.md",
+        ".spec-driven-docs/upstreams/simpleenglish/skills/simple-english/references/word-swaps.md",
+    ),
+];
+
+/// The vendored `SimpleEnglish` files the profiles project into an instance.
+///
+/// Each is paired with the authored source it comes from. The canon records
+/// these at their authored path, so its self-manifest and an instance's
+/// manifest hold the same bytes under different destinations.
+pub const SIMPLE_ENGLISH_MANAGED: &[&str] = &[
+    "third-party/simpleenglish/LICENSE",
+    "third-party/simpleenglish/prompts/system-prompt.md",
+    "third-party/simpleenglish/skills/simple-english/SKILL.md",
+    "third-party/simpleenglish/skills/simple-english/references/checklist.md",
+    "third-party/simpleenglish/skills/simple-english/references/strict-vocabulary.md",
+    "third-party/simpleenglish/skills/simple-english/references/use-cases.md",
+    "third-party/simpleenglish/skills/simple-english/references/word-swaps.md",
 ];
 
 /// The template copies this repository keeps in its own documentation tree.
@@ -186,6 +233,22 @@ const ADOPTED: &[Projection] = &[
     proj(
         "_docs/specs/SPEC-guides.md",
         "{docs_root}/specs/SPEC-guides.md",
+    ),
+    proj(
+        "_docs/specs/SPEC-simple-english.md",
+        "{docs_root}/specs/SPEC-simple-english.md",
+    ),
+    proj(
+        "_docs/specs/SPEC-tracking.md",
+        "{docs_root}/specs/SPEC-tracking.md",
+    ),
+    proj(
+        "_docs/specs/SPEC-tracking/tracking.schema.json",
+        "{docs_root}/specs/SPEC-tracking/tracking.schema.json",
+    ),
+    proj(
+        "templates/TEMPLATE-tracking.yaml",
+        "{docs_root}/reference/tracking.yaml",
     ),
     proj(
         "templates/TEMPLATE-spec.md",

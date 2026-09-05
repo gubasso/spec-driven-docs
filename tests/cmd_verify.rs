@@ -106,7 +106,7 @@ fn a_removed_block_fails_red() {
         .assert()
         .code(1)
         .stdout(predicate::str::contains(
-            "FAIL missing managed pre-commit block",
+            "FAIL missing managed block: .pre-commit-config.yaml",
         ));
 }
 

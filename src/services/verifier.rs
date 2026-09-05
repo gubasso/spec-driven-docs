@@ -161,12 +161,24 @@ fn check_projection(manifest: &Manifest, report: &mut VerifyReport) {
             "FAIL manifest omits a declared projection: {destination}"
         ));
     }
-    if !manifest
-        .integration_blocks
-        .iter()
-        .any(|block| block.path == ".pre-commit-config.yaml")
-    {
-        report.fail("FAIL manifest records no integration block for .pre-commit-config.yaml");
+    // Every installed instance carries both integration blocks. The canon's
+    // own layout carries the pre-commit block by hand; its root AGENTS.md is
+    // release-kit-owned and outside this projection.
+    let required: &[&str] = if self_layout {
+        &[".pre-commit-config.yaml"]
+    } else {
+        &[".pre-commit-config.yaml", "AGENTS.md"]
+    };
+    for path in required {
+        if !manifest
+            .integration_blocks
+            .iter()
+            .any(|block| block.path.as_str() == *path)
+        {
+            report.fail(format!(
+                "FAIL manifest records no integration block for {path}"
+            ));
+        }
     }
 }
 
@@ -250,42 +262,53 @@ pub fn verify(target: &Utf8Path) -> Result<VerifyReport, AppError> {
     Ok(report)
 }
 
+/// The marker pair a host file's managed region uses.
+fn markers_for(path: &str) -> (&'static str, &'static str) {
+    if path == ".pre-commit-config.yaml" {
+        (marker::BEGIN, marker::END)
+    } else {
+        (marker::AGENTS_BEGIN, marker::AGENTS_END)
+    }
+}
+
 fn check_integration(
     target: &Utf8Path,
     manifest: &Manifest,
     report: &mut VerifyReport,
 ) -> Result<(), AppError> {
-    let config_path = target.join(".pre-commit-config.yaml");
-    if reached_through_symlink(target, Utf8Path::new(".pre-commit-config.yaml")) {
-        report.fail("FAIL .pre-commit-config.yaml reached through a symlink");
-    } else if config_path.is_file() {
-        let config = std::fs::read_to_string(&config_path)?;
-        let begins = config.lines().filter(|line| *line == marker::BEGIN).count();
-        let ends = config.lines().filter(|line| *line == marker::END).count();
-        if begins != 1 {
-            report.fail("FAIL missing managed pre-commit block");
-        } else if ends != 1 {
-            report.fail("FAIL malformed managed pre-commit block");
-        } else {
-            let recorded = manifest
-                .integration_blocks
-                .iter()
-                .find(|block| block.path == ".pre-commit-config.yaml")
-                .map(|block| &block.marker_hash);
-            match (recorded, marker::block_hash(&config)) {
-                (None, _) => {
-                    report.fail("FAIL manifest records no marker hash for .pre-commit-config.yaml");
-                }
-                (Some(recorded), Some(present)) if *recorded == present => {
-                    if let Some(block) = marker::block_region(&config) {
-                        check_block_entries(&block, report);
-                    }
-                }
-                (Some(_), _) => report.fail("FAIL managed block tampered: .pre-commit-config.yaml"),
-            }
+    for block in &manifest.integration_blocks {
+        let path = block.path.as_str();
+        let (begin, end) = markers_for(path);
+        let full = target.join(&block.path);
+        if reached_through_symlink(target, &block.path) {
+            report.fail(format!("FAIL {path} reached through a symlink"));
+            continue;
         }
-    } else {
-        report.fail("FAIL missing .pre-commit-config.yaml");
+        if !full.is_file() {
+            report.fail(format!("FAIL missing integration host: {path}"));
+            continue;
+        }
+        let host = std::fs::read_to_string(&full)?;
+        let begins = host.lines().filter(|line| *line == begin).count();
+        let ends = host.lines().filter(|line| *line == end).count();
+        if begins != 1 {
+            report.fail(format!("FAIL missing managed block: {path}"));
+            continue;
+        }
+        if ends != 1 {
+            report.fail(format!("FAIL malformed managed block: {path}"));
+            continue;
+        }
+        match marker::block_hash_with(&host, begin, end) {
+            Some(present) if present == block.marker_hash => {
+                if path == ".pre-commit-config.yaml"
+                    && let Some(region) = marker::block_region_with(&host, begin, end)
+                {
+                    check_block_entries(&region, report);
+                }
+            }
+            _ => report.fail(format!("FAIL managed block tampered: {path}")),
+        }
     }
     Ok(())
 }

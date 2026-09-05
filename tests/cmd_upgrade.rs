@@ -273,3 +273,39 @@ fn a_stale_managed_skill_file_is_pruned() {
         .assert()
         .success();
 }
+
+#[test]
+fn a_locally_edited_agents_block_aborts_the_upgrade() {
+    let fixture = v1_instance();
+    // The v1 instance has no AGENTS block; a reinstall adds one. Give it a
+    // current-shaped instance instead by reinstalling first, then editing.
+    fixture
+        .cmd()
+        .args(["upgrade", "--target", &fixture.target()])
+        .assert()
+        .success();
+    let agents = fixture.read("AGENTS.md").replace(
+        "Run `sdd verify` before handoff.",
+        "Run something else entirely.",
+    );
+    fixture.write("AGENTS.md", &agents);
+    // Force a version behind so the upgrade runs its conflict scan again.
+    let manifest = fixture
+        .read(".spec-driven-docs/manifest.json")
+        .replace(env!("CARGO_PKG_VERSION"), "0.0.1");
+    fixture.write(".spec-driven-docs/manifest.json", &manifest);
+    let digest = fixture.tree_digest();
+    fixture
+        .cmd()
+        .args(["upgrade", "--target", &fixture.target()])
+        .assert()
+        .code(1)
+        .stdout(predicate::str::contains(
+            "CONFLICT locally edited managed block: AGENTS.md",
+        ));
+    assert_eq!(
+        digest,
+        fixture.tree_digest(),
+        "a refused upgrade changed bytes"
+    );
+}

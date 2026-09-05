@@ -14,7 +14,7 @@ use crate::output;
 ///
 /// None.
 pub fn run(_ctx: &AppContext, args: LicenseArgs) -> Result<(), AppError> {
-    if !args.method && !args.payload {
+    if !args.method && !args.payload && !args.third_party {
         output::line(crate::embedded::LICENSE.trim_end_matches('\n'));
         return Ok(());
     }
@@ -23,6 +23,9 @@ pub fn run(_ctx: &AppContext, args: LicenseArgs) -> Result<(), AppError> {
     }
     if args.payload {
         output::line(crate::embedded::LICENSE_MIT.trim_end_matches('\n'));
+    }
+    if args.third_party {
+        output::line(crate::embedded::THIRD_PARTY_NOTICES.trim_end_matches('\n'));
     }
     Ok(())
 }

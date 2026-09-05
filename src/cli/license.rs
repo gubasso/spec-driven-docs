@@ -12,4 +12,8 @@ pub struct LicenseArgs {
     /// Print the MIT text covering the distribution.
     #[arg(long)]
     pub payload: bool,
+
+    /// Print the third-party notices for every vendored dependency.
+    #[arg(long)]
+    pub third_party: bool,
 }

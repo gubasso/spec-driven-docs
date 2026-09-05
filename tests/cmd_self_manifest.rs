@@ -38,6 +38,17 @@ fn regenerates_a_schema_two_manifest_in_a_canon_shaped_checkout() {
     fixture.write(".markdownlint/spec.markdownlint-cli2.jsonc", "{}\n");
     fixture.write("skill-shared/plan-gate.md", "# The plan gate\n");
     fixture.write("skill-shared/pre-flight-gate.md", "# The pre-flight gate\n");
+    for path in spec_driven_docs::domain::profile::SIMPLE_ENGLISH_MANAGED {
+        fixture.write(path, "vendored\n");
+    }
+    fixture.write(
+        "templates/TEMPLATE-tracking.yaml",
+        "schema_version: 1\ntracked: []\n",
+    );
+    fixture.write(
+        "_docs/reference/tracking.yaml",
+        "schema_version: 1\ntracked: []\n",
+    );
     fixture.write(
         "_docs/specs/SPEC-sample.md",
         "### `sample:works` — Works\n\nVerify: `true`\n",
@@ -70,6 +81,8 @@ fn regenerates_a_schema_two_manifest_in_a_canon_shaped_checkout() {
     assert!(manifest.contains(".markdownlint/spec.markdownlint-cli2.jsonc"));
     assert!(manifest.contains("skill-shared/plan-gate.md"));
     assert!(manifest.contains("skill-shared/pre-flight-gate.md"));
+    assert!(manifest.contains("third-party/simpleenglish/skills/simple-english/SKILL.md"));
+    assert!(manifest.contains("_docs/reference/tracking.yaml"));
 
     let repeat = fixture.read(".spec-driven-docs/manifest.json");
     fixture
