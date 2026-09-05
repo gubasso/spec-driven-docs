@@ -7,7 +7,7 @@ compatibility: Requires the sdd binary on PATH; install with cargo install spec-
 
 # sdd-migrate
 
-Take a repository from however it documents itself today to the current spec-driven-docs convention. The default is the full corpus sweep: every durable fact the project has written down ends the migration in exactly one sdd home, and the old convention is retired. Narrow the scope only when the request narrows it. The procedure this skill drives is `sdd method 12-migration`; read it once per task and hold it.
+Take a repository from however it documents itself today to the current spec-driven-docs convention. The default is the full corpus sweep: every durable fact the project has written down ends the migration in exactly one sdd home, and the old convention is retired. Narrow the scope only when the request narrows it. The procedure this skill drives is `sdd method 12-migration`; read it once per task and hold it, because every step below is one of its sections and the chapter owns the how.
 
 ## Before acting
 
@@ -22,29 +22,44 @@ When the request carries `--no-plan`, skip the plan gate's approval turn only. S
 
 ## Detect
 
-Two read-only reports route the work:
+The pre-flight's last two steps already ran `sdd status --target . --json` and, at a target with no instance, `sdd assess --target . --json`; this skill routes on what they returned, and the chapter's first section defines the verdicts.
 
-- `sdd status --target . --json` — an instance current with the binary and reporting drift takes `sdd verify --target .`, then fixes what it cites, smallest first; an instance older than the binary takes the version path below.
-- `sdd assess --target . --json` — with no instance, the classification routes: `brownfield` is this skill's subject, the sweep below; `greenfield` belongs to the sdd-setup skill, because there is nothing to migrate; `needs-decision` is the operator's call, asked with the report's evidence via `AskUserQuestion` before any plan claims to know.
+- `brownfield` with no instance is this skill's subject: the sweep, start to end.
+- `greenfield` belongs to the sdd-setup skill, because there is nothing to migrate; hand off and stop.
+- `needs-decision` is the operator's call, asked with `AskUserQuestion` and the report's evidence — the documents it found outside every recognized home — before any plan claims to know what they are.
+- An instance routes by its status report, whatever the verdict says: one current with the binary and reporting drift takes `sdd verify --target .` and fixes what it cites, smallest first; one older than the binary takes the sdd-setup skill's `## Upgrade`, which owns the dry run, the apply, and the atomic conflict refusal.
 
 No instance never means no documents. A target that documents itself without sdd is brownfield, and landing seeds over it without the sweep starts a second convention beside the first.
 
 ## The full corpus sweep
 
-The chapter owns the procedure; this is the order of work.
+The chapter owns each step's how; this is what the skill decides at each one.
 
-1. Inventory every place the project documents itself — the assess report's document inventory, plus README files, wiki exports, and contributor guides it lists. The inventory becomes the migration checklist: one entry per source with its checksum, disposition (retire, merge, split, rewrite), destinations, approval reference, and verification state, exactly as `sdd method 12-migration` shapes it.
-2. Classify each entry's facts by the placement chapter's decision procedure — `sdd method 01-placement` serves it. What binds now becomes a spec; why-at-the-time becomes a decision record; task recipes become guides, started from `sdd template guide`; exact values become reference. One source often splits across those fates; list each under its entry.
-3. Present the checklist as the plan. Every disposition question the inventory raises is asked before approval, because an approved checklist is what makes the loop safe to run; the checklist lands under version control in the project's plan zone, and provisional rewrites stage under `.draft/migration/` — confirm version control ignores `.draft/` first, and where it does not, the one-line ignore entry is part of the approved plan.
-4. Land the instance: choose the profile — `codebase` keeps records under `docs/`, `knowledge-base` under `_docs/` — preview `sdd init --target "$PWD" --profile <profile>`, review the listed paths against the assess report's collisions, then re-run with `--apply`, and wire the documentation section into the project's `AGENTS.md` exactly as the sdd-setup skill states it.
-5. Run the loop in verified batches: re-checksum the source (changed means the entry returns to planning), rewrite into the owning zone — never move a file — verify the destinations, retire the source only after they verify, only where the approved plan named the removal, and only while version control or the approved backup holds the checksum-recorded bytes — an untracked or modified source is committed, or backed up where the plan says, first. A discovered document or an unplanned split returns to planning; it is never handled inline.
-6. Close on evidence: a fresh inventory finds nothing untracked and no retired path still present, `sdd verify --target .` passes, `pre-commit run --all-files` passes, and `.draft/migration/` is emptied with the operator's approval. The checklist stays, checked and closed, as the record of what went where.
+1. Inventory every place the project documents itself: the assess report's document inventory, plus the README files, wiki exports, and contributor guides it lists. The inventory becomes the migration checklist, one entry per source in the shape the chapter's inventory section gives — checksum, disposition, destinations, approval, verification state.
+2. Classify each entry's facts by the placement chapter's decision procedure, `sdd method 01-placement`. One source often splits across several fates; list each fate under its entry rather than averaging them.
+3. Present the checklist as the plan. Ask every disposition question the inventory raises before approval, with `AskUserQuestion`, because an approved checklist is what makes the loop safe to run. The checklist lands under version control in the project's plan zone; provisional rewrites stage under `.draft/migration/`, and the ignore entry that keeps them out of version control is a gated step below.
+4. Land the instance exactly as the sdd-setup skill's `## Land an instance` and `## Wire agent context` state it — the profile, the preview against the assess report's collisions, the apply, the documentation section in `AGENTS.md`. Nothing of that sequence is restated here.
+5. Run the chapter's loop in verified batches: re-checksum, rewrite into the owning zone, verify the destinations, retire the source only under the chapter's four conditions, record completion last. A guide is started from `sdd template guide`; a spec, a decision record, and a reference entry from their templates the same way.
+6. Close on the chapter's evidence: the fresh inventory against the checklist, `sdd verify --target .`, `pre-commit run --all-files`, and the workshop emptied with the operator's approval. The checklist stays, checked and closed, as the record of what went where.
 
-## From a previous version
+## What waits for the operator
 
-1. Install the newer `sdd` first, then `sdd upgrade --target . --dry-run` and read the report before anything writes.
-2. `sdd upgrade --target .` applies. A locally edited managed file aborts the whole upgrade with every conflict listed in one run; reconcile, then re-run rather than working around the refusal.
-3. Re-run `sdd verify --target .`; a failure message cites a `domain:rule` ID, and `sdd spec <domain>` states the sentence to satisfy.
+Gate each of these: print the exact command or edit, say what it changes and why, wait, then re-observe before continuing.
+
+- The `.draft/` ignore entry, where the target's ignore file lacks it — one line, before anything stages in the workshop.
+- `sdd init --target "$PWD" --profile <profile> --apply` — the one landing write; its preview runs first, per the sdd-setup skill.
+- Committing, or backing up where the plan says, an untracked or locally modified source before its entry retires anything: the chapter retires only bytes version control or the approved backup holds.
+- Every retirement of a file the project authored — only where the approved checklist named it, only after its destinations verified.
+- A `needs-decision` verdict, and every disposition question the inventory raises.
+- Emptying `.draft/migration/` at the close: anything still in it is promoted or consciously dropped by the operator, never swept.
+
+## When it goes wrong
+
+- A gate failure citing a `domain:rule` ID routes to the sdd-write-docs skill's `## Gate triage`: read the rule with `sdd spec <domain>`, fix the document, re-run; never widen a budget or remove a gate to pass.
+- A source whose checksum changed mid-sweep returns its entry to planning; nothing is written from a stale classification.
+- A discovery — a document the inventory missed, a split the plan did not name, a deletion nobody approved — returns to planning and is never handled inline.
+- An interrupted sweep resumes from the checklist: reload it, re-checksum from the first unchecked entry, and continue. Re-running a completed entry proves equivalence and reports it; it does not rewrite.
+- An instance found older than the binary mid-sweep is its own entry through the sdd-setup skill's `## Upgrade`, not a step folded into another entry.
 
 ## Defaults
 
@@ -52,3 +67,4 @@ The chapter owns the procedure; this is the order of work.
 - No durable fact is lost: each one is rewritten into its owner, parked in `.draft/migration/`, or retired with the operator's approval.
 - Prefer an sdd verb over hand-editing anything the instance manifest owns; everything under `.spec-driven-docs/` belongs to the canon.
 - Report every step's outcome from observation, never from memory of what the command should do.
+- Never widen an approved scope inline: a discovered document, an extra split, a version upgrade is its own entry, approved at its own size.
