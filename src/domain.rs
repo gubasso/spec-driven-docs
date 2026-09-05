@@ -13,4 +13,5 @@ pub mod ownership;
 pub mod profile;
 pub mod rule_id;
 pub mod skill_record;
+pub mod tracking;
 pub mod version;

@@ -65,6 +65,7 @@ tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
 unicode-width = "0.2.2"
 walkdir = "2.5.0"
+yaml_serde = "0.10"
 
 [profile.release]
 lto = "thin"

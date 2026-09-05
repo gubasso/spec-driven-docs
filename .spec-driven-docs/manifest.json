@@ -29,7 +29,7 @@
     {
       "source": "skills/sdd-setup/SKILL.md",
       "destination": "skills/sdd-setup/SKILL.md",
-      "sha256": "1b116bf9e142cee3a17e66bd3236e3b41b54a4ba7c9558836070e51f12d150a8"
+      "sha256": "0fc1fd8aa7f410bdbc9dec8a57b20a002c11e73736b56eaaadfa8210cc3f66d5"
     },
     {
       "source": "skills/sdd-write-docs/SKILL.md",
@@ -45,6 +45,41 @@
       "source": "skill-shared/pre-flight-gate.md",
       "destination": "skill-shared/pre-flight-gate.md",
       "sha256": "87f09a012340a02b871af9853eb50623ca2544cdc7875a4e43b1166ad55ac679"
+    },
+    {
+      "source": "third-party/simpleenglish/LICENSE",
+      "destination": "third-party/simpleenglish/LICENSE",
+      "sha256": "10b2f9435643bae609e4c1a7690131b2aeb6941e9d867e934bc80619935a6f8f"
+    },
+    {
+      "source": "third-party/simpleenglish/prompts/system-prompt.md",
+      "destination": "third-party/simpleenglish/prompts/system-prompt.md",
+      "sha256": "73dacf384adf2f158646c03fba3eb2899880c906631e4206e4e9d96ecbcd0b9d"
+    },
+    {
+      "source": "third-party/simpleenglish/skills/simple-english/SKILL.md",
+      "destination": "third-party/simpleenglish/skills/simple-english/SKILL.md",
+      "sha256": "22f0e2cadcdb906177bb88352544e64dfda190ef994713049962559ef6693766"
+    },
+    {
+      "source": "third-party/simpleenglish/skills/simple-english/references/checklist.md",
+      "destination": "third-party/simpleenglish/skills/simple-english/references/checklist.md",
+      "sha256": "56c8296bd382a20912c4f789b2dd259d42f194c6a6686a25ea028f51aa0e130b"
+    },
+    {
+      "source": "third-party/simpleenglish/skills/simple-english/references/strict-vocabulary.md",
+      "destination": "third-party/simpleenglish/skills/simple-english/references/strict-vocabulary.md",
+      "sha256": "3f34ef3a878d9dc83de68191b5ddd6220fdb4e3c99eafc89425adfabd46258a7"
+    },
+    {
+      "source": "third-party/simpleenglish/skills/simple-english/references/use-cases.md",
+      "destination": "third-party/simpleenglish/skills/simple-english/references/use-cases.md",
+      "sha256": "6c5b342f706d346255466b86400d11d558c4db677a2f7ca5ec4dedb978df8a7c"
+    },
+    {
+      "source": "third-party/simpleenglish/skills/simple-english/references/word-swaps.md",
+      "destination": "third-party/simpleenglish/skills/simple-english/references/word-swaps.md",
+      "sha256": "e6cbc5677e3a910190eedf3d87fce49540b42863a6f2166cd1211dcce2074378"
     }
   ],
   "adopted_files": [
@@ -93,8 +128,8 @@
     {
       "source": "_docs/specs/SPEC-instance.md",
       "destination": "_docs/specs/SPEC-instance.md",
-      "sha256": "645cbd1a532d133da11277c4e56e8b1287cd89d0e8185d9d2dc0130a5920958c",
-      "baseline_sha256": "645cbd1a532d133da11277c4e56e8b1287cd89d0e8185d9d2dc0130a5920958c"
+      "sha256": "7e2bb645d230e02988c7349e2921b9e293f65a6a998c26ebd0357d7f4d183efb",
+      "baseline_sha256": "7e2bb645d230e02988c7349e2921b9e293f65a6a998c26ebd0357d7f4d183efb"
     },
     {
       "source": "_docs/specs/SPEC-known-issues.md",
@@ -105,14 +140,26 @@
     {
       "source": "_docs/specs/SPEC-release.md",
       "destination": "_docs/specs/SPEC-release.md",
-      "sha256": "e109a84d5c79ad0f8502ea45782017aabc8c0c6130e9a304c2043428dd87194e",
-      "baseline_sha256": "e109a84d5c79ad0f8502ea45782017aabc8c0c6130e9a304c2043428dd87194e"
+      "sha256": "9c40a08ac049d46593ee17e147258cbeca4b5b3e1a58f34c5c8d696339171263",
+      "baseline_sha256": "9c40a08ac049d46593ee17e147258cbeca4b5b3e1a58f34c5c8d696339171263"
+    },
+    {
+      "source": "_docs/specs/SPEC-simple-english.md",
+      "destination": "_docs/specs/SPEC-simple-english.md",
+      "sha256": "f7b5d359813553508c9bf43d894767aa7358b1885f7302eb9da7ce7b290782b8",
+      "baseline_sha256": "f7b5d359813553508c9bf43d894767aa7358b1885f7302eb9da7ce7b290782b8"
     },
     {
       "source": "_docs/specs/SPEC-spec-to-code.md",
       "destination": "_docs/specs/SPEC-spec-to-code.md",
       "sha256": "9062d227a2ddba668fce74ffc51e4018afe9b403bec0555ef953b589f1ad3189",
       "baseline_sha256": "9062d227a2ddba668fce74ffc51e4018afe9b403bec0555ef953b589f1ad3189"
+    },
+    {
+      "source": "_docs/specs/SPEC-tracking.md",
+      "destination": "_docs/specs/SPEC-tracking.md",
+      "sha256": "1d06d5913a17c9ff071463e99f869ee5da5ef2488da5b9967c14fe689f3ed9ca",
+      "baseline_sha256": "1d06d5913a17c9ff071463e99f869ee5da5ef2488da5b9967c14fe689f3ed9ca"
     },
     {
       "source": "_docs/decisions/TEMPLATE-adr.md",
@@ -125,12 +172,18 @@
       "destination": "_docs/reference/TEMPLATE-agents-digest.md",
       "sha256": "64212ee68f8603449d649c3224765c3e6845143785a7b6f714482f8924853ff2",
       "baseline_sha256": "64212ee68f8603449d649c3224765c3e6845143785a7b6f714482f8924853ff2"
+    },
+    {
+      "source": "templates/TEMPLATE-tracking.yaml",
+      "destination": "_docs/reference/tracking.yaml",
+      "sha256": "2253a558a2c41800e15277ec6ae9315180e991cef2756d78d41c061b25c6da30",
+      "baseline_sha256": "02dda0bbcaedb41598132fb8af48f11fe1e0f774870097687722664b08523388"
     }
   ],
   "integration_blocks": [
     {
       "path": ".pre-commit-config.yaml",
-      "marker_hash": "2d13972b110001afb3bd119a91ffd9775fae5f44f64c80743709fe0ea4975289"
+      "marker_hash": "24f069d629babbeee35613bb550a80a33219e736e5a7d67d21bbff4fb386e07a"
     }
   ]
 }

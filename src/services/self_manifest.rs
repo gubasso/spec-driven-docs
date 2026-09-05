@@ -100,6 +100,16 @@ pub fn regenerate(root: &Utf8Path) -> Result<String, AppError> {
             sha256: sha256_file(&root.join(&path))?,
         });
     }
+    // The vendored SimpleEnglish surface the profiles project into an
+    // instance. The canon records it at its authored path, so this record
+    // and an instance's hold the same bytes under different destinations.
+    for path in crate::domain::profile::SIMPLE_ENGLISH_MANAGED {
+        managed.push(ManagedEntry {
+            source: (*path).into(),
+            destination: (*path).into(),
+            sha256: sha256_file(&root.join(path))?,
+        });
+    }
 
     #[allow(clippy::case_sensitive_file_extension_comparisons)]
     let spec = |name: &str| name.starts_with("SPEC-") && name.ends_with(".md");
@@ -115,6 +125,18 @@ pub fn regenerate(root: &Utf8Path) -> Result<String, AppError> {
             destination: path.into(),
             sha256: digest.clone(),
             baseline_sha256: digest,
+        });
+    }
+    // The dogfood tracking registry: the canon owns its populated bytes, and
+    // the tracking template is the baseline an instance seeds from.
+    let registry = "_docs/reference/tracking.yaml";
+    let registry_baseline = "templates/TEMPLATE-tracking.yaml";
+    if root.join(registry).is_file() {
+        adopted.push(AdoptedEntry {
+            source: registry_baseline.into(),
+            destination: registry.into(),
+            sha256: sha256_file(&root.join(registry))?,
+            baseline_sha256: sha256_file(&root.join(registry_baseline))?,
         });
     }
 

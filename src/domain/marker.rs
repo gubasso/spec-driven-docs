@@ -12,10 +12,14 @@ use thiserror::Error;
 
 use crate::domain::ownership::Sha256;
 
-/// The line that opens the managed region.
+/// The line that opens the managed pre-commit region.
 pub const BEGIN: &str = "# BEGIN spec-driven-docs managed";
-/// The line that closes the managed region.
+/// The line that closes the managed pre-commit region.
 pub const END: &str = "# END spec-driven-docs managed";
+/// The line that opens the managed documentation region in `AGENTS.md`.
+pub const AGENTS_BEGIN: &str = "<!-- BEGIN spec-driven-docs docs -->";
+/// The line that closes the managed documentation region in `AGENTS.md`.
+pub const AGENTS_END: &str = "<!-- END spec-driven-docs docs -->";
 
 /// A host file whose markers cannot be trusted, or that cannot host a block.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
@@ -43,17 +47,34 @@ fn line_content(line: &str) -> &str {
 /// [`MarkerError::Malformed`] when the marker counts disagree or a second
 /// region appears; [`MarkerError::OutOfOrder`] when END precedes BEGIN.
 pub fn split_block(text: &str) -> Result<(String, Option<String>), MarkerError> {
+    split_block_with(text, BEGIN, END)
+}
+
+/// Split a host text into its lines outside a marked region and the region.
+///
+/// The pre-commit `split_block` is this with the pre-commit markers; the
+/// `AGENTS.md` block uses its own pair.
+///
+/// # Errors
+///
+/// [`MarkerError::Malformed`] when the marker counts disagree or a second
+/// region appears; [`MarkerError::OutOfOrder`] when the end precedes the begin.
+pub fn split_block_with(
+    text: &str,
+    begin: &str,
+    end: &str,
+) -> Result<(String, Option<String>), MarkerError> {
     let lines: Vec<&str> = text.split_inclusive('\n').collect();
-    let begins = lines.iter().filter(|l| line_content(l) == BEGIN).count();
-    let ends = lines.iter().filter(|l| line_content(l) == END).count();
+    let begins = lines.iter().filter(|l| line_content(l) == begin).count();
+    let ends = lines.iter().filter(|l| line_content(l) == end).count();
     if begins != ends || begins > 1 {
         return Err(MarkerError::Malformed);
     }
     if begins == 0 {
         return Ok((text.to_string(), None));
     }
-    let first_begin = lines.iter().position(|l| line_content(l) == BEGIN);
-    let first_end = lines.iter().position(|l| line_content(l) == END);
+    let first_begin = lines.iter().position(|l| line_content(l) == begin);
+    let first_end = lines.iter().position(|l| line_content(l) == end);
     let (Some(begin), Some(end)) = (first_begin, first_end) else {
         return Err(MarkerError::Malformed);
     };
@@ -157,16 +178,48 @@ pub fn splice_indent(base: &str) -> Result<String, MarkerError> {
 /// text, or `None` when no complete region exists.
 #[must_use]
 pub fn block_region(text: &str) -> Option<String> {
-    let lines: Vec<&str> = text.split_inclusive('\n').collect();
-    let begin = lines.iter().position(|l| line_content(l) == BEGIN)?;
-    let end = lines[begin..].iter().position(|l| line_content(l) == END)? + begin;
-    Some(lines[begin..=end].concat())
+    block_region_with(text, BEGIN, END)
 }
 
-/// The hash the manifest records for a host file's managed region.
+/// The marked region — begin through end inclusive — for the given marker
+/// pair, or `None` when no complete region exists.
+#[must_use]
+pub fn block_region_with(text: &str, begin: &str, end: &str) -> Option<String> {
+    let lines: Vec<&str> = text.split_inclusive('\n').collect();
+    let start = lines.iter().position(|l| line_content(l) == begin)?;
+    let stop = lines[start..].iter().position(|l| line_content(l) == end)? + start;
+    Some(lines[start..=stop].concat())
+}
+
+/// The hash the manifest records for a host file's managed pre-commit region.
 #[must_use]
 pub fn block_hash(text: &str) -> Option<Sha256> {
     block_region(text).map(|region| Sha256::of(region.as_bytes()))
+}
+
+/// The hash the manifest records for a host file's region under a marker pair.
+#[must_use]
+pub fn block_hash_with(text: &str, begin: &str, end: &str) -> Option<Sha256> {
+    block_region_with(text, begin, end).map(|region| Sha256::of(region.as_bytes()))
+}
+
+/// Place an `AGENTS.md` block into a host, preserving every outside byte.
+///
+/// An existing managed region is replaced; otherwise the block is appended
+/// after the host content with one blank line. The block is newline-
+/// terminated. `host` is the current file, or empty when the file is absent.
+///
+/// # Errors
+///
+/// [`MarkerError::Malformed`] / [`MarkerError::OutOfOrder`] when the host's
+/// existing markers cannot be trusted.
+pub fn place_agents_block(host: &str, block: &str) -> Result<String, MarkerError> {
+    let (base, _) = split_block_with(host, AGENTS_BEGIN, AGENTS_END)?;
+    let trimmed = base.trim_end_matches('\n');
+    if trimmed.is_empty() {
+        return Ok(block.to_string());
+    }
+    Ok(format!("{trimmed}\n\n{block}"))
 }
 
 #[cfg(test)]

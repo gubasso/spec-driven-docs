@@ -12,6 +12,7 @@
   - [`release:a-canon-gate-is-not-delivered` — A canon gate is not delivered](#releasea-canon-gate-is-not-delivered--a-canon-gate-is-not-delivered)
   - [`release:the-canon-record-describes-its-tree` — The canon record describes its tree](#releasethe-canon-record-describes-its-tree--the-canon-record-describes-its-tree)
   - [`release:the-rk-pin-has-two-facts-and-one-mover` — The rk pin has two facts and one mover](#releasethe-rk-pin-has-two-facts-and-one-mover--the-rk-pin-has-two-facts-and-one-mover)
+  - [`release:third-party-notices-travel-with-the-payload` — Third-party notices travel with the payload](#releasethird-party-notices-travel-with-the-payload--third-party-notices-travel-with-the-payload)
 
 <!--TOC-->
 
@@ -116,3 +117,15 @@ The devshell's pinned release-workflow CLI MUST have two facts and one mover: it
 - THEN it is reported as a leftover of a predecessor mechanism, because one project runs one mover
 
 Verify: `rk devshell status --target . --json` reports `ready` and an empty `leftovers` list
+
+### `release:third-party-notices-travel-with-the-payload` — Third-party notices travel with the payload
+
+The release MUST carry a third-party notice naming every vendored dependency, its upstream license, and the resolved revision it came from, and that notice MUST print from the binary through `sdd license --third-party`.
+
+#### Scenario: A consumer installs the binary and asks for the terms
+
+- GIVEN a vendored SimpleEnglish surface embedded in the binary
+- WHEN a consumer runs `sdd license --third-party`
+- THEN the notice prints byte-identical to `THIRD_PARTY_NOTICES.md`, names the upstream MIT terms and the resolved object ID, and the canon test proves the notice appears in the packaged crate
+
+Verify: `pre-commit run cargo-test --all-files`

@@ -41,11 +41,12 @@ fn installs_both_profiles_and_they_verify() {
                 "the instance installed {root}"
             );
         }
-        assert!(
-            !fixture
-                .read(".spec-driven-docs/manifest.json")
-                .contains("skills/")
-        );
+        // No agent skill is projected into the instance. The vendored
+        // SimpleEnglish SKILL.md is a dependency under the managed upstreams
+        // root, not an agent-discoverable skill, so it is not a counterexample.
+        let manifest = fixture.read(".spec-driven-docs/manifest.json");
+        assert!(!manifest.contains(".claude/skills"));
+        assert!(!manifest.contains(".agents/skills"));
         fixture
             .cmd()
             .args(["verify", "--target", &fixture.target()])
@@ -379,5 +380,60 @@ fn a_refused_apply_names_what_made_it_refuse() {
         digest,
         fixture.tree_digest(),
         "a refused apply changed bytes"
+    );
+}
+
+#[test]
+fn creates_a_root_agents_file_with_the_managed_block() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    let agents = fixture.read("AGENTS.md");
+    assert!(agents.contains("<!-- BEGIN spec-driven-docs docs -->"));
+    assert!(agents.contains("<!-- END spec-driven-docs docs -->"));
+    assert!(agents.contains("_docs/specs/SPEC-simple-english.md"));
+    assert!(agents.contains("SimpleEnglish `Plain` mode"));
+}
+
+#[test]
+fn an_existing_agents_file_keeps_every_byte_outside_the_markers() {
+    let fixture = Fixture::new();
+    fixture.write("AGENTS.md", "# Project\n\nLocal policy the project owns.\n");
+    fixture.install("codebase");
+    let agents = fixture.read("AGENTS.md");
+    assert!(agents.starts_with("# Project\n\nLocal policy the project owns.\n"));
+    assert!(agents.contains("<!-- BEGIN spec-driven-docs docs -->"));
+    // A reinstall is byte-stable.
+    let before = fixture.tree_digest();
+    fixture.install("codebase");
+    assert_eq!(before, fixture.tree_digest(), "reinstall changed AGENTS.md");
+}
+
+#[test]
+fn a_symlinked_agents_file_is_refused() {
+    let fixture = Fixture::new();
+    let outside = tempfile::tempdir().unwrap();
+    std::fs::write(outside.path().join("AGENTS.md"), "# elsewhere\n").unwrap();
+    std::os::unix::fs::symlink(
+        outside.path().join("AGENTS.md"),
+        fixture.path().join("AGENTS.md"),
+    )
+    .unwrap();
+    fixture
+        .cmd()
+        .args([
+            "init",
+            "--target",
+            &fixture.target(),
+            "--profile",
+            "knowledge-base",
+            "--apply",
+        ])
+        .assert()
+        .code(73)
+        .stderr(predicate::str::contains("AGENTS.md is a symlink"));
+    assert_eq!(
+        std::fs::read_to_string(outside.path().join("AGENTS.md")).unwrap(),
+        "# elsewhere\n",
+        "the install wrote through the symlink"
     );
 }

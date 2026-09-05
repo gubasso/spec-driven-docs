@@ -27,6 +27,17 @@ Prebuilt installers ship with each GitHub release, and `cargo binstall spec-driv
 
 The `sdd` CLI is the whole interface. Nothing here is tied to a particular editor or agent.
 
+## Conventions and dependencies
+
+This project depends on and integrates [SimpleEnglish](https://github.com/AminBlg/SimpleEnglish), and activates its `Plain` mode as the default for in-scope technical writing. The consumed surface is vendored under `third-party/simpleenglish/` for offline use, and the binary embeds it, so a fresh `sdd init` writes the default into the project's `AGENTS.md` and every instance reads the pattern with no network. This project implements only the compatibility adapters a single offline binary needs: a rule-citing gate, structural passage resolution, and the tracking registry that reports a stale upstream. It does not fork, rename, or paraphrase the SimpleEnglish pattern.
+
+Every adopted convention and material dependency has one owner and an outward link:
+
+- The integration contract: [`_docs/specs/SPEC-simple-english.md`](./_docs/specs/SPEC-simple-english.md).
+- The full catalog of dependencies and conventions: [reference/dependencies-and-conventions.md](./reference/dependencies-and-conventions.md).
+- The pinned upstream, its license, and the vendored paths: [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md), also printed by `sdd license --third-party`.
+- The freshness registry that detects a moved upstream: `sdd track status` reads it offline, and `sdd track check` compares the pinned revision online.
+
 ## License
 
 The method is under [CC BY 4.0](./LICENSE-CC-BY-4.0) and the distribution that installs it is under the [MIT License](./LICENSE-MIT). [LICENSE](./LICENSE) states which side each file falls on, and `sdd license` prints the terms the binary carries.

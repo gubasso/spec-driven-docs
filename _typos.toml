@@ -1,8 +1,17 @@
 [files]
-extend-exclude = ["flake.lock", "tests/fixtures/**"]
+extend-exclude = ["flake.lock", "tests/fixtures/**", "third-party/**"]
 
 [default.extend-words]
 MADR = "MADR"
+# Verb stems in the SimpleEnglish "-ing" clause pattern in src/gates/simple_english.rs.
+mak = "mak"
+enabl = "enabl"
+ensur = "ensur"
+creat = "creat"
+provid = "provid"
+reduc = "reduc"
+improv = "improv"
+caus = "caus"
 Diataxis = "Diataxis"
 Bugzilla = "Bugzilla"
 dprint = "dprint"

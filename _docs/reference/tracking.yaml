@@ -1,21 +1,68 @@
+schema_version: 1
 tracked:
-  - path: .pre-commit-config.yaml
+  - id: pre-commit-hooks
+    path: .pre-commit-config.yaml
     last_checked: 2026-08-24
-    cadence: 30d
+    cadence_days: 30
     why: hook release tags change independently
-    revalidate: confirm every rev against the publisher's release or tag listing
+    revalidate:
+      - confirm every rev against the publisher's release or tag listing
+      - update the rev and advance last_checked
     dependents:
       - flake.lock
-  - path: dprint.json
+  - id: dprint-plugins
+    path: dprint.json
     last_checked: 2026-08-24
-    cadence: 90d
+    cadence_days: 90
     why: plugin WASM URLs are versioned endpoints
-    revalidate: resolve each plugin URL before changing it
+    revalidate:
+      - resolve each plugin URL before changing it
+      - update the URL and advance last_checked
     dependents:
       - flake.lock
-  - path: reference/prior-art/spec-driven-development.md
+  - id: prior-art
+    path: reference/prior-art/spec-driven-development.md
     last_checked: 2026-08-24
-    cadence: 90d
+    cadence_days: 90
     why: referenced tools and guidance evolve
-    revalidate: read the current primary documentation
+    revalidate:
+      - read the current primary documentation
+      - update the page and advance last_checked
     dependents: []
+  - id: dependencies-and-conventions
+    path: reference/dependencies-and-conventions.md
+    last_checked: 2026-09-05
+    cadence_days: 90
+    why: the disclosed dependencies and conventions change over time
+    revalidate:
+      - confirm each row against its version source
+      - update the catalog and advance last_checked
+    dependents:
+      - README.md
+  - id: simple-english
+    path: third-party/simpleenglish/UPSTREAM.json
+    last_checked: 2026-09-05
+    cadence_days: 30
+    why: the vendored SimpleEnglish dependency has a release cadence
+    revalidate:
+      - run sdd track check --id simple-english to detect upstream movement
+      - preview the update with scripts/vendor-simpleenglish.sh --revision <observed-commit>
+      - review upstream changes against the compatibility table in specs/SPEC-simple-english.md
+      - apply the exact vendor refresh with scripts/vendor-simpleenglish.sh --revision <observed-commit> --apply
+      - update only the necessary compatibility adapters and run the conformance tests
+      - advance source.revision and last_checked
+    dependents:
+      - third-party/simpleenglish/LICENSE
+      - third-party/simpleenglish/prompts/system-prompt.md
+      - third-party/simpleenglish/skills/simple-english/SKILL.md
+      - third-party/simpleenglish/skills/simple-english/references/checklist.md
+      - third-party/simpleenglish/skills/simple-english/references/strict-vocabulary.md
+      - third-party/simpleenglish/skills/simple-english/references/use-cases.md
+      - third-party/simpleenglish/skills/simple-english/references/word-swaps.md
+      - THIRD_PARTY_NOTICES.md
+    source:
+      kind: git
+      repository: https://github.com/AminBlg/SimpleEnglish
+      reference: refs/tags/v2.0.0
+      revision: d9e523409686e88df175623f7a692d025aff95b1
+      license: MIT

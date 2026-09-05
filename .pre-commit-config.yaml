@@ -1,5 +1,10 @@
 default_install_hook_types: [pre-commit, commit-msg, pre-push]
 
+# The vendored dependency surface is owned upstream and refreshed only by
+# scripts/vendor-simpleenglish.sh. No repo-wide formatter or linter may touch
+# it, or it drifts from its recorded digests.
+exclude: '^third-party/'
+
 repos:
 # BEGIN release-kit
 # The release convention's hooks. Install every stage they run at:
@@ -316,6 +321,23 @@ repos:
       - id: gate-message-cites-a-rule
         name: gate messages cite a rule
         entry: cargo run -q -- gate gate-message-cites-a-rule
+        language: system
+        always_run: true
+        pass_filenames: false
+      - id: simple-english
+        name: prose follows SimpleEnglish
+        entry: cargo run -q -- gate simple-english
+        language: system
+        types: [markdown]
+        # The delivered gate excludes decisions, generated output, and the
+        # vendored surface. This canon adds a shrinking adoption exemption:
+        # the files below predate the convention and are converted in
+        # batches. Remove a path here once it passes; the gate then enforces
+        # it. This exemption is canon-local and ships to no instance.
+        exclude: '(^_docs/decisions/|^docs/decisions/|(?:^|/)CHANGELOG\.md$|^third-party/|^\.spec-driven-docs/|(?:^|/)tests/fixtures/|^(?:AGENTS\.md|README\.md|_docs/guides/release\-setup\.md|_docs/guides/release\.md|_docs/reference/TEMPLATE\-agents\-digest\.md|_docs/specs/SPEC\-comparison\-docs\.md|_docs/specs/SPEC\-decision\-records\.md|_docs/specs/SPEC\-distribution\.md|_docs/specs/SPEC\-docs\-format\.md|_docs/specs/SPEC\-docs\-foundations\.md|_docs/specs/SPEC\-docs\-specs\.md|_docs/specs/SPEC\-guides\.md|_docs/specs/SPEC\-instance\.md|_docs/specs/SPEC\-known\-issues\.md|_docs/specs/SPEC\-release\.md|_docs/specs/SPEC\-spec\-to\-code\.md|comparison\-docs/00\-model\.md|comparison\-docs/01\-table\-shape\.md|comparison\-docs/02\-verdicts\.md|comparison\-docs/03\-references\.md|comparison\-docs/04\-scenarios\.md|comparison\-docs/05\-freshness\.md|comparison\-docs/06\-gates\.md|comparison\-docs/99\-checklist\.md|comparison\-docs/AGENTS\.md|comparison\-docs/README\.md|comparison\-docs/SOURCES\.md|instance/README\.md|method/00\-model\.md|method/01\-placement\.md|method/02\-specs\.md|method/03\-rules\.md|method/04\-decisions\.md|method/05\-agent\-context\.md|method/06\-format\.md|method/07\-lifecycle\.md|method/08\-gates\.md|method/09\-spec\-to\-code\.md|method/10\-procedures\.md|method/11\-operational\.md|method/12\-migration\.md|method/99\-checklist\.md|method/glossary\.md|reference/prior\-art/spec\-driven\-development\.md|reference/tracker\-markup/bugzilla\-comment\-syntax\.md|reference/tracker\-markup/jira\-wiki\-markup\.md|skill\-shared/plan\-gate\.md|skill\-shared/pre\-flight\-gate\.md|skills/sdd\-migrate/SKILL\.md|skills/sdd\-setup/SKILL\.md|skills/sdd\-write\-docs/SKILL\.md|templates/TEMPLATE\-adr\.md|templates/TEMPLATE\-agents\-digest\.md|templates/TEMPLATE\-comparison\.md|templates/TEMPLATE\-docs\-rules\.md)$)'
+      - id: tracking-registry
+        name: tracking registry is valid and current
+        entry: cargo run -q -- gate tracking-registry
         language: system
         always_run: true
         pass_filenames: false

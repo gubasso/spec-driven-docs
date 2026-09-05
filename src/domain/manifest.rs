@@ -99,6 +99,15 @@ impl Manifest {
                 "managed_files is empty".to_string(),
             ));
         }
+        let mut paths = std::collections::BTreeSet::new();
+        for block in &manifest.integration_blocks {
+            if !paths.insert(&block.path) {
+                return Err(ManifestParseError::Invalid(format!(
+                    "duplicate integration block path: {}",
+                    block.path
+                )));
+            }
+        }
         Ok(manifest)
     }
 

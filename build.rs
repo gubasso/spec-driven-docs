@@ -10,11 +10,12 @@
 include!("src/payload_roots.rs");
 
 fn main() {
-    for dir in PAYLOAD_ROOTS
-        .iter()
-        .copied()
-        .chain(["LICENSE", "LICENSE-MIT", "LICENSE-CC-BY-4.0"])
-    {
+    for dir in PAYLOAD_ROOTS.iter().copied().chain([
+        "LICENSE",
+        "LICENSE-MIT",
+        "LICENSE-CC-BY-4.0",
+        "THIRD_PARTY_NOTICES.md",
+    ]) {
         println!("cargo:rerun-if-changed={dir}");
     }
     println!("cargo:rerun-if-changed=src/payload_roots.rs");

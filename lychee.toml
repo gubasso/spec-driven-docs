@@ -3,6 +3,7 @@ cache = true
 max_retries = 3
 
 exclude = [
+  '^third-party/',
   "https://example.invalid/.*",
   # Owner-only settings pages: 404 to anyone not signed in as the owner.
   '^https://github\.com/[^/]+/[^/]+/settings(/|$)',

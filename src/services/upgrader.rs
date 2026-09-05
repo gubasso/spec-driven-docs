@@ -40,6 +40,17 @@ struct Installed {
     profile: ProfileId,
     docs_root: String,
     managed: Vec<(Utf8PathBuf, Sha256)>,
+    integration: Vec<(Utf8PathBuf, Sha256)>,
+}
+
+/// The marker pair a host file's managed region uses.
+fn markers_for(path: &str) -> (&'static str, &'static str) {
+    use crate::domain::marker::{AGENTS_BEGIN, AGENTS_END, BEGIN, END};
+    if path == ".pre-commit-config.yaml" {
+        (BEGIN, END)
+    } else {
+        (AGENTS_BEGIN, AGENTS_END)
+    }
 }
 
 fn read_installed(target: &Utf8Path) -> Result<Installed, AppError> {
@@ -58,6 +69,11 @@ fn read_installed(target: &Utf8Path) -> Result<Installed, AppError> {
                 .into_iter()
                 .map(|entry| (entry.destination, entry.sha256))
                 .collect(),
+            integration: manifest
+                .integration_blocks
+                .into_iter()
+                .map(|block| (block.path, block.marker_hash))
+                .collect(),
         }),
         Err(ManifestParseError::Older(1)) => {
             let legacy: LegacyManifest = serde_json::from_str(&text)
@@ -71,6 +87,7 @@ fn read_installed(target: &Utf8Path) -> Result<Installed, AppError> {
                     .into_iter()
                     .map(|entry| (entry.destination, entry.sha256))
                     .collect(),
+                integration: Vec::new(),
             })
         }
         Err(error) => Err(AppError::ManifestInvalid(error.to_string())),
@@ -202,6 +219,22 @@ pub fn upgrade(options: &UpgradeOptions) -> Result<UpgradeOutcome, AppError> {
             conflicts.push(format!(
                 "CONFLICT locally edited managed file: {destination}"
             ));
+        }
+    }
+    // A locally edited managed integration region is a conflict too: the
+    // reinstall re-splices the region, so an edit inside the markers would be
+    // lost. An edit outside the markers is the project's own and survives.
+    for (path, recorded) in &installed.integration {
+        let full = target.join(path);
+        if !full.is_file() {
+            conflicts.push(format!("CONFLICT missing integration host: {path}"));
+            continue;
+        }
+        let (begin, end) = markers_for(path.as_str());
+        let host = std::fs::read_to_string(&full)?;
+        match crate::domain::marker::block_hash_with(&host, begin, end) {
+            Some(present) if present == *recorded => {}
+            _ => conflicts.push(format!("CONFLICT locally edited managed block: {path}")),
         }
     }
     if !conflicts.is_empty() {

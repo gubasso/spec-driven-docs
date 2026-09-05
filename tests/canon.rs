@@ -501,13 +501,19 @@ fn every_sdd_invocation_a_skill_cites_names_a_real_subcommand() {
 }
 
 /// SATISFIES distribution:skills-are-part-of-the-payload
+///
+/// The install manages the `AGENTS.md` documentation block now, so the skill
+/// defers to `sdd init` rather than hand-copying a section that would drift.
 #[test]
-fn the_sdd_setup_skill_quotes_the_agents_snippet_verbatim() {
-    let snippet = read("instance/snippets/AGENTS-docs.md");
+fn the_sdd_setup_skill_defers_the_agents_block_to_the_installer() {
     let skill = read("skills/sdd-setup/SKILL.md");
     assert!(
-        skill.contains(snippet.trim_end()),
-        "skills/sdd-setup/SKILL.md no longer quotes instance/snippets/AGENTS-docs.md"
+        skill.contains("`sdd init` manages this"),
+        "skills/sdd-setup/SKILL.md no longer defers the AGENTS block to the installer"
+    );
+    assert!(
+        skill.contains("SPEC-simple-english.md"),
+        "the skill does not name the SimpleEnglish default the block installs"
     );
 }
 
@@ -719,4 +725,105 @@ fn a_seeded_rule_runs_no_canon_command() {
         }
     }
     assert!(commands > 0, "no seeded rule carries a command to judge");
+}
+
+fn upstream_record() -> serde_json::Value {
+    serde_json::from_str(&read("third-party/simpleenglish/UPSTREAM.json")).unwrap()
+}
+
+/// SATISFIES release:third-party-notices-travel-with-the-payload
+#[test]
+fn the_notice_names_the_resolved_revision_and_terms() {
+    let notice = read("THIRD_PARTY_NOTICES.md");
+    let record = upstream_record();
+    let revision = record["revision"].as_str().unwrap();
+    assert!(
+        notice.contains(revision),
+        "the notice omits the resolved revision"
+    );
+    assert!(notice.contains("MIT"), "the notice omits the MIT terms");
+    assert!(
+        notice.contains("https://github.com/AminBlg/SimpleEnglish"),
+        "the notice omits the upstream repository"
+    );
+    // The binary carries the notice byte-for-byte.
+    assert_eq!(
+        spec_driven_docs::embedded::THIRD_PARTY_NOTICES,
+        notice,
+        "the embedded notice differs from the file"
+    );
+}
+
+/// SATISFIES release:third-party-notices-travel-with-the-payload
+#[test]
+fn the_vendored_surface_matches_its_recorded_digests() {
+    use spec_driven_docs::domain::ownership::Sha256;
+    let record = upstream_record();
+    for entry in record["files"].as_array().unwrap() {
+        let path = entry["path"].as_str().unwrap();
+        let recorded = entry["sha256"].as_str().unwrap();
+        let bytes = std::fs::read(canon().join("third-party/simpleenglish").join(path))
+            .unwrap_or_else(|_| panic!("vendored file missing: {path}"));
+        assert_eq!(
+            Sha256::of(&bytes).to_string(),
+            recorded,
+            "{path} differs from its UPSTREAM.json digest; re-run scripts/vendor-simpleenglish.sh"
+        );
+    }
+    // The upstream MIT license travels with the surface.
+    assert!(read("third-party/simpleenglish/LICENSE").contains("MIT License"));
+}
+
+/// SATISFIES release:third-party-notices-travel-with-the-payload
+///
+/// The crate excludes no vendored file, so the notice and the surface ship in
+/// the packaged crate.
+#[test]
+fn the_package_carries_the_notice_and_the_vendored_surface() {
+    let cargo = read("Cargo.toml");
+    for kept in ["/third-party", "/THIRD_PARTY_NOTICES.md", "/LICENSE"] {
+        assert!(
+            !cargo.contains(&format!("\"{kept}\"")),
+            "Cargo.toml excludes {kept}, which must travel with the payload"
+        );
+    }
+}
+
+/// SATISFIES simple-english:the-dependency-is-available-offline
+///
+/// The profile projects exactly the vendored files an installed author reads,
+/// and no canon-only oracle.
+#[test]
+fn the_profile_projects_the_instance_scope_of_the_vendored_surface() {
+    use spec_driven_docs::domain::profile::SIMPLE_ENGLISH_MANAGED;
+    let record = upstream_record();
+    let instance: std::collections::BTreeSet<String> = record["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|f| f["scope"] == "instance")
+        .map(|f| format!("third-party/simpleenglish/{}", f["path"].as_str().unwrap()))
+        .collect();
+    let projected: std::collections::BTreeSet<String> = SIMPLE_ENGLISH_MANAGED
+        .iter()
+        .map(|s| (*s).to_string())
+        .collect();
+    assert_eq!(
+        projected, instance,
+        "the projection and the instance-scope surface disagree"
+    );
+}
+
+/// SATISFIES tracking:an-upstream-derivation-pins-a-revision
+///
+/// The dependency's resolved object ID has one owner. The tracking entry and
+/// the notice both point at UPSTREAM.json rather than retyping it.
+#[test]
+fn the_tracking_entry_pins_the_vendored_revision() {
+    let revision = upstream_record()["revision"].as_str().unwrap().to_string();
+    let registry = read("_docs/reference/tracking.yaml");
+    assert!(
+        registry.contains(&format!("revision: {revision}")),
+        "the simple-english tracking entry does not pin the vendored revision"
+    );
 }

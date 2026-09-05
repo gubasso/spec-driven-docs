@@ -15,6 +15,7 @@ pub mod license;
 pub mod read;
 pub mod skill;
 pub mod status;
+pub mod track;
 pub mod upgrade;
 pub mod verify;
 
@@ -67,6 +68,8 @@ pub enum Commands {
     Skill(skill::SkillArgs),
     /// Report an instance's state without gating on it.
     Status(status::StatusArgs),
+    /// Report tracking freshness offline, or check upstreams over the network.
+    Track(track::TrackArgs),
     /// Probe this host's readiness and report by class; never fails.
     Doctor(doctor::DoctorArgs),
     /// Classify a target repository before anything lands; every classification exits 0.
