@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.4](https://github.com/gubasso/spec-driven-docs/compare/v0.4.3...v0.4.4) - 2026-09-05
+
+### Added
+
+- *(distribution)* Package for Nix and adopt the devshell pin ([#26](https://github.com/gubasso/spec-driven-docs/pull/26))
+
+### Fixed
+
+- *(release)* Anchor the pin matcher to the assignment and fail closed ([#21](https://github.com/gubasso/spec-driven-docs/pull/21))
+- *(release)* Close the review findings on the rk pin bump ([#19](https://github.com/gubasso/spec-driven-docs/pull/19))
+
 ## [0.4.3](https://github.com/gubasso/spec-driven-docs/compare/v0.4.2...v0.4.3) - 2026-09-04
 
 ### Added
