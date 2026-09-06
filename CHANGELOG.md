@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.12](https://github.com/gubasso/spec-driven-docs/compare/v0.4.11...v0.4.12) - 2026-09-06
+
+### Other
+
+- *(skills)* Rewrite the skills and shared gates in Plain ([#43](https://github.com/gubasso/spec-driven-docs/pull/43))
+
 ## [0.4.11](https://github.com/gubasso/spec-driven-docs/compare/v0.4.10...v0.4.11) - 2026-09-06
 
 ### Other
