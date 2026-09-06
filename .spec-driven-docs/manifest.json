@@ -34,7 +34,7 @@
     {
       "source": "skills/sdd-write-docs/SKILL.md",
       "destination": "skills/sdd-write-docs/SKILL.md",
-      "sha256": "0afebaa7a27f05fcbc8ec4dd8f054b9f08a629ef376ce734111c553d7bdd5378"
+      "sha256": "bcba257cd070308a0c789301a74a22a5b4c015d58703dc1c98e8abbd9ab7e0cc"
     },
     {
       "source": "skill-shared/plan-gate.md",
