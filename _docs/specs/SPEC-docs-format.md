@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Rules governing the markdown every document in this project is written in, and the size budgets that keep documents inside the range where retrieval stays reliable.
+Rules governing the markdown every document in this project is written in, and the size budgets. Those budgets keep documents inside the range where retrieval stays reliable.
 
 ## Requirements
 
@@ -32,13 +32,13 @@ Verify: `pre-commit run agents-digest-size --all-files`
 
 ### `docs-format:every-budget-carries-a-gate` — Every count-shaped budget carries a gate
 
-The project MUST enforce every budget stated as a count with a command that fails the change, and MUST NOT raise a budget to admit a document that exceeds it.
+The project MUST enforce every count-shaped budget with a command that fails the change, and MUST NOT raise a budget to admit an over-budget document.
 
 #### Scenario: A document arrives over its budget
 
 - GIVEN a chapter that will not fit in 200 lines
 - WHEN an author reaches for the cap rather than the content
-- THEN the chapter splits, because the gate that admits it would admit the next one too
+- THEN the chapter splits, because a gate that admits it admits the next one too
 
 Verify: `for h in adr-word-cap agents-digest-size spec-size-cap chapter-size-cap; do grep -q "id: $h$" .pre-commit-config.yaml || exit 1; done`
 
@@ -80,7 +80,7 @@ Verify: `pre-commit run markdownlint-cli2 --all-files`
 
 ### `docs-format:prose-stays-unwrapped` — Prose stays unwrapped
 
-The author MUST keep each paragraph, list item, and blockquote paragraph on one source line, leaving fenced code, tables, and explicit hard breaks as the only multi-line constructs.
+The author MUST keep each paragraph, list item, and blockquote paragraph on one source line. Only fenced code, tables, and explicit hard breaks span more than one line.
 
 A generated `CHANGELOG.md` is exempt: the rule binds the author, and a release tool writes that file at its own wrap width.
 
