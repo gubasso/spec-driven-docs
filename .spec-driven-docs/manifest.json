@@ -24,27 +24,27 @@
     {
       "source": "skills/sdd-migrate/SKILL.md",
       "destination": "skills/sdd-migrate/SKILL.md",
-      "sha256": "fb75f524a47dec603a9a2c766f144ba2ba0e752709f64c482511b05b9ae5357b"
+      "sha256": "e52dadac4d7cc5014ceaec0aefe8d1636e6d4beda491563cf8a745227154fb17"
     },
     {
       "source": "skills/sdd-setup/SKILL.md",
       "destination": "skills/sdd-setup/SKILL.md",
-      "sha256": "0fc1fd8aa7f410bdbc9dec8a57b20a002c11e73736b56eaaadfa8210cc3f66d5"
+      "sha256": "3e5d088aaa440571389a909656e268a1cf1de50e0a146c4d2beb33abce1f445d"
     },
     {
       "source": "skills/sdd-write-docs/SKILL.md",
       "destination": "skills/sdd-write-docs/SKILL.md",
-      "sha256": "0afebaa7a27f05fcbc8ec4dd8f054b9f08a629ef376ce734111c553d7bdd5378"
+      "sha256": "bcba257cd070308a0c789301a74a22a5b4c015d58703dc1c98e8abbd9ab7e0cc"
     },
     {
       "source": "skill-shared/plan-gate.md",
       "destination": "skill-shared/plan-gate.md",
-      "sha256": "a0977a277e43c1c57bafcd6d1c4281626a4183d362f5fc891f4abfa45dfa9175"
+      "sha256": "f3a78f73b5cce272b83944415285e36af5d67cc21b82ad434ec47c8a0d5865ae"
     },
     {
       "source": "skill-shared/pre-flight-gate.md",
       "destination": "skill-shared/pre-flight-gate.md",
-      "sha256": "87f09a012340a02b871af9853eb50623ca2544cdc7875a4e43b1166ad55ac679"
+      "sha256": "2a0c993f36d95867034921e17e15f303754aebc96f57daf541bc9bb081e721f2"
     },
     {
       "source": "third-party/simpleenglish/LICENSE",
@@ -183,7 +183,7 @@
   "integration_blocks": [
     {
       "path": ".pre-commit-config.yaml",
-      "marker_hash": "804194cee4d61a9ca3edfccba2338602f7605411de72c0249c70791f22133c4f"
+      "marker_hash": "85024b34c7dc0d7eaac4cc3b5085f46d96335f3a59a42ae18d3007fd599cbb3b"
     }
   ]
 }
