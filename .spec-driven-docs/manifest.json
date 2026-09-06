@@ -183,7 +183,7 @@
   "integration_blocks": [
     {
       "path": ".pre-commit-config.yaml",
-      "marker_hash": "081a6a29360d854d7392d48a9b40d89162db5463f16d3e5549451c96e79ad2f2"
+      "marker_hash": "804194cee4d61a9ca3edfccba2338602f7605411de72c0249c70791f22133c4f"
     }
   ]
 }

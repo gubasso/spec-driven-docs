@@ -1,6 +1,6 @@
 # Glossary
 
-Terms this framework fixes, each resolved at the chapter that owns it. A term is defined once; this page points rather than restates.
+Terms this framework fixes, each resolved at the chapter that owns it. A term is defined once. This page points rather than restates.
 
 | Term                     | Means                                                                   | Owner                 |
 | ------------------------ | ----------------------------------------------------------------------- | --------------------- |

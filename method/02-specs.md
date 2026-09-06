@@ -1,6 +1,6 @@
 # 02 — Specs
 
-A spec states what is true now for one domain, in rules an agent can apply and a command can check. It is the artifact loaded before work starts and the artifact that wins when two documents disagree. This chapter owns the container; [03 — Rules](./03-rules.md) owns the requirement blocks inside it.
+A spec states what is true now for one domain, in rules an agent can apply and a command can check. It is the artifact loaded before work starts and the artifact that wins when two documents disagree. This chapter owns the container. [03 Rules](./03-rules.md) owns the requirement blocks inside it.
 
 ## Shape
 
@@ -32,7 +32,7 @@ Verify: `<command that exits non-zero on violation>`
 - Every requirement MUST be an `### \`<id>\` — <title>`heading under`## Requirements`.
 - A spec MUST NOT introduce a section outside this shape.
 
-[08 — Gates](./08-gates.md) wires the check that holds it.
+[08 Gates](./08-gates.md) wires the check that holds it.
 
 ## Purpose
 
@@ -42,9 +42,9 @@ The paragraph exists so a reader loading the wrong spec finds out in one sentenc
 
 ## Requirements
 
-The body is an ordered list of requirement blocks and nothing else. No narrative between them, no rationale, no history of how a rule came to be. A rule that needs an argument has a decision record, and the record names the rule; the spec states the rule and stops. The single exception is the clarification marker, owned by [03 — Rules](./03-rules.md).
+The body is an ordered list of requirement blocks and nothing else. No narrative between them, no rationale, no history of how a rule came to be. A rule that needs an argument has a decision record, and the record names the rule. The spec states the rule and stops. The single exception is the clarification marker, owned by [03 Rules](./03-rules.md).
 
-Order matters. Put the requirement most likely to be violated first: retrieval accuracy is highest near the start of a document, and a rule buried at line 240 is a rule an agent may not act on.
+Order matters. Put the requirement most likely to be violated first: retrieval accuracy is highest near the start of a document. A rule buried at line 240 is a rule an agent can fail to act on.
 
 - Requirements MUST be ordered with the most consequential first.
 - A requirement MUST NOT be separated from the next by anything but a clarification marker.
@@ -65,9 +65,9 @@ When a spec grows past its budget, the usual cause is two domains sharing a file
 | Requirement statement | one sentence                 |
 | Scenario              | four bullets or fewer        |
 
-A file longer than 100 lines may be read in part rather than whole, and a partial read starting at the top must still show everything the spec covers. That is what the table of contents buys.
+A file longer than 100 lines can be read in part rather than whole. A partial read starting at the top must still show everything the spec covers. That is what the table of contents buys.
 
-The TOC is excluded from the length because the cap bounds authored content and a generated index is not authored. Counting it would let one added requirement push a spec over the cap through index growth rather than content growth. [06 — Format](./06-format.md) owns the full budget table and the reasoning behind the numbers.
+The TOC is excluded from the length because the cap bounds authored content and a generated index is not authored. If the TOC counted toward the length, one added requirement can push a spec over the cap through index growth rather than content growth. [06 Format](./06-format.md) owns the full budget table and the reasoning behind the numbers.
 
 ## Companion artifacts
 
@@ -85,7 +85,7 @@ _docs/specs/
 - The author MUST place a spec's supporting artifacts in `<root>/specs/SPEC-<domain>/`.
 - The author MUST create that directory only when a requirement names an artifact inside it.
 
-The directory is not a second home for documentation. The test is whether the artifact has a reader who arrives without the spec: a pricing table, a diagnostics matrix, or a field list has one, and belongs in reference. A JSON Schema a verification command runs against, a fixture that command consumes, or a golden file it compares to has no independent reader and no reader-need zone at all. Those are what the directory is for.
+The directory is not a second home for documentation. The test is whether the artifact has a reader who arrives without the spec: a pricing table, a diagnostics matrix, or a field list has one, and belongs in reference. A JSON Schema a verification command runs against, a fixture that command consumes, or a golden file it compares to has no independent reader. Such an artifact has no reader-need zone at all. Those are what the directory is for.
 
 An artifact a reader is expected to copy and run is neither. It ships beside whatever explains it, as product content rather than metadata about the project.
 
@@ -107,11 +107,11 @@ State the change, not the unchanged. A change description names what was added, 
 
 A record names the rule ID it enforces and the spec never names the record, so the log sits off the traversal path: an agent walking from the author-instructions file to a spec and on to what the spec names never arrives at a record. That is what makes an unbounded log free.
 
-Asking the reader not to load the log is the weaker half. A reader must resist the link on every session; an author removes it once.
+Asking the reader not to load the log is the weaker half. A reader must resist the link on every session. An author removes it once.
 
-Rationale is found by searching, `rg -F '<domain-slug>:<rule-slug>' <root>/decisions`, which returns every record that argued for the rule. A forward link could name only one and would go stale as soon as a second landed.
+Rationale is found by searching, `rg -F '<domain-slug>:<rule-slug>' <root>/decisions`, which returns every record that argued for the rule. A forward link can name only one and goes stale as soon as a second lands.
 
-A rule that would otherwise read as arbitrary gets two sentences of rationale here, where they are already loaded. One needing more than that is underspecified, not under-linked.
+A rule that otherwise reads as arbitrary gets two sentences of rationale here, where they are already loaded. One needing more than that is underspecified, not under-linked.
 
 ## When a spec exists
 
@@ -126,9 +126,9 @@ A domain with exactly one rule still gets a spec. The overhead is four headings.
 
 ## What a spec is not
 
-- Not a tutorial. A reader learning the subject reads explanation; a spec is read by someone about to act.
-- Not a field list. Exact values belong in reference and exact behavior belongs in code; see [00 — Model](./00-model.md).
-- Not a decision record. A spec states the rule; the record that argued for it names the rule ID.
+- Not a tutorial. A reader learning the subject reads explanation. Someone about to act reads a spec.
+- Not a field list. Exact values belong in reference and exact behavior belongs in code. See [00 Model](./00-model.md).
+- Not a decision record. A spec states the rule. The record that argued for it names the rule ID.
 - Not a plan. What the project builds next is perishable and lives in the plan zone.
 
 ## Worked example
