@@ -86,8 +86,8 @@
     {
       "source": "_docs/specs/SPEC-comparison-docs.md",
       "destination": "_docs/specs/SPEC-comparison-docs.md",
-      "sha256": "8a4944ceb4109baa6a945951ad952ce8d1222cbf55e2b311aeba6987f2007fde",
-      "baseline_sha256": "8a4944ceb4109baa6a945951ad952ce8d1222cbf55e2b311aeba6987f2007fde"
+      "sha256": "e9e3525239db5ad1408ab2b3d9b78624524b36885b7ffa478618a0b65f3de804",
+      "baseline_sha256": "e9e3525239db5ad1408ab2b3d9b78624524b36885b7ffa478618a0b65f3de804"
     },
     {
       "source": "_docs/specs/SPEC-decision-records.md",
