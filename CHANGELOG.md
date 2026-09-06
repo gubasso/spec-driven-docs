@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.7](https://github.com/gubasso/spec-driven-docs/compare/v0.4.6...v0.4.7) - 2026-09-06
+
+### Other
+
+- *(templates)* Rewrite the templates in Plain ([#32](https://github.com/gubasso/spec-driven-docs/pull/32))
+
 ## [0.4.6](https://github.com/gubasso/spec-driven-docs/compare/v0.4.5...v0.4.6) - 2026-09-05
 
 ### Added
