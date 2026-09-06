@@ -75,7 +75,7 @@ What is forbidden is a shape, not a syntax: an index of a directory, kept becaus
 
 Naming files in prose is normal. A list, a table, or a full tree stays wherever its entries carry their own payload: what a directory reserves, what a file specifies, its domain, its scope.
 
-The test is what a change to the tree will cost. Strip the paths out and read what is left. If the passage still teaches, it was documentation that happened to name files. If nothing survives, it was the listing.
+The test is what a change to the tree costs. Strip the paths out and read what is left. If the passage still teaches, it was documentation that happened to name files. If nothing survives, it was the listing.
 
 The heading is the tell, and is worth choosing deliberately. `Source map`, `Contents`, and `Files` promise an inventory, so a section under one of them is judged as an inventory and generally fails. `Directory domains` promises something else: what each part of the tree reserves, and what belongs there. A tree or table under it passes on the strength of what it says. Name the section after the knowledge it carries, and the shape follows.
 

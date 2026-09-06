@@ -36,7 +36,7 @@ Adoption: over 60,000 repositories as of early 2026.
 
 <!-- simple-english-disable: quoted upstream text -->
 
-- Keep only broadly applicable rules in CLAUDE.md. "For each line, ask: 'Would removing this cause Claude to make mistakes?' If not, cut it."
+- CLAUDE.md should contain only broadly applicable rules. "For each line, ask: 'Would removing this cause Claude to make mistakes?' If not, cut it."
 - Do not include code snippets in context files, because they go stale. Use `file:line` references instead.
 - Use `.claude/skills/` for domain knowledge that is only sometimes relevant.
 - Spec-then-implement workflow: Have the agent interview you about requirements, write a spec, then start a fresh session to implement. The fresh session gets clean context focused entirely on implementation.

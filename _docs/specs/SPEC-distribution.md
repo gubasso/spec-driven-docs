@@ -253,7 +253,7 @@ Verify: `cargo nextest run -E 'binary(cmd_skill)'`
 
 ### `distribution:the-payload-names-no-planning-tool` — The payload names no planning tool
 
-The author MUST keep every embedded payload root free of planning tool names, so instances can pair this framework with any or no work-record convention.
+The author MUST keep planning tool names out of every embedded payload root, so instances can pair this framework with any work-record convention or none.
 
 #### Scenario: A method chapter names the tool it was tested against
 

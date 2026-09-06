@@ -1,8 +1,8 @@
 # Release
 
-Day-to-day release workflow under the release-kit trunk convention. First time on a repository: [release-setup.md](./release-setup.md). The generic runbook is `rk guide release`; this guide carries the sequence with this repository's own facts filled in.
+Day-to-day release workflow under the release-kit trunk convention. First time on a repository: [release-setup.md](./release-setup.md). The generic runbook is `rk guide release`. This guide carries the sequence with this repository's own facts filled in.
 
-`Cargo.toml` is the version source of truth. release-plz reads the Conventional Commit titles squash-merged onto `master`, maintains one release pull request carrying the bump and the changelog, and merging that request is the release: it tags, publishes to crates.io over OIDC, and hands the tag to cargo-dist, which builds and attests the installers (ADR-adopt-the-release-kit-trunk-convention). Never author a tag; never move a published one — fix a bad release with the next version.
+`Cargo.toml` is the version source of truth. release-plz reads the Conventional Commit titles squash-merged onto `master` and maintains one release pull request carrying the bump and the changelog. Merging that request is the release: it tags, publishes to crates.io over OIDC, and hands the tag to cargo-dist, which builds and attests the installers (ADR-adopt-the-release-kit-trunk-convention). Never author a tag. Never move a published one. Fix a bad release with the next version instead.
 
 ## Preconditions
 
@@ -32,7 +32,7 @@ gh run watch --repo <repo> --exit-status <release.yml run>
 # 6. verify
 ```
 
-Two of these are easy to skip and both have bitten this repository. Step 2 is the only point a changelog correction still reaches the release, and release-plz rewrites its branch — corrections included — whenever work lands on `master` while the request is open. Step 5 is why a check run straight after the merge reports the release as not found: cargo-dist creates it after every platform builds, about six minutes later.
+Two of these are easy to skip and both have bitten this repository. Step 2 is the only point a changelog correction still reaches the release. release-plz rewrites its branch, corrections included, whenever work lands on `master` while the request is open. Step 5 is why a check run straight after the merge reports the release as not found: cargo-dist creates it after every platform builds, about six minutes later.
 
 1. Land the work on `master` through its one path: a short-lived branch in its worktree, a pull request whose title is a scoped Conventional Commit, a squash merge. Each landing makes release-plz refresh the release pull request so it always proposes releasing the trunk's tip:
 
@@ -50,7 +50,7 @@ Two of these are easy to skip and both have bitten this repository. Step 2 is th
    # check: the changelog entry names every change this range shows
    ```
 
-   Correct it on the release pull request branch, just before merging. A later push to `master` makes release-plz rewrite that branch and the correction with it, so correct when the trunk is quiet and merge before it moves:
+   Correct it on the release pull request branch, just before merging. A later push to `master` makes release-plz rewrite that branch and the correction with it. As a result, correct when the trunk is quiet and merge before it moves:
 
    ```bash
    git fetch origin <release branch> && git switch --detach FETCH_HEAD
@@ -67,14 +67,14 @@ Two of these are easy to skip and both have bitten this repository. Step 2 is th
    # check: exits 0; master's tip carries the version bump and the changelog
    ```
 
-4. Watch the publish half. On the bump push, `release-plz.yml` tags `v<version>` and publishes to crates.io over OIDC; the tag, pushed with the bot's token, triggers `release.yml`:
+4. Watch the publish half. On the bump push, `release-plz.yml` tags `v<version>` and publishes to crates.io over OIDC. The tag, pushed with the bot's token, triggers `release.yml`:
 
    ```bash
    gh run list --repo gubasso/spec-driven-docs --workflow release-plz.yml --limit 1
    # check: the newest run on master concluded success
    ```
 
-5. Wait for the installer build before verifying anything. cargo-dist creates the GitHub release in its host job, after every platform has built and its artifacts are attested, so for about six minutes after the merge there is no release to look at and `gh release view` reports that it is not found:
+5. Wait for the installer build before verifying anything. cargo-dist creates the GitHub release in its host job, after every platform has built and its artifacts are attested. As a result, no release exists for about six minutes after the merge, and `gh release view` reports that it is not found:
 
    ```bash
    gh run watch --repo gubasso/spec-driven-docs --exit-status \
@@ -113,6 +113,6 @@ Two of these are easy to skip and both have bitten this repository. Step 2 is th
    # check: prints the new version
    ```
 
-   release-plz writes an annotated tag, so `v<version>` names a tag object rather than a commit; `^{commit}` is what makes the values comparable.
+   release-plz writes an annotated tag, so `v<version>` names a tag object rather than a commit. `^{commit}` is what makes the values comparable.
 
-Recovery — a failed publish, a wedged run, a yank, a hand publish while CI is down — is `rk method recovery`, and the changelog-correction window above is the only pre-merge repair a release needs.
+Recovery is `rk method recovery`, and it covers a failed publish, a wedged run, a yank, and a hand publish while CI is down. The changelog-correction window above is the only pre-merge repair a release needs.

@@ -1,6 +1,6 @@
 # Release setup
 
-One-time bootstrap for automated releases under the release-kit convention. Run once, in order: each step requires the one before it. Day-to-day releases: [release.md](./release.md). The generic runbook is `rk guide setup`, which owns each step's how; `rk method setup` owns its why. This guide carries the repository's own values and what the runbook leaves to it, and every step is rerunnable: a satisfied step reports itself satisfied rather than failing.
+One-time bootstrap for automated releases under the release-kit convention. Run once, in order: each step requires the one before it. Day-to-day releases: [release.md](./release.md). The generic runbook is `rk guide setup`, which owns each step's how. `rk method setup` owns its why. This guide carries the repository's own values and what the runbook leaves to it, and every step is rerunnable: a satisfied step reports itself satisfied rather than failing.
 
 ## Preconditions
 
@@ -16,11 +16,11 @@ One-time bootstrap for automated releases under the release-kit convention. Run 
    # check: reports the package builds and passes the registry's dry run
    ```
 
-2. Provide the GitHub App `gubasso-ci-bot` and grant it this repository. The field-by-field walkthrough is `rk forge github`; it happens once per account, and this account already carries the App. Collect its credentials:
+2. Provide the GitHub App `gubasso-ci-bot` and grant it this repository. The field-by-field walkthrough is `rk forge github`. It happens once per account, and this account already carries the App. Collect its credentials:
 
    1. Open <https://github.com/settings/apps/gubasso-ci-bot>.
       - Read the App ID from the "About" section at the top.
-      - Under "Private keys", click Generate a private key; the `.pem` downloads once and is never shown again.
+      - Under "Private keys", click Generate a private key. The `.pem` downloads once and is never shown again.
    2. Fill `RK_BOT_APP_ID` and `RK_BOT_PRIVATE_KEY_FILE` in `.envrc.local`, then load them:
 
       ```bash
@@ -39,7 +39,7 @@ One-time bootstrap for automated releases under the release-kit convention. Run 
    # check: lists RELEASE_BOT_APP_ID and RELEASE_BOT_APP_PRIVATE_KEY
    ```
 
-4. Assert the forge shape — default branch, single trunk, merge cleanup, CI permissions, and the protections. `test` is the CI job the trunk requires; `.github/workflows/ci.yml` names it:
+4. Assert the forge shape: default branch, single trunk, merge cleanup, CI permissions, and the protections. `test` is the CI job the trunk requires. `.github/workflows/ci.yml` names it:
 
    ```bash
    rk setup --target . --apply --required-check test
@@ -48,7 +48,7 @@ One-time bootstrap for automated releases under the release-kit convention. Run 
    # single-trunk refuses a candidate: it is not an ancestor of master, so land its work first; the guard failing closed is the stop, not an obstacle
    ```
 
-5. Confirm the landed payload is current — the files `rk init` landed, the two spliced blocks, and the landing record:
+5. Confirm the landed payload is current. The payload is the files `rk init` landed, the two spliced blocks, and the landing record:
 
    ```bash
    rk status --check --target .
@@ -56,15 +56,15 @@ One-time bootstrap for automated releases under the release-kit convention. Run 
    # drift on an rk-owned file: rk upgrade --target . --apply takes the landing to the binary's payload
    ```
 
-6. Register the trusted publisher, once per package, in the browser — `rk guide setup` step 6 carries the form walkthrough. The values for this repository: owner `gubasso`, repository `spec-driven-docs`, workflow filename `release-plz.yml` — never `release.yml`, which builds installers, and never `ci.yml` — and Environment left empty.
+6. Register the trusted publisher, once per package, in the browser. `rk guide setup` step 6 carries the form walkthrough. The values for this repository: owner `gubasso`, repository `spec-driven-docs`, workflow filename `release-plz.yml`, and Environment left empty. The workflow filename is never `release.yml`, which builds installers, and never `ci.yml`.
 
    - check: the Trusted Publishing table at <https://crates.io/crates/spec-driven-docs/settings> lists those three values
-   - already listed: the publisher is registered; continue
+   - already listed: the publisher is registered. Continue
 
 7. Cut one release end to end, which is what proves OIDC works before step 8 makes it mandatory.
 
    1. Follow [release.md](./release.md) end to end.
-   2. Check: its verify step passes — crates.io serves the new version, the attestation verifies, and the tag sits on `master`.
+   2. Check: its verify step passes. That is, crates.io serves the new version, the attestation verifies, and the tag sits on `master`.
 
 8. Require trusted publishing, now that step 7 proved it.
 
