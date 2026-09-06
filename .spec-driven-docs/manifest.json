@@ -92,8 +92,8 @@
     {
       "source": "_docs/specs/SPEC-decision-records.md",
       "destination": "_docs/specs/SPEC-decision-records.md",
-      "sha256": "8e9c9c9c0f59ebf596df2b19b225653fa85ff5358eaa12a69a7d51119e7a8635",
-      "baseline_sha256": "8e9c9c9c0f59ebf596df2b19b225653fa85ff5358eaa12a69a7d51119e7a8635"
+      "sha256": "c39e7d7f3559493ae5293c24b52f49364c657f7840c4d5002012254932aef8f3",
+      "baseline_sha256": "c39e7d7f3559493ae5293c24b52f49364c657f7840c4d5002012254932aef8f3"
     },
     {
       "source": "_docs/specs/SPEC-distribution.md",
