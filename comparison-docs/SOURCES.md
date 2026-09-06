@@ -1,10 +1,10 @@
 # Sources
 
-The research this shelf rests on, with what each source establishes and the date its URL was confirmed to resolve. A rule in a chapter that looks arbitrary is usually one of these; re-verify here before relaxing it.
+The research this shelf rests on, with what each source establishes and the date its URL was confirmed to resolve. A rule in a chapter that looks arbitrary is usually one of these. Re-verify here before relaxing it.
 
 ## Verification policy
 
-"Confirmed" means the URL was fetched and returned the stated page on that date. A source is cited for the one claim named beside it, not as general endorsement. Re-confirm by fetching the URL; only treat a citation as broken when it fails to resolve or the resolved page contradicts the claim.
+"Confirmed" means the URL was fetched and returned the stated page on that date. A source is cited for the one claim named beside it, not as general endorsement. Re-confirm by fetching the URL. Only treat a citation as broken when it fails to resolve or the resolved page contradicts the claim.
 
 ## Renderer constraints
 
@@ -32,7 +32,7 @@ The first row is why every qualification leaves the table by a link. The next fo
 | W3C technique H86                                  | Emoji, emoticons, and symbols require a text alternative serving an equivalent purpose                                                                                                                  | 2026-08-18 |
 | W3C WAI tables tutorial, tips                      | Break a complex table into simple tables, one per subtopic; start a new table when the topic changes; responsive transformations must preserve header-to-data relationships                             | 2026-08-18 |
 
-An emoji's accessible name comes from the Unicode consortium and cannot be overridden in plain markdown, so `✅` is announced as "white heavy check mark" rather than as the verdict the author meant. That is the specific reason the shelf requires the word, not a general preference.
+An emoji's accessible name comes from the Unicode consortium and cannot be overridden in plain markdown. As a result, `✅` is announced as "white heavy check mark" rather than as the verdict the author meant. That is the specific reason the shelf requires the word, not a general preference.
 
 - <https://developers.google.com/style/tables>
 - <https://www.w3.org/WAI/WCAG20/Techniques/html/H86>
