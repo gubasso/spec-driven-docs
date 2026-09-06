@@ -2,7 +2,7 @@
 
 > <https://jira.atlassian.com/secure/WikiRendererHelpAction.jspa?section=all>
 
-Jira renders its own wiki markup, so unlike [Bugzilla](./bugzilla-comment-syntax.md) real headings and emphasis are available. Use them. Markdown is not: `**bold**` and `## Head` come out literal.
+Jira renders its own wiki markup, so unlike [Bugzilla](./bugzilla-comment-syntax.md) real headings and emphasis are available and recommended. Markdown is not: `**bold**` and `## Head` come out literal.
 
 ## The markup that matters
 

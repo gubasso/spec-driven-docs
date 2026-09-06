@@ -47,7 +47,7 @@ Verify: reviewer confirms no record was edited to match a later spec
 
 ### `docs-foundations:a-document-carries-no-personal-path` — A document carries no path into a person's home
 
-The author MUST write a home-directory path as `~/`, `$HOME/`, or a bracketed placeholder, never naming a person, except in a personal-environment file.
+The author MUST write a home-directory path as `~/`, `$HOME/`, or a bracketed placeholder, never as an absolute path naming a person. A file dedicated to one person's environment is the exception.
 
 #### Scenario: A walkthrough is written from the author's own terminal
 

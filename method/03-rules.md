@@ -120,7 +120,7 @@ A fabricated citation returns nothing. A real one returns the line that binds it
 
 One scenario per requirement, in GIVEN / WHEN / THEN, four bullets or fewer. It shows the case that separates compliance from breach.
 
-Write the scenario that invites argument. A scenario restating the rule in other words adds length and settles nothing. A scenario naming the ambiguous case settles the ambiguity.
+Write the scenario for the contested case. A scenario restating the rule in other words adds length and settles nothing. A scenario naming the ambiguous case settles the ambiguity.
 
 ## Open questions
 

@@ -37,7 +37,7 @@ Verify: `rg -in '^status:' . --glob 'SPEC-*.md' && exit 1 || exit 0`
 
 ### `spec-to-code:a-spec-change-is-typed` — A spec change is typed
 
-When an entry document cites a spec change, the author MUST write `ADDED`, `MODIFIED`, or `REMOVED` before the rule ID in inline code.
+When an entry document cites a spec change, the author MUST write `ADDED`, `MODIFIED`, or `REMOVED` immediately before the inline-code rule ID.
 
 #### Scenario: A clause names a type but garbles the ID
 

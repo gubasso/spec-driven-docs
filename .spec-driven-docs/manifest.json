@@ -110,8 +110,8 @@
     {
       "source": "_docs/specs/SPEC-docs-foundations.md",
       "destination": "_docs/specs/SPEC-docs-foundations.md",
-      "sha256": "99207fe514909084581b8b0939d0f0f89ace6eedd22cd1660da36ceab8930f40",
-      "baseline_sha256": "99207fe514909084581b8b0939d0f0f89ace6eedd22cd1660da36ceab8930f40"
+      "sha256": "4afd43599c209c519fe4e666bd3ccbcd0e8a00d6b333a123ab672d2ac84ea571",
+      "baseline_sha256": "4afd43599c209c519fe4e666bd3ccbcd0e8a00d6b333a123ab672d2ac84ea571"
     },
     {
       "source": "_docs/specs/SPEC-docs-specs.md",
@@ -152,8 +152,8 @@
     {
       "source": "_docs/specs/SPEC-spec-to-code.md",
       "destination": "_docs/specs/SPEC-spec-to-code.md",
-      "sha256": "3d135d127c57c5f23f019e7ef2ebfe4b9659d1d62aba31aac4e90eb9ff7bbdda",
-      "baseline_sha256": "3d135d127c57c5f23f019e7ef2ebfe4b9659d1d62aba31aac4e90eb9ff7bbdda"
+      "sha256": "76a85724cdb5f05642c4bc1e9e0c29c2082ccd703c398f28ebae0bda4b349a91",
+      "baseline_sha256": "76a85724cdb5f05642c4bc1e9e0c29c2082ccd703c398f28ebae0bda4b349a91"
     },
     {
       "source": "_docs/specs/SPEC-tracking.md",
