@@ -47,5 +47,5 @@ What must pass before a comparison document merges. Each line names the chapter 
 
 ## The gates
 
-- All five commands in [06 — Gates](./06-gates.md) pass.
+- All five commands in [06](./06-gates.md) pass.
 - The escaped-pipe check runs ahead of the markdown formatter in the hook order ([06](./06-gates.md)).
