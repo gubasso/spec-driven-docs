@@ -18,7 +18,7 @@
 
 ## Purpose
 
-Rules governing how this repository cuts a release: which artifact states the version, how a tag derives from it, what a release carries, and how the licence splits. No instance adopts this spec. Every rule here is verified by a cargo test that never ships, so an instance holding these rules would hold rules it cannot run.
+Rules governing how this repository cuts a release: which artifact states the version, how a tag derives from it, what a release carries, and how the license splits. No instance adopts this spec. Every rule here is verified by a cargo test that never ships, so an instance holding these rules holds rules it cannot run.
 
 ## Requirements
 
@@ -36,7 +36,7 @@ Verify: `pre-commit run cargo-test --all-files`
 
 ### `release:a-tag-derives-from-the-version-file` — A tag derives from the version file
 
-A release tag MUST be `v<version>` for the version `Cargo.toml` states at the commit it names, and MUST be produced by the release automation rather than authored by hand.
+A release tag MUST be `v<version>` for the `Cargo.toml` version at the commit it names, and MUST come from the release automation, never by hand.
 
 #### Scenario: A maintainer tags by hand
 
@@ -48,19 +48,19 @@ Verify: reviewer confirms every `v*` tag was created by the release automation o
 
 ### `release:a-released-version-is-not-re-authored` — A released version is not re-authored
 
-If a version is published, then further changes MUST ship as a new version; a published version is never re-authored.
+If a version is published, then further changes MUST ship as a new version. A published version is never re-authored.
 
 #### Scenario: A fix lands after a version is published
 
 - GIVEN a consumer pinned to `rev: v0.3.0` or the published crate
 - WHEN a defect in 0.3.0 needs correcting
-- THEN the fix merges forward and the automation proposes 0.3.1, because the registry refuses a second 0.3.0 and a moved tag serves two payloads under one name
+- THEN the fix merges forward and the automation proposes 0.3.1. This is because the registry refuses a second 0.3.0 and a moved tag serves two payloads under one name
 
 Verify: reviewer confirms corrections are cut forward as a new version, never by retagging
 
 ### `release:license-declares-both-halves` — The license declares both halves
 
-The release MUST carry a named license file for the method and one for the distribution, the root `LICENSE` MUST name both, and the crate metadata MUST carry the combined SPDX expression.
+The release MUST carry a named license file for the method and one for the distribution. The root `LICENSE` MUST name both. The crate metadata MUST carry the combined SPDX expression.
 
 #### Scenario: A project installs the binary without the method
 
@@ -78,7 +78,7 @@ Every gate the release delivers MUST be declared in the one registry that the pr
 
 - GIVEN a gate compiled into the binary and named by no pre-commit entry
 - WHEN the instance runs its hooks
-- THEN the gate exists and never runs, so the projection is rendered from the registry at install time rather than copied from a committed file that can fall behind it
+- THEN the gate exists and never runs. That is why the projection is rendered from the registry at install time rather than copied from a committed file that can fall behind it
 
 Verify: `pre-commit run cargo-test --all-files`
 
@@ -108,7 +108,7 @@ Verify: `pre-commit run cargo-test --all-files`
 
 ### `release:the-rk-pin-has-two-facts-and-one-mover` — The rk pin has two facts and one mover
 
-The devshell's pinned release-workflow CLI MUST have two facts and one mover: its version is the tag in its flake input URL in `flake.nix`, its content is that input's node in `flake.lock`, and `rk devshell sync`, invoked from `.envrc`, is the only thing that moves either. This project MUST carry no second mechanism over those two files, because the transaction over them belongs to the CLI's own verb and two movers undo each other.
+The devshell's pinned release-workflow CLI MUST have two facts and one mover: its version is the tag in its flake input URL in `flake.nix`, and its content is that input's node in `flake.lock`. `rk devshell sync`, invoked from `.envrc`, is the only thing that moves either. This project MUST carry no second mechanism over those files, because their transaction belongs to the CLI's own verb and two movers undo each other.
 
 #### Scenario: A second mechanism rewrites the pin
 
@@ -120,12 +120,12 @@ Verify: `rk devshell status --target . --json` reports `ready` and an empty `lef
 
 ### `release:third-party-notices-travel-with-the-payload` — Third-party notices travel with the payload
 
-The release MUST carry a third-party notice naming every vendored dependency, its upstream license, and the resolved revision it came from, and that notice MUST print from the binary through `sdd license --third-party`.
+The release MUST carry a third-party notice naming every vendored dependency, its upstream license, and its resolved revision, and `sdd license --third-party` MUST print it.
 
 #### Scenario: A consumer installs the binary and asks for the terms
 
 - GIVEN a vendored SimpleEnglish surface embedded in the binary
 - WHEN a consumer runs `sdd license --third-party`
-- THEN the notice prints byte-identical to `THIRD_PARTY_NOTICES.md`, names the upstream MIT terms and the resolved object ID, and the canon test proves the notice appears in the packaged crate
+- THEN the notice prints byte-identical to `THIRD_PARTY_NOTICES.md` and names the upstream MIT terms and the resolved object ID. The canon test proves the notice appears in the packaged crate
 
 Verify: `pre-commit run cargo-test --all-files`
