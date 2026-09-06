@@ -4,7 +4,7 @@ A rule is the smallest unit this framework names, cites, and checks. It is one `
 
 ## The block
 
-Five parts, all required. The identifier and the title share the heading line, so the generated table of contents becomes an index of rule IDs rather than a list of sentences.
+Five parts, all required. The identifier and the title share the heading line. As a result, the generated table of contents becomes an index of rule IDs rather than a list of sentences.
 
 ```markdown
 ### `decision-records:filename-carries-no-digit` — Decision record filenames carry no number
@@ -28,7 +28,7 @@ Verify: `find _docs/decisions -name 'ADR-*' | rg '[0-9]' && exit 1 || exit 0`
 | Scenario  | one case that distinguishes compliance from breach |
 | Verify    | the command that decides it                        |
 
-A rule is not a file. Splitting a domain across dozens of files costs a read apiece and defeats the one-level-deep rule in [05 — Agent Context](./05-agent-context.md); a fifteen-rule spec is one read.
+A rule is not a file. Splitting a domain across dozens of files costs a read apiece and defeats the one-level-deep rule in [05 Agent Context](./05-agent-context.md). A fifteen-rule spec is one read.
 
 ## Grammar
 
@@ -52,13 +52,13 @@ While <precondition>, when <trigger>, the <subject> MUST <response>.
 - A requirement statement MUST be one sentence.
 - A requirement statement MUST name a subject that can act.
 
-The grammar is what makes leanness enforceable rather than aspirational. "Prefer short records" is not a pattern and fails the gate; "The author MUST keep a record at or below 350 words" is.
+The grammar is what makes leanness enforceable rather than aspirational. "Prefer short records" is not a pattern and fails the gate. "The author MUST keep a record at or below 350 words" is one.
 
 Naming a subject that can act is the rule that catches most bad requirements. "The documentation MUST be consistent" has no actor and no failure condition. "The author MUST use one term for one concept throughout a spec" has both.
 
 ## Keywords
 
-Use MUST, MUST NOT, REQUIRED, SHALL, SHALL NOT, SHOULD, SHOULD NOT, MAY, in capitals, as RFC 2119 and RFC 8174 define them. Capitalization is what makes them normative and greppable; the same words in lowercase are ordinary prose.
+Use MUST, MUST NOT, REQUIRED, SHALL, SHALL NOT, SHOULD, SHOULD NOT, MAY, in capitals, as RFC 2119 and RFC 8174 define them. Capitalization is what makes them normative and greppable. The same words in lowercase are ordinary prose.
 
 Prefer MUST and MUST NOT. A rule stated as SHOULD is a rule nobody is accountable for, and a spec whose every rule is a SHOULD is a style guide.
 
@@ -76,7 +76,7 @@ stronger: The author MUST mark identifiers with inline code, normativity with RF
           keywords, and structure with headings.
 ```
 
-The cap is the part that bites. Past roughly half a dozen prohibitions, a model begins dropping them, and the ones it drops are not the ones the author would have chosen. When a spec wants a seventh, the prohibitions are standing in for a positive rule that has not been written.
+The cap is the part that bites. Past roughly half a dozen prohibitions, a model begins dropping them, and the ones it drops are not the ones the author wants to lose. When a spec wants a seventh, the prohibitions are standing in for a positive rule that has not been written.
 
 ## Identifiers
 
@@ -89,11 +89,11 @@ The cap is the part that bites. Past roughly half a dozen prohibitions, a model 
 - A rule ID MUST NOT change when the statement is reworded.
 - A rule ID MUST NOT contain a number allocated by a counter.
 
-One pattern, no special case: a spec with a single rule still gives it an ID. A second pattern would cost every reader a decision on every rule.
+One pattern, no special case: a spec with a single rule still gives it an ID. A second pattern costs every reader a decision on every rule.
 
-Slugs rather than numbers, for the reason that decides decision-record names too. A counter needs an allocator, and two branches allocating in parallel collide on a value that means nothing. Two branches choosing the same slug have collided on a subject, which is a conflict worth having.
+Slugs rather than numbers, for the reason that decides decision-record names too. A counter needs an allocator, and two branches allocating in parallel collide on a value that means nothing. Two branches choosing the same slug collide on a subject, which is a conflict worth having.
 
-The ID is stable and the sentence is not. Reword the statement freely; the ID is what commits, reviews, comments, and code refer to.
+The ID is stable and the sentence is not. Reword the statement freely. The ID is what commits, reviews, comments, and code refer to.
 
 Cite the ID wherever the rule is the reason for something:
 
@@ -120,7 +120,7 @@ A fabricated citation returns nothing. A real one returns the line that binds it
 
 One scenario per requirement, in GIVEN / WHEN / THEN, four bullets or fewer. It shows the case that separates compliance from breach.
 
-Write the scenario that would be argued about. A scenario restating the rule in other words adds length and settles nothing; a scenario naming the ambiguous case settles the ambiguity.
+Write the scenario that invites argument. A scenario restating the rule in other words adds length and settles nothing. A scenario naming the ambiguous case settles the ambiguity.
 
 ## Open questions
 
@@ -147,9 +147,9 @@ Three is the cap because a marker is for a question that changes scope, reads se
 - Every requirement MUST carry a `Verify:` line.
 - A verification command MUST exit non-zero when the rule is violated.
 
-The command is the rule's teeth. It appears three times over: in the spec so a reader can run it, in the hook so a commit is gated, and in the failure message so a breach names its own rule.
+The command is the rule's teeth. It appears three times over: in the spec, in the hook, and in the failure message. The spec lets a reader run it, the hook gates a commit, and the failure message lets a breach name its own rule.
 
-When a rule genuinely cannot be checked by a command, the `Verify:` line names the human procedure instead, and [08 — Gates](./08-gates.md) records it as unenforced. An unenforced rule declared as such is honest; an unenforced rule presented as binding is the reason readers stop believing specs.
+When a rule genuinely cannot be checked by a command, the `Verify:` line names the human procedure instead. In that case, [08 Gates](./08-gates.md) records it as unenforced. An unenforced rule declared as such is honest. An unenforced rule presented as binding is the reason readers stop believing specs.
 
 ```text
 checkable  Verify: `find _docs/decisions -name 'ADR-*' | rg '[0-9]' && exit 1 || exit 0`
