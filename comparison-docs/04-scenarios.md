@@ -1,6 +1,6 @@
 # 04 — Scenarios
 
-The scenario is what a comparison document actually contains; the matrix is a view over it. This chapter fixes the shape of a method section, the shape of an evidence section, and the rule that keeps a scenario runnable by someone who did not write it.
+The scenario is what a comparison document actually contains. The matrix is a view over it. This chapter fixes the shape of a method section and the shape of an evidence section. It also fixes the rule that keeps a scenario runnable by someone who did not write it.
 
 ## The method section
 
@@ -39,7 +39,7 @@ One per subject per qualified verdict. It states what happened, and nothing else
 Podman 5.4.0, run on 2026-08-18. `ulimit -u` reports the host value; step 4 did not return for 90 seconds. Setting `--pids-limit` in the run invocation contains it, which is why the verdict is partial rather than negative.
 ```
 
-The length limit is the point. An evidence section that grows into an essay is an argument that has found its way back into the table's orbit, and the reader who followed a `⚠️ partial` link wanted one sentence.
+The length limit is the point. An evidence section that grows into an essay is an argument that found its way back into the table's orbit. The reader who followed a `⚠️ partial` link wanted one sentence.
 
 ## Reproducibility
 
@@ -47,7 +47,7 @@ The length limit is the point. An evidence section that grows into an essay is a
 - A scenario MUST NOT depend on the author's machine, an unpublished tool, or a private path.
 - A scenario that cannot be made portable MUST be marked untested rather than reported.
 
-A verdict a reader cannot reproduce is an assertion with a symbol in front of it. If the honest answer is that the run needs hardware the reader does not have, say so in the evidence section and keep the verdict; if it needs the author's own setup, the row is not ready.
+A verdict a reader cannot reproduce is an assertion with a symbol in front of it. If the honest answer is that the run needs hardware the reader does not have, say so in the evidence section and keep the verdict. If it needs the author's own setup, the row is not ready.
 
 ## One run is not a result
 

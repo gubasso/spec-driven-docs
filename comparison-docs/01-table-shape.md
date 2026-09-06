@@ -1,6 +1,6 @@
 # 01 — Table shape
 
-The matrix is scanned, not read. This chapter fixes its width, how a wide comparison is split, and how a row is phrased so the verdict in it is a fact rather than a label.
+The matrix is scanned, not read. This chapter fixes its width, how a wide comparison is split, and how a row is phrased. The row is phrased so the verdict in it is a fact rather than a label.
 
 ## Width
 
@@ -8,9 +8,9 @@ The matrix is scanned, not read. This chapter fixes its width, how a wide compar
 - A table MAY hold six when every column heading and every verdict is at most twelve characters.
 - A comparison needing more subjects MUST be split by theme, never widened.
 
-No standards body publishes a column limit; the constraint is what a reader can hold. For wordy comparison entries roughly two columns fit legibly on a narrow phone, so horizontal scrolling is already the normal case at five and the question is only how far it goes. Splitting is also the accessibility answer: the W3C tables tutorial says to break a complex table into simple ones, one per subtopic, and to start a new table when the topic changes.
+No standards body publishes a column limit. The constraint is what a reader can hold. For wordy comparison entries roughly two columns fit legibly on a narrow phone, so horizontal scrolling is already the normal case at five. The question is only how far it goes. Splitting is also the accessibility answer: the W3C tables tutorial says to break a complex table into simple ones, one per subtopic. It also says to start a new table when the topic changes.
 
-Check the result at 320 CSS pixels and at 200 percent zoom. That observation settles it; a column count only predicts it.
+Check the result at 320 CSS pixels and at 200 percent zoom. That observation settles it. A column count only predicts it.
 
 ## Splitting by theme
 
@@ -31,7 +31,7 @@ Group by the question the reader arrived with, not by the taxonomy of the subjec
 - A row label SHOULD be at most six words.
 - A row MUST hold one capability.
 
-Prefer a label that names what happens over one that names a feature area. "Survives a fork bomb" has an answer that can be run; "Resource limits" has an answer that can only be asserted. When a label needs a conjunction it is two rows.
+Prefer a label that names what happens over one that names a feature area. "Survives a fork bomb" has an answer that can be run. "Resource limits" has an answer that can only be asserted. When a label needs a conjunction it is two rows.
 
 ## Columns
 
@@ -39,7 +39,7 @@ Prefer a label that names what happens over one that names a feature area. "Surv
 - Two subjects MUST NOT share a column unless every verdict in that table is identical for both.
 - A column heading that is an identifier MUST be inline code.
 
-A merged heading is a convenience that turns into a lie in the first row where the two diverge, and the row that exposes it is usually the interesting one.
+A merged heading is a convenience that turns into a lie in the first row where the two diverge. The row that exposes it is usually the interesting one.
 
 ## Mechanics
 
@@ -47,7 +47,7 @@ A merged heading is a convenience that turns into a lie in the first row where t
 - Column headings MUST use sentence case and carry no terminal punctuation.
 - A table MUST be introduced by a complete sentence before it.
 
-The pipe rule is the one with teeth. An unescaped pipe inside a code span splits the row, and a formatter run afterwards re-pads the broken table down to the header's column count, destroying the evidence before a column-count linter can see it. [06 — Gates](./06-gates.md) wires the check ahead of the formatter.
+The pipe rule is the one with teeth. An unescaped pipe inside a code span splits the row. A formatter run afterwards re-pads the broken table down to the header's column count, destroying the evidence before a column-count linter can see it. [06 Gates](./06-gates.md) wires the check ahead of the formatter.
 
 The introductory sentence is an accessibility requirement, not a stylistic one: not all screen readers preannounce a table, so a reader arriving by audio needs the sentence to know one is coming.
 
