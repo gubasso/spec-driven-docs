@@ -39,7 +39,7 @@
     {
       "source": "skill-shared/plan-gate.md",
       "destination": "skill-shared/plan-gate.md",
-      "sha256": "a0977a277e43c1c57bafcd6d1c4281626a4183d362f5fc891f4abfa45dfa9175"
+      "sha256": "f3a78f73b5cce272b83944415285e36af5d67cc21b82ad434ec47c8a0d5865ae"
     },
     {
       "source": "skill-shared/pre-flight-gate.md",
