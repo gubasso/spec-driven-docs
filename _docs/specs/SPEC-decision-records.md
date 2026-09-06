@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Rules governing decision records under `_docs/decisions/`. Covers naming, permanence, and size. What a record's body contains is covered by the record template; the rules a record's decision enforces live in whichever spec owns them.
+Rules governing decision records under `_docs/decisions/`. Covers naming, permanence, and size. The record template covers what a record's body contains. The rules a record's decision enforces live in whichever spec owns them.
 
 ## Requirements
 
@@ -26,7 +26,7 @@ Where a record names what enforces it, the author MUST cite rule IDs the specs s
 
 - GIVEN a record whose `Enforced by` line cites `distribution:license-declares-both-halves`
 - WHEN the rule is renamed to `release:license-declares-both-halves`
-- THEN the citation resolves to nothing and the gate reports it, because the pointer to what binds is the one part of a frozen record that must keep working
+- THEN the citation resolves to nothing. The gate reports it because the pointer to what binds is the one part of a frozen record that must keep working
 
 Verify: `pre-commit run adr-cites-a-live-rule --all-files`
 

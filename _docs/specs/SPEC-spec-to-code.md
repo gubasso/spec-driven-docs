@@ -17,9 +17,9 @@
 
 ## Purpose
 
-Rules governing the seam between a spec and the work that implements it. Covers requirements written before their behavior exists, how an entry document in the plan zone cites the rules it enacts, and how coverage is derived. The shape of a requirement is covered by the specs specification; how a spec changes is covered by its lifecycle rules.
+Rules governing the seam between a spec and the work that implements it. Covers requirements written before their behavior exists, how an entry document in the plan zone cites the rules it enacts, and how coverage is derived. The shape of a requirement is covered by the specs specification. How a spec changes is covered by its lifecycle rules.
 
-The plan zone's path is the one value in this specification a project declares for itself, because the planning tool owns the record and this framework names no planning tool. It appears in exactly one place — the verification command of `spec-to-code:a-spec-change-is-typed` — and this project declares it at `tests/fixtures/`. A project adopting this specification retargets that command at its own plan zone, or removes the requirement when it keeps no plan zone. Every other command here is layout-independent.
+The plan zone's path is the one value in this specification a project declares for itself. That is because the planning tool owns the record and this framework names no planning tool. It appears in exactly one place: the verification command of `spec-to-code:a-spec-change-is-typed`. This project declares it at `tests/fixtures/`. A project adopting this specification retargets that command at its own plan zone, or removes the requirement when it keeps no plan zone. Every other command here is layout-independent.
 
 ## Requirements
 
@@ -37,7 +37,7 @@ Verify: `rg -in '^status:' . --glob 'SPEC-*.md' && exit 1 || exit 0`
 
 ### `spec-to-code:a-spec-change-is-typed` — A spec change is typed
 
-When an entry document cites a spec change, the author MUST write the clause as `ADDED`, `MODIFIED`, or `REMOVED` followed by the rule ID in inline code.
+When an entry document cites a spec change, the author MUST write `ADDED`, `MODIFIED`, or `REMOVED` before the rule ID in inline code.
 
 #### Scenario: A clause names a type but garbles the ID
 
