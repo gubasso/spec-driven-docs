@@ -1,14 +1,14 @@
 # `<subject>` and the alternatives
 
-Every verdict below is a scenario that was run, not a feature claim. A capability name links to the scenario; a verdict links to what that tool did when the scenario was run against it.
+Every verdict below is a scenario that was run, not a feature claim. A capability name links to the scenario. A verdict links to what that tool did when the scenario was run against it.
 
-Legend: ✅ yes, works on the default path · ⚠️ partial, needs configuration or has a stated limit · ❌ no, was run and failed · ➖ n/a, meaningless for this subject · 🧪 unstable, experimental path · ❓ untested, not yet run.
+Legend: ✅ yes, works on the default path. ⚠️ partial, needs configuration or has a stated limit. ❌ no, was run and failed. ➖ n/a, meaningless for this subject. 🧪 unstable, experimental path. ❓ untested, not yet run.
 
 ## `<theme the reader arrives with>`
 
 `<One sentence introducing what this table settles.>`
 
-Verified: `<YYYY-MM-DD>` — `<subject>` `<version>`, `<alt-1>` `<version>`, `<alt-2>` `<version>`, `<alt-3>` `<version>`.
+Verified: `<YYYY-MM-DD>` against `<subject>` `<version>`, `<alt-1>` `<version>`, `<alt-2>` `<version>`, `<alt-3>` `<version>`.
 
 | capability                             | `<subject>`                      | `<alt-1>` | `<alt-2>` | `<alt-3>`   |
 | -------------------------------------- | -------------------------------- | --------- | --------- | ----------- |

@@ -170,8 +170,8 @@
     {
       "source": "_docs/reference/TEMPLATE-agents-digest.md",
       "destination": "_docs/reference/TEMPLATE-agents-digest.md",
-      "sha256": "64212ee68f8603449d649c3224765c3e6845143785a7b6f714482f8924853ff2",
-      "baseline_sha256": "64212ee68f8603449d649c3224765c3e6845143785a7b6f714482f8924853ff2"
+      "sha256": "14ca07309ac94599fcda015d2413cd67769a738b1b49f2a22b3a200e8d6c15fd",
+      "baseline_sha256": "14ca07309ac94599fcda015d2413cd67769a738b1b49f2a22b3a200e8d6c15fd"
     },
     {
       "source": "templates/TEMPLATE-tracking.yaml",
@@ -183,7 +183,7 @@
   "integration_blocks": [
     {
       "path": ".pre-commit-config.yaml",
-      "marker_hash": "24f069d629babbeee35613bb550a80a33219e736e5a7d67d21bbff4fb386e07a"
+      "marker_hash": "96fdc067678d1c2cad3d21003b7d2ec303500bb63bd8cde609982e756b461e7a"
     }
   ]
 }
