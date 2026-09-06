@@ -44,7 +44,7 @@
     {
       "source": "skill-shared/pre-flight-gate.md",
       "destination": "skill-shared/pre-flight-gate.md",
-      "sha256": "87f09a012340a02b871af9853eb50623ca2544cdc7875a4e43b1166ad55ac679"
+      "sha256": "2a0c993f36d95867034921e17e15f303754aebc96f57daf541bc9bb081e721f2"
     },
     {
       "source": "third-party/simpleenglish/LICENSE",
