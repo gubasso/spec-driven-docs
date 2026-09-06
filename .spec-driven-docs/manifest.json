@@ -110,8 +110,8 @@
     {
       "source": "_docs/specs/SPEC-docs-foundations.md",
       "destination": "_docs/specs/SPEC-docs-foundations.md",
-      "sha256": "8454b4a097bf9ed11d7141dbaa6779947c4d7074b13fba1b15e378d326008520",
-      "baseline_sha256": "8454b4a097bf9ed11d7141dbaa6779947c4d7074b13fba1b15e378d326008520"
+      "sha256": "99207fe514909084581b8b0939d0f0f89ace6eedd22cd1660da36ceab8930f40",
+      "baseline_sha256": "99207fe514909084581b8b0939d0f0f89ace6eedd22cd1660da36ceab8930f40"
     },
     {
       "source": "_docs/specs/SPEC-docs-specs.md",

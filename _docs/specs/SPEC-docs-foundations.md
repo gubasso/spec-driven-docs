@@ -17,7 +17,7 @@
 
 ## Purpose
 
-The artifact model this project's documentation follows, its precedence order, and where each artifact goes. Covers which artifact owns a fact, what wins when two disagree, how artifacts are named and placed, and what a document may not carry out of the machine it was written on. The shape of a spec and the shape of a record are covered by their own specs.
+The artifact model this project's documentation follows, its precedence order, and where each artifact goes. Covers which artifact owns a fact, what wins when two disagree, and how artifacts are named and placed. It also covers what a document must not carry out of the machine it was written on. The shape of a spec and the shape of a record are covered by their own specs.
 
 ## Requirements
 
@@ -47,7 +47,7 @@ Verify: reviewer confirms no record was edited to match a later spec
 
 ### `docs-foundations:a-document-carries-no-personal-path` — A document carries no path into a person's home
 
-The author MUST write a path into a home directory as `~/`, `$HOME/`, or a bracketed placeholder rather than as an absolute path naming a person, except in a file whose purpose is one person's environment.
+The author MUST write a home-directory path as `~/`, `$HOME/`, or a bracketed placeholder, never naming a person, except in a personal-environment file.
 
 #### Scenario: A walkthrough is written from the author's own terminal
 
@@ -59,7 +59,7 @@ Verify: `pre-commit run no-personal-path --all-files`
 
 ### `docs-foundations:a-document-owns-what-it-governs` — A document owns what it governs
 
-Where a document states a rule this project's own domain owns, the author MUST state it here rather than sending the reader to another project's documentation for it.
+Where a document states a rule this project's domain owns, the author MUST state it here rather than send the reader to another project's documentation.
 
 #### Scenario: A rule is left to the project it was borrowed from
 
