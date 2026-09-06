@@ -1,6 +1,6 @@
 # Template — Documentation maintenance section
 
-Copy the block below into the project's root author-instructions file. It tells an agent what to load, what to update, and what never to touch. State local exceptions inline rather than restating this framework; the specs own the rules and this section points at them.
+Copy the block below into the project's root author-instructions file. It tells an agent what to load, what to update, and what never to touch. State local exceptions inline rather than restating this framework. The specs own the rules and this section points at them.
 
 ```markdown
 ## Documentation
