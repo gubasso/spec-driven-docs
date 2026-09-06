@@ -31,7 +31,7 @@
 
 ## Purpose
 
-Rules governing installation, ownership classes, offline verification, and upgrades. The distribution is one installed binary, `sdd`, that carries the payload, and every rule here binds whoever authors that binary. No instance adopts this spec: its subject is the installer, so an instance holding these rules would hold obligations it cannot violate and verifications it cannot run. What a project owes its own installation is stated in `SPEC-instance.md`; the rules the canon alone runs at release time are stated in `SPEC-release.md`.
+Rules governing installation, ownership classes, offline verification, and upgrades. The distribution is one installed binary, `sdd`, that carries the payload, and every rule here binds whoever authors that binary. No instance adopts this spec: its subject is the installer, so an instance holding these rules holds obligations it cannot violate and verifications it cannot run. What a project owes its own installation is stated in `SPEC-instance.md`. The rules the canon alone runs at release time are stated in `SPEC-release.md`.
 
 ## Requirements
 
@@ -97,7 +97,7 @@ Verify: `cargo nextest run -E 'binary(cmd_skill)'`
 
 ### `distribution:a-skill-has-one-owner` — A skill has one owner
 
-The distribution MUST install every skill at user scope alone; no profile may project a skill into an instance, because an agent resolves a skill by name and a second copy under one name is a second entry offering the same skill.
+The distribution MUST install every skill at user scope alone. No profile can project a skill into an instance, because an agent resolves a skill by name. A second copy under one name is a second entry offering the same skill.
 
 #### Scenario: A project is initialized inside a home that already carries the skills
 
@@ -109,7 +109,7 @@ Verify: `cargo nextest run -E 'binary(cmd_init) + binary(cmd_skill)'`
 
 ### `distribution:a-skill-obeys-the-portable-format` — A skill obeys the portable format
 
-Every skill MUST carry only the portable Agent Skills frontmatter fields, a `name` equal to its directory name, and a body at or below 150 lines.
+Every skill MUST carry only the portable Agent Skills frontmatter fields, a `name` matching its directory name, and a body at or below 150 lines.
 
 #### Scenario: A skill gains an agent-specific field
 
@@ -121,7 +121,7 @@ Verify: `cargo nextest run -E 'binary(canon)'`
 
 ### `distribution:a-landing-classifies-its-target-first` — A landing classifies its target first
 
-Where a setup or migration task finds no instance at a target, the skills and the shared pre-flight gate MUST route by `sdd assess`, which MUST report its evidence and exactly one verdict — `brownfield` where a documentation root is populated or a methodology marker exists, `greenfield` where no document beyond root metadata exists, and `needs-decision` otherwise — writing nothing, with every produced classification exiting 0.
+Where a setup or migration task finds no instance at a target, the skills and the shared pre-flight gate MUST route by `sdd assess`. The command MUST report its evidence and exactly one verdict, write nothing, and exit 0 for every produced classification. The three verdicts are: `brownfield` where a documentation root is populated or a methodology marker exists, `greenfield` where no document beyond root metadata exists, and `needs-decision` otherwise.
 
 #### Scenario: A documented target carries no instance
 
@@ -133,19 +133,19 @@ Verify: `cargo nextest run -E 'binary(cmd_assess) + binary(canon)'`
 
 ### `distribution:a-skill-checks-its-host-before-it-plans` — A skill checks its host before it plans
 
-Every skill MUST direct the agent to run the shared pre-flight gate — which observes the host with `sdd doctor` — before planning, whatever flags the request carries; the `--no-plan` flag changes only when the plan gate asks for approval.
+Every skill MUST direct the agent to run the shared pre-flight gate, which observes the host with `sdd doctor`, before planning, whatever the request's flags. The `--no-plan` flag changes only when the plan gate asks for approval.
 
 #### Scenario: A request says to skip the checks
 
 - GIVEN a request carrying `--no-plan` and an instruction to act immediately
 - WHEN the agent follows the skill's opening section
-- THEN the pre-flight still runs, because the task's steps have the same dependencies whatever the request says, and only the plan gate's approval turn is skipped
+- THEN the pre-flight still runs, because the task's steps have the same dependencies whatever the request says. Only the plan gate's approval turn is skipped
 
 Verify: `cargo nextest run -E 'binary(canon)'`
 
 ### `distribution:the-doctor-answers-for-the-installed-skills` — The doctor answers for the installed skills
 
-`sdd doctor` MUST run every probe in the catalog and exit 0 whatever they find, and its skill probes MUST pick the remediation by the user-scope record: drift the record vouches for is a stale install corrected by a plain apply, and drift it cannot account for is the user's own, corrected only with `--force`.
+`sdd doctor` MUST run every cataloged probe and exit 0 whatever they find, and its skill probes MUST pick the remediation by the user-scope record: drift the record vouches for is a stale install corrected by a plain apply. Drift it cannot account for is the user's own, corrected only with `--force`.
 
 #### Scenario: A home holds a skill an older release installed
 
@@ -157,7 +157,7 @@ Verify: `cargo nextest run -E 'binary(cmd_doctor)'`
 
 ### `distribution:a-skill-plans-before-it-acts` — A skill plans before it acts
 
-Every skill MUST open its body with one section that directs the agent to read the two shared gates in order — the pre-flight gate first, then the plan gate — before the first action of a task and to hold the plan gate's three phases — plan, validate, execute — for the whole task, ahead of every other section.
+Every skill MUST open its body with one section that precedes every other section. That section MUST direct the agent to read the two shared gates in order before the first action of a task: the pre-flight gate first, then the plan gate. It MUST also direct the agent to hold the plan gate's three phases, plan, validate, and execute, for the whole task.
 
 #### Scenario: A skill gains a section above the gate
 
@@ -169,7 +169,7 @@ Verify: `cargo nextest run -E 'binary(canon)'`
 
 ### `distribution:skill-install-previews-before-writing` — Skill install previews before writing
 
-When run without `--apply`, `sdd skill install` MUST list every destination and write nothing, and when a destination holds bytes neither the payload nor the user-scope record accounts for, an apply MUST refuse atomically, listing every conflict.
+When run without `--apply`, `sdd skill install` MUST list every destination and write nothing. When a destination holds bytes neither the payload nor the user-scope record accounts for, an apply MUST refuse atomically, listing every conflict.
 
 #### Scenario: A home directory already carries an edited skill
 
@@ -199,13 +199,13 @@ Where an apply fails partway, `sdd skill install` MUST restore every destination
 
 - GIVEN two skill roots, the second holding a destination the process cannot write
 - WHEN `sdd skill install --apply` has already rewritten the first root
-- THEN it exits 73 naming the unwritable path and leaves both roots as found, because one agent reading a newer skill than another is worse than neither being upgraded
+- THEN it exits 73 naming the unwritable path and leaves both roots as found. It leaves them because one agent reading a newer skill than another is worse than neither being upgraded
 
 Verify: `cargo nextest run -E 'binary(cmd_skill)'`
 
 ### `distribution:skill-uninstall-removes-only-what-it-wrote` — Skill uninstall removes only what it wrote
 
-When run without `--apply`, `sdd skill uninstall` MUST list every removal and delete nothing, and when applied it MUST remove each embedded skill's `SKILL.md`, every other destination the record vouches for, and a directory left holding nothing else, while leaving every file it did not write.
+When run without `--apply`, `sdd skill uninstall` MUST list every removal and delete nothing. When applied, it MUST remove each embedded skill's `SKILL.md`, every other destination the record vouches for, and a directory left holding nothing else. It MUST leave every file it did not write.
 
 #### Scenario: A skill directory carries a user's own note
 
@@ -217,7 +217,7 @@ Verify: `cargo nextest run -E 'binary(cmd_skill)'`
 
 ### `distribution:an-install-sweeps-what-the-payload-dropped` — An install sweeps what the payload dropped
 
-Where the user-scope record vouches for a destination the current payload no longer carries, `sdd skill install --apply` and `sdd skill uninstall --apply` MUST remove it and the directory it leaves empty, and MUST leave a destination the record cannot vouch for alone.
+Where the user-scope record vouches for a destination the current payload no longer carries, `sdd skill install --apply` and `sdd skill uninstall --apply` MUST remove it and the directory it empties. Both MUST leave a destination the record cannot vouch for alone.
 
 #### Scenario: A release renames a skill
 
@@ -229,7 +229,7 @@ Verify: `cargo nextest run -E 'binary(cmd_skill)'`
 
 ### `distribution:user-scope-files-stay-unrecorded` — User-scope files stay unrecorded
 
-Files `sdd skill install` writes outside an instance MUST NOT appear in any instance manifest; the payload and the user-scope record are the references the installer compares them against, and no verification reads either.
+Files `sdd skill install` writes outside an instance MUST NOT appear in any instance manifest. The payload and the user-scope record are the references the installer compares them against, and no verification reads either.
 
 #### Scenario: An instance is verified after a user-scope install
 
@@ -241,19 +241,19 @@ Verify: `cargo nextest run -E 'binary(cmd_skill)'`
 
 ### `distribution:shared-skill-artifacts-have-one-home` — Shared skill artifacts have one home
 
-The distribution MUST install every artifact the skills share exactly once, at the state root the user-scope record lives in, whichever agent an install selects, and an uninstall MUST retain those artifacts while any agent root still holds an installed skill.
+The distribution MUST install every artifact the skills share exactly once, at the state root the user-scope record lives in, whichever agent an install selects. An uninstall MUST retain those artifacts while any agent root still holds an installed skill.
 
 #### Scenario: One agent family's skills are uninstalled
 
 - GIVEN both agent roots holding installed skills and the shared artifacts landed
 - WHEN `sdd skill uninstall --agent codex --apply` runs
-- THEN the shared artifacts remain, because the other root's skills still name them, and only the uninstall that takes the last skills takes the artifacts along
+- THEN the shared artifacts remain, because the other root's skills still name them. Only the uninstall that takes the last skills takes the artifacts along
 
 Verify: `cargo nextest run -E 'binary(cmd_skill)'`
 
 ### `distribution:the-payload-names-no-planning-tool` — The payload names no planning tool
 
-The author MUST keep every embedded payload root free of a planning tool's name, so an instance may pair this framework with any work-record convention or none.
+The author MUST keep every embedded payload root free of planning tool names, so instances can pair this framework with any or no work-record convention.
 
 #### Scenario: A method chapter names the tool it was tested against
 
@@ -265,7 +265,7 @@ Verify: `cargo nextest run -E 'binary(canon)'`
 
 ### `distribution:the-payload-names-no-other-project` — The payload names no other project
 
-The author MUST keep every embedded payload root free of the name of a project, repository, or organization outside this one, apart from the forges, agents, and reference works the method documents as integrations.
+The author MUST keep every embedded payload root free of the name of any project, repository, or organization outside this one. The forges, agents, and reference works the method documents as integrations are the exception.
 
 #### Scenario: A chapter carries an example from the repository it was drafted in
 
@@ -282,19 +282,19 @@ The author MUST declare the embedded payload roots in one place that the binary,
 #### Scenario: An eighth root is embedded
 
 - GIVEN a new root added to the embedding module alone
-- WHEN the canon suite scans the payload for what it may not carry
+- WHEN the canon suite scans the payload for what it must not carry
 - THEN the scan walks a list that no longer describes the payload, so the root ships unscanned unless one declaration feeds all three
 
 Verify: `cargo nextest run -E 'kind(lib)'`
 
 ### `distribution:a-seeded-rule-runs-no-canon-command` — A seeded rule runs no canon command
 
-Where a spec is seeded into an instance, the author MUST keep the words `cargo` and `just` out of every shell command its verification lines carry.
+Where a spec is seeded into an instance, the author MUST keep `cargo` and `just` out of every shell command its verification lines carry.
 
 #### Scenario: A canon-only rule is left in a seeded spec
 
 - GIVEN a seeded spec carrying a rule verified by a cargo test
 - WHEN the canon test suite runs
-- THEN the check fails naming the spec and the command, because the adopter would read an unrunnable verification as work it owes
+- THEN the check fails naming the spec and the command, because the adopter reads an unrunnable verification as work it owes
 
 Verify: `cargo nextest run -E 'binary(canon)'`
