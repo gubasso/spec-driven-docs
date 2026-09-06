@@ -329,12 +329,7 @@ repos:
         entry: cargo run -q -- gate simple-english
         language: system
         types: [markdown]
-        # The delivered gate excludes decisions, generated output, and the
-        # vendored surface. This canon adds a shrinking adoption exemption:
-        # the files below predate the convention and are converted in
-        # batches. Remove a path here once it passes; the gate then enforces
-        # it. This exemption is canon-local and ships to no instance.
-        exclude: '(^_docs/decisions/|^docs/decisions/|(?:^|/)CHANGELOG\.md$|^third-party/|^\.spec-driven-docs/|(?:^|/)tests/fixtures/|^(?:AGENTS\.md|README\.md|_docs/guides/release\-setup\.md|_docs/guides/release\.md|instance/README\.md)$)'
+        exclude: '(^_docs/decisions/|^docs/decisions/|(?:^|/)CHANGELOG\.md$|^third-party/|^\.spec-driven-docs/|(?:^|/)tests/fixtures/)'
       - id: tracking-registry
         name: tracking registry is valid and current
         entry: cargo run -q -- gate tracking-registry
