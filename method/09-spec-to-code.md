@@ -95,7 +95,7 @@ rg -oe '(ADDED|MODIFIED|REMOVED) `[a-z0-9-]+:[a-z0-9-]+`' -r '$0' <plan-zone> \
 comm -23 /tmp/agreed /tmp/enacted
 ```
 
-The third command prints the agreed rules that no work enacted yet: the spec-first backlog, computed from two record sets and stored in neither. The same shape run against code prints the opposite defect.
+The third command prints the agreed rules that no typed clause cites: the spec-first backlog, computed from two record sets and stored in neither. The same shape run against code prints the opposite defect.
 
 ```bash
 rg -o '(SATISFIES|VERIFIES) ([a-z0-9-]+:[a-z0-9-]+)' -r '$2' --glob '!_docs/**' \

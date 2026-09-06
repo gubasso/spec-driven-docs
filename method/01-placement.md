@@ -153,7 +153,7 @@ Two exemptions, both by purpose. A file whose whole job is one person's environm
 
 - A document that answers two reader questions is two documents.
 - A rule with no verification is either not a rule or not yet finished. See [03 Rules](./03-rules.md).
-- If a document needs editing every time a file is added, it was indexing the filesystem.
+- If a document needs an edit every time a file is added, it indexes the filesystem.
 
 ## Sources
 

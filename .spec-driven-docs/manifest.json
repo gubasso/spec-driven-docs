@@ -98,8 +98,8 @@
     {
       "source": "_docs/specs/SPEC-distribution.md",
       "destination": "_docs/specs/SPEC-distribution.md",
-      "sha256": "73253205367d2c246a75f5ca57bf75dbd82183e879e4d2041d1fb78ab4ebb837",
-      "baseline_sha256": "73253205367d2c246a75f5ca57bf75dbd82183e879e4d2041d1fb78ab4ebb837"
+      "sha256": "19fbefddf646cf836e4356e3a84708f7b7e7263e204d8aaed430cd1e612c1449",
+      "baseline_sha256": "19fbefddf646cf836e4356e3a84708f7b7e7263e204d8aaed430cd1e612c1449"
     },
     {
       "source": "_docs/specs/SPEC-docs-format.md",
@@ -110,8 +110,8 @@
     {
       "source": "_docs/specs/SPEC-docs-foundations.md",
       "destination": "_docs/specs/SPEC-docs-foundations.md",
-      "sha256": "4afd43599c209c519fe4e666bd3ccbcd0e8a00d6b333a123ab672d2ac84ea571",
-      "baseline_sha256": "4afd43599c209c519fe4e666bd3ccbcd0e8a00d6b333a123ab672d2ac84ea571"
+      "sha256": "3e6abb5726d76f929bbbd08ef53e44a1d79568e944bb9f75ad18aa6f705337db",
+      "baseline_sha256": "3e6abb5726d76f929bbbd08ef53e44a1d79568e944bb9f75ad18aa6f705337db"
     },
     {
       "source": "_docs/specs/SPEC-docs-specs.md",
