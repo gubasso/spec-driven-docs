@@ -1,6 +1,6 @@
 # 10 — Procedures
 
-A guide is the one zone whose reader is executing rather than reading. This chapter owns that document's body: how large a step is, what closes the page, and what a multi-phase procedure names at each boundary so every value it carries has a producer.
+A guide is the one zone whose reader is executing rather than reading. This chapter owns that document's body: how large a step is, what closes the page, and what a multi-phase procedure names at each boundary so every carried value has a producer.
 
 ## The step
 
@@ -12,7 +12,7 @@ A step is one action the reader performs and can confirm.
 - A single-step procedure MUST be a bullet rather than a numbered list.
 - An optional step MUST open with `Optional:`.
 
-The permitted sentence follows the command instead of preceding it, so a reader who does not need it has already moved on. [06 — Format](./06-format.md) fixes what that sentence may carry and keeps the command out of it.
+The permitted sentence follows the command instead of preceding it, so a reader who does not need it has already moved on. [06 Format](./06-format.md) fixes what that sentence can carry and keeps the command out of it.
 
 ````markdown
 2. Initialize the repository.
@@ -46,14 +46,14 @@ A guide states what must be true before step one and how the reader knows they a
 - A precondition that can be checked by a command MUST carry that command.
 - A verification step MUST state what a correct result looks like.
 
-Preconditions are tools installed, access held, and state assumed, each one checkable. The closing step is where an outcome no command printed becomes visible: a background job, a remote state change, a silent success. A guide whose verification is that it should work now has not been finished.
+Preconditions are tools installed, access held, and state assumed, each one checkable. The closing step is where an outcome no command printed becomes visible: a background job, a remote state change, a silent success. A guide whose verification is the claim that it works now is not finished.
 
 ## The check
 
 A check is the step's expected result, placed where the reader's eye already is: a comment line inside the fence for a command step, a closing observation for a manual step.
 
 - A command step's check MUST state what success prints, as a `# check:` comment line in the fence or as the one sentence after the command.
-- Where a rerun or a known failure prints something else, the step MUST add a comment line stating the condition and where the reader goes next.
+- Where a rerun or known failure prints something else, the step MUST add a comment line stating the condition and where the reader goes next.
 - A manual step MUST enumerate each field, control, and value as sub-items, and MUST close with a check the reader can confirm in the interface.
 
 ````markdown
@@ -66,7 +66,7 @@ A check is the step's expected result, placed where the reader's eye already is:
    ```
 ````
 
-The check line covers what the command itself shows; an outcome no command prints is still its own verification step. The divergence line reads as condition, then destination: `# already stored: the values are overwritten, which is the rotation path`.
+The check line covers what the command itself shows. An outcome no command prints is still its own verification step. The divergence line reads as condition, then destination: `# already stored: the values are overwritten, which is the rotation path`.
 
 A manual step happens in an interface the guide does not control, so nothing is left to guess: the reader arrives at the form knowing every value before the page loads.
 
@@ -80,7 +80,7 @@ A manual step happens in an interface the guide does not control, so nothing is 
       - check: the page lands on the new application's settings, showing its numeric id
 ```
 
-An enumerated form is a claim about an upstream interface. Every fact an upstream owns — a field, a default, a tool's behavior — is verified against the official upstream source before the guide states it, and the citation lands in the reference zone as a dated entry the guide links once, so the procedure stays lean and the audit trail stays findable.
+An enumerated form is a claim about an upstream interface. Every fact an upstream owns is verified against the official upstream source before the guide states it. A field, a default, and a tool's behavior are such facts. The citation lands in the reference zone as a dated entry the guide links once. As a result, the procedure stays lean and the audit trail stays findable.
 
 ## The artifact token
 
@@ -95,9 +95,9 @@ An artifact is anything a phase produces that something later needs: a string, a
 - One artifact token MUST mean one artifact across the whole docs tree.
 - An artifact token MUST NOT carry a real or realistic value.
 
-`<BUCKET_KEY_ID>`, not `<STEP_3_OUTPUT>`: a step number is wrong the moment a step is inserted. A slot shown as `key_id: 002abc4e91` reads as a value to copy rather than one to replace, and a reader working through a recovery at speed will copy it.
+`<BUCKET_KEY_ID>`, not `<STEP_3_OUTPUT>`: a step number is wrong the moment a step is inserted. A slot shown as `key_id: 002abc4e91` reads as a value to copy rather than one to replace. A reader working through a recovery at speed will copy it.
 
-Case is the discriminator against the placeholder [06 — Format](./06-format.md) already owns. A placeholder is lowercase and stands in for anything project-specific, as `<project>` or `<host>` do. An artifact token is upper-snake and asserts more: that some phase produces this, and that the guide says which. A project already spending upper-snake angle names on something else picks a different delimiter for one of the two, because the two meanings cannot share a spelling.
+Case is the discriminator against the placeholder [06 Format](./06-format.md) already owns. A placeholder is lowercase and stands in for anything project-specific, as `<project>` or `<host>` do. An artifact token is upper-snake and asserts more: that some phase produces this, and that the guide says which. The two meanings cannot share a spelling. As a result, a project already spending upper-snake angle names on something else picks a different delimiter for one of the two.
 
 In prose the token is inline code. Inside a fenced block it is written bare.
 
@@ -114,7 +114,7 @@ Inputs: `<BACKUP_PASSPHRASE>` (§4), `<BUCKET_KEY_ID>` (§3).
 
 A producer is a section reference on the same page, or an explicit relative link where it is another guide. The line is the reader's re-entry point: someone resuming a day later reads one line to learn what must already be in hand.
 
-Naming producers exposes the guide's real dependency graph, which is half the value. An inputs line that has to cite a later section is an ordering defect the prose was hiding; reorder the guide, or state the exception and cross-link both directions so neither phase is a surprise.
+Naming producers exposes the guide's real dependency graph, which is half the value. An inputs line that has to cite a later section is an ordering defect the prose was hiding. Reorder the guide, or state the exception and cross-link both directions so neither phase is a surprise.
 
 ## The outputs block
 
@@ -134,23 +134,23 @@ Outputs of this phase:
 - An outputs block MUST name the artifact and where it is kept, and MUST NOT define it.
 - A phase that carries nothing forward MUST write `Outputs: none` and the reason.
 
-The block is the last element of its section, so a reader skimming to the next heading still passes it. Headings are the link namespace, and a derived list does not earn a target on every phase. The definition stays with whatever owns that fact, per [00 — Model](./00-model.md); a block that explains its artifact leaves two places to change. Silence about a phase that produces nothing reads as an omission rather than as an answer.
+The block is the last element of its section, so a reader skimming to the next heading still passes it. Headings are the link namespace, and a derived list does not earn a target on every phase. The definition stays with whatever owns that fact, per [00 Model](./00-model.md). A block that explains its artifact leaves two places to change. Silence about a phase that produces nothing reads as an omission rather than as an answer.
 
 ## Where the phase devices apply
 
-- Where a guide has more than one phase and an artifact crosses a phase boundary, the author MUST use an inputs line and an outputs block.
+- Where a guide has multiple phases and an artifact crosses a phase boundary, the author MUST use an inputs line and an outputs block.
 
 The three devices are for that case and no other.
 
 - Not a single-phase guide. One outputs block with nothing downstream of it is ceremony.
 - Not reference, explanation, or decision records. They have no phases, and a reference page that lists artifacts is the inventory, which owns them by name already.
-- Not a guide written to be read with no access to the rest of the tree, such as a printed recovery procedure. It cannot carry a line that points off-page, so it carries one requirements list at the top, and the exemption is recorded with the project's other local exceptions.
+- Not a guide written to be read with no access to the rest of the tree, such as a printed recovery procedure. It cannot carry a line that points off-page, so it carries one requirements list at the top. The exemption is recorded with the project's other local exceptions.
 
 ## Length
 
-The heading list is the length signal, not the line count. A reader scanning the headings sees the whole procedure without scrolling. Where it no longer fits, the page is carrying more than one task, or it is carrying reference material a lookup page should own.
+The heading list is the length signal, not the line count. A reader scanning the headings sees the whole procedure without scrolling. Where it no longer fits, the page is carrying more than one task, or it is carrying reference material that belongs to a lookup page.
 
-Split it by the test in [01 — Placement](./01-placement.md): what the reader is doing stays in the guide, what they are looking up moves to reference, and why it is so moves to explanation or a decision record.
+Split it by the test in [01 Placement](./01-placement.md): what the reader is doing stays in the guide. What they are looking up moves to reference, and why it is so moves to explanation or a decision record.
 
 ## Anti-patterns
 

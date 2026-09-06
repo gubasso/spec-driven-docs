@@ -9,9 +9,9 @@ Every rule this framework states is either checked by a hook or declared unenfor
 - Every tool a gate runs beyond POSIX and git MUST be in the project's devshell and in the hook.
 - A new gate MUST be demonstrated failing against an intentional violation before it is trusted.
 
-[03 — Rules](./03-rules.md) requires the `Verify:` line; this chapter wires it. A rule presented as binding but never checked teaches readers that specs describe intentions. The devshell rule makes a gate testable: a tool reachable only inside pre-commit cannot be exercised against a violation.
+[03 Rules](./03-rules.md) requires the `Verify:` line. This chapter wires it. A rule presented as binding but never checked teaches readers that specs describe intentions. The devshell rule makes a gate testable: a tool reachable only inside pre-commit cannot be exercised against a violation.
 
-A check whose file set is empty exits zero, so a renamed directory or a drifted `files:` pattern turns every gate below into a green light over nothing. Assert the set before checking it.
+A check whose file set is empty exits zero. As a result, a renamed directory or a drifted `files:` pattern turns every gate below into a green light over nothing. Assert the set before checking it.
 
 ```bash
 set -- _docs/specs/SPEC-*.md
@@ -20,11 +20,11 @@ set -- _docs/specs/SPEC-*.md
 
 ## Heading shapes
 
-`MD043 required-headings` holds the fixed heading lists. It takes one `headings` array, so each shape needs its own config file and hook entry. First remove any mention of `MD043` from the project's `.markdownlint-cli2.jsonc`, including `"MD043": false`: that file merges over the `--config` base and would silently disable every shape below while the hooks keep reporting success.
+`MD043 required-headings` holds the fixed heading lists. It takes one `headings` array, so each shape needs its own config file and hook entry. First remove any mention of `MD043` from the project's `.markdownlint-cli2.jsonc`, including `"MD043": false`: that file merges over the `--config` base, so a mention left there silently disables every shape below while the hooks keep reporting success.
 
-Each config is `{"config": {"MD043": {"headings": [...]}}}` with one array. For a spec that array is `["?", "## Purpose", "## Requirements", "+"]`; for a record it is `"?"` followed by the five section headings in order, with no trailing wildcard. Scope the record hook to `ADR-` alone: a template holds the shape inside a fence so it can be copied, and MD043 counts a fenced heading as no heading at all.
+Each config is `{"config": {"MD043": {"headings": [...]}}}` with one array. For a spec that array is `["?", "## Purpose", "## Requirements", "+"]`. For a record it is `"?"` followed by the five section headings in order, with no trailing wildcard. Scope the record hook to `ADR-` alone: a template holds the shape inside a fence so it can be copied, and MD043 counts a fenced heading as no heading at all.
 
-MD043 checks every heading level, so the array covers requirement and scenario headings too. Tokens are `?` for exactly one, `+` for one or more, `*` for zero or more; `+` fails an empty spec. Set `match_case: true`: its default is false, and without it a record headed `## status` passes.
+MD043 checks every heading level, so the array covers requirement and scenario headings too. Tokens are `?` for exactly one, `+` for one or more, `*` for zero or more. `+` fails an empty spec. Set `match_case: true`: its default is false, and without it a record headed `## status` passes.
 
 ```yaml
 - id: markdownlint-cli2
@@ -44,7 +44,7 @@ Reuse the id of the project's existing markdownlint hook so its settings carry o
 
 ## Filenames
 
-Scope the hook to the directory, not the prefix. A `files:` pattern of `^_docs/decisions/ADR-` never sees the file someone named `0001-use-postgres.md` — the one filename the rule exists to reject.
+Scope the hook to the directory, not the prefix. A `files:` pattern of `^_docs/decisions/ADR-` never sees the file someone named `0001-use-postgres.md`. That is the one filename the rule exists to reject.
 
 ```yaml
 - id: adr-filename-shape
@@ -79,13 +79,13 @@ ls <root>/reference/known-issues/ | sed 's/\.md$//' | sort -u > /tmp/recorded
 comm -13 /tmp/recorded /tmp/cited | grep . && exit 1 || exit 0
 ```
 
-The check runs one way only: a cited case with no record is a fabrication and fails, while a record no suppression cites is ordinary — the workaround may live in a config or a dependency pin.
+The check runs one way only: a cited case with no record is a fabrication and fails. A record no suppression cites is ordinary, because the workaround can live in a config or a dependency pin.
 
-Wire it as `always_run`, not behind a `files:` filter. The commit this check exists to catch deletes a record while a suppression still cites it, and pre-commit selects staged files with `--diff-filter=ACMRTUXB`, which omits deletions — a filter would hand the hook an empty list on exactly that commit. The same reasoning binds every gate that compares two sets.
+Wire it as `always_run`, not behind a `files:` filter. The commit this check exists to catch deletes a record while a suppression still cites it. Pre-commit selects staged files with `--diff-filter=ACMRTUXB`, which omits deletions. As a result, a filter hands the hook an empty list on exactly that commit. The same reasoning binds every gate that compares two sets.
 
 ## Companion directories
 
-A companion directory with no spec beside it is an orphan; an empty one is a scaffold nobody filled.
+A companion directory with no spec beside it is an orphan. An empty one is a scaffold nobody filled.
 
 ```bash
 for d in _docs/specs/*/; do
@@ -158,11 +158,11 @@ while IFS= read -r f; do
 done
 ```
 
-The chapter loop is what stops a shelf from absorbing a subject by growing. A catalog takes the larger number for the reason [06 — Format](./06-format.md) states, matched by name because no command can tell an argument from an inventory; the shelf index is in the loop because no numbered pattern matches it. The walk prunes what a project vendors rather than authors, since a cap nobody can satisfy is a cap they switch off. Where a budget lands over an older corpus, the loop skips a list of named paths and fails when a listed path fits or disappears, so the exemption shrinks on its own.
+The chapter loop is what stops a shelf from absorbing a subject by growing. A catalog takes the larger number for the reason [06 Format](./06-format.md) states. It is matched by name because no command can tell an argument from an inventory. The shelf index is in the loop because no numbered pattern matches it. The walk prunes what a project vendors rather than authors, since a cap nobody can satisfy is a cap they switch off. Where a budget lands over an older corpus, the loop skips a list of named paths and fails when a listed path fits or disappears. As a result, the exemption shrinks on its own.
 
 ## Tables of contents
 
-`md-toc` owns the TOC: generated, never written, and gated rather than trusted. Depth 3 stops at the requirement headings; the default of 6 adds an entry per scenario, which nobody navigates to.
+`md-toc` owns the TOC: generated, never written, and gated rather than trusted. Depth 3 stops at the requirement headings. The default of 6 adds an entry per scenario, which nobody navigates to.
 
 ```yaml
 - repo: https://github.com/frnmst/md-toc
@@ -172,7 +172,7 @@ The chapter loop is what stops a shelf from absorbing a subject by growing. A ca
       args: [-p, -c, --skip-lines, '1', github, -l, '3']
 ```
 
-The depth flag belongs to the parser subcommand, so it follows `github`; at the top level `-l` means `--no-links` and `-l 3` is an error. In CI, check instead of write:
+The depth flag belongs to the parser subcommand, so it follows `github`. At the top level `-l` means `--no-links` and `-l 3` is an error. In CI, check instead of write:
 
 ```bash
 md_toc -d -c -s 1 github -l 3 _docs/specs/SPEC-*.md   # 0 fresh, 128 stale
@@ -197,13 +197,13 @@ strip() { sed '/^```/,/^```/d' "$1" | sed 's/`[^`]*`//g'; }
 sdd gate no-self-narration "$f"
 ````
 
-The emphasis rule is stated without a gate; see the table below. The wrap rule is the third prose rule: `sdd gate prose-stays-unwrapped` reports the continuation line a hard wrap leaves behind, exempting the blocks that own their line structure — fences, tables, definitions, hard breaks.
+The emphasis rule is stated without a gate. See the table below. The wrap rule is the third prose rule: `sdd gate prose-stays-unwrapped` reports the continuation line a hard wrap leaves behind, exempting the blocks that own their line structure. Those blocks are fences, tables, definitions, hard breaks.
 
 ## Personal paths
 
-`sdd gate no-personal-path` reports an absolute path into a home directory — `/home/<name>`, `/Users/<name>`, and the Windows spelling — in any file the commit carries.
+`sdd gate no-personal-path` reports an absolute path into a home directory (`/home/<name>`, `/Users/<name>`, and the Windows spelling) in any file the commit carries.
 
-This is the one prose check that does not strip code first. A fenced command carrying a real home directory is the leak, not a quotation of it, so a document teaching the shape writes a placeholder segment: `<user>`, `$USER`, `~`. Two exemptions are by purpose rather than path — a file whose job is one person's environment (`.env`, `.envrc.local`, and their sample copies), and any file git ignores, which never reaches a hook at all.
+This is the one prose check that does not strip code first. A fenced command carrying a real home directory is the leak, not a quotation of it. As a result, a document teaching the shape writes a placeholder segment: `<user>`, `$USER`, `~`. Two exemptions are by purpose rather than path: a file whose job is one person's environment (`.env`, `.envrc.local`, and their sample copies), and any file git ignores, which never reaches a hook at all.
 
 ## Comment citations
 
@@ -224,7 +224,7 @@ The second is the orphan check: a citation resolving to nothing is a fabrication
 
 ## Clarification markers
 
-The cap and the form are one loop. Whether the marker blocks enactment is a set intersection against the enacted list from [09 — Spec to Code](./09-spec-to-code.md).
+The cap and the form are one loop. Whether the marker blocks enactment is a set intersection against the enacted list from [09 Spec to Code](./09-spec-to-code.md).
 
 ```bash
 for f in <root>/specs/SPEC-*.md; do
@@ -280,4 +280,4 @@ These rules are real and no command decides them. A reviewer does.
 | An operational document carries every part of its shape     | requires knowing which shape it is        |
 | A destructive step shows its dry run and its loss           | requires knowing the tool's forms         |
 
-[99 — Checklist](./99-checklist.md) is where these are asked at review time.
+[99 Checklist](./99-checklist.md) is where these are asked at review time.
