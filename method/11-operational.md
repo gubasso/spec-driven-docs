@@ -1,6 +1,6 @@
 # 11 — Operational Documents
 
-Operational material is written under pressure: a fix becomes a runbook, a failure becomes a case study, a command someone ran at 3 a.m. becomes a lookup. It lands outside the model unless something states what each one contains. [01 — Placement](./01-placement.md) puts each in a zone and [10 — Procedures](./10-procedures.md) owns the steps inside one; this chapter owns the contents.
+Operational material is written under pressure: a fix becomes a runbook, a failure becomes a case study, a command someone ran at 3 a.m. becomes a lookup. It lands outside the model unless something states what each one contains. [01 Placement](./01-placement.md) puts each in a zone and [10 Procedures](./10-procedures.md) owns the steps inside one. This chapter owns the contents.
 
 ## Four shapes
 
@@ -13,13 +13,13 @@ Operational material is written under pressure: a fix becomes a runbook, a failu
 
 - An operational document MUST carry every part of its shape.
 
-The parts are what make the document usable by someone who did not write it. A runbook missing its trigger is a page nobody opens at the right moment; one missing its rollback criteria is a page that gets a reader halfway and leaves them there.
+The parts are what make the document usable by someone who did not write it. A runbook missing its trigger is a page nobody opens at the right moment. One missing its rollback criteria is a page that gets a reader halfway and leaves them there.
 
 ## The runbook
 
 The trigger opens it: the alert, the symptom, or the condition that makes this the right page. A reader arrives mid-incident and needs to confirm in one line that they are in the right place.
 
-Rollback is two things and the second is the one usually missing. The commands that revert are the easy half; the criteria that say when to stop trying and revert are the half that decides whether an incident ends in twenty minutes or two hours.
+Rollback is two things and the second is the one usually missing. The commands that revert are the easy half. The criteria that say when to stop trying and revert are the half that decides whether an incident ends in twenty minutes or two hours.
 
 - A runbook MUST state the condition under which the reader stops and reverts.
 
@@ -50,7 +50,7 @@ The confirmation is a step rather than a warning because a warning is prose a re
 
 ## The diagnostic
 
-A diagnostic decides which bucket a failure is in. It does not solve every bucket inline; it hands off to the guide that does.
+A diagnostic decides which bucket a failure is in. It does not solve every bucket inline. It hands off to the guide that does.
 
 ```markdown
 | Symptom                | Signal                 | Expected      | Means                      |
@@ -61,13 +61,13 @@ A diagnostic decides which bucket a failure is in. It does not solve every bucke
 
 - A diagnostic MUST state the expected result of every signal it names.
 
-A signal with no expected result is a command, not a diagnostic. The reader can run it either way; what they cannot do is tell whether what came back was the problem.
+A signal with no expected result is a command, not a diagnostic. The reader can run it either way. What they cannot do is tell whether what came back was the problem.
 
 ## The case study
 
 A case study records what happened, the signals that were present, what fixed it, and the lesson that outlives the incident. It is reference, because its reader arrives looking something up rather than executing.
 
-It is not where a new rule lives. When an incident changes policy, the rule goes to the owning spec and a decision record argues for it; the case study links the rule ID and stops. A rule stated only in a case study is a rule that binds nobody, in a document nobody loads.
+It is not where a new rule lives. When an incident changes policy, the rule goes to the owning spec and a decision record argues for it. The case study links the rule ID and stops. A rule stated only in a case study is a rule that binds nobody, in a document nobody loads.
 
 ## Placement is zone-first
 
@@ -78,7 +78,7 @@ docs/guides/backups/restore-from-object-storage.md
 docs/reference/backups/diagnosing-a-stalled-backup.md
 ```
 
-A `runbooks/` or `case-studies/` directory sorts pages by a category the author invented rather than by what the reader is trying to do, and it is the filesystem-index shape [00 — Model](./00-model.md) forbids: a container that exists to hold a label. When a topic's guides become hard to scan, the fix is the zone's index, not a new bucket.
+A `runbooks/` or `case-studies/` directory sorts pages by a category the author invented rather than by what the reader is trying to do. It is also the filesystem-index shape [00 Model](./00-model.md) forbids: a container that exists to hold a label. When a topic's guides become hard to scan, the fix is the zone's index, not a new bucket.
 
 ## Anti-patterns
 
