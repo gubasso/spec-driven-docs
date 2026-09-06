@@ -18,7 +18,7 @@
 
 ## Purpose
 
-Rules governing specification files under `_docs/specs/`. Covers the requirement block, its grammar, its identifier, and its verification. Where a spec is placed and how it is named belong to `SPEC-docs-foundations.md`; the markdown a spec is written in belongs to `SPEC-docs-format.md`.
+Rules governing specification files under `_docs/specs/`. Covers the requirement block, its grammar, its identifier, and its verification. Where a spec is placed and how it is named belong to `SPEC-docs-foundations.md`. The markdown a spec is written in belongs to `SPEC-docs-format.md`.
 
 ## Requirements
 
@@ -41,7 +41,7 @@ The author MUST write every requirement statement as one sentence in an EARS pat
 #### Scenario: A preference is written as a requirement
 
 - GIVEN an author who prefers short records
-- WHEN they write "records should be kept short"
+- WHEN they write "records are best kept short"
 - THEN the statement names no actor and no threshold, and the gate rejects it
 
 Verify: ``rg -UIo -r '$1' '^### `[a-z0-9-]+:[a-z0-9-]+`[^\n]*\n\n([^\n]+)' . --glob 'SPEC-*.md' | rg -v '(MUST|SHALL|SHOULD|MAY|REQUIRED)' | grep . && exit 1 || exit 0``
