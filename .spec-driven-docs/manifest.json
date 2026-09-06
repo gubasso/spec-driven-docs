@@ -122,8 +122,8 @@
     {
       "source": "_docs/specs/SPEC-guides.md",
       "destination": "_docs/specs/SPEC-guides.md",
-      "sha256": "5737c83008683de6dabb1e4f9b5df09aeee6966e8c475036337ee6c525507fb3",
-      "baseline_sha256": "5737c83008683de6dabb1e4f9b5df09aeee6966e8c475036337ee6c525507fb3"
+      "sha256": "20c6656e745037d41ca24479296f6ccfe54e3f1614cb460c57fe487797787e31",
+      "baseline_sha256": "20c6656e745037d41ca24479296f6ccfe54e3f1614cb460c57fe487797787e31"
     },
     {
       "source": "_docs/specs/SPEC-instance.md",
