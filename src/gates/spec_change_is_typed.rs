@@ -18,14 +18,16 @@
 //!
 //! A declared zone the gate cannot read is a violation rather than a pass,
 //! because a check over an empty set is a green light over nothing. That
-//! covers an absent directory, an unreadable one, and a path that leaves the
-//! repository. Where the project declared no zone a command may read, the
-//! gate reports nothing and `08-gates.md` carries the case as unenforced.
+//! covers an absent directory and an unreadable one, for both declarations,
+//! and a recorded path that is not repository-relative. The variable is held
+//! to no such shape: reaching records outside the checkout is what it is for.
+//! Where the project declared no zone a command may read, the gate reports
+//! nothing and `08-gates.md` carries the case as unenforced.
 
 use camino::{Utf8Path, Utf8PathBuf};
 
 use crate::domain::finding::Finding;
-use crate::domain::manifest::PLAN_ZONE_VAR;
+use crate::domain::manifest::{PLAN_ZONE_VAR, validate_plan_zone_path};
 use crate::domain::rule_id::RuleId;
 use crate::gates::paths::{PlanZoneTarget, plan_zone};
 use crate::gates::{GateCtx, GateError, GateResult, Violation};
@@ -209,9 +211,9 @@ pub fn run_for(ctx: &GateCtx, target: PlanZoneTarget) -> GateResult {
         PlanZoneTarget::Broken(reason) => return Ok(vec![Violation::Layout(reason)]),
         PlanZoneTarget::Variable(path) => (path, format!("{PLAN_ZONE_VAR} names")),
         PlanZoneTarget::Tracked(path) => {
-            if path.is_absolute() || path.components().any(|c| c.as_str() == "..") {
+            if let Err(error) = validate_plan_zone_path(&path) {
                 return Ok(vec![Violation::Layout(format!(
-                    "the recorded plan zone is {path}, which is not a path inside the repository"
+                    "the recorded plan zone is {path}, which is not a zone a gate can read: {error}"
                 ))]);
             }
             (path, "the recorded plan zone is".to_string())
@@ -458,13 +460,12 @@ mod tests {
     #[test]
     fn a_recorded_zone_outside_the_repository_is_refused() {
         let dir = repository("plan", BAD);
-        for escape in ["/etc", "../elsewhere"] {
+        // `.` is the case a first-character test misses: it survives an
+        // is-absolute check and would walk the whole repository.
+        for escape in ["/etc", "../elsewhere", ".", "  "] {
             let out = judge_zone(&dir, tracked(escape));
             assert_eq!(out.len(), 1, "{escape}: {out:?}");
-            assert!(
-                out[0].contains("not a path inside the repository"),
-                "{escape}"
-            );
+            assert!(out[0].contains("not a zone a gate can read"), "{escape}");
         }
     }
 

@@ -39,12 +39,20 @@
   },
   "$defs": {
     "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
-    "relative_path": { "type": "string", "minLength": 1, "pattern": "^[^/]" },
+    "relative_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^/]",
+      "not": { "pattern": "^[.\\s/]*$" }
+    },
     "confined_path": {
       "type": "string",
       "minLength": 1,
       "pattern": "^[^/]",
-      "not": { "pattern": "(^|/)\\.\\.(/|$)" }
+      "allOf": [
+        { "not": { "pattern": "(^|/)\\.\\.(/|$)" } },
+        { "not": { "pattern": "^[.\\s/]*$" } }
+      ]
     },
     "plan_zone": {
       "type": "object",
