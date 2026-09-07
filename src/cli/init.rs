@@ -24,4 +24,17 @@ pub struct InitArgs {
     /// Preview only; write nothing.
     #[arg(long)]
     pub dry_run: bool,
+
+    /// Where the planning tool writes entry documents: a repository-relative
+    /// path, `untracked:<PATH>`, `env`, or `none`. Write `./none` or `./env`
+    /// for a directory carrying either name. Omitted, the recorded value
+    /// stays.
+    #[arg(long, value_name = "VALUE")]
+    pub plan_zone: Option<String>,
+
+    /// Where material that is not a statement yet is kept, as a path that may
+    /// leave the repository, or `none` to clear a recorded value. Omitted,
+    /// the recorded value stays.
+    #[arg(long, value_name = "PATH")]
+    pub docs_scratch: Option<String>,
 }

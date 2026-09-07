@@ -55,7 +55,7 @@ mod tests {
     }
 
     const VALID: &str = r#"{
-        "schema_version": 2,
+        "schema_version": 3,
         "canon_version": "0.2.0",
         "canon_source": "https://github.com/gubasso/spec-driven-docs",
         "profile": "knowledge-base",
@@ -71,7 +71,7 @@ mod tests {
     }"#;
 
     #[test]
-    fn accepts_a_schema_two_manifest() {
+    fn accepts_a_current_schema_manifest() {
         assert!(run_with_manifest(Some(VALID)).is_empty());
     }
 
@@ -81,7 +81,7 @@ mod tests {
         assert_eq!(missing.len(), 1);
         assert!(missing[0].contains("instance:the-manifest-stays-readable"));
 
-        let older = VALID.replace("\"schema_version\": 2", "\"schema_version\": 1");
+        let older = VALID.replace("\"schema_version\": 3", "\"schema_version\": 1");
         let out = run_with_manifest(Some(&older));
         assert_eq!(out.len(), 1);
         assert!(out[0].contains("invalid manifest shape: manifest schema_version 1"));

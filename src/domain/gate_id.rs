@@ -57,6 +57,8 @@ pub enum GateId {
     NoSelfNarration,
     /// Paragraphs occupy one source line rather than hard-wrap.
     ProseStaysUnwrapped,
+    /// Typed clauses in the plan zone carry a well-formed rule ID.
+    SpecChangeIsTyped,
     /// Spec requirements carry all five parts.
     SpecRequirementParts,
     /// Rule IDs are unique across the local specs.
@@ -98,6 +100,7 @@ impl GateId {
         Self::NoPersonalPath,
         Self::NoSelfNarration,
         Self::ProseStaysUnwrapped,
+        Self::SpecChangeIsTyped,
         Self::SpecRequirementParts,
         Self::SpecRuleIdUnique,
         Self::SpecSizeCap,
@@ -133,6 +136,7 @@ impl GateId {
             Self::NoPersonalPath => "no-personal-path",
             Self::NoSelfNarration => "no-self-narration",
             Self::ProseStaysUnwrapped => "prose-stays-unwrapped",
+            Self::SpecChangeIsTyped => "spec-change-is-typed",
             Self::SpecRequirementParts => "spec-requirement-parts",
             Self::SpecRuleIdUnique => "spec-rule-id-unique",
             Self::SpecSizeCap => "spec-size-cap",
@@ -172,7 +176,7 @@ mod tests {
         for gate in GateId::ALL {
             assert!(seen.insert(gate.as_str()), "{gate} is duplicated");
         }
-        assert_eq!(GateId::ALL.len(), 29);
+        assert_eq!(GateId::ALL.len(), 30);
     }
 
     #[test]

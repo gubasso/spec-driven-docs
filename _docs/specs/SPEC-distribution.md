@@ -24,6 +24,7 @@
   - [`distribution:shared-skill-artifacts-have-one-home` — Shared skill artifacts have one home](#distributionshared-skill-artifacts-have-one-home--shared-skill-artifacts-have-one-home)
   - [`distribution:the-payload-names-no-planning-tool` — The payload names no planning tool](#distributionthe-payload-names-no-planning-tool--the-payload-names-no-planning-tool)
   - [`distribution:the-payload-names-no-other-project` — The payload names no other project](#distributionthe-payload-names-no-other-project--the-payload-names-no-other-project)
+  - [`distribution:a-declared-location-is-named-by-its-variable` — A declared location is named by its variable](#distributiona-declared-location-is-named-by-its-variable--a-declared-location-is-named-by-its-variable)
   - [`distribution:the-payload-roots-are-declared-once` — The payload roots are declared once](#distributionthe-payload-roots-are-declared-once--the-payload-roots-are-declared-once)
   - [`distribution:a-seeded-rule-runs-no-canon-command` — A seeded rule runs no canon command](#distributiona-seeded-rule-runs-no-canon-command--a-seeded-rule-runs-no-canon-command)
 
@@ -272,6 +273,18 @@ The author MUST keep every embedded payload root free of the name of any project
 - GIVEN a chapter or skill that names a sibling project while illustrating a rule
 - WHEN the canon test suite runs
 - THEN the check fails naming the file and the term, because a reader who lacks that project meets a reference they cannot follow
+
+Verify: `cargo nextest run -E 'binary(canon)'`
+
+### `distribution:a-declared-location-is-named-by-its-variable` — A declared location is named by its variable
+
+The author MUST keep the retired name of a declared location out of the authored corpus. A candidate path for one MUST appear only in the question a skill asks the operator.
+
+#### Scenario: A chapter reintroduces the docs scratch's old fixed path
+
+- GIVEN a chapter edited to name the retired directory, or the candidate path a skill offers
+- WHEN the canon test suite runs
+- THEN the check fails naming the file and the term, because a corpus that fixes the location has taken the declaration back
 
 Verify: `cargo nextest run -E 'binary(canon)'`
 

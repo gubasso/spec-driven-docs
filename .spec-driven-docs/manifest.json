@@ -1,10 +1,15 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "canon_version": "0.4.13",
   "canon_source": "https://github.com/gubasso/spec-driven-docs",
   "profile": "knowledge-base",
   "docs_root": "_docs",
   "installed_at": "2026-08-24T00:00:00Z",
+  "plan_zone": {
+    "kind": "tracked",
+    "path": "tests/fixtures"
+  },
+  "docs_scratch": ".docs-scratch",
   "managed_files": [
     {
       "source": ".markdownlint/adr.markdownlint-cli2.jsonc",
@@ -24,12 +29,12 @@
     {
       "source": "skills/sdd-migrate/SKILL.md",
       "destination": "skills/sdd-migrate/SKILL.md",
-      "sha256": "e52dadac4d7cc5014ceaec0aefe8d1636e6d4beda491563cf8a745227154fb17"
+      "sha256": "6da4f82d7e8b52788397bf67169af4835b67fec9ed6ed3309279a552859a60f9"
     },
     {
       "source": "skills/sdd-setup/SKILL.md",
       "destination": "skills/sdd-setup/SKILL.md",
-      "sha256": "3e5d088aaa440571389a909656e268a1cf1de50e0a146c4d2beb33abce1f445d"
+      "sha256": "d24c2e48009263b26a5ba121c014bd84e8b97f53610c28af5b2bc9f88dc3f5da"
     },
     {
       "source": "skills/sdd-write-docs/SKILL.md",
@@ -39,7 +44,7 @@
     {
       "source": "skill-shared/plan-gate.md",
       "destination": "skill-shared/plan-gate.md",
-      "sha256": "f3a78f73b5cce272b83944415285e36af5d67cc21b82ad434ec47c8a0d5865ae"
+      "sha256": "0dae9c5b5c69294edab2671c2551c8816eb2c09c5c9ef4496b69b13dfb64e1be"
     },
     {
       "source": "skill-shared/pre-flight-gate.md",
@@ -98,8 +103,8 @@
     {
       "source": "_docs/specs/SPEC-distribution.md",
       "destination": "_docs/specs/SPEC-distribution.md",
-      "sha256": "19fbefddf646cf836e4356e3a84708f7b7e7263e204d8aaed430cd1e612c1449",
-      "baseline_sha256": "19fbefddf646cf836e4356e3a84708f7b7e7263e204d8aaed430cd1e612c1449"
+      "sha256": "c84de42946632587d651efa5c02394f2b1ca30126dd994a0d27d1b6ea73ef2a5",
+      "baseline_sha256": "c84de42946632587d651efa5c02394f2b1ca30126dd994a0d27d1b6ea73ef2a5"
     },
     {
       "source": "_docs/specs/SPEC-docs-format.md",
@@ -152,8 +157,8 @@
     {
       "source": "_docs/specs/SPEC-spec-to-code.md",
       "destination": "_docs/specs/SPEC-spec-to-code.md",
-      "sha256": "76a85724cdb5f05642c4bc1e9e0c29c2082ccd703c398f28ebae0bda4b349a91",
-      "baseline_sha256": "76a85724cdb5f05642c4bc1e9e0c29c2082ccd703c398f28ebae0bda4b349a91"
+      "sha256": "d8da2243ab060747755b9748016f5fd325ee4c69c1d1f05bfd571389735252ac",
+      "baseline_sha256": "d8da2243ab060747755b9748016f5fd325ee4c69c1d1f05bfd571389735252ac"
     },
     {
       "source": "_docs/specs/SPEC-tracking.md",
@@ -183,7 +188,7 @@
   "integration_blocks": [
     {
       "path": ".pre-commit-config.yaml",
-      "marker_hash": "b77e1592b348090242f212406e9bf901735f7a0c54db7122ad9b50fe9c734e8a"
+      "marker_hash": "81ff663399f0a80bb1deeccd37558f4227cb440051b67f1cee0b5f939d6b680f"
     }
   ]
 }

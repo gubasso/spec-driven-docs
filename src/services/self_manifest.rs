@@ -145,20 +145,19 @@ pub fn regenerate(root: &Utf8Path) -> Result<String, AppError> {
         AppError::Refused("no managed block in .pre-commit-config.yaml".to_string())
     })?;
 
-    let installed_at = std::fs::read_to_string(root.join(MANIFEST_PATH))
-        .ok()
-        .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
-        .and_then(|value| {
-            value
-                .get("installed_at")
-                .and_then(|v| v.as_str())
-                .map(String::from)
-        })
+    // The three values the tree does not carry: they are declared once and
+    // read back from the record, the way an installed instance keeps them.
+    // Rebuilding this literal without them makes a regeneration erase this
+    // repository's own declarations.
+    let installed_at = crate::services::installer::recorded_field(root, "installed_at")
+        .and_then(|value| value.as_str().map(String::from))
         .unwrap_or_else(|| {
             jiff::Timestamp::now()
                 .strftime("%Y-%m-%dT%H:%M:%SZ")
                 .to_string()
         });
+    let plan_zone = crate::services::installer::resolved_plan_zone(root, None)?;
+    let docs_scratch = crate::services::installer::resolved_docs_scratch(root, None)?;
 
     let manifest = Manifest {
         schema_version: SCHEMA_VERSION,
@@ -167,6 +166,8 @@ pub fn regenerate(root: &Utf8Path) -> Result<String, AppError> {
         profile: ProfileId::KnowledgeBase,
         docs_root: DocsRoot::UnderscoreDocs,
         installed_at,
+        plan_zone,
+        docs_scratch,
         managed_files: managed,
         adopted_files: adopted,
         integration_blocks: vec![IntegrationBlock {

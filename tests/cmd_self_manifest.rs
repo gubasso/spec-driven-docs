@@ -29,7 +29,7 @@ fn refuses_outside_the_canon_checkout() {
 }
 
 #[test]
-fn regenerates_a_schema_two_manifest_in_a_canon_shaped_checkout() {
+fn regenerates_a_current_schema_manifest_in_a_canon_shaped_checkout() {
     let fixture = Fixture::new();
     fixture.write(
         "Cargo.toml",
@@ -75,7 +75,7 @@ fn regenerates_a_schema_two_manifest_in_a_canon_shaped_checkout() {
         ));
 
     let manifest = fixture.read(".spec-driven-docs/manifest.json");
-    assert!(manifest.contains("\"schema_version\": 2"));
+    assert!(manifest.contains("\"schema_version\": 3"));
     assert!(manifest.contains("\"installed_at\": \"2026-01-01T00:00:00Z\""));
     assert!(manifest.contains("_docs/specs/SPEC-sample.md"));
     assert!(manifest.contains(".markdownlint/spec.markdownlint-cli2.jsonc"));

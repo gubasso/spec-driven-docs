@@ -19,10 +19,12 @@ Terms this framework fixes, each resolved at the chapter that owns it. A term is
 | Kind prefix              | the uppercase `SPEC-`, `ADR-`, `KI-`, or `TEMPLATE-` leading a name     | `01-placement.md`     |
 | Companion directory      | `SPEC-<domain>/`, holding artifacts a requirement names                 | `02-specs.md`         |
 | Docs root                | `docs/` for a codebase, `_docs/` for a content tree                     | `01-placement.md`     |
+| Plan zone                | the declared place the planning tool writes entry documents to          | `01-placement.md`     |
 | Zone                     | a directory under the docs root serving one reader need                 | `01-placement.md`     |
 | Author-instructions file | the always-loaded digest and router at a directory                      | `05-agent-context.md` |
 | Entry document           | the one document a unit of work loads, which names its sources          | `05-agent-context.md` |
-| Draft                    | exploratory material in the gitignored workshop                         | `07-lifecycle.md`     |
+| Docs scratch             | the declared place for material that is not a statement yet             | `07-lifecycle.md`     |
+| Draft                    | exploratory material in the docs scratch                                | `07-lifecycle.md`     |
 | Promotion                | rewriting a draft into its owning zone and deleting the draft           | `07-lifecycle.md`     |
 | Tracking registry        | the machine-readable record of facts that expire                        | `07-lifecycle.md`     |
 | Unenforced rule          | a real rule that no command decides, declared as such                   | `08-gates.md`         |

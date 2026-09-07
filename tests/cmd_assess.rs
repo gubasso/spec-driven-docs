@@ -33,7 +33,7 @@ fn an_empty_target_classifies_greenfield() {
     fixture.write("README.md", "# The project\n");
     fixture.write("CONTRIBUTING.md", "How to contribute.\n");
     let report = assess_json(&fixture);
-    assert_eq!(report["schema"], "sdd.assess/1");
+    assert_eq!(report["schema"], "sdd.assess/2");
     assert_eq!(report["classification"], "greenfield");
     assert_eq!(report["instance"]["instance"], false);
     assert_eq!(report["documents"]["count"], 2);
@@ -123,4 +123,78 @@ fn a_file_target_exits_sixty_four() {
         .assert()
         .code(64)
         .stderr(predicate::str::contains("\"kind\":\"Usage\""));
+}
+
+/// The docs scratch is a declared location, and the report says where it
+/// resolved. A declared scratch inside the tree stays out of the inventory:
+/// staged rewrites are not documents to migrate.
+#[test]
+fn the_report_names_the_declared_docs_scratch_and_prunes_it() {
+    let fixture = Fixture::new();
+    let candidate = assess_json(&fixture);
+    assert_eq!(candidate["docs_scratch"], ".docs-scratch");
+    assert_eq!(candidate["docs_scratch_present"], false);
+
+    fixture
+        .cmd()
+        .args([
+            "init",
+            "--target",
+            &fixture.target(),
+            "--profile",
+            "codebase",
+            "--apply",
+            "--docs-scratch",
+            "staging",
+        ])
+        .assert()
+        .success();
+    fixture.write("staging/rewrite.md", "# A provisional rewrite\n");
+
+    let report = assess_json(&fixture);
+    assert_eq!(report["docs_scratch"], "staging");
+    assert_eq!(report["docs_scratch_present"], true);
+    let paths = report["documents"]["paths"].as_array().unwrap();
+    assert!(
+        !paths.iter().any(|path| path == "staging/rewrite.md"),
+        "the declared scratch reached the inventory: {paths:?}"
+    );
+}
+
+/// The variable overrides the recorded value, here and everywhere. The
+/// fixture records one first: without that the assertion would hold under
+/// inverted precedence, because there would be no record to lose to.
+#[test]
+fn the_docs_scratch_variable_overrides_the_record() {
+    let fixture = Fixture::new();
+    fixture
+        .cmd()
+        .args([
+            "init",
+            "--target",
+            &fixture.target(),
+            "--profile",
+            "codebase",
+            "--apply",
+            "--docs-scratch",
+            "staging",
+        ])
+        .assert()
+        .success();
+    let recorded = assess_json(&fixture);
+    assert_eq!(recorded["docs_scratch"], "staging");
+
+    let report: serde_json::Value = serde_json::from_slice(
+        &fixture
+            .cmd()
+            .env("SDD_DOCS_SCRATCH", "elsewhere")
+            .args(["assess", "--target", &fixture.target(), "--json"])
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone(),
+    )
+    .unwrap();
+    assert_eq!(report["docs_scratch"], "elsewhere");
 }

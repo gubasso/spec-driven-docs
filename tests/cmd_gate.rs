@@ -84,3 +84,45 @@ fn an_unknown_gate_is_a_clap_error() {
         .assert()
         .code(2);
 }
+
+/// The plan-zone gate reads a declared location, so the variable is the one
+/// path a unit test cannot reach: this crate forbids unsafe code, and
+/// setting a variable is unsafe from the 2024 edition on.
+#[test]
+fn the_plan_zone_variable_selects_what_the_typed_clause_gate_reads() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    fixture.write(
+        "elsewhere/work.md",
+        "- `_docs/specs/SPEC-auth.md` — ADDED auth:token-expiry\n",
+    );
+
+    // Unset, the instance declares no zone and the gate reports nothing.
+    fixture
+        .cmd()
+        .args(["gate", "spec-change-is-typed"])
+        .current_dir(fixture.path())
+        .assert()
+        .success();
+
+    fixture
+        .cmd()
+        .env("SDD_PLAN_ZONE", "elsewhere")
+        .args(["gate", "spec-change-is-typed"])
+        .current_dir(fixture.path())
+        .assert()
+        .code(1)
+        .stdout(predicate::str::contains(
+            "FAIL spec-to-code:a-spec-change-is-typed elsewhere/work.md:1",
+        ));
+
+    // A variable pointing at nothing is a stale declaration, not a pass.
+    fixture
+        .cmd()
+        .env("SDD_PLAN_ZONE", "gone")
+        .args(["gate", "spec-change-is-typed"])
+        .current_dir(fixture.path())
+        .assert()
+        .code(1)
+        .stdout(predicate::str::contains("SDD_PLAN_ZONE names gone"));
+}

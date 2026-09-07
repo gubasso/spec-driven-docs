@@ -14,7 +14,7 @@ The spec-to-code seam needs a work record: something that names the sources a se
 
 Chosen option: `state the contract and name no tool` — the seam asks for four properties of a record and nothing about its producer: one entry document per unit of work, sources named by path, spec changes cited by typed rule ID, and a record the coverage commands can read.
 
-The dependency is bounded in both directions. The specs never name the tool, so replacing it edits the plan zone and nothing under `specs/` or `decisions/`. The one value a project must declare for itself is the plan zone's path, which appears in a single verification command.
+The dependency is bounded in both directions. The specs never name the tool, so replacing it edits the plan zone and nothing under `specs/` or `decisions/`. The one value a project must declare for itself is the plan zone's path, which appears in a single verification command. See `ADR-record-the-plan-zone-at-install.md`.
 
 Enforced by `distribution:the-payload-names-no-planning-tool`.
 

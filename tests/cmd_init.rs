@@ -437,3 +437,217 @@ fn a_symlinked_agents_file_is_refused() {
         "the install wrote through the symlink"
     );
 }
+
+/// The two declared locations: each flag records its value, and an omitted
+/// flag never clears one. `sdd upgrade` reinstalls with no flag at all, so
+/// "absent means the default" would erase both on every upgrade.
+#[test]
+fn the_declared_locations_are_recorded_and_preserved() {
+    let fixture = Fixture::new();
+    fixture
+        .cmd()
+        .args([
+            "init",
+            "--target",
+            &fixture.target(),
+            "--profile",
+            "codebase",
+            "--apply",
+            "--plan-zone",
+            "docs/plan",
+            "--docs-scratch",
+            "../beside-the-checkout",
+        ])
+        .assert()
+        .success();
+
+    let recorded = |fixture: &Fixture| -> serde_json::Value {
+        serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap()
+    };
+    let manifest = recorded(&fixture);
+    assert_eq!(manifest["plan_zone"]["kind"], "tracked");
+    assert_eq!(manifest["plan_zone"]["path"], "docs/plan");
+    assert_eq!(manifest["docs_scratch"], "../beside-the-checkout");
+
+    // A reinstall with neither flag keeps both.
+    fixture.install("codebase");
+    let again = recorded(&fixture);
+    assert_eq!(again["plan_zone"], manifest["plan_zone"]);
+    assert_eq!(again["docs_scratch"], manifest["docs_scratch"]);
+
+    // And a later flag replaces just the value it names.
+    fixture
+        .cmd()
+        .args([
+            "init",
+            "--target",
+            &fixture.target(),
+            "--profile",
+            "codebase",
+            "--apply",
+            "--plan-zone",
+            "none",
+        ])
+        .assert()
+        .success();
+    let replaced = recorded(&fixture);
+    assert_eq!(replaced["plan_zone"], serde_json::json!({"kind": "none"}));
+    assert_eq!(replaced["docs_scratch"], "../beside-the-checkout");
+}
+
+/// An instance that declares neither records the plan zone as `none` and no
+/// docs scratch at all.
+#[test]
+fn an_undeclared_instance_records_no_location() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    let manifest: serde_json::Value =
+        serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
+    assert_eq!(manifest["plan_zone"], serde_json::json!({"kind": "none"}));
+    assert!(manifest.get("docs_scratch").is_none());
+}
+
+#[test]
+fn a_declared_location_the_arguments_cannot_mean_is_refused() {
+    for (flag, value) in [
+        ("--plan-zone", "/etc/plan"),
+        ("--plan-zone", "../plan"),
+        ("--plan-zone", "untracked:../plan"),
+        ("--docs-scratch", "/tmp/scratch"),
+    ] {
+        let fixture = Fixture::new();
+        fixture
+            .cmd()
+            .args([
+                "init",
+                "--target",
+                &fixture.target(),
+                "--profile",
+                "codebase",
+                "--apply",
+                flag,
+                value,
+            ])
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains(flag));
+    }
+}
+
+/// A recorded declaration this binary cannot decode refuses rather than
+/// defaults. Writing the default over it would erase a declaration in
+/// silence, which is the failure the preservation exists to prevent.
+#[test]
+fn an_undecodable_recorded_location_refuses_the_install() {
+    for (key, value) in [
+        ("plan_zone", serde_json::json!({"kind": "from-a-later-sdd"})),
+        ("docs_scratch", serde_json::json!(["a", "list"])),
+    ] {
+        let fixture = Fixture::new();
+        fixture.install("codebase");
+        let mut manifest: serde_json::Value =
+            serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
+        manifest[key] = value;
+        let before = serde_json::to_string_pretty(&manifest).unwrap() + "\n";
+        fixture.write(".spec-driven-docs/manifest.json", &before);
+
+        fixture
+            .cmd()
+            .args([
+                "init",
+                "--target",
+                &fixture.target(),
+                "--profile",
+                "codebase",
+                "--apply",
+            ])
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains(key));
+        assert_eq!(
+            fixture.read(".spec-driven-docs/manifest.json"),
+            before,
+            "{key}: the refused install still rewrote the record"
+        );
+    }
+}
+
+/// Each declared location has a clearing word, so a typo can be undone
+/// without hand-editing the record.
+#[test]
+fn a_declared_location_can_be_cleared() {
+    let fixture = Fixture::new();
+    fixture
+        .cmd()
+        .args([
+            "init",
+            "--target",
+            &fixture.target(),
+            "--profile",
+            "codebase",
+            "--apply",
+            "--docs-scratch",
+            "scrtach",
+        ])
+        .assert()
+        .success();
+    fixture
+        .cmd()
+        .args([
+            "init",
+            "--target",
+            &fixture.target(),
+            "--profile",
+            "codebase",
+            "--apply",
+            "--docs-scratch",
+            "none",
+        ])
+        .assert()
+        .success();
+    let manifest: serde_json::Value =
+        serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
+    assert!(manifest.get("docs_scratch").is_none());
+}
+
+/// A recorded path the arguments would refuse is caught before any byte is
+/// written. Carried forward, it fails the post-write verification instead,
+/// which rolls the whole target back and names no repair.
+#[test]
+fn a_recorded_location_the_arguments_would_refuse_stops_the_install_early() {
+    for (key, value) in [
+        (
+            "plan_zone",
+            serde_json::json!({"kind": "tracked", "path": "../plan"}),
+        ),
+        ("docs_scratch", serde_json::json!("/tmp/scratch")),
+    ] {
+        let fixture = Fixture::new();
+        fixture.install("codebase");
+        let mut manifest: serde_json::Value =
+            serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
+        manifest[key] = value;
+        let before = serde_json::to_string_pretty(&manifest).unwrap() + "\n";
+        fixture.write(".spec-driven-docs/manifest.json", &before);
+        let tree = fixture.tree_digest();
+
+        fixture
+            .cmd()
+            .args([
+                "init",
+                "--target",
+                &fixture.target(),
+                "--profile",
+                "codebase",
+                "--apply",
+            ])
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("re-declare it"));
+        assert_eq!(
+            fixture.tree_digest(),
+            tree,
+            "{key}: the refused install wrote into the target"
+        );
+    }
+}

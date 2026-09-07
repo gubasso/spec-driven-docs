@@ -6,9 +6,10 @@
 //! and breakage are different findings, and reporting a broken instance as
 //! absent would invite a destructive re-init.
 
-use camino::Utf8Path;
+use camino::{Utf8Path, Utf8PathBuf};
 use serde::Serialize;
 
+use crate::domain::manifest::{DOCS_SCRATCH_VAR, PLAN_ZONE_VAR, PlanZone};
 use crate::domain::profile::{DocsRoot, ProfileId};
 use crate::domain::version::CanonVersion;
 use crate::error::AppError;
@@ -35,6 +36,15 @@ pub struct StatusReport {
     pub profile: Option<ProfileId>,
     /// The instance's documentation root.
     pub docs_root: Option<DocsRoot>,
+    /// The plan zone the instance records.
+    pub plan_zone: Option<PlanZone>,
+    /// The docs scratch the instance records.
+    pub docs_scratch: Option<Utf8PathBuf>,
+    /// What `SDD_PLAN_ZONE` carries here, when it is set. The variable
+    /// overrides the recorded value, so an audit needs both.
+    pub plan_zone_env: Option<String>,
+    /// What `SDD_DOCS_SCRATCH` carries here, when it is set.
+    pub docs_scratch_env: Option<String>,
     /// The canon version that produced the instance.
     pub canon_version: Option<CanonVersion>,
     /// The version this binary carries.
@@ -51,11 +61,23 @@ pub struct StatusReport {
     pub ok: Option<bool>,
 }
 
+/// What a variable carries, or `None` when it is unset or blank.
+fn variable(name: &str) -> Option<String> {
+    std::env::var(name)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
 fn absent() -> StatusReport {
     StatusReport {
         instance: false,
         profile: None,
         docs_root: None,
+        plan_zone: None,
+        docs_scratch: None,
+        plan_zone_env: variable(PLAN_ZONE_VAR),
+        docs_scratch_env: variable(DOCS_SCRATCH_VAR),
         canon_version: None,
         binary_version: CanonVersion::current(),
         alignment: None,
@@ -90,6 +112,10 @@ pub fn status(target: &Utf8Path) -> Result<StatusReport, AppError> {
         instance: true,
         profile: Some(manifest.profile),
         docs_root: Some(manifest.docs_root),
+        plan_zone: Some(manifest.plan_zone),
+        docs_scratch: manifest.docs_scratch,
+        plan_zone_env: variable(PLAN_ZONE_VAR),
+        docs_scratch_env: variable(DOCS_SCRATCH_VAR),
         canon_version: Some(manifest.canon_version),
         binary_version: binary,
         alignment: Some(alignment),

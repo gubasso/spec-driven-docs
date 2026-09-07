@@ -38,21 +38,21 @@ The chapter owns each step's how. This is what the skill decides at each one.
 
 1. Inventory every place the project documents itself. The assess report's document inventory is the seed, not the boundary: it lists the extensions it recognizes. As a result, a read-only sweep of every populated documentation root and every other source the report names completes the inventory before the checklist freezes. That sweep covers files of any extension, wiki exports, README files, and contributor guides. The inventory becomes the migration checklist, one entry per source in the shape the chapter's inventory section gives: checksum, disposition, destinations, approval, verification state.
 2. Classify each entry's facts by the placement chapter's decision procedure, `sdd method 01-placement`. One source often splits across several fates. List each fate under its entry rather than averaging them.
-3. Present the checklist as the plan. Ask every disposition question the inventory raises before approval, with `AskUserQuestion`, because an approved checklist is what makes the loop safe to run. The checklist lands under version control in the project's plan zone. Provisional rewrites stage under `.draft/migration/`, and the ignore entry that keeps them out of version control is a gated step below.
+3. Present the checklist as the plan. Ask every disposition question the inventory raises before approval, with `AskUserQuestion`, because an approved checklist is what makes the loop safe to run. The checklist lands under version control in the project's plan zone. Provisional rewrites stage under `migration/` in the docs scratch. Ask the operator for that location in this same turn, with the offers the sdd-setup skill's `## Declare the two locations` lists. The assess report's `docs_scratch` is a discovery candidate rather than a declaration, so it never answers the question: only `sdd status --json` reports what an instance recorded. The answer becomes a flag on step 4's one landing write, never a second `sdd init` here.
 4. Land the instance exactly as the sdd-setup skill's `## Land an instance` and `## Wire agent context` state it: the profile, the preview against the assess report's collisions, the apply, the documentation section in `AGENTS.md`. Nothing of that sequence is restated here.
 5. Run the chapter's loop in verified batches: re-checksum, rewrite into the owning zone, verify the destinations, retire the source only under the chapter's four conditions, record completion last. Each destination is authored as the sdd-write-docs skill's `## Before writing` states: the adopted spec for its domain loaded, the matching template taken only where one exists. A plain reference page has none and follows its zone's format and placement rules.
-6. Close on the chapter's evidence: the fresh inventory against the checklist, `sdd verify --target .`, `pre-commit run --all-files`, and the workshop emptied with the operator's approval. The checklist stays, checked and closed, as the record of what went where.
+6. Close on the chapter's evidence: the fresh inventory against the checklist, `sdd verify --target .`, `pre-commit run --all-files`, and the docs scratch emptied with the operator's approval. The checklist stays, checked and closed, as the record of what went where.
 
 ## What waits for the operator
 
 Gate each of these: print the exact command or edit, say what it changes and why, wait, then re-observe before continuing.
 
-- The `.draft/` ignore entry, where the target's ignore file lacks it: one line, before anything stages in the workshop.
+- The ignore entry for the docs scratch, where the scratch sits inside the repository and the target's ignore file lacks it: one line, before anything stages there.
 - `sdd init --target "$PWD" --profile <profile> --apply`: the one landing write. Its preview runs first, per the sdd-setup skill.
 - Committing, or backing up where the plan says, an untracked or locally modified source before its entry retires anything: the chapter retires only bytes version control or the approved backup holds.
 - Every retirement of a file the project authored: only where the approved checklist named it, only after its destinations verified.
 - A `needs-decision` verdict, and every disposition question the inventory raises.
-- Emptying `.draft/migration/` at the close: anything still in it is promoted or consciously dropped by the operator, never swept.
+- Emptying the docs scratch's `migration/` directory at the close: anything still in it is promoted or consciously dropped by the operator, never swept.
 
 ## When it goes wrong
 
@@ -65,7 +65,7 @@ Gate each of these: print the exact command or edit, say what it changes and why
 ## Defaults
 
 - The full corpus sweep is the default scope. A partial migration is an explicit narrowing, stated in the plan.
-- No durable fact is lost: each one is rewritten into its owner, parked in `.draft/migration/`, or retired with the operator's approval.
+- No durable fact is lost: each one is rewritten into its owner, parked in the docs scratch's `migration/` directory, or retired with the operator's approval.
 - Prefer an sdd verb over hand-editing anything the instance manifest owns. Everything under `.spec-driven-docs/` belongs to the canon.
 - Report every step's outcome from observation, never from memory of what the command is expected to do.
 - Never widen an approved scope inline: a discovered document, an extra split, a version upgrade is its own entry, approved at its own size.
