@@ -95,6 +95,8 @@ sdd upgrade --target .
 
 Install the newer `sdd` first. A locally edited managed file aborts the whole upgrade with every conflict listed in one run. Revert or reconcile, then re-run. Adopted files and content outside the markers survive upgrades.
 
+An instance installed before 0.4.14 records manifest schema 2, and this binary reads 3. Every verb but `sdd upgrade` refuses that record and names the upgrade. Run the upgrade once. It migrates the record and keeps both declared locations, and it also migrates an instance whose canon version already matches this binary.
+
 An adopted seed the canon stops shipping is left in place, because the project owns it from the moment it lands. An upgrade that stops seeding one names it in the release notes. Delete the file once nothing local cites its rules. `SPEC-distribution.md` is the first: it states the installer's obligations, which no project can meet or check, and `SPEC-instance.md` now carries what a project owes its own installation.
 
 ## Defaults
