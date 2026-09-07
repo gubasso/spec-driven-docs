@@ -132,6 +132,29 @@ impl PlanZone {
     }
 }
 
+/// Whether a recorded plan-zone path is one a gate can resolve.
+///
+/// The same check the argument runs. A record reaches a reinstall through a
+/// permissive read, so without this a hand-edited value is carried forward
+/// and only the post-write verification catches it.
+///
+/// # Errors
+///
+/// [`DeclaredPathError`] for a path that is empty, absolute, or leaves the
+/// repository.
+pub fn validate_plan_zone_path(path: &Utf8Path) -> Result<(), DeclaredPathError> {
+    declared_path(path.as_str(), false).map(|_| ())
+}
+
+/// Whether a recorded docs-scratch path is one a reader can resolve.
+///
+/// # Errors
+///
+/// [`DeclaredPathError`] for a path that is empty or absolute.
+pub fn validate_docs_scratch_path(path: &Utf8Path) -> Result<(), DeclaredPathError> {
+    declared_path(path.as_str(), true).map(|_| ())
+}
+
 /// Read the `--docs-scratch` argument.
 ///
 /// `none` clears a recorded value, mirroring `--plan-zone none`. Without a
@@ -236,12 +259,12 @@ impl Manifest {
         // declared tracked, and an absolute one makes it read outside the
         // repository, because a gate resolves the value against the root.
         if let Some(path) = manifest.plan_zone.path()
-            && let Err(error) = declared_path(path.as_str(), false)
+            && let Err(error) = validate_plan_zone_path(path)
         {
             return Err(ManifestParseError::Invalid(format!("plan_zone: {error}")));
         }
         if let Some(path) = &manifest.docs_scratch
-            && let Err(error) = declared_path(path.as_str(), true)
+            && let Err(error) = validate_docs_scratch_path(path)
         {
             return Err(ManifestParseError::Invalid(format!(
                 "docs_scratch: {error}"

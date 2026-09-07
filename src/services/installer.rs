@@ -13,7 +13,10 @@ use std::collections::BTreeMap;
 use camino::{Utf8Path, Utf8PathBuf};
 
 use crate::adapters::fs::{DestinationRefusal, check_destination, write_file};
-use crate::domain::manifest::{CANON_SOURCE, MANIFEST_PATH, Manifest, PlanZone, SCHEMA_VERSION};
+use crate::domain::manifest::{
+    CANON_SOURCE, MANIFEST_PATH, Manifest, PlanZone, SCHEMA_VERSION, validate_docs_scratch_path,
+    validate_plan_zone_path,
+};
 use crate::domain::ownership::{AdoptedEntry, IntegrationBlock, ManagedEntry, Sha256};
 use crate::domain::profile::{ProfileId, resolve_destination};
 use crate::domain::version::CanonVersion;
@@ -133,12 +136,23 @@ pub(crate) fn resolved_plan_zone(
     let Some(recorded) = recorded_field(target, "plan_zone") else {
         return Ok(PlanZone::default());
     };
-    serde_json::from_value(recorded).map_err(|source| {
+    let zone: PlanZone = serde_json::from_value(recorded).map_err(|source| {
         AppError::ManifestInvalid(format!(
             "the recorded plan_zone is in a shape this sdd does not read ({source}); \
              upgrade sdd, or re-declare it with --plan-zone"
         ))
-    })
+    })?;
+    // The same invariants the argument enforces. Carried forward unchecked,
+    // a hand-edited path fails the post-write verification instead, which
+    // rolls the whole target back and names no repair.
+    if let Some(path) = zone.path()
+        && let Err(error) = validate_plan_zone_path(path)
+    {
+        return Err(AppError::ManifestInvalid(format!(
+            "the recorded plan_zone is not usable ({error}); re-declare it with --plan-zone"
+        )));
+    }
+    Ok(zone)
 }
 
 /// The docs scratch to record: the flag, else the recorded value, else none.
@@ -159,17 +173,23 @@ pub(crate) fn resolved_docs_scratch(
     let Some(recorded) = recorded_field(target, "docs_scratch") else {
         return Ok(None);
     };
-    recorded
+    let path = recorded
         .as_str()
         .filter(|path| !path.is_empty())
         .map(Utf8PathBuf::from)
-        .map(Some)
         .ok_or_else(|| {
             AppError::ManifestInvalid(format!(
                 "the recorded docs_scratch is not a path ({recorded}); \
                  re-declare it with --docs-scratch"
             ))
-        })
+        })?;
+    if let Err(error) = validate_docs_scratch_path(&path) {
+        return Err(AppError::ManifestInvalid(format!(
+            "the recorded docs_scratch is not usable ({error}); \
+             re-declare it with --docs-scratch"
+        )));
+    }
+    Ok(Some(path))
 }
 
 struct TargetState {

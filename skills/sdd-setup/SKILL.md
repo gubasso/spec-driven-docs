@@ -40,14 +40,8 @@ Ask the two declaration questions below first, in the same plan turn as the prof
 
 1. Choose the profile: `codebase` keeps records under `docs/`, and `knowledge-base` keeps them under `_docs/`.
 2. Preview: `sdd init --target "$PWD" --profile codebase`. A non-empty target defaults to a dry run and lists every destination.
-3. Review the listed paths, then apply, carrying whichever declarations the operator gave.
-
-```bash
-sdd init --target "$PWD" --profile codebase --apply \
-  --plan-zone docs/plan --docs-scratch .docs-scratch
-```
-
-1. Confirm: `sdd verify --target "$PWD"` prints `OK spec-driven-docs <version>`.
+3. Review the listed paths, then apply, carrying whichever declarations the operator gave: `sdd init --target "$PWD" --profile codebase --apply --plan-zone docs/plan --docs-scratch .docs-scratch`.
+4. Confirm: `sdd verify --target "$PWD"` prints `OK spec-driven-docs <version>`.
 
 The install seeds specs and templates the project owns from then on (adopted). It lands byte-exact configurations and agent skills the canon owns (managed), and splices one marked block into `.pre-commit-config.yaml`. It touches nothing outside its destinations and the markers.
 

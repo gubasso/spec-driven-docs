@@ -609,3 +609,45 @@ fn a_declared_location_can_be_cleared() {
         serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
     assert!(manifest.get("docs_scratch").is_none());
 }
+
+/// A recorded path the arguments would refuse is caught before any byte is
+/// written. Carried forward, it fails the post-write verification instead,
+/// which rolls the whole target back and names no repair.
+#[test]
+fn a_recorded_location_the_arguments_would_refuse_stops_the_install_early() {
+    for (key, value) in [
+        (
+            "plan_zone",
+            serde_json::json!({"kind": "tracked", "path": "../plan"}),
+        ),
+        ("docs_scratch", serde_json::json!("/tmp/scratch")),
+    ] {
+        let fixture = Fixture::new();
+        fixture.install("codebase");
+        let mut manifest: serde_json::Value =
+            serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
+        manifest[key] = value;
+        let before = serde_json::to_string_pretty(&manifest).unwrap() + "\n";
+        fixture.write(".spec-driven-docs/manifest.json", &before);
+        let tree = fixture.tree_digest();
+
+        fixture
+            .cmd()
+            .args([
+                "init",
+                "--target",
+                &fixture.target(),
+                "--profile",
+                "codebase",
+                "--apply",
+            ])
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("re-declare it"));
+        assert_eq!(
+            fixture.tree_digest(),
+            tree,
+            "{key}: the refused install wrote into the target"
+        );
+    }
+}

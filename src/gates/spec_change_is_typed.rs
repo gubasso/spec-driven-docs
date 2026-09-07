@@ -44,20 +44,30 @@ fn is_slug(part: &str) -> bool {
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
 }
 
-/// The text inside the code span that opens `rest`, and what follows it.
+/// The content of the code span opening at the start of `rest`, and the byte
+/// length of the whole span, both fences included.
 ///
-/// A span opens and closes on equal backtick runs, so the doubled form that
+/// A span opens and closes on runs of equal length, so the doubled form that
 /// quotes a token containing a backtick is read the same way as the single
-/// one.
-fn code_span(rest: &str) -> Option<&str> {
-    let run = rest.chars().take_while(|c| *c == '`').count();
+/// one, and a longer run does not close a shorter opener. Both the content
+/// and the length are returned because a caller scanning a line has to
+/// advance past the closing fence, not into it.
+fn code_span(rest: &str) -> Option<(&str, usize)> {
+    let run = rest.bytes().take_while(|byte| *byte == b'`').count();
     if run == 0 {
         return None;
     }
-    let fence = "`".repeat(run);
     let body = &rest[run..];
-    let end = body.find(&fence)?;
-    Some(&body[..end])
+    let mut at = 0;
+    while at < body.len() {
+        let start = at + body[at..].find('`')?;
+        let length = body[start..].bytes().take_while(|b| *b == b'`').count();
+        if length == run {
+            return Some((&body[..start], run + start + run));
+        }
+        at = start + length;
+    }
+    None
 }
 
 /// Whether the text after a type token is a well-formed rule-ID citation.
@@ -65,7 +75,7 @@ fn clause_is_well_formed(rest: &str) -> bool {
     let Some(rest) = rest.strip_prefix(' ') else {
         return false;
     };
-    code_span(rest).is_some_and(|id| {
+    code_span(rest).is_some_and(|(id, _)| {
         id.trim()
             .split_once(':')
             .is_some_and(|(domain, rule)| is_slug(domain) && is_slug(rule))
@@ -90,7 +100,7 @@ fn is_clause_line(line: &str) -> bool {
     let mut rest = line;
     while let Some(at) = rest.find('`') {
         rest = &rest[at..];
-        let Some(span) = code_span(rest) else {
+        let Some((span, length)) = code_span(rest) else {
             return false;
         };
         // The suffix is compared case-sensitively on purpose: the corpus
@@ -101,8 +111,10 @@ fn is_clause_line(line: &str) -> bool {
         if names_a_spec {
             return true;
         }
-        let consumed = rest.len() - rest[span.len()..].len();
-        rest = &rest[consumed.max(1)..];
+        // Past the closing fence. Every fence is ASCII, so the index is a
+        // character boundary, and the length is at least two, so the scan
+        // always advances.
+        rest = &rest[length..];
     }
     false
 }
@@ -186,20 +198,25 @@ pub fn run(ctx: &GateCtx, _files: &[String]) -> GateResult {
 ///
 /// See [`run`].
 pub fn run_for(ctx: &GateCtx, target: PlanZoneTarget) -> GateResult {
+    // The two declarations are not held to the same shape, and that is the
+    // point of the variable. A recorded zone is repository-relative, so a
+    // value that leaves the root is a broken record rather than a zone: it
+    // reached here through a permissive read that skipped the argument-time
+    // check. The variable is how a project reaches records outside the
+    // checkout, so an absolute path there is the documented case.
     let (root, declared_by) = match target {
         PlanZoneTarget::Unchecked => return Ok(Vec::new()),
         PlanZoneTarget::Broken(reason) => return Ok(vec![Violation::Layout(reason)]),
         PlanZoneTarget::Variable(path) => (path, format!("{PLAN_ZONE_VAR} names")),
-        PlanZoneTarget::Tracked(path) => (path, "the recorded plan zone is".to_string()),
+        PlanZoneTarget::Tracked(path) => {
+            if path.is_absolute() || path.components().any(|c| c.as_str() == "..") {
+                return Ok(vec![Violation::Layout(format!(
+                    "the recorded plan zone is {path}, which is not a path inside the repository"
+                ))]);
+            }
+            (path, "the recorded plan zone is".to_string())
+        }
     };
-    // A recorded value reaches here through a permissive read, so the
-    // argument-time invariants are re-checked: an absolute path or one
-    // carrying `..` would make the gate walk a tree outside the repository.
-    if root.is_absolute() || root.components().any(|c| c.as_str() == "..") {
-        return Ok(vec![Violation::Layout(format!(
-            "{declared_by} {root}, which is not a path inside the repository"
-        ))]);
-    }
     let full = ctx.path(&root);
     if !full.is_dir() {
         return Ok(vec![Violation::Layout(format!(
@@ -258,6 +275,67 @@ mod tests {
 
     fn tracked(path: &str) -> PlanZoneTarget {
         PlanZoneTarget::Tracked(Utf8PathBuf::from(path))
+    }
+
+    /// Whether an unreadable directory really is unreadable here.
+    ///
+    /// Probed rather than guessed: a privileged runner reads mode 000, and
+    /// a proxy such as "can this process list /root" answers yes on any
+    /// image whose /root is world-readable, which silently retires the two
+    /// tests below on the machines that most need them.
+    fn mode_zero_blocks_reads() -> bool {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let locked = dir.path().join("locked");
+        std::fs::create_dir(&locked).unwrap();
+        std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o000)).unwrap();
+        let blocked = std::fs::read_dir(&locked).is_err();
+        std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o755)).unwrap();
+        blocked
+    }
+
+    /// A code span holding a multi-byte character is scanned by boundary,
+    /// never by an index into the middle of one.
+    #[test]
+    fn a_multi_byte_code_span_is_scanned_rather_than_sliced() {
+        let dir = repository(
+            "plan",
+            "See `café` and `—` here. Three sections REMOVED this week.\n",
+        );
+        assert!(judge_zone(&dir, tracked("plan")).is_empty());
+    }
+
+    /// The scan advances past the closing fence, so a span before the spec
+    /// path neither hides a malformed clause nor invents one.
+    #[test]
+    fn a_span_before_the_spec_path_does_not_desynchronize_the_scan() {
+        let missed = repository(
+            "plan",
+            "- Renamed ``foo`` in `_docs/specs/SPEC-x.md` — ADDED bad\n",
+        );
+        let out = judge_zone(&missed, tracked("plan"));
+        assert_eq!(
+            out.len(),
+            1,
+            "a doubled span hid a malformed clause: {out:?}"
+        );
+
+        let invented = repository(
+            "plan",
+            "`x` and see foo.md `y` — three sections REMOVED this week\n",
+        );
+        assert!(
+            judge_zone(&invented, tracked("plan")).is_empty(),
+            "prose between two spans was read as a clause line"
+        );
+    }
+
+    /// A longer run does not close a shorter opener, so the content a
+    /// citation carries is the whole span.
+    #[test]
+    fn a_longer_backtick_run_does_not_close_a_shorter_opener() {
+        let dir = repository("plan", &format!("{SPEC}ADDED `a:b``garbage`\n"));
+        assert_eq!(judge_zone(&dir, tracked("plan")).len(), 1);
     }
 
     #[test]
@@ -374,10 +452,11 @@ mod tests {
         assert!(named[0].contains("SDD_PLAN_ZONE names gone"));
     }
 
-    /// A declared zone that leaves the repository is refused rather than
-    /// walked: the record reaches the gate through a permissive read.
+    /// A recorded zone that leaves the repository is refused rather than
+    /// walked: the record reaches the gate through a permissive read that
+    /// skipped the argument-time check.
     #[test]
-    fn a_zone_outside_the_repository_is_refused() {
+    fn a_recorded_zone_outside_the_repository_is_refused() {
         let dir = repository("plan", BAD);
         for escape in ["/etc", "../elsewhere"] {
             let out = judge_zone(&dir, tracked(escape));
@@ -387,6 +466,20 @@ mod tests {
                 "{escape}"
             );
         }
+    }
+
+    /// The variable is how a project reaches records outside the checkout,
+    /// so an absolute path there is the documented case rather than a
+    /// broken one.
+    #[test]
+    fn the_variable_may_name_a_zone_outside_the_repository() {
+        let outside = tempfile::tempdir().unwrap();
+        std::fs::write(outside.path().join("work.md"), BAD).unwrap();
+        let dir = repository("", "");
+        let named = Utf8PathBuf::from(outside.path().to_str().unwrap());
+        let out = judge_zone(&dir, PlanZoneTarget::Variable(named));
+        assert_eq!(out.len(), 1, "{out:?}");
+        assert!(out[0].contains("work.md:1"), "{out:?}");
     }
 
     /// A record declaring a gated zone it cannot resolve fails rather than
@@ -422,7 +515,7 @@ mod tests {
         std::fs::write(dir.path().join("plan/attachment.bin"), [0xff_u8, 0xfe]).unwrap();
         assert!(judge_zone(&dir, tracked("plan")).is_empty());
 
-        if std::fs::read_dir("/root").is_ok() {
+        if !mode_zero_blocks_reads() {
             // A privileged runner reads mode 000, so the case does not exist.
             return;
         }
@@ -439,7 +532,8 @@ mod tests {
     #[test]
     fn an_unreadable_subdirectory_is_raised() {
         use std::os::unix::fs::PermissionsExt;
-        if std::fs::read_dir("/root").is_ok() {
+
+        if !mode_zero_blocks_reads() {
             return;
         }
         let dir = repository("plan", GOOD);
