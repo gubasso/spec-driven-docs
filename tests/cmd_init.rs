@@ -437,3 +437,99 @@ fn a_symlinked_agents_file_is_refused() {
         "the install wrote through the symlink"
     );
 }
+
+/// The two declared locations: each flag records its value, and an omitted
+/// flag never clears one. `sdd upgrade` reinstalls with no flag at all, so
+/// "absent means the default" would erase both on every upgrade.
+#[test]
+fn the_declared_locations_are_recorded_and_preserved() {
+    let fixture = Fixture::new();
+    fixture
+        .cmd()
+        .args([
+            "init",
+            "--target",
+            &fixture.target(),
+            "--profile",
+            "codebase",
+            "--apply",
+            "--plan-zone",
+            "docs/plan",
+            "--docs-scratch",
+            "../beside-the-checkout",
+        ])
+        .assert()
+        .success();
+
+    let recorded = |fixture: &Fixture| -> serde_json::Value {
+        serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap()
+    };
+    let manifest = recorded(&fixture);
+    assert_eq!(manifest["plan_zone"]["kind"], "tracked");
+    assert_eq!(manifest["plan_zone"]["path"], "docs/plan");
+    assert_eq!(manifest["docs_scratch"], "../beside-the-checkout");
+
+    // A reinstall with neither flag keeps both.
+    fixture.install("codebase");
+    let again = recorded(&fixture);
+    assert_eq!(again["plan_zone"], manifest["plan_zone"]);
+    assert_eq!(again["docs_scratch"], manifest["docs_scratch"]);
+
+    // And a later flag replaces just the value it names.
+    fixture
+        .cmd()
+        .args([
+            "init",
+            "--target",
+            &fixture.target(),
+            "--profile",
+            "codebase",
+            "--apply",
+            "--plan-zone",
+            "none",
+        ])
+        .assert()
+        .success();
+    let replaced = recorded(&fixture);
+    assert_eq!(replaced["plan_zone"], serde_json::json!({"kind": "none"}));
+    assert_eq!(replaced["docs_scratch"], "../beside-the-checkout");
+}
+
+/// An instance that declares neither records the plan zone as `none` and no
+/// docs scratch at all.
+#[test]
+fn an_undeclared_instance_records_no_location() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    let manifest: serde_json::Value =
+        serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
+    assert_eq!(manifest["plan_zone"], serde_json::json!({"kind": "none"}));
+    assert!(manifest.get("docs_scratch").is_none());
+}
+
+#[test]
+fn a_declared_location_the_arguments_cannot_mean_is_refused() {
+    for (flag, value) in [
+        ("--plan-zone", "/etc/plan"),
+        ("--plan-zone", "../plan"),
+        ("--plan-zone", "untracked:../plan"),
+        ("--docs-scratch", "/tmp/scratch"),
+    ] {
+        let fixture = Fixture::new();
+        fixture
+            .cmd()
+            .args([
+                "init",
+                "--target",
+                &fixture.target(),
+                "--profile",
+                "codebase",
+                "--apply",
+                flag,
+                value,
+            ])
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains(flag));
+    }
+}

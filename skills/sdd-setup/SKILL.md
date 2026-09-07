@@ -40,9 +40,42 @@ With no instance, classify before landing: `sdd assess --target . --json` reads 
 2. Preview: `sdd init --target "$PWD" --profile codebase`. A non-empty target defaults to a dry run and lists every destination.
 3. Review the listed paths, then apply: `sdd init --target "$PWD" --profile codebase --apply`.
 4. Confirm: `sdd verify --target "$PWD"` prints `OK spec-driven-docs <version>`.
-5. Declare the plan zone: in the landed `SPEC-spec-to-code.md`, retarget the verification command of `spec-to-code:a-spec-change-is-typed` at the directory the project's planning tool writes its work records to. Remove the requirement instead when the project keeps no plan zone. This is the only seeded value that is not portable, because the planning tool owns the record and this framework names none.
 
 The install seeds specs and templates the project owns from then on (adopted). It lands byte-exact configurations and agent skills the canon owns (managed), and splices one marked block into `.pre-commit-config.yaml`. It touches nothing outside its destinations and the markers.
+
+## Declare the two locations
+
+Two locations belong to the project rather than to this framework. Ask for each with `AskUserQuestion`, in the plan turn, and pass the answer to `sdd init`. Mark no answer as recommended: each one has its own cost. These two questions are the only place that names a candidate path. Everywhere else the corpus names the variable.
+
+The plan zone is where the planning tool writes entry documents. State that the gate reads it and that the project can keep none.
+
+- a repository-relative path, such as `docs/plan`: under version control, so every clone carries it and the gate checks it.
+- `untracked:<PATH>`: inside the repository but not committed, so the gate reports nothing and a reviewer holds the rule.
+- `env`: the records live wherever `SDD_PLAN_ZONE` points, which suits a planning tool that owns a path under the user's home.
+- `none`: the project keeps no plan zone, and the rule binds nothing.
+
+The docs scratch holds material that is not a statement yet, and it stages a migration. State that it must stay out of version control.
+
+- `.docs-scratch/` at the repository root, with the matching ignore entry.
+- a directory beside the checkout, such as `../<project>.docs-scratch/`, which the repository never sees.
+- a path the operator types.
+
+```bash
+sdd init --target "$PWD" --profile codebase --apply \
+  --plan-zone docs/plan --docs-scratch .docs-scratch
+```
+
+Both flags are optional and neither is cleared by omission: a later `sdd init` or `sdd upgrade` that carries no flag keeps what is recorded. `sdd status --json` reports both, plus whatever the two variables carry here.
+
+## Land the variables
+
+`SDD_PLAN_ZONE` and `SDD_DOCS_SCRATCH` override the recorded values. Neither is required, and the binary writes neither. Land them as a gated step the operator approves first.
+
+1. Observe, read-only: an `.envrc` at the root, `direnv` on `PATH`, an existing `.env`, and what `.gitignore` already covers.
+2. With direnv present, append the two `export` lines to `.envrc.local`, and add `.envrc.local` to `.gitignore` where it is absent.
+3. Without direnv, write the two assignments to `.env`, and add `.env` to `.gitignore` where it is absent. State the caveat: nothing loads a plain `.env` on its own, so the operator must source it before a gate can read it.
+4. With neither, print the two lines and stop.
+5. Close the task with the followup: neither variable is required, and the typed-clause gate reports nothing wherever `SDD_PLAN_ZONE` is unset.
 
 ## Wire agent context
 

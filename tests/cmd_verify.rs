@@ -43,7 +43,7 @@ fn a_version_one_manifest_points_at_upgrade() {
     fixture.install("knowledge-base");
     let downgraded = fixture
         .read(".spec-driven-docs/manifest.json")
-        .replace("\"schema_version\": 2", "\"schema_version\": 1");
+        .replace("\"schema_version\": 3", "\"schema_version\": 1");
     fixture.write(".spec-driven-docs/manifest.json", &downgraded);
     fixture
         .cmd()

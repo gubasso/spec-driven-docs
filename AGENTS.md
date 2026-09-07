@@ -31,7 +31,7 @@ This repository is the canonical knowledge product for spec-driven documentation
 - Keep `README.md` and every `AGENTS.md` as indexes or digests, never rule dumps or filesystem inventories.
 - Write step-by-step guides to `_docs/specs/SPEC-guides.md`: every step carries its check, a manual step enumerates every field and value, and upstream facts carry dated citations in the reference zone.
 - State what is true now. Decision records are the only history-bearing document class.
-- Keep exploratory material in `.draft/`. Promotion is a rewrite into the owning zone.
+- Keep exploratory material in the docs scratch that `SDD_DOCS_SCRATCH` names. Promotion is a rewrite into the owning zone.
 
 ## Executable artifacts
 

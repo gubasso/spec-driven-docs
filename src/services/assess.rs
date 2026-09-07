@@ -105,8 +105,25 @@ pub struct AssessReport {
     pub methodology_markers: Vec<String>,
     /// Per profile, the install destinations that already exist.
     pub collisions: BTreeMap<String, Vec<String>>,
-    /// Whether the target carries a `.draft/` workshop.
-    pub draft_present: bool,
+    /// Where the docs scratch resolved to, relative to the target.
+    pub docs_scratch: Utf8PathBuf,
+    /// Whether that directory is there.
+    pub docs_scratch_present: bool,
+}
+
+/// The directory name a target with no instance and no variable is checked
+/// for. This is a discovery candidate, never the rule: the rule is the
+/// declared value, and this exists because a target being classified has
+/// declared nothing yet. `paths::docs_root` discovers the same way.
+const DOCS_SCRATCH_CANDIDATE: &str = ".docs-scratch";
+
+/// Where the target keeps material that is not a statement yet.
+///
+/// The variable wins, then the instance record, then the candidate above.
+fn docs_scratch(target: &Utf8Path) -> Utf8PathBuf {
+    let ctx = crate::gates::GateCtx::new(target);
+    crate::gates::paths::docs_scratch(&ctx)
+        .unwrap_or_else(|| Utf8PathBuf::from(DOCS_SCRATCH_CANDIDATE))
 }
 
 /// Assess `target`, reading and never writing.
@@ -144,11 +161,12 @@ pub fn assess(target: &Utf8Path) -> Result<AssessReport, AppError> {
         })
         .map(|root| (*root).to_string())
         .collect();
-    let walked = walk(target)?;
+    let scratch = docs_scratch(target);
+    let walked = walk(target, &scratch)?;
     let paths = walked.documents;
     let methodology_markers = markers(target, &doc_roots)?;
     let collisions = collisions(target)?;
-    let draft_present = target.join(".draft").is_dir();
+    let docs_scratch_present = target.join(&scratch).is_dir();
 
     // A populated documentation root is a corpus whatever format it uses:
     // a tree of .adoc or .rst files under docs/ is exactly as settled as
@@ -183,7 +201,8 @@ pub fn assess(target: &Utf8Path) -> Result<AssessReport, AppError> {
         },
         methodology_markers,
         collisions,
-        draft_present,
+        docs_scratch: scratch,
+        docs_scratch_present,
     })
 }
 
@@ -195,20 +214,26 @@ struct Walked {
     populated_roots: Vec<String>,
 }
 
-/// Walk `target` once, with the pruned directories, the workshop, and the
-/// instance's own tree skipped. Symlinks are evidence and are not
+/// Walk `target` once, with the pruned directories, the docs scratch, and
+/// the instance's own tree skipped. Symlinks are evidence and are not
 /// followed: a link named like a document still marks its directory as
 /// populated.
-fn walk(target: &Utf8Path) -> Result<Walked, AppError> {
+///
+/// The docs scratch is skipped by path rather than by name, so a scratch
+/// that sits beside the checkout prunes nothing and a scratch inside it
+/// prunes only itself. Without that, staged rewrites would come back as
+/// documents to migrate on the next run.
+fn walk(target: &Utf8Path, scratch: &Utf8Path) -> Result<Walked, AppError> {
     let mut documents = Vec::new();
     let mut populated_roots = Vec::new();
+    let scratch_path = target.join(scratch);
     let walker = walkdir::WalkDir::new(target).into_iter().filter_entry(|e| {
         let name = e.file_name().to_string_lossy();
         !(e.depth() > 0
             && e.file_type().is_dir()
             && (PRUNED_DIRS.contains(&name.as_ref())
-                || name == ".draft"
-                || name == ".spec-driven-docs"))
+                || name == ".spec-driven-docs"
+                || e.path() == scratch_path.as_std_path()))
     });
     for entry in walker {
         let entry = entry.map_err(|source| AppError::Io(std::io::Error::from(source)))?;
@@ -524,15 +549,42 @@ mod tests {
     }
 
     #[test]
-    fn the_workshop_and_pruned_directories_stay_out_of_the_inventory() {
+    fn the_docs_scratch_and_pruned_directories_stay_out_of_the_inventory() {
         let dir = tempfile::tempdir().unwrap();
         let root = utf8(&dir);
-        write(&root, ".draft/scratch.md");
+        write(&root, ".docs-scratch/notes.md");
         write(&root, "target/build.md");
         write(&root, "node_modules/pkg/README.md");
         let report = assess(&root).unwrap();
         assert_eq!(report.classification, Classification::Greenfield);
         assert_eq!(report.documents.count, 0);
-        assert!(report.draft_present);
+        assert!(report.docs_scratch_present);
+        assert_eq!(report.docs_scratch, DOCS_SCRATCH_CANDIDATE);
+    }
+
+    /// The walk prunes the scratch the project declared, wherever that is,
+    /// and the discovery candidate stops applying once one is declared.
+    #[test]
+    fn the_walk_prunes_the_declared_scratch_and_nothing_else() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = utf8(&dir);
+        write(&root, "staging/rewrite.md");
+        write(&root, ".docs-scratch/notes.md");
+        let walked = walk(&root, Utf8Path::new("staging")).unwrap();
+        assert_eq!(
+            walked.documents,
+            vec![Utf8PathBuf::from(".docs-scratch/notes.md")]
+        );
+    }
+
+    /// A scratch beside the checkout prunes nothing inside it.
+    #[test]
+    fn a_docs_scratch_outside_the_target_prunes_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = utf8(&dir);
+        write(&root, "notes/design.md");
+        write(&root, ".docs-scratch/kept.md");
+        let walked = walk(&root, Utf8Path::new("../beside")).unwrap();
+        assert_eq!(walked.documents.len(), 2);
     }
 }

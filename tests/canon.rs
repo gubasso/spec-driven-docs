@@ -53,7 +53,7 @@ fn the_canon_manifest_carries_this_crate_version() {
     let manifest: serde_json::Value =
         serde_json::from_str(&read(".spec-driven-docs/manifest.json")).unwrap();
     assert_eq!(
-        manifest["schema_version"], 2,
+        manifest["schema_version"], 3,
         "regenerate with 'sdd self-manifest'"
     );
     assert_eq!(
@@ -825,5 +825,68 @@ fn the_tracking_entry_pins_the_vendored_revision() {
     assert!(
         registry.contains(&format!("revision: {revision}")),
         "the simple-english tracking entry does not pin the vendored revision"
+    );
+}
+
+/// The retired words. `.draft` was a fixed path and `workshop` was the term
+/// for the concept now called the docs scratch. Both are held out here
+/// rather than by review, because one reintroduction re-fixes the location
+/// the payload just stopped fixing.
+const RETIRED_TERMS: &[&str] = &[".draft", "workshop"];
+
+/// SATISFIES distribution:a-declared-location-is-named-by-its-variable
+///
+/// The corpus names each declared location by its variable and nothing else.
+#[test]
+fn the_payload_names_no_retired_location_term() {
+    for (relative, text) in payload_files() {
+        for (index, line) in text.lines().enumerate() {
+            let lower = line.to_lowercase();
+            for term in RETIRED_TERMS {
+                assert!(
+                    !lower.contains(term),
+                    "{relative}:{}: the payload names '{term}'; the docs scratch is named by SDD_DOCS_SCRATCH",
+                    index + 1
+                );
+            }
+        }
+    }
+}
+
+/// SATISFIES distribution:a-declared-location-is-named-by-its-variable
+///
+/// A concrete candidate path has one home: the question a skill asks the
+/// operator. Everywhere else the corpus names the variable, so changing what
+/// is offered never means editing a chapter, a spec, or a template.
+#[test]
+fn a_concrete_declared_path_appears_only_where_a_skill_offers_it() {
+    let mut offered = 0usize;
+    for (relative, text) in payload_files() {
+        for (index, line) in text.lines().enumerate() {
+            if !line.contains(".docs-scratch") {
+                continue;
+            }
+            assert!(
+                relative.starts_with("skills/"),
+                "{relative}:{}: a concrete docs-scratch path outside a skill's question",
+                index + 1
+            );
+            offered += 1;
+        }
+    }
+    assert!(offered > 0, "no skill offers a concrete docs-scratch path");
+}
+
+/// SATISFIES release:the-canon-record-describes-its-tree
+///
+/// This repository dogfoods the plan zone it delivers. Without this, a later
+/// regeneration could turn the typed-clause gate off in silence.
+#[test]
+fn the_canon_declares_its_own_plan_zone() {
+    let manifest = recorded_manifest();
+    assert_eq!(
+        manifest["plan_zone"],
+        serde_json::json!({"kind": "tracked", "path": "tests/fixtures"}),
+        "this repository stopped declaring the plan zone its own gate reads"
     );
 }

@@ -160,7 +160,7 @@ fn an_upgrade_reinstalls_prunes_and_reports() {
     );
     assert_eq!(fixture.read(".git/objects/ab/cd"), "loose object");
     let manifest = fixture.read(".spec-driven-docs/manifest.json");
-    assert!(manifest.contains("\"schema_version\": 2"));
+    assert!(manifest.contains("\"schema_version\": 3"));
     let config = fixture.read(".pre-commit-config.yaml");
     assert!(config.contains("entry: sdd verify"));
     assert!(!config.contains("verify.sh"));
@@ -308,4 +308,68 @@ fn a_locally_edited_agents_block_aborts_the_upgrade() {
         fixture.tree_digest(),
         "a refused upgrade changed bytes"
     );
+}
+
+/// Rewrite a fresh instance into the version-two shape: schema 2, an older
+/// canon, and the two declared locations recorded as version 2 wrote them.
+fn downgrade_to_v2(fixture: &Fixture) {
+    let mut manifest: serde_json::Value =
+        serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
+    manifest["schema_version"] = 2.into();
+    manifest["canon_version"] = "0.1.6".into();
+    manifest["plan_zone"] = serde_json::json!({"kind": "tracked", "path": "docs/plan"});
+    manifest["docs_scratch"] = "staging".into();
+    fixture.write(
+        ".spec-driven-docs/manifest.json",
+        &(serde_json::to_string_pretty(&manifest).unwrap() + "\n"),
+    );
+}
+
+/// A version-2 instance reaches version 3 with both declared locations
+/// intact. The upgrade reinstalls with no flag, so a resolution that read an
+/// absent flag as the default would erase them here.
+#[test]
+fn a_version_two_upgrade_preserves_the_declared_locations() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    downgrade_to_v2(&fixture);
+
+    fixture
+        .cmd()
+        .args(["upgrade", "--target", &fixture.target()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(format!(
+            "OK upgraded 0.1.6 to {}",
+            env!("CARGO_PKG_VERSION")
+        )));
+
+    let manifest: serde_json::Value =
+        serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
+    assert_eq!(manifest["schema_version"], 3);
+    assert_eq!(manifest["plan_zone"]["path"], "docs/plan");
+    assert_eq!(manifest["docs_scratch"], "staging");
+}
+
+/// A version-2 record carries integration blocks, and the upgrade reads
+/// them: without that the edited-block conflict check is skipped and the
+/// operator's edits inside the markers are overwritten.
+#[test]
+fn a_version_two_instance_still_refuses_an_edited_managed_block() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    downgrade_to_v2(&fixture);
+    let config = fixture
+        .read(".pre-commit-config.yaml")
+        .replace("entry: sdd verify", "entry: sdd verify --target .");
+    fixture.write(".pre-commit-config.yaml", &config);
+
+    fixture
+        .cmd()
+        .args(["upgrade", "--target", &fixture.target()])
+        .assert()
+        .code(1)
+        .stdout(predicate::str::contains(
+            "CONFLICT locally edited managed block: .pre-commit-config.yaml",
+        ));
 }

@@ -75,7 +75,7 @@ fn read_installed(target: &Utf8Path) -> Result<Installed, AppError> {
                 .map(|block| (block.path, block.marker_hash))
                 .collect(),
         }),
-        Err(ManifestParseError::Older(1)) => {
+        Err(ManifestParseError::Older(_)) => {
             let legacy: LegacyManifest = serde_json::from_str(&text)
                 .map_err(|e| AppError::ManifestInvalid(e.to_string()))?;
             Ok(Installed {
@@ -87,7 +87,11 @@ fn read_installed(target: &Utf8Path) -> Result<Installed, AppError> {
                     .into_iter()
                     .map(|entry| (entry.destination, entry.sha256))
                     .collect(),
-                integration: Vec::new(),
+                integration: legacy
+                    .integration_blocks
+                    .into_iter()
+                    .map(|block| (block.path, block.marker_hash))
+                    .collect(),
             })
         }
         Err(error) => Err(AppError::ManifestInvalid(error.to_string())),
@@ -256,6 +260,9 @@ pub fn upgrade(options: &UpgradeOptions) -> Result<UpgradeOutcome, AppError> {
         profile: installed.profile,
         apply: true,
         dry_run: false,
+        // No flag: the reinstall carries the recorded declarations forward.
+        plan_zone: None,
+        docs_scratch: None,
     })
     .map_err(|error| {
         AppError::Refused(format!(

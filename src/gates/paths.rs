@@ -1,5 +1,9 @@
 //! Where an instance keeps the documents the gates read.
 //!
+//! Two of these locations are declared rather than fixed: the plan zone and
+//! the docs scratch. Each is recorded in the manifest and named by one
+//! environment variable, and the variable wins where it is set.
+//!
 //! The documentation root comes from the manifest when one exists, is
 //! discovered from the conventional layouts when none does, and defaults to
 //! `_docs`. Known-issue roots follow the same ladder, and explicit arguments
@@ -9,8 +13,102 @@
 
 use camino::{Utf8Path, Utf8PathBuf};
 
-use crate::domain::manifest::MANIFEST_PATH;
+use crate::domain::manifest::{DOCS_SCRATCH_VAR, MANIFEST_PATH, PLAN_ZONE_VAR};
 use crate::gates::{GateCtx, GateError};
+
+/// One field of the instance manifest, read permissively.
+///
+/// A gate reads the record as free JSON rather than through `Manifest::parse`
+/// on purpose: a record of another schema version is a reason to upgrade, and
+/// a gate that went blind there would report a clean tree it never read.
+fn manifest_field(ctx: &GateCtx, key: &str) -> Option<serde_json::Value> {
+    let text = std::fs::read_to_string(ctx.path(MANIFEST_PATH)).ok()?;
+    let value: serde_json::Value = serde_json::from_str(&text).ok()?;
+    value.get(key).cloned().filter(|found| !found.is_null())
+}
+
+/// What a variable carries here, trimmed, or `None` when it is unset or blank.
+fn variable(name: &str) -> Option<Utf8PathBuf> {
+    std::env::var(name)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .map(Utf8PathBuf::from)
+}
+
+/// Where a gate may look for entry documents, and what named the place.
+///
+/// The distinction is what keeps the check honest. A path a command may read
+/// carries the name of whoever declared it, so an absent directory is
+/// reported against that declaration. Every other case reads as no zone: an
+/// untracked zone and an unset variable are absent on a fresh clone, and
+/// failing there would judge a layout the project never promised.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PlanZoneTarget {
+    /// The variable named this path.
+    Variable(Utf8PathBuf),
+    /// The manifest recorded this tracked path.
+    Tracked(Utf8PathBuf),
+    /// Nothing a command may check.
+    Unchecked,
+}
+
+/// Resolve the plan zone: the variable first, then the recorded kind.
+#[must_use]
+pub fn plan_zone(ctx: &GateCtx) -> PlanZoneTarget {
+    plan_zone_with(ctx, variable(PLAN_ZONE_VAR))
+}
+
+/// The resolution, with the variable's value supplied.
+///
+/// The environment is read at one boundary and passed in, so every case is
+/// reachable from a test. This crate forbids unsafe code, and setting a
+/// variable is unsafe from the 2024 edition on.
+#[must_use]
+pub fn plan_zone_with(ctx: &GateCtx, named: Option<Utf8PathBuf>) -> PlanZoneTarget {
+    if let Some(path) = named {
+        return PlanZoneTarget::Variable(path);
+    }
+    let Some(recorded) = manifest_field(ctx, "plan_zone") else {
+        return PlanZoneTarget::Unchecked;
+    };
+    if recorded.get("kind").and_then(serde_json::Value::as_str) != Some("tracked") {
+        return PlanZoneTarget::Unchecked;
+    }
+    recorded
+        .get("path")
+        .and_then(serde_json::Value::as_str)
+        .filter(|path| !path.is_empty())
+        .map_or(PlanZoneTarget::Unchecked, |path| {
+            PlanZoneTarget::Tracked(Utf8PathBuf::from(path))
+        })
+}
+
+/// Resolve the docs scratch: the variable first, then the recorded path.
+///
+/// `None` means the project declared none. A caller with a discovery
+/// candidate of its own supplies it; there is none here, because a gate that
+/// guessed the location would judge a directory nobody declared.
+#[must_use]
+pub fn docs_scratch(ctx: &GateCtx) -> Option<Utf8PathBuf> {
+    docs_scratch_with(ctx, variable(DOCS_SCRATCH_VAR))
+}
+
+/// The resolution, with the variable's value supplied.
+#[must_use]
+pub fn docs_scratch_with(ctx: &GateCtx, named: Option<Utf8PathBuf>) -> Option<Utf8PathBuf> {
+    named.or_else(|| {
+        manifest_field(ctx, "docs_scratch")
+            .and_then(|value| value.as_str().map(Utf8PathBuf::from))
+            .filter(|path| !path.as_str().is_empty())
+    })
+}
+
+/// What [`DOCS_SCRATCH_VAR`] carries here, or `None`.
+#[must_use]
+pub fn docs_scratch_variable() -> Option<Utf8PathBuf> {
+    variable(DOCS_SCRATCH_VAR)
+}
 
 /// The instance's documentation root, relative to the repository.
 #[must_use]
@@ -118,6 +216,65 @@ mod tests {
         let path = dir.path().join(path);
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(path, text).unwrap();
+    }
+
+    #[test]
+    fn the_plan_zone_resolves_only_what_a_command_may_check() {
+        let dir = tempfile::tempdir().unwrap();
+        let ctx = ctx(&dir);
+        // No record at all.
+        assert_eq!(plan_zone_with(&ctx, None), PlanZoneTarget::Unchecked);
+
+        for (recorded, expected) in [
+            (
+                "{\"kind\": \"tracked\", \"path\": \"docs/plan\"}",
+                PlanZoneTarget::Tracked(Utf8PathBuf::from("docs/plan")),
+            ),
+            (
+                "{\"kind\": \"untracked\", \"path\": \"docs/plan\"}",
+                PlanZoneTarget::Unchecked,
+            ),
+            ("{\"kind\": \"env\"}", PlanZoneTarget::Unchecked),
+            ("{\"kind\": \"none\"}", PlanZoneTarget::Unchecked),
+            (
+                "{\"kind\": \"tracked\", \"path\": \"\"}",
+                PlanZoneTarget::Unchecked,
+            ),
+        ] {
+            write(
+                &dir,
+                ".spec-driven-docs/manifest.json",
+                &format!("{{\"plan_zone\": {recorded}}}\n"),
+            );
+            assert_eq!(plan_zone_with(&ctx, None), expected, "{recorded}");
+            // The variable wins over every recorded kind.
+            assert_eq!(
+                plan_zone_with(&ctx, Some(Utf8PathBuf::from("elsewhere"))),
+                PlanZoneTarget::Variable(Utf8PathBuf::from("elsewhere")),
+                "{recorded}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_docs_scratch_takes_the_variable_then_the_record() {
+        let dir = tempfile::tempdir().unwrap();
+        let ctx = ctx(&dir);
+        assert_eq!(docs_scratch_with(&ctx, None), None);
+
+        write(
+            &dir,
+            ".spec-driven-docs/manifest.json",
+            "{\"docs_scratch\": \"../beside\"}\n",
+        );
+        assert_eq!(
+            docs_scratch_with(&ctx, None),
+            Some(Utf8PathBuf::from("../beside"))
+        );
+        assert_eq!(
+            docs_scratch_with(&ctx, Some(Utf8PathBuf::from("inside"))),
+            Some(Utf8PathBuf::from("inside"))
+        );
     }
 
     #[test]

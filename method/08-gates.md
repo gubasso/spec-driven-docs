@@ -205,6 +205,20 @@ The emphasis rule is stated without a gate. See the table below. The wrap rule i
 
 This is the one prose check that does not strip code first. A fenced command carrying a real home directory is the leak, not a quotation of it. As a result, a document teaching the shape writes a placeholder segment: `<user>`, `$USER`, `~`. Two exemptions are by purpose rather than path: a file whose job is one person's environment (`.env`, `.envrc.local`, and their sample copies), and any file git ignores, which never reaches a hook at all.
 
+## Typed clauses
+
+`sdd gate spec-change-is-typed` reads the plan zone the project declared, so the wiring carries no path.
+
+```yaml
+- id: spec-change-is-typed
+  name: spec changes are typed
+  language: system
+  always_run: true
+  pass_filenames: false
+```
+
+The gate takes the path `SDD_PLAN_ZONE` names, else the recorded zone where the project tracks it. A declared directory that is absent fails, because a check over an empty set is a green light over nothing. Where neither resolves, the gate reports nothing and the table below carries the case.
+
 ## Comment citations
 
 Two checks, and the second is the one that matters. Scope both to the code, excluding the docs root: a chapter stating either rule necessarily writes the strings it forbids.
@@ -264,6 +278,7 @@ These rules are real and no command decides them. A reviewer does.
 | A seeded rule's verification is one the adopter can perform | requires knowing the adopter's tools      |
 | A spec change is declared as a typed clause                 | a command cannot see an omitted clause    |
 | A typed clause's type matches the diff                      | requires reading both sides               |
+| A typed clause in a plan zone no clone carries              | the zone is absent wherever it is unset   |
 | A step is one action, and an unprinted outcome is a step    | requires reading the step                 |
 | Every step carries a check a reader can judge               | requires reading the step                 |
 | A manual step enumerates every field and value              | requires knowing the interface            |

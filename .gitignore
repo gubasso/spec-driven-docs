@@ -1,6 +1,6 @@
 .direnv/
 .envrc.local
-.draft/
+.docs-scratch/
 .lycheecache
 result
 __pycache__/

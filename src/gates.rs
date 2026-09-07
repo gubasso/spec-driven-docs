@@ -34,6 +34,7 @@ pub mod no_personal_path;
 pub mod no_self_narration;
 pub mod prose_stays_unwrapped;
 pub mod simple_english;
+pub mod spec_change_is_typed;
 pub mod spec_requirement_parts;
 pub mod spec_rule_id_unique;
 pub mod spec_size_cap;
@@ -383,6 +384,16 @@ pub static GATES: &[GateSpec] = &[
         always_run: false,
         cites: prose_stays_unwrapped::CITES,
         run: prose_stays_unwrapped::run,
+    },
+    GateSpec {
+        id: GateId::SpecChangeIsTyped,
+        name: "spec changes are typed",
+        files: None,
+        types: None,
+        exclude: None,
+        always_run: true,
+        cites: spec_change_is_typed::CITES,
+        run: spec_change_is_typed::run,
     },
     GateSpec {
         id: GateId::SpecRequirementParts,

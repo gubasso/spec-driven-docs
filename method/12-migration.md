@@ -32,7 +32,7 @@ The plan's body is a migration checklist: one entry per source document, written
 - Destinations name every file the entry's facts land in. A disposition without destinations is not plannable, and one destination per fact is the point of the exercise.
 - One source often carries facts with different fates: the binding half becomes a spec, the why-at-the-time half becomes a decision record, the walkthrough half becomes a guide. List the fates under the entry rather than averaging them into one.
 
-What the checklist never carries is content. Provisional rewrites, extraction scratch, and half-sorted prose live in the workshop, where a `migration/` directory under `.draft/` keeps them together. The workshop is ignored by version control, so the checklist must hold everything a resumed migration needs to know. A target whose ignore file lacks the `.draft/` entry gains it in the approved plan, before anything stages there.
+What the checklist never carries is content. Provisional rewrites, extraction material, and half-sorted prose live in the docs scratch that `SDD_DOCS_SCRATCH` names, where a `migration/` directory keeps them together. The docs scratch is out of version control, so the checklist must hold everything a resumed migration needs to know. Where the docs scratch sits inside the repository, the ignore entry that keeps it out is added in the approved plan, before anything stages there.
 
 ## The loop
 
@@ -54,7 +54,7 @@ The migration ends with evidence, not with the last checked box.
 
 1. A fresh inventory over the whole tree, compared against the checklist: nothing untracked remains, and no retired path still exists.
 2. The project's own verification: the instance check and the full gate run.
-3. The workshop's migration directory is emptied: anything still in it is either promoted or consciously dropped.
+3. The docs scratch's migration directory is emptied: anything still in it is either promoted or consciously dropped.
 4. The checklist stays where it is, checked and closed. It is the record of what went where, and deleting it costs the one map a later reader has.
 
 ## Boundary tests
@@ -63,7 +63,7 @@ The migration ends with evidence, not with the last checked box.
 - A checked box with a failed destination gate is a false completion: verification precedes the mark, in every entry.
 - A source edited mid-migration invalidates its entry: the checksum is what notices.
 - A retirement of bytes neither version control nor the approved backup holds is a loss, not a migration: recoverability of the recorded bytes precedes every removal.
-- A fact with no destination is not migrated: it is parked in the workshop or its entry stays open, and the close's fresh inventory refuses to end past it.
+- A fact with no destination is not migrated: it is parked in the docs scratch or its entry stays open, and the close's fresh inventory refuses to end past it.
 
 ## Sources
 

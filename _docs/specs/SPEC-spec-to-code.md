@@ -19,7 +19,9 @@
 
 Rules governing the seam between a spec and the work that implements it. Covers requirements written before their behavior exists, how an entry document in the plan zone cites the rules it enacts, and how coverage is derived. The shape of a requirement is covered by the specs specification. How a spec changes is covered by its lifecycle rules.
 
-The plan zone's path is the one value in this specification a project declares for itself. That is because the planning tool owns the record and this framework names no planning tool. It appears in exactly one place: the verification command of `spec-to-code:a-spec-change-is-typed`. This project declares it at `tests/fixtures/`. A project adopting this specification retargets that command at its own plan zone, or removes the requirement when it keeps no plan zone. Every other command here is layout-independent.
+The plan zone is a declared value rather than a path this specification fixes. That is because the planning tool owns the record, and this framework names no planning tool. A project declares the zone at install, and the instance manifest records it. The `SDD_PLAN_ZONE` environment variable overrides the recorded value. No project edits a line of this file, and every command here is layout-independent.
+
+Where the recorded kind is `untracked` or `env` and the variable is unset, the gate below reports nothing. The zone is absent on a fresh clone. A reviewer holds the rule there, and `08-gates.md` carries the case.
 
 ## Requirements
 
@@ -45,7 +47,7 @@ When an entry document cites a spec change, the author MUST write `ADDED`, `MODI
 - WHEN the shape gate runs
 - THEN the clause fails, because the ID token is not `` `<spec-slug>:<rule-slug>` ``
 
-Verify: `rg -n 'ADDED|MODIFIED|REMOVED' tests/fixtures | rg -v '(ADDED|MODIFIED|REMOVED) \x60[a-z0-9-]+:[a-z0-9-]+\x60' | grep . && exit 1 || exit 0`
+Verify: `pre-commit run spec-change-is-typed --all-files`
 
 ### `spec-to-code:an-entry-document-cites-rule-ids` — An entry document cites rule IDs
 

@@ -40,6 +40,11 @@ impl Fixture {
     pub fn cmd(&self) -> Command {
         let mut cmd = Command::cargo_bin("sdd").unwrap();
         cmd.env_remove("RUST_LOG");
+        // The two declared locations are named by environment variables, and
+        // a variable set in the developer's shell overrides what a fixture
+        // records. Removed here, a test says what it means.
+        cmd.env_remove("SDD_PLAN_ZONE");
+        cmd.env_remove("SDD_DOCS_SCRATCH");
         cmd
     }
 

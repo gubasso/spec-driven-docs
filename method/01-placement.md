@@ -21,18 +21,18 @@ A code project's product is its source tree, so `docs/` at the root is unambiguo
 
 ## The zones
 
-| Zone           | Path                         | Reader question                  | Lifecycle  |
-| -------------- | ---------------------------- | -------------------------------- | ---------- |
-| Specifications | `<root>/specs/`              | what is true now                 | living     |
-| Decisions      | `<root>/decisions/`          | why, at the time                 | frozen     |
-| Guides         | `<root>/guides/<topic>/`     | how do I finish this task        | living     |
-| Reference      | `<root>/reference/<topic>/`  | what is the exact value          | living     |
-| Explanation    | `<root>/explanation/<topic>` | how do I understand this         | living     |
-| Plan           | declared, under `<root>`     | what is next, and what bounds it | perishable |
+| Zone           | Path                               | Reader question                  | Lifecycle  |
+| -------------- | ---------------------------------- | -------------------------------- | ---------- |
+| Specifications | `<root>/specs/`                    | what is true now                 | living     |
+| Decisions      | `<root>/decisions/`                | why, at the time                 | frozen     |
+| Guides         | `<root>/guides/<topic>/`           | how do I finish this task        | living     |
+| Reference      | `<root>/reference/<topic>/`        | what is the exact value          | living     |
+| Explanation    | `<root>/explanation/<topic>`       | how do I understand this         | living     |
+| Plan           | declared; `SDD_PLAN_ZONE` names it | what is next, and what bounds it | perishable |
 
 Create a zone when it has real content. An empty zone is a promise the project has not kept.
 
-The plan zone's exact path is declared by the planning tool that owns the record, anywhere under the docs root. This framework fixes the zone's existence and reader question, never its path.
+The plan zone's exact path is declared by the project, and `SDD_PLAN_ZONE` names it. The zone can sit under the docs root, elsewhere in the repository, or outside the repository entirely, because the planning tool owns the record. This framework fixes the zone's existence and reader question, never its path.
 
 Specifications and decisions are the two zones this shelf owns. [02 Specs](./02-specs.md) and [04 Decisions](./04-decisions.md) hold their rules. The other four are ordinary reader-need zones and need no chapter of their own.
 
@@ -126,7 +126,7 @@ Runbooks, setup procedures, diagnostics, and incident write-ups are ordinary doc
 
 ## Drafts
 
-`.draft/` at the project root is the workshop, and it is gitignored.
+The docs scratch holds material that is not a statement yet. `SDD_DOCS_SCRATCH` names it, and it is kept out of version control.
 
 [07 Lifecycle](./07-lifecycle.md) owns what can live there and how it leaves.
 

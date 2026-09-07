@@ -18,7 +18,7 @@ Do this before the first change of any kind: a file written into a target reposi
    - Every step gated for the operator, with the exact command they run and what it changes.
    - The verification command that closes the task.
    - The open risks and the assumptions the plan rests on.
-4. Ask what the plan cannot decide. Use `AskUserQuestion` for a choice that changes the work: the profile, the docs root, whether an existing document is rewritten or retired. Do not use it to ask whether the plan is acceptable.
+4. Ask what the plan cannot decide. Use `AskUserQuestion` for a choice that changes the work: the profile, the docs root, the plan zone, the docs scratch, whether an existing document is rewritten or retired. Do not use it to ask whether the plan is acceptable. The two declared locations are the only questions that carry concrete candidate paths, because the corpus names each one by its variable everywhere else.
 5. Present the plan and end the turn. In Claude Code that is the `ExitPlanMode` tool, whose approval prompt is the gate. Do not pre-approve that tool: approving it automatically is the same as having no gate.
 
 When the request carries `--no-plan`, replace this phase's approval turn: do not call `EnterPlanMode` or `ExitPlanMode`, because plan mode's read-only hold blocks phase 3 and only that approval prompt releases it. Do the same read-only research in the current turn, state the ordered plan in the reply, then continue into phase 2 without ending the turn. Phases 2 and 3 run in full.
