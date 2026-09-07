@@ -7,11 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0](https://github.com/gubasso/spec-driven-docs/compare/v0.4.14...v0.5.0) - 2026-09-07
+
+This version carries the compatibility break that 0.4.14 shipped without marking. Upgrade an existing instance once:
+
+```bash
+sdd upgrade --target . --dry-run
+sdd upgrade --target .
+```
+
+An instance installed before 0.4.14 records manifest schema 2, and 0.4.14 and later read schema 3. Every verb but `sdd upgrade` refuses the older record and names the upgrade. The migration preserves everything the record carried.
+
+### Other
+
+- *(release)* [**breaking**] Mark the manifest schema break in the version ([#50](https://github.com/gubasso/spec-driven-docs/pull/50))
+
 ## [0.4.14](https://github.com/gubasso/spec-driven-docs/compare/v0.4.13...v0.4.14) - 2026-09-07
 
 ### Added
 
 - *(distribution)* Declare the plan zone and the docs scratch by variable ([#48](https://github.com/gubasso/spec-driven-docs/pull/48))
+
+  The plan zone and the docs scratch became declared values. `sdd init --plan-zone` and `--docs-scratch` record them in the instance manifest, and `SDD_PLAN_ZONE` and `SDD_DOCS_SCRATCH` override the record. An omitted flag never clears a recorded value, and `none` clears one.
+
+  The manifest schema moved from 2 to 3, so an older `sdd` asks for an upgrade rather than failing to parse. The new `spec-change-is-typed` gate replaces the shell command the `spec-to-code` seed carried, and no adopter edits a seeded spec to declare the zone any more.
 
 ## [0.4.13](https://github.com/gubasso/spec-driven-docs/compare/v0.4.12...v0.4.13) - 2026-09-06
 
