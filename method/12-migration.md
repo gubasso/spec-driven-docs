@@ -32,7 +32,7 @@ The plan's body is a migration checklist: one entry per source document, written
 - Destinations name every file the entry's facts land in. A disposition without destinations is not plannable, and one destination per fact is the point of the exercise.
 - One source often carries facts with different fates: the binding half becomes a spec, the why-at-the-time half becomes a decision record, the walkthrough half becomes a guide. List the fates under the entry rather than averaging them into one.
 
-What the checklist never carries is content. Provisional rewrites, extraction material, and half-sorted prose live in the docs scratch that `SDD_DOCS_SCRATCH` names, where a `migration/` directory keeps them together. The docs scratch is out of version control, so the checklist must hold everything a resumed migration needs to know. Where the docs scratch sits inside the repository, the ignore entry that keeps it out is added in the approved plan, before anything stages there.
+What the checklist never carries is content. Provisional rewrites, extraction material, and half-sorted prose live in the docs scratch, where a `migration/` directory keeps them together. `sdd status --json` reports where the instance declared it, and `SDD_DOCS_SCRATCH` overrides that. The docs scratch is out of version control, so the checklist must hold everything a resumed migration needs to know. Where the docs scratch sits inside the repository, the ignore entry that keeps it out is added in the approved plan, before anything stages there.
 
 ## The loop
 

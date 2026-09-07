@@ -48,7 +48,7 @@ Clearing breaches is gate work and runs at whatever pace the project chooses, a 
 
 ## Drafts
 
-The docs scratch holds material that is not a statement yet. `SDD_DOCS_SCRATCH` names it, the project declares it at install, and it is kept out of version control. Discovery notes, raw outlines, copied issue text, and half-shaped arguments live there.
+The docs scratch holds material that is not a statement yet. The project declares where it is at install, `SDD_DOCS_SCRATCH` overrides that record, and it is kept out of version control. Discovery notes, raw outlines, copied issue text, and half-shaped arguments live there.
 
 - Exploratory material MUST stay outside the docs root.
 - Promotion MUST be a rewrite into the owning zone.

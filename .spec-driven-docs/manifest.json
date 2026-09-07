@@ -9,6 +9,7 @@
     "kind": "tracked",
     "path": "tests/fixtures"
   },
+  "docs_scratch": ".docs-scratch",
   "managed_files": [
     {
       "source": ".markdownlint/adr.markdownlint-cli2.jsonc",
@@ -28,12 +29,12 @@
     {
       "source": "skills/sdd-migrate/SKILL.md",
       "destination": "skills/sdd-migrate/SKILL.md",
-      "sha256": "73e77987f93709f5bcc99087b3735c99ef2339c050dbb41d35abf106b1f60082"
+      "sha256": "6da4f82d7e8b52788397bf67169af4835b67fec9ed6ed3309279a552859a60f9"
     },
     {
       "source": "skills/sdd-setup/SKILL.md",
       "destination": "skills/sdd-setup/SKILL.md",
-      "sha256": "4c6a46029c28a5d291afe22990cd0b99aff3782d6e3922495f45675846e5fb24"
+      "sha256": "6bc00d90b635214b186319b3baf6ef2abce23e48f09cd41e4e90ead1c72815bd"
     },
     {
       "source": "skills/sdd-write-docs/SKILL.md",
@@ -102,8 +103,8 @@
     {
       "source": "_docs/specs/SPEC-distribution.md",
       "destination": "_docs/specs/SPEC-distribution.md",
-      "sha256": "2a9e82378ee478baaec46711f97113ec19e8a6a3164ddaf1d6add7f9b0c614fd",
-      "baseline_sha256": "2a9e82378ee478baaec46711f97113ec19e8a6a3164ddaf1d6add7f9b0c614fd"
+      "sha256": "c84de42946632587d651efa5c02394f2b1ca30126dd994a0d27d1b6ea73ef2a5",
+      "baseline_sha256": "c84de42946632587d651efa5c02394f2b1ca30126dd994a0d27d1b6ea73ef2a5"
     },
     {
       "source": "_docs/specs/SPEC-docs-format.md",

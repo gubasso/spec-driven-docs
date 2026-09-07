@@ -90,7 +90,9 @@ The rule ID is one string in four record sets: the spec defines it, a decision r
 
 ```bash
 rg -o '^### `([a-z0-9-]+:[a-z0-9-]+)`' -r '$1' _docs/specs | sort -u > /tmp/agreed
-rg -oe '(ADDED|MODIFIED|REMOVED) `[a-z0-9-]+:[a-z0-9-]+`' -r '$0' "$SDD_PLAN_ZONE" \
+zone=${SDD_PLAN_ZONE:-$(sdd status --json | jq -r '.plan_zone.path // empty')}
+[ -d "$zone" ] || { echo 'FAIL no plan zone resolved'; exit 1; }
+rg -oe '(ADDED|MODIFIED|REMOVED) `[a-z0-9-]+:[a-z0-9-]+`' -r '$0' "$zone" \
   | rg -o '[a-z0-9-]+:[a-z0-9-]+' | sort -u > /tmp/enacted
 comm -23 /tmp/agreed /tmp/enacted
 ```
@@ -113,13 +115,13 @@ A traceability matrix, a rules-to-stories index, or a backlog file restates what
 
 This framework does not name a planning tool. Any tool serves whose work record is readable by the greps in this chapter and satisfies the contract the rules above already state: one entry document per unit of work, sources named by path, and spec changes cited by typed rule ID. The inverse dependency is also bounded: the specs never name the tool, so replacing it edits the plan zone and nothing under `specs/` or `decisions/`.
 
-The zone's path is a declared value too. `SDD_PLAN_ZONE` names it, the project declares it once, and no spec, chapter, or gate carries the path itself. A tool whose records live outside the checkout is served the same way as one whose records sit beside the specs.
+The zone's path is a declared value too. The project declares it once and the instance records it, `SDD_PLAN_ZONE` overrides that record, and no spec, chapter, or gate carries the path itself. A tool whose records live outside the checkout is served the same way as one whose records sit beside the specs.
 
 ## Unenforced
 
 Two rules in this chapter no command can decide: that a unit of work which changed a spec declared the typed clause at all, and that the cited type matches the diff. A gate checks every declared clause and cannot see an omitted or mistyped one. The reviewer compares the spec diff against the entry document.
 
-A third condition is unenforced by circumstance rather than by kind. A project can keep its entry documents outside version control, or reach them through `SDD_PLAN_ZONE`. No clone carries them, so no command can read them. There the clause shape is reviewer-held wherever the variable is unset. [08 Gates](./08-gates.md) carries all three in the unenforced list.
+A third condition is unenforced by the project's own choice rather than by kind. Only a plan zone the project declared tracked is gated. A project that keeps its entry documents untracked, or reaches them through `SDD_PLAN_ZONE`, has a zone no clone carries. The gate declines it, and a reviewer holds the clause shape instead. [08 Gates](./08-gates.md) carries all three in the unenforced list.
 
 ## Sources
 

@@ -311,27 +311,30 @@ fn a_locally_edited_agents_block_aborts_the_upgrade() {
 }
 
 /// Rewrite a fresh instance into the version-two shape: schema 2, an older
-/// canon, and the two declared locations recorded as version 2 wrote them.
+/// canon, and neither declared location — version 2 had no field for either.
 fn downgrade_to_v2(fixture: &Fixture) {
     let mut manifest: serde_json::Value =
         serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
     manifest["schema_version"] = 2.into();
     manifest["canon_version"] = "0.1.6".into();
-    manifest["plan_zone"] = serde_json::json!({"kind": "tracked", "path": "docs/plan"});
-    manifest["docs_scratch"] = "staging".into();
+    let object = manifest.as_object_mut().unwrap();
+    object.remove("plan_zone");
+    object.remove("docs_scratch");
     fixture.write(
         ".spec-driven-docs/manifest.json",
         &(serde_json::to_string_pretty(&manifest).unwrap() + "\n"),
     );
 }
 
-/// A version-2 instance reaches version 3 with both declared locations
-/// intact. The upgrade reinstalls with no flag, so a resolution that read an
-/// absent flag as the default would erase them here.
+/// A real version-2 record reaches version 3. It declared neither location,
+/// so the only honest outcome is the undeclared state, and nothing else in
+/// the record moves.
 #[test]
-fn a_version_two_upgrade_preserves_the_declared_locations() {
+fn a_version_two_upgrade_reaches_the_current_schema() {
     let fixture = Fixture::new();
     fixture.install("knowledge-base");
+    let before: serde_json::Value =
+        serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
     downgrade_to_v2(&fixture);
 
     fixture
@@ -344,11 +347,107 @@ fn a_version_two_upgrade_preserves_the_declared_locations() {
             env!("CARGO_PKG_VERSION")
         )));
 
-    let manifest: serde_json::Value =
+    let after: serde_json::Value =
         serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
-    assert_eq!(manifest["schema_version"], 3);
-    assert_eq!(manifest["plan_zone"]["path"], "docs/plan");
-    assert_eq!(manifest["docs_scratch"], "staging");
+    assert_eq!(after["schema_version"], 3);
+    assert_eq!(after["plan_zone"], serde_json::json!({"kind": "none"}));
+    assert!(after.get("docs_scratch").is_none());
+    assert_eq!(after["installed_at"], before["installed_at"]);
+}
+
+/// A declared location survives a reinstall it did not name, whatever schema
+/// version the record carries. This is the read-through the upgrade depends
+/// on: `sdd upgrade` reinstalls with no flag at all.
+#[test]
+fn a_reinstall_over_an_older_record_carries_the_declarations_forward() {
+    let fixture = Fixture::new();
+    fixture
+        .cmd()
+        .args([
+            "init",
+            "--target",
+            &fixture.target(),
+            "--profile",
+            "knowledge-base",
+            "--apply",
+            "--plan-zone",
+            "docs/plan",
+            "--docs-scratch",
+            "staging",
+        ])
+        .assert()
+        .success();
+    let mut manifest: serde_json::Value =
+        serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
+    manifest["schema_version"] = 2.into();
+    manifest["canon_version"] = "0.1.6".into();
+    fixture.write(
+        ".spec-driven-docs/manifest.json",
+        &(serde_json::to_string_pretty(&manifest).unwrap() + "\n"),
+    );
+
+    fixture
+        .cmd()
+        .args(["upgrade", "--target", &fixture.target()])
+        .assert()
+        .success();
+
+    let after: serde_json::Value =
+        serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
+    assert_eq!(after["schema_version"], 3);
+    assert_eq!(after["plan_zone"]["path"], "docs/plan");
+    assert_eq!(after["docs_scratch"], "staging");
+}
+
+/// The two versions move independently, so an instance can carry this
+/// binary's canon version and an older schema. Without a schema check the
+/// "already at" shortcut returns before migrating, while every other verb
+/// refuses the record and sends the operator back here.
+#[test]
+fn an_older_schema_at_the_current_version_still_migrates() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    let mut manifest: serde_json::Value =
+        serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
+    manifest["schema_version"] = 2.into();
+    let object = manifest.as_object_mut().unwrap();
+    object.remove("plan_zone");
+    object.remove("docs_scratch");
+    fixture.write(
+        ".spec-driven-docs/manifest.json",
+        &(serde_json::to_string_pretty(&manifest).unwrap() + "\n"),
+    );
+
+    // Every other verb refuses the record and names the upgrade.
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .code(65)
+        .stderr(predicate::str::contains("run 'sdd upgrade'"));
+
+    fixture
+        .cmd()
+        .args(["upgrade", "--target", &fixture.target(), "--dry-run"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("DRY RUN migrate the record"));
+
+    fixture
+        .cmd()
+        .args(["upgrade", "--target", &fixture.target()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("OK migrated the record"));
+
+    let after: serde_json::Value =
+        serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
+    assert_eq!(after["schema_version"], 3);
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .success();
 }
 
 /// A version-2 record carries integration blocks, and the upgrade reads

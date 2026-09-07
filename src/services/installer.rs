@@ -34,8 +34,9 @@ pub struct InitOptions {
     pub dry_run: bool,
     /// The plan zone to record; `None` keeps whatever is recorded.
     pub plan_zone: Option<PlanZone>,
-    /// The docs scratch to record; `None` keeps whatever is recorded.
-    pub docs_scratch: Option<Utf8PathBuf>,
+    /// The docs scratch to record. `None` keeps whatever is recorded, and
+    /// `Some(None)` clears it.
+    pub docs_scratch: Option<Option<Utf8PathBuf>>,
 }
 
 /// What an installation did.
@@ -112,26 +113,63 @@ fn installed_at(target: &Utf8Path) -> String {
 /// An omitted flag never clears a declared value. `sdd upgrade` reinstalls
 /// with no flag at all, so "absent means the default" would erase the
 /// operator's declaration on every upgrade.
-pub(crate) fn resolved_plan_zone(target: &Utf8Path, flag: Option<&PlanZone>) -> PlanZone {
+///
+/// A recorded value this binary cannot decode refuses rather than defaults,
+/// for the same reason: writing the default over it would erase a
+/// declaration silently, which is the failure the preservation exists to
+/// prevent.
+///
+/// # Errors
+///
+/// [`AppError::ManifestInvalid`] when a value is recorded in a shape this
+/// binary does not understand.
+pub(crate) fn resolved_plan_zone(
+    target: &Utf8Path,
+    flag: Option<&PlanZone>,
+) -> Result<PlanZone, AppError> {
     if let Some(zone) = flag {
-        return zone.clone();
+        return Ok(zone.clone());
     }
-    recorded_field(target, "plan_zone")
-        .and_then(|value| serde_json::from_value(value).ok())
-        .unwrap_or_default()
+    let Some(recorded) = recorded_field(target, "plan_zone") else {
+        return Ok(PlanZone::default());
+    };
+    serde_json::from_value(recorded).map_err(|source| {
+        AppError::ManifestInvalid(format!(
+            "the recorded plan_zone is in a shape this sdd does not read ({source}); \
+             upgrade sdd, or re-declare it with --plan-zone"
+        ))
+    })
 }
 
 /// The docs scratch to record: the flag, else the recorded value, else none.
+///
+/// The flag is two-level on purpose: absent keeps what is recorded, and
+/// `--docs-scratch none` clears it.
+///
+/// # Errors
+///
+/// [`AppError::ManifestInvalid`] when the recorded value is not a string.
 pub(crate) fn resolved_docs_scratch(
     target: &Utf8Path,
-    flag: Option<&Utf8PathBuf>,
-) -> Option<Utf8PathBuf> {
-    if let Some(path) = flag {
-        return Some(path.clone());
+    flag: Option<&Option<Utf8PathBuf>>,
+) -> Result<Option<Utf8PathBuf>, AppError> {
+    if let Some(declared) = flag {
+        return Ok(declared.clone());
     }
-    recorded_field(target, "docs_scratch")
-        .and_then(|value| value.as_str().map(Utf8PathBuf::from))
-        .filter(|path| !path.as_str().is_empty())
+    let Some(recorded) = recorded_field(target, "docs_scratch") else {
+        return Ok(None);
+    };
+    recorded
+        .as_str()
+        .filter(|path| !path.is_empty())
+        .map(Utf8PathBuf::from)
+        .map(Some)
+        .ok_or_else(|| {
+            AppError::ManifestInvalid(format!(
+                "the recorded docs_scratch is not a path ({recorded}); \
+                 re-declare it with --docs-scratch"
+            ))
+        })
 }
 
 struct TargetState {
@@ -260,8 +298,8 @@ fn compute_target_state(target: &Utf8Path, options: &InitOptions) -> Result<Targ
         profile,
         docs_root: declaration.docs_root,
         installed_at: installed_at(target),
-        plan_zone: resolved_plan_zone(target, options.plan_zone.as_ref()),
-        docs_scratch: resolved_docs_scratch(target, options.docs_scratch.as_ref()),
+        plan_zone: resolved_plan_zone(target, options.plan_zone.as_ref())?,
+        docs_scratch: resolved_docs_scratch(target, options.docs_scratch.as_ref())?,
         managed_files: managed_entries,
         adopted_files: adopted_entries,
         integration_blocks,

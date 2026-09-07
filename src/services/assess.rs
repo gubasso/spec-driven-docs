@@ -105,7 +105,8 @@ pub struct AssessReport {
     pub methodology_markers: Vec<String>,
     /// Per profile, the install destinations that already exist.
     pub collisions: BTreeMap<String, Vec<String>>,
-    /// Where the docs scratch resolved to, relative to the target.
+    /// Where the docs scratch resolved to. Relative to the target, unless
+    /// the declaration itself names a path outside it.
     pub docs_scratch: Utf8PathBuf,
     /// Whether that directory is there.
     pub docs_scratch_present: bool,
@@ -119,10 +120,11 @@ const DOCS_SCRATCH_CANDIDATE: &str = ".docs-scratch";
 
 /// Where the target keeps material that is not a statement yet.
 ///
-/// The variable wins, then the instance record, then the candidate above.
-fn docs_scratch(target: &Utf8Path) -> Utf8PathBuf {
+/// `named` is what the variable carries, supplied by the caller. The
+/// variable wins, then the instance record, then the candidate above.
+fn docs_scratch(target: &Utf8Path, named: Option<Utf8PathBuf>) -> Utf8PathBuf {
     let ctx = crate::gates::GateCtx::new(target);
-    crate::gates::paths::docs_scratch(&ctx)
+    crate::gates::paths::docs_scratch_with(&ctx, named)
         .unwrap_or_else(|| Utf8PathBuf::from(DOCS_SCRATCH_CANDIDATE))
 }
 
@@ -135,6 +137,23 @@ fn docs_scratch(target: &Utf8Path) -> Utf8PathBuf {
 /// cannot be trusted — a broken instance must not silently classify — and
 /// [`AppError::Io`] for metadata failures and walk errors.
 pub fn assess(target: &Utf8Path) -> Result<AssessReport, AppError> {
+    assess_with(target, crate::gates::paths::docs_scratch_variable())
+}
+
+/// Assess `target` with the docs-scratch variable's value supplied.
+///
+/// The environment is read at one boundary and passed in, so every case is
+/// reachable from a test. This crate forbids unsafe code, and setting a
+/// variable is unsafe from the 2024 edition on, so a test that could not
+/// inject would read the developer's own shell instead.
+///
+/// # Errors
+///
+/// See [`assess`].
+pub fn assess_with(
+    target: &Utf8Path,
+    named: Option<Utf8PathBuf>,
+) -> Result<AssessReport, AppError> {
     // A file target would walk as its own single entry and read as an
     // empty repository; refuse it instead, on proven metadata only. An
     // absent path falls through to the walk, whose I/O error names it,
@@ -161,7 +180,7 @@ pub fn assess(target: &Utf8Path) -> Result<AssessReport, AppError> {
         })
         .map(|root| (*root).to_string())
         .collect();
-    let scratch = docs_scratch(target);
+    let scratch = docs_scratch(target, named);
     let walked = walk(target, &scratch)?;
     let paths = walked.documents;
     let methodology_markers = markers(target, &doc_roots)?;
@@ -189,7 +208,7 @@ pub fn assess(target: &Utf8Path) -> Result<AssessReport, AppError> {
     };
 
     Ok(AssessReport {
-        schema: "sdd.assess/1",
+        schema: "sdd.assess/2",
         target: target.to_owned(),
         classification,
         instance,
@@ -204,6 +223,32 @@ pub fn assess(target: &Utf8Path) -> Result<AssessReport, AppError> {
         docs_scratch: scratch,
         docs_scratch_present,
     })
+}
+
+/// A path with `.` dropped and every resolvable `..` collapsed.
+///
+/// Lexical rather than `canonicalize`: a declared scratch that does not
+/// exist yet still has to compare equal to the walked entry once it does,
+/// and canonicalizing an absent path fails.
+fn normalized(path: &Utf8Path) -> Utf8PathBuf {
+    let mut out = Utf8PathBuf::new();
+    for component in path.components() {
+        match component {
+            camino::Utf8Component::CurDir => {}
+            camino::Utf8Component::ParentDir => {
+                if matches!(
+                    out.components().next_back(),
+                    Some(camino::Utf8Component::Normal(_))
+                ) {
+                    out.pop();
+                } else {
+                    out.push("..");
+                }
+            }
+            other => out.push(other.as_str()),
+        }
+    }
+    out
 }
 
 /// What one walk over the target observed.
@@ -226,14 +271,20 @@ struct Walked {
 fn walk(target: &Utf8Path, scratch: &Utf8Path) -> Result<Walked, AppError> {
     let mut documents = Vec::new();
     let mut populated_roots = Vec::new();
-    let scratch_path = target.join(scratch);
+    // The comparison is lexical, so both sides are normalized first. A
+    // variable carries whatever the operator's shell holds, and `a/../a`
+    // names the same directory as `a` while comparing unequal. Reported
+    // present and then not pruned is the worst of both answers.
+    let scratch_path = normalized(&target.join(scratch));
     let walker = walkdir::WalkDir::new(target).into_iter().filter_entry(|e| {
         let name = e.file_name().to_string_lossy();
         !(e.depth() > 0
             && e.file_type().is_dir()
             && (PRUNED_DIRS.contains(&name.as_ref())
                 || name == ".spec-driven-docs"
-                || e.path() == scratch_path.as_std_path()))
+                || e.path()
+                    .to_str()
+                    .is_some_and(|path| normalized(Utf8Path::new(path)) == scratch_path)))
     });
     for entry in walker {
         let entry = entry.map_err(|source| AppError::Io(std::io::Error::from(source)))?;
@@ -372,7 +423,7 @@ mod tests {
         let root = utf8(&dir);
         write(&root, "README.md");
         write(&root, "CHANGELOG.md");
-        let report = assess(&root).unwrap();
+        let report = assess_with(&root, None).unwrap();
         assert_eq!(report.classification, Classification::Greenfield);
         assert_eq!(report.documents.count, 2);
     }
@@ -383,7 +434,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let root = utf8(&dir);
         write(&root, "docs/guide.adoc");
-        let report = assess(&root).unwrap();
+        let report = assess_with(&root, None).unwrap();
         assert_eq!(report.classification, Classification::Brownfield);
     }
 
@@ -397,7 +448,7 @@ mod tests {
         std::fs::create_dir_all(root.join("docs")).unwrap();
         std::os::unix::fs::symlink(root.join("elsewhere.md"), root.join("docs/architecture.md"))
             .unwrap();
-        let report = assess(&root).unwrap();
+        let report = assess_with(&root, None).unwrap();
         assert_eq!(report.classification, Classification::Brownfield);
         assert_eq!(report.populated_doc_roots, vec!["docs".to_string()]);
     }
@@ -410,7 +461,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let root = utf8(&dir);
         std::os::unix::fs::symlink(root.join("no-such-corpus"), root.join("docs")).unwrap();
-        let report = assess(&root).unwrap();
+        let report = assess_with(&root, None).unwrap();
         assert_eq!(report.doc_roots, vec!["docs".to_string()]);
         assert_eq!(report.populated_doc_roots, vec!["docs".to_string()]);
         assert_eq!(report.classification, Classification::Brownfield);
@@ -423,7 +474,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let root = utf8(&dir);
         std::os::unix::fs::symlink(root.join("no-such-config"), root.join("mkdocs.yml")).unwrap();
-        let report = assess(&root).unwrap();
+        let report = assess_with(&root, None).unwrap();
         assert_eq!(report.methodology_markers, vec!["mkdocs.yml".to_string()]);
         assert_eq!(report.classification, Classification::Brownfield);
     }
@@ -440,7 +491,7 @@ mod tests {
             root.join("docs/specs/SPEC-docs-format.md"),
         )
         .unwrap();
-        let report = assess(&root).unwrap();
+        let report = assess_with(&root, None).unwrap();
         assert!(
             report.collisions["codebase"]
                 .iter()
@@ -485,7 +536,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let root = utf8(&dir);
         write(&root, "just-a-file.md");
-        let error = assess(&root.join("just-a-file.md")).unwrap_err();
+        let error = assess_with(&root.join("just-a-file.md"), None).unwrap_err();
         assert!(matches!(error, AppError::Usage(_)), "{error}");
     }
 
@@ -498,7 +549,7 @@ mod tests {
         std::fs::create_dir_all(root.join("external-corpus")).unwrap();
         std::fs::write(root.join("external-corpus/guide.txt"), "prose\n").unwrap();
         std::os::unix::fs::symlink(root.join("external-corpus"), root.join("docs")).unwrap();
-        let report = assess(&root).unwrap();
+        let report = assess_with(&root, None).unwrap();
         assert_eq!(report.classification, Classification::Brownfield);
         assert_eq!(report.populated_doc_roots, vec!["docs".to_string()]);
     }
@@ -510,7 +561,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let root = utf8(&dir);
         write(&root, "README.architecture.md");
-        let report = assess(&root).unwrap();
+        let report = assess_with(&root, None).unwrap();
         assert_eq!(report.classification, Classification::NeedsDecision);
     }
 
@@ -519,7 +570,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let root = utf8(&dir);
         write(&root, "docs/architecture.md");
-        let report = assess(&root).unwrap();
+        let report = assess_with(&root, None).unwrap();
         assert_eq!(report.classification, Classification::Brownfield);
         assert_eq!(report.doc_roots, vec!["docs".to_string()]);
         assert_eq!(
@@ -534,7 +585,7 @@ mod tests {
         let root = utf8(&dir);
         write(&root, "README.md");
         write(&root, "mkdocs.yml");
-        let report = assess(&root).unwrap();
+        let report = assess_with(&root, None).unwrap();
         assert_eq!(report.classification, Classification::Brownfield);
         assert_eq!(report.methodology_markers, vec!["mkdocs.yml".to_string()]);
     }
@@ -544,7 +595,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let root = utf8(&dir);
         write(&root, "notes/design.md");
-        let report = assess(&root).unwrap();
+        let report = assess_with(&root, None).unwrap();
         assert_eq!(report.classification, Classification::NeedsDecision);
     }
 
@@ -555,7 +606,7 @@ mod tests {
         write(&root, ".docs-scratch/notes.md");
         write(&root, "target/build.md");
         write(&root, "node_modules/pkg/README.md");
-        let report = assess(&root).unwrap();
+        let report = assess_with(&root, None).unwrap();
         assert_eq!(report.classification, Classification::Greenfield);
         assert_eq!(report.documents.count, 0);
         assert!(report.docs_scratch_present);

@@ -49,6 +49,8 @@ pub enum PlanZoneTarget {
     Variable(Utf8PathBuf),
     /// The manifest recorded this tracked path.
     Tracked(Utf8PathBuf),
+    /// The record declares a gated zone the reader cannot resolve.
+    Broken(String),
     /// Nothing a command may check.
     Unchecked,
 }
@@ -75,13 +77,29 @@ pub fn plan_zone_with(ctx: &GateCtx, named: Option<Utf8PathBuf>) -> PlanZoneTarg
     if recorded.get("kind").and_then(serde_json::Value::as_str) != Some("tracked") {
         return PlanZoneTarget::Unchecked;
     }
+    // A tracked kind whose path is missing, empty, or not a string is a
+    // broken declaration, never an absent one. Reading it as `Unchecked`
+    // would skip a zone the project declared gated, which is the state
+    // `07-lifecycle.md` forbids a gate from reaching.
     recorded
         .get("path")
         .and_then(serde_json::Value::as_str)
-        .filter(|path| !path.is_empty())
-        .map_or(PlanZoneTarget::Unchecked, |path| {
-            PlanZoneTarget::Tracked(Utf8PathBuf::from(path))
-        })
+        .map_or_else(
+            || {
+                PlanZoneTarget::Broken(
+                    "the recorded plan zone is tracked and carries no path".to_string(),
+                )
+            },
+            |path| {
+                if path.trim().is_empty() {
+                    PlanZoneTarget::Broken(
+                        "the recorded plan zone is tracked and its path is empty".to_string(),
+                    )
+                } else {
+                    PlanZoneTarget::Tracked(Utf8PathBuf::from(path))
+                }
+            },
+        )
 }
 
 /// Resolve the docs scratch: the variable first, then the recorded path.
@@ -94,6 +112,15 @@ pub fn docs_scratch(ctx: &GateCtx) -> Option<Utf8PathBuf> {
     docs_scratch_with(ctx, variable(DOCS_SCRATCH_VAR))
 }
 
+/// What [`DOCS_SCRATCH_VAR`] carries here, or `None` when it is unset.
+///
+/// The one place the environment is read for this value, so a caller that
+/// resolves it can be tested by supplying the answer instead.
+#[must_use]
+pub fn docs_scratch_variable() -> Option<Utf8PathBuf> {
+    variable(DOCS_SCRATCH_VAR)
+}
+
 /// The resolution, with the variable's value supplied.
 #[must_use]
 pub fn docs_scratch_with(ctx: &GateCtx, named: Option<Utf8PathBuf>) -> Option<Utf8PathBuf> {
@@ -102,12 +129,6 @@ pub fn docs_scratch_with(ctx: &GateCtx, named: Option<Utf8PathBuf>) -> Option<Ut
             .and_then(|value| value.as_str().map(Utf8PathBuf::from))
             .filter(|path| !path.as_str().is_empty())
     })
-}
-
-/// What [`DOCS_SCRATCH_VAR`] carries here, or `None`.
-#[must_use]
-pub fn docs_scratch_variable() -> Option<Utf8PathBuf> {
-    variable(DOCS_SCRATCH_VAR)
 }
 
 /// The instance's documentation root, relative to the repository.
@@ -230,16 +251,27 @@ mod tests {
                 "{\"kind\": \"tracked\", \"path\": \"docs/plan\"}",
                 PlanZoneTarget::Tracked(Utf8PathBuf::from("docs/plan")),
             ),
+            // A tracked kind whose path is missing or empty is a broken
+            // declaration, never an absent one: reading it as `Unchecked`
+            // would skip a zone the project declared gated.
+            (
+                "{\"kind\": \"tracked\"}",
+                PlanZoneTarget::Broken(
+                    "the recorded plan zone is tracked and carries no path".to_string(),
+                ),
+            ),
+            (
+                "{\"kind\": \"tracked\", \"path\": \"  \"}",
+                PlanZoneTarget::Broken(
+                    "the recorded plan zone is tracked and its path is empty".to_string(),
+                ),
+            ),
             (
                 "{\"kind\": \"untracked\", \"path\": \"docs/plan\"}",
                 PlanZoneTarget::Unchecked,
             ),
             ("{\"kind\": \"env\"}", PlanZoneTarget::Unchecked),
             ("{\"kind\": \"none\"}", PlanZoneTarget::Unchecked),
-            (
-                "{\"kind\": \"tracked\", \"path\": \"\"}",
-                PlanZoneTarget::Unchecked,
-            ),
         ] {
             write(
                 &dir,

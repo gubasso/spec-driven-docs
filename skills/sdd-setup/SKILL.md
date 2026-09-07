@@ -36,10 +36,18 @@ With no instance, classify before landing: `sdd assess --target . --json` reads 
 
 ## Land an instance
 
+Ask the two declaration questions below first, in the same plan turn as the profile. Their answers are flags on the one apply, so the sequence writes once.
+
 1. Choose the profile: `codebase` keeps records under `docs/`, and `knowledge-base` keeps them under `_docs/`.
 2. Preview: `sdd init --target "$PWD" --profile codebase`. A non-empty target defaults to a dry run and lists every destination.
-3. Review the listed paths, then apply: `sdd init --target "$PWD" --profile codebase --apply`.
-4. Confirm: `sdd verify --target "$PWD"` prints `OK spec-driven-docs <version>`.
+3. Review the listed paths, then apply, carrying whichever declarations the operator gave.
+
+```bash
+sdd init --target "$PWD" --profile codebase --apply \
+  --plan-zone docs/plan --docs-scratch .docs-scratch
+```
+
+1. Confirm: `sdd verify --target "$PWD"` prints `OK spec-driven-docs <version>`.
 
 The install seeds specs and templates the project owns from then on (adopted). It lands byte-exact configurations and agent skills the canon owns (managed), and splices one marked block into `.pre-commit-config.yaml`. It touches nothing outside its destinations and the markers.
 
@@ -60,12 +68,7 @@ The docs scratch holds material that is not a statement yet, and it stages a mig
 - a directory beside the checkout, such as `../<project>.docs-scratch/`, which the repository never sees.
 - a path the operator types.
 
-```bash
-sdd init --target "$PWD" --profile codebase --apply \
-  --plan-zone docs/plan --docs-scratch .docs-scratch
-```
-
-Both flags are optional and neither is cleared by omission: a later `sdd init` or `sdd upgrade` that carries no flag keeps what is recorded. `sdd status --json` reports both, plus whatever the two variables carry here.
+Both flags are optional, and an omitted flag keeps what is recorded: a later `sdd init` or `sdd upgrade` that carries no flag changes neither value. `--plan-zone none` and `--docs-scratch none` are how a recorded value is cleared. `sdd status --json` reports both, plus whatever the two variables carry here.
 
 ## Land the variables
 
@@ -75,7 +78,7 @@ Both flags are optional and neither is cleared by omission: a later `sdd init` o
 2. With direnv present, append the two `export` lines to `.envrc.local`, and add `.envrc.local` to `.gitignore` where it is absent.
 3. Without direnv, write the two assignments to `.env`, and add `.env` to `.gitignore` where it is absent. State the caveat: nothing loads a plain `.env` on its own, so the operator must source it before a gate can read it.
 4. With neither, print the two lines and stop.
-5. Close the task with the followup: neither variable is required, and the typed-clause gate reports nothing wherever `SDD_PLAN_ZONE` is unset.
+5. Close the task with the followup: neither variable is required. A recorded `tracked` zone is checked whether or not `SDD_PLAN_ZONE` is set. The other three kinds are checked only where it is set.
 
 ## Wire agent context
 

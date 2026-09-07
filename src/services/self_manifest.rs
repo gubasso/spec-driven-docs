@@ -156,8 +156,8 @@ pub fn regenerate(root: &Utf8Path) -> Result<String, AppError> {
                 .strftime("%Y-%m-%dT%H:%M:%SZ")
                 .to_string()
         });
-    let plan_zone = crate::services::installer::resolved_plan_zone(root, None);
-    let docs_scratch = crate::services::installer::resolved_docs_scratch(root, None);
+    let plan_zone = crate::services::installer::resolved_plan_zone(root, None)?;
+    let docs_scratch = crate::services::installer::resolved_docs_scratch(root, None)?;
 
     let manifest = Manifest {
         schema_version: SCHEMA_VERSION,

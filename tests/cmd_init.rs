@@ -533,3 +533,79 @@ fn a_declared_location_the_arguments_cannot_mean_is_refused() {
             .stderr(predicate::str::contains(flag));
     }
 }
+
+/// A recorded declaration this binary cannot decode refuses rather than
+/// defaults. Writing the default over it would erase a declaration in
+/// silence, which is the failure the preservation exists to prevent.
+#[test]
+fn an_undecodable_recorded_location_refuses_the_install() {
+    for (key, value) in [
+        ("plan_zone", serde_json::json!({"kind": "from-a-later-sdd"})),
+        ("docs_scratch", serde_json::json!(["a", "list"])),
+    ] {
+        let fixture = Fixture::new();
+        fixture.install("codebase");
+        let mut manifest: serde_json::Value =
+            serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
+        manifest[key] = value;
+        let before = serde_json::to_string_pretty(&manifest).unwrap() + "\n";
+        fixture.write(".spec-driven-docs/manifest.json", &before);
+
+        fixture
+            .cmd()
+            .args([
+                "init",
+                "--target",
+                &fixture.target(),
+                "--profile",
+                "codebase",
+                "--apply",
+            ])
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains(key));
+        assert_eq!(
+            fixture.read(".spec-driven-docs/manifest.json"),
+            before,
+            "{key}: the refused install still rewrote the record"
+        );
+    }
+}
+
+/// Each declared location has a clearing word, so a typo can be undone
+/// without hand-editing the record.
+#[test]
+fn a_declared_location_can_be_cleared() {
+    let fixture = Fixture::new();
+    fixture
+        .cmd()
+        .args([
+            "init",
+            "--target",
+            &fixture.target(),
+            "--profile",
+            "codebase",
+            "--apply",
+            "--docs-scratch",
+            "scrtach",
+        ])
+        .assert()
+        .success();
+    fixture
+        .cmd()
+        .args([
+            "init",
+            "--target",
+            &fixture.target(),
+            "--profile",
+            "codebase",
+            "--apply",
+            "--docs-scratch",
+            "none",
+        ])
+        .assert()
+        .success();
+    let manifest: serde_json::Value =
+        serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
+    assert!(manifest.get("docs_scratch").is_none());
+}

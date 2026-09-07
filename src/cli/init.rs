@@ -33,7 +33,8 @@ pub struct InitArgs {
     pub plan_zone: Option<String>,
 
     /// Where material that is not a statement yet is kept, as a path that may
-    /// leave the repository. Omitted, the recorded value stays.
+    /// leave the repository, or `none` to clear a recorded value. Omitted,
+    /// the recorded value stays.
     #[arg(long, value_name = "PATH")]
     pub docs_scratch: Option<String>,
 }

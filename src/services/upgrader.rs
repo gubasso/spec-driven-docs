@@ -41,6 +41,13 @@ struct Installed {
     docs_root: String,
     managed: Vec<(Utf8PathBuf, Sha256)>,
     integration: Vec<(Utf8PathBuf, Sha256)>,
+    /// Whether the record is already at this binary's schema.
+    ///
+    /// The two versions move independently, so an instance can carry this
+    /// binary's canon version and an older schema. Without this the "already
+    /// at" shortcut would return before migrating, while every other verb
+    /// refuses the record and sends the operator back here.
+    schema_current: bool,
 }
 
 /// The marker pair a host file's managed region uses.
@@ -74,6 +81,7 @@ fn read_installed(target: &Utf8Path) -> Result<Installed, AppError> {
                 .into_iter()
                 .map(|block| (block.path, block.marker_hash))
                 .collect(),
+            schema_current: true,
         }),
         Err(ManifestParseError::Older(_)) => {
             let legacy: LegacyManifest = serde_json::from_str(&text)
@@ -92,6 +100,7 @@ fn read_installed(target: &Utf8Path) -> Result<Installed, AppError> {
                     .into_iter()
                     .map(|block| (block.path, block.marker_hash))
                     .collect(),
+                schema_current: false,
             })
         }
         Err(error) => Err(AppError::ManifestInvalid(error.to_string())),
@@ -202,7 +211,7 @@ pub fn upgrade(options: &UpgradeOptions) -> Result<UpgradeOutcome, AppError> {
     let old = installed.version;
     let mut outcome = UpgradeOutcome::default();
 
-    if old == new {
+    if old == new && installed.schema_current {
         outcome.lines.push(format!("OK already at {new}"));
         return Ok(outcome);
     }
@@ -249,9 +258,17 @@ pub fn upgrade(options: &UpgradeOptions) -> Result<UpgradeOutcome, AppError> {
     }
 
     if options.dry_run {
-        outcome
-            .lines
-            .push(format!("DRY RUN upgrade {old} to {new}"));
+        // At the same canon version the work is the record's schema alone,
+        // so saying "upgrade X to X" would describe nothing.
+        if old == new {
+            outcome
+                .lines
+                .push(format!("DRY RUN migrate the record of {new}"));
+        } else {
+            outcome
+                .lines
+                .push(format!("DRY RUN upgrade {old} to {new}"));
+        }
         return Ok(outcome);
     }
 
@@ -338,6 +355,10 @@ fn finish(
         outcome.lines.push(format!(
             "FAIL upgraded {old} to {new} with unfinished removals above"
         ));
+    } else if old == new {
+        outcome
+            .lines
+            .push(format!("OK migrated the record of {new}"));
     } else {
         outcome.lines.push(format!("OK upgraded {old} to {new}"));
     }

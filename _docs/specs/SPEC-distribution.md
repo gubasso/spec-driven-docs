@@ -278,13 +278,13 @@ Verify: `cargo nextest run -E 'binary(canon)'`
 
 ### `distribution:a-declared-location-is-named-by-its-variable` — A declared location is named by its variable
 
-Where the payload refers to a location the project declares, the author MUST name it by its environment variable alone. A concrete candidate path belongs only in the question a skill asks the operator.
+The author MUST keep the retired name of a declared location out of the authored corpus. A candidate path for one MUST appear only in the question a skill asks the operator.
 
-#### Scenario: A chapter states where staged rewrites go
+#### Scenario: A chapter reintroduces the docs scratch's old fixed path
 
-- GIVEN a chapter that names a directory instead of `SDD_DOCS_SCRATCH`
+- GIVEN a chapter edited to name the retired directory, or the candidate path a skill offers
 - WHEN the canon test suite runs
-- THEN the check fails naming the file and the path, because a payload that fixes the location has taken the declaration back
+- THEN the check fails naming the file and the term, because a corpus that fixes the location has taken the declaration back
 
 Verify: `cargo nextest run -E 'binary(canon)'`
 

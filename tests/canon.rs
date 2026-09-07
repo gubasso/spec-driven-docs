@@ -828,29 +828,73 @@ fn the_tracking_entry_pins_the_vendored_revision() {
     );
 }
 
-/// The retired words. `.draft` was a fixed path and `workshop` was the term
-/// for the concept now called the docs scratch. Both are held out here
-/// rather than by review, because one reintroduction re-fixes the location
-/// the payload just stopped fixing.
-const RETIRED_TERMS: &[&str] = &[".draft", "workshop"];
+/// The two retired names for the docs scratch, and how each is matched.
+///
+/// `.draft` was the fixed path. `workshop` was the term. Both are held out
+/// here rather than by review, because one reintroduction re-fixes the
+/// location this framework just stopped fixing.
+///
+/// `workshop` is ordinary English, so it is matched as a whole word only.
+/// The same reasoning `PLANNING_TOOLS` states applies: a substring match on
+/// a common word blocks prose it was never about.
+const RETIRED_TERMS: &[(&str, bool)] = &[(".draft", false), ("workshop", true)];
+
+/// Everything this repository authors that the retired-term sweep reads.
+///
+/// The payload roots, minus the vendored upstream, plus the two root files
+/// that carry the same rule for this repository's own agents. The upstream
+/// is out because its prose is nobody here's to reword, and its bytes are
+/// pinned to a recorded digest.
+fn authored_prose() -> Vec<(String, String)> {
+    let mut files: Vec<(String, String)> = payload_files()
+        .into_iter()
+        .filter(|(relative, _)| !relative.starts_with("third-party/"))
+        .collect();
+    for root_file in ["AGENTS.md", ".gitignore"] {
+        files.push((root_file.to_string(), read(root_file)));
+    }
+    files
+}
+
+/// Whether `line` carries `term` as a whole word, case-insensitively.
+fn names_whole_word(line: &str, term: &str) -> bool {
+    let lower = line.to_lowercase();
+    lower.match_indices(term).any(|(at, _)| {
+        let before = lower[..at].chars().next_back();
+        let after = lower[at + term.len()..].chars().next();
+        !before.is_some_and(char::is_alphanumeric) && !after.is_some_and(char::is_alphanumeric)
+    })
+}
 
 /// SATISFIES distribution:a-declared-location-is-named-by-its-variable
 ///
 /// The corpus names each declared location by its variable and nothing else.
 #[test]
-fn the_payload_names_no_retired_location_term() {
-    for (relative, text) in payload_files() {
+fn the_authored_corpus_names_no_retired_location_term() {
+    for (relative, text) in authored_prose() {
         for (index, line) in text.lines().enumerate() {
-            let lower = line.to_lowercase();
-            for term in RETIRED_TERMS {
+            for (term, whole_word) in RETIRED_TERMS {
+                let named = if *whole_word {
+                    names_whole_word(line, term)
+                } else {
+                    line.to_lowercase().contains(term)
+                };
                 assert!(
-                    !lower.contains(term),
-                    "{relative}:{}: the payload names '{term}'; the docs scratch is named by SDD_DOCS_SCRATCH",
+                    !named,
+                    "{relative}:{}: the corpus names '{term}'; the docs scratch is named by SDD_DOCS_SCRATCH",
                     index + 1
                 );
             }
         }
     }
+}
+
+#[test]
+fn a_retired_word_is_matched_as_a_word_rather_than_a_substring() {
+    assert!(names_whole_word("run a Workshop with the team", "workshop"));
+    assert!(names_whole_word("the workshop.", "workshop"));
+    assert!(!names_whole_word("workshopping the idea", "workshop"));
+    assert!(!names_whole_word("a preworkshop note", "workshop"));
 }
 
 /// SATISFIES distribution:a-declared-location-is-named-by-its-variable
@@ -861,17 +905,21 @@ fn the_payload_names_no_retired_location_term() {
 #[test]
 fn a_concrete_declared_path_appears_only_where_a_skill_offers_it() {
     let mut offered = 0usize;
-    for (relative, text) in payload_files() {
+    for (relative, text) in authored_prose() {
         for (index, line) in text.lines().enumerate() {
             if !line.contains(".docs-scratch") {
                 continue;
             }
+            // `.gitignore` is this repository's own declaration rather than
+            // payload prose, so it carries the path it declared.
             assert!(
-                relative.starts_with("skills/"),
+                relative.starts_with("skills/") || relative == ".gitignore",
                 "{relative}:{}: a concrete docs-scratch path outside a skill's question",
                 index + 1
             );
-            offered += 1;
+            if relative.starts_with("skills/") {
+                offered += 1;
+            }
         }
     }
     assert!(offered > 0, "no skill offers a concrete docs-scratch path");
@@ -879,14 +927,24 @@ fn a_concrete_declared_path_appears_only_where_a_skill_offers_it() {
 
 /// SATISFIES release:the-canon-record-describes-its-tree
 ///
-/// This repository dogfoods the plan zone it delivers. Without this, a later
-/// regeneration could turn the typed-clause gate off in silence.
+/// This repository dogfoods both locations it delivers. Without this, a later
+/// regeneration could turn the typed-clause gate off in silence, or leave the
+/// ignore entry naming a scratch the record no longer declares.
 #[test]
-fn the_canon_declares_its_own_plan_zone() {
+fn the_canon_declares_both_of_its_own_locations() {
     let manifest = recorded_manifest();
     assert_eq!(
         manifest["plan_zone"],
         serde_json::json!({"kind": "tracked", "path": "tests/fixtures"}),
         "this repository stopped declaring the plan zone its own gate reads"
+    );
+    let scratch = manifest["docs_scratch"]
+        .as_str()
+        .expect("this repository declares no docs scratch");
+    assert!(
+        read(".gitignore")
+            .lines()
+            .any(|line| line.trim_end_matches('/') == scratch.trim_end_matches('/')),
+        ".gitignore does not carry the docs scratch the record declares: {scratch}"
     );
 }

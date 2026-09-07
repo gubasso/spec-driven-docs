@@ -33,7 +33,7 @@ fn an_empty_target_classifies_greenfield() {
     fixture.write("README.md", "# The project\n");
     fixture.write("CONTRIBUTING.md", "How to contribute.\n");
     let report = assess_json(&fixture);
-    assert_eq!(report["schema"], "sdd.assess/1");
+    assert_eq!(report["schema"], "sdd.assess/2");
     assert_eq!(report["classification"], "greenfield");
     assert_eq!(report["instance"]["instance"], false);
     assert_eq!(report["documents"]["count"], 2);
@@ -161,11 +161,29 @@ fn the_report_names_the_declared_docs_scratch_and_prunes_it() {
     );
 }
 
-/// The variable overrides the recorded value, here and everywhere.
+/// The variable overrides the recorded value, here and everywhere. The
+/// fixture records one first: without that the assertion would hold under
+/// inverted precedence, because there would be no record to lose to.
 #[test]
 fn the_docs_scratch_variable_overrides_the_record() {
     let fixture = Fixture::new();
-    fixture.install("codebase");
+    fixture
+        .cmd()
+        .args([
+            "init",
+            "--target",
+            &fixture.target(),
+            "--profile",
+            "codebase",
+            "--apply",
+            "--docs-scratch",
+            "staging",
+        ])
+        .assert()
+        .success();
+    let recorded = assess_json(&fixture);
+    assert_eq!(recorded["docs_scratch"], "staging");
+
     let report: serde_json::Value = serde_json::from_slice(
         &fixture
             .cmd()

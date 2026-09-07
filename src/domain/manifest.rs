@@ -105,6 +105,12 @@ impl PlanZone {
         match value.trim() {
             "none" => Ok(Self::None),
             "env" => Ok(Self::Env),
+            // The vocabulary offers one prefix, so the symmetric spelling is
+            // a usage mistake rather than a directory named `tracked:`.
+            rest if rest.starts_with("tracked:") => Err(DeclaredPathError(
+                "a tracked zone is written as the bare path; `untracked:` is the only prefix"
+                    .to_string(),
+            )),
             rest => match rest.strip_prefix("untracked:") {
                 Some(path) => Ok(Self::Untracked {
                     path: declared_path(path, false)?,
@@ -115,15 +121,31 @@ impl PlanZone {
             },
         }
     }
+
+    /// The recorded path, whatever the kind carries.
+    #[must_use]
+    pub const fn path(&self) -> Option<&Utf8PathBuf> {
+        match self {
+            Self::Tracked { path } | Self::Untracked { path } => Some(path),
+            Self::Env | Self::None => None,
+        }
+    }
 }
 
 /// Read the `--docs-scratch` argument.
 ///
+/// `none` clears a recorded value, mirroring `--plan-zone none`. Without a
+/// clearing word an operator who declares a scratch by typo can change it
+/// but never return to the undeclared state.
+///
 /// # Errors
 ///
 /// [`DeclaredPathError`] for a path that is empty or absolute.
-pub fn parse_docs_scratch(value: &str) -> Result<Utf8PathBuf, DeclaredPathError> {
-    declared_path(value, true)
+pub fn parse_docs_scratch(value: &str) -> Result<Option<Utf8PathBuf>, DeclaredPathError> {
+    if value.trim() == "none" {
+        return Ok(None);
+    }
+    declared_path(value, true).map(Some)
 }
 
 /// Everything an instance records about itself.
@@ -207,6 +229,23 @@ impl Manifest {
             return Err(ManifestParseError::Invalid(
                 "managed_files is empty".to_string(),
             ));
+        }
+        // The declared locations carry the same invariants the arguments
+        // enforce. Without this the record is the weaker gate: a hand-edited
+        // empty path makes the typed-clause gate skip a zone the project
+        // declared tracked, and an absolute one makes it read outside the
+        // repository, because a gate resolves the value against the root.
+        if let Some(path) = manifest.plan_zone.path()
+            && let Err(error) = declared_path(path.as_str(), false)
+        {
+            return Err(ManifestParseError::Invalid(format!("plan_zone: {error}")));
+        }
+        if let Some(path) = &manifest.docs_scratch
+            && let Err(error) = declared_path(path.as_str(), true)
+        {
+            return Err(ManifestParseError::Invalid(format!(
+                "docs_scratch: {error}"
+            )));
         }
         let mut paths = std::collections::BTreeSet::new();
         for block in &manifest.integration_blocks {
@@ -382,10 +421,58 @@ mod tests {
 
         assert_eq!(
             parse_docs_scratch("../beside-the-checkout").unwrap(),
-            Utf8PathBuf::from("../beside-the-checkout")
+            Some(Utf8PathBuf::from("../beside-the-checkout"))
         );
         assert!(parse_docs_scratch("/tmp/scratch").is_err());
         assert!(parse_docs_scratch("").is_err());
+    }
+
+    /// The symmetric prefix is a usage mistake, never a directory name.
+    #[test]
+    fn the_tracked_prefix_is_refused_rather_than_absorbed() {
+        let error = PlanZone::parse("tracked:docs/plan").unwrap_err();
+        assert!(error.to_string().contains("bare path"), "{error}");
+    }
+
+    /// Each declared value has a clearing word, so a typo can be undone.
+    #[test]
+    fn each_declared_location_can_be_cleared() {
+        assert_eq!(PlanZone::parse("none").unwrap(), PlanZone::None);
+        assert_eq!(parse_docs_scratch("none").unwrap(), None);
+        // And a directory literally named `none` is still reachable.
+        assert_eq!(
+            parse_docs_scratch("./none").unwrap(),
+            Some(Utf8PathBuf::from("none"))
+        );
+    }
+
+    /// The record carries the same invariants the arguments enforce. A
+    /// hand-edited empty path would otherwise make the typed-clause gate
+    /// skip a zone the project declared tracked.
+    #[test]
+    fn a_recorded_location_the_arguments_would_refuse_is_invalid() {
+        for zone in [
+            serde_json::json!({"kind": "tracked", "path": ""}),
+            serde_json::json!({"kind": "tracked", "path": "/etc"}),
+            serde_json::json!({"kind": "untracked", "path": "../plan"}),
+        ] {
+            let mut value: serde_json::Value = serde_json::from_str(&sample().to_json()).unwrap();
+            value["plan_zone"] = zone.clone();
+            assert!(
+                matches!(
+                    Manifest::parse(&value.to_string()),
+                    Err(ManifestParseError::Invalid(_))
+                ),
+                "{zone} was accepted"
+            );
+        }
+
+        let mut value: serde_json::Value = serde_json::from_str(&sample().to_json()).unwrap();
+        value["docs_scratch"] = "/tmp/scratch".into();
+        assert!(matches!(
+            Manifest::parse(&value.to_string()),
+            Err(ManifestParseError::Invalid(_))
+        ));
     }
 
     #[test]
@@ -429,12 +516,17 @@ mod tests {
         assert!(legacy.integration_blocks.is_empty());
     }
 
-    /// A version-2 record carries integration blocks, and the upgrade path
-    /// reads them: without them the edited-block conflict check is skipped.
+    /// A record of the shape version 2 actually wrote — the current one
+    /// without the two declared locations, which version 2 had no field for
+    /// — parses, and its integration blocks reach the upgrade. Without them
+    /// the edited-block conflict check is skipped on every version-2 hop.
     #[test]
-    fn legacy_manifest_carries_a_version_two_integration_block() {
+    fn legacy_manifest_reads_the_version_two_shape() {
         let mut value: serde_json::Value = serde_json::from_str(&sample().to_json()).unwrap();
         value["schema_version"] = 2.into();
+        let object = value.as_object_mut().unwrap();
+        object.remove("plan_zone");
+        object.remove("docs_scratch");
         value["integration_blocks"] = serde_json::json!([{
             "path": ".pre-commit-config.yaml",
             "marker_hash": Sha256::of(b"block").to_string(),
