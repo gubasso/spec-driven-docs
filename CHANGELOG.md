@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2](https://github.com/gubasso/spec-driven-docs/compare/v0.5.1...v0.5.2) - 2026-09-09
+
+### Added
+
+- *(method)* Replace the prose gate with a writing style chapter ([#58](https://github.com/gubasso/spec-driven-docs/pull/58))
+
 ## [0.5.1](https://github.com/gubasso/spec-driven-docs/compare/v0.5.0...v0.5.1) - 2026-09-09
 
 This version adds two rules and one gate, and it widens what an existing gate sees. An instance that upgrades has work to do in the same change:
