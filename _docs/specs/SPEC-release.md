@@ -120,12 +120,12 @@ Verify: `rk devshell status --target . --json` reports `ready` and an empty `lef
 
 ### `release:third-party-notices-travel-with-the-payload` — Third-party notices travel with the payload
 
-The release MUST carry a third-party notice naming every vendored dependency, its upstream license, and its resolved revision, and `sdd license --third-party` MUST print it.
+The release MUST carry a third-party notice naming every third-party source the payload derives from, its upstream license, and its resolved revision, and `sdd license --third-party` MUST print it.
 
 #### Scenario: A consumer installs the binary and asks for the terms
 
-- GIVEN a vendored SimpleEnglish surface embedded in the binary
+- GIVEN a writing-style source read at a resolved revision
 - WHEN a consumer runs `sdd license --third-party`
-- THEN the notice prints byte-identical to `THIRD_PARTY_NOTICES.md` and names the upstream MIT terms and the resolved object ID. The canon test proves the notice appears in the packaged crate
+- THEN the notice prints byte-identical to `THIRD_PARTY_NOTICES.md` and names the source's upstream MIT terms and resolved object ID. The canon test proves the notice appears in the packaged crate
 
 Verify: `pre-commit run cargo-test --all-files`

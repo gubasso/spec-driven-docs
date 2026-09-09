@@ -1,14 +1,15 @@
 # Dependencies and conventions
 
-The external work this project stands on, and how it stands on each one. A dependency is code or content this project carries or links. A convention is a pattern this project implements. Prior art is work this project learned from but does not depend on. The relationship word in each row is exact: `depends on`, `implements`, `integrates`, `uses`, or `evaluated`.
+The external work this project stands on, and how it stands on each one. A source is material this project reads at a resolved revision. A dependency is code or content this project carries or links. A convention is a pattern this project implements. Prior art is work this project learned from but does not depend on. The relationship word in each row is exact: `draws from`, `implements`, `integrates`, `uses`, or `evaluated`.
 
-## Integrated dependencies
+## Sources read
 
-A dependency this project carries or links, and refreshes on a schedule.
+A source this project reads at a resolved revision and does not carry.
 
-| Dependency    | Relationship | How it arrives                                                                                                                                   | Version source                                                         |
-| ------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| SimpleEnglish | `depends on` | The consumed surface is vendored under `third-party/simpleenglish/` and the binary embeds it. `Plain` mode is the default for technical writing. | `third-party/simpleenglish/UPSTREAM.json` and `THIRD_PARTY_NOTICES.md` |
+| Source        | Relationship | Contribution                                      | Revision source                                                 |
+| ------------- | ------------ | ------------------------------------------------- | --------------------------------------------------------------- |
+| SimpleEnglish | `draws from` | Word and sentence register                        | [`method/writing-style.md`](../method/writing-style.md#sources) |
+| i-have-adhd   | `draws from` | Information architecture and contrasting examples | [`method/writing-style.md`](../method/writing-style.md#sources) |
 
 The exact Rust libraries and their versions live in `Cargo.toml` and `Cargo.lock`. This catalog does not repeat them.
 
@@ -35,7 +36,7 @@ What a consumer's host must carry.
 | git         | `uses`       | The host prerequisite for a pre-commit hook, and the transport for `sdd track check`. |
 | pre-commit  | `uses`       | Runs the delivered gates, including in CI.                                            |
 
-No instance runtime needs Python, Node.js, or a network. The vendored upstream hooks stay canon-side and are never installed in a consumer.
+No instance runtime needs Python, Node.js, or a network.
 
 ## Repository delivery tooling
 

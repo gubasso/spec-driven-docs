@@ -99,7 +99,7 @@ An instance installed before 0.4.14 records manifest schema 2, and this binary r
 
 An adopted seed the canon stops shipping is left in place, because the project owns it from the moment it lands. An upgrade that stops seeding one names it in the release notes. Delete the file once nothing local cites its rules. `SPEC-distribution.md` is the first: it states the installer's obligations, which no project can meet or check, and `SPEC-instance.md` now carries what a project owes its own installation.
 
-An upgrade removes a managed projection that the current payload drops. It removes the projection's immediate parent when that directory becomes empty, but it does not remove empty ancestors. After verification, remove any empty ancestor directories the project no longer needs.
+`sdd upgrade` prints a `removed managed file no longer owned:` line for each file the new payload no longer declares. It removes the immediate parent of a removed file when that removal empties it, and it walks no further up. After an upgrade that prints those lines, remove every directory under `.spec-driven-docs/` the removals left empty, deepest first. `find .spec-driven-docs -type d -empty -delete` does it, and it removes nothing that still holds a file.
 
 ## Defaults
 

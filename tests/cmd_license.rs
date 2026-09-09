@@ -26,6 +26,7 @@ fn third_party_prints_the_notice_offline() {
         .assert()
         .success()
         .stdout(predicate::str::contains("SimpleEnglish"))
+        .stdout(predicate::str::contains("i-have-adhd"))
         .stdout(predicate::str::contains(
             "d9e523409686e88df175623f7a692d025aff95b1",
         ))

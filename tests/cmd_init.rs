@@ -42,9 +42,9 @@ fn installs_both_profiles_and_they_verify() {
                 "the instance installed {root}"
             );
         }
-        // No agent skill is projected into the instance. The vendored
-        // SimpleEnglish SKILL.md is a dependency under the managed upstreams
-        // root, not an agent-discoverable skill, so it is not a counterexample.
+        // No agent skill is projected into the instance; user scope is its
+        // only owner.
+        assert!(!fixture.path().join(".spec-driven-docs/upstreams").exists());
         let manifest = fixture.read(".spec-driven-docs/manifest.json");
         assert!(!manifest.contains(".claude/skills"));
         assert!(!manifest.contains(".agents/skills"));

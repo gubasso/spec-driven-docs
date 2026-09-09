@@ -728,25 +728,81 @@ fn a_seeded_rule_runs_no_canon_command() {
     assert!(commands > 0, "no seeded rule carries a command to judge");
 }
 
-fn upstream_record() -> serde_json::Value {
-    serde_json::from_str(&read("third-party/simpleenglish/UPSTREAM.json")).unwrap()
+/// One row of the chapter's sources table: what was read, and on what terms.
+struct Source {
+    repository: String,
+    revision: String,
+    terms: String,
+}
+
+/// Every source `method/writing-style.md` declares, read from its table.
+///
+/// The chapter is the one owner of what the style draws on, so the notice is
+/// judged against whatever that table says today. Naming the sources here
+/// instead would be a second list, and a source added to the chapter and
+/// forgotten in the notice would pass.
+fn declared_sources() -> Vec<Source> {
+    let style = read("method/writing-style.md");
+    let sources = style
+        .split_once("## Sources")
+        .expect("the chapter has no sources section")
+        .1;
+    let rows: Vec<Source> = sources
+        .lines()
+        .take_while(|line| !line.starts_with("## "))
+        .filter(|line| line.starts_with('|'))
+        // The header row and the delimiter row carry no source.
+        .filter(|line| !line.contains("| ---") && !line.contains("Revision read"))
+        .map(|line| {
+            let cells: Vec<&str> = line.trim_matches('|').split('|').map(str::trim).collect();
+            assert!(
+                cells.len() >= 3,
+                "a sources row has too few columns: {line}"
+            );
+            let repository = cells[0]
+                .split_once('(')
+                .expect("a sources row names no repository link")
+                .1
+                .trim_end_matches(')')
+                .to_string();
+            Source {
+                repository,
+                revision: cells[1].trim_matches('`').to_string(),
+                terms: cells[2].to_string(),
+            }
+        })
+        .collect();
+    assert!(!rows.is_empty(), "the sources table declares no source");
+    for row in &rows {
+        // An empty cell would assert nothing against the notice.
+        assert!(
+            !row.repository.is_empty() && !row.revision.is_empty() && !row.terms.is_empty(),
+            "a sources row leaves a cell empty: {}",
+            row.repository
+        );
+    }
+    rows
 }
 
 /// SATISFIES release:third-party-notices-travel-with-the-payload
 #[test]
 fn the_notice_names_the_resolved_revision_and_terms() {
     let notice = read("THIRD_PARTY_NOTICES.md");
-    let record = upstream_record();
-    let revision = record["revision"].as_str().unwrap();
-    assert!(
-        notice.contains(revision),
-        "the notice omits the resolved revision"
-    );
-    assert!(notice.contains("MIT"), "the notice omits the MIT terms");
-    assert!(
-        notice.contains("https://github.com/AminBlg/SimpleEnglish"),
-        "the notice omits the upstream repository"
-    );
+    for source in declared_sources() {
+        let repository = &source.repository;
+        assert!(
+            notice.contains(repository),
+            "the notice omits the source repository {repository}"
+        );
+        assert!(
+            notice.contains(&source.revision),
+            "the notice omits the revision read for {repository}"
+        );
+        assert!(
+            notice.contains(&source.terms),
+            "the notice omits the terms of {repository}"
+        );
+    }
     // The binary carries the notice byte-for-byte.
     assert_eq!(
         spec_driven_docs::embedded::THIRD_PARTY_NOTICES,
@@ -756,77 +812,18 @@ fn the_notice_names_the_resolved_revision_and_terms() {
 }
 
 /// SATISFIES release:third-party-notices-travel-with-the-payload
-#[test]
-fn the_vendored_surface_matches_its_recorded_digests() {
-    use spec_driven_docs::domain::ownership::Sha256;
-    let record = upstream_record();
-    for entry in record["files"].as_array().unwrap() {
-        let path = entry["path"].as_str().unwrap();
-        let recorded = entry["sha256"].as_str().unwrap();
-        let bytes = std::fs::read(canon().join("third-party/simpleenglish").join(path))
-            .unwrap_or_else(|_| panic!("vendored file missing: {path}"));
-        assert_eq!(
-            Sha256::of(&bytes).to_string(),
-            recorded,
-            "{path} differs from its UPSTREAM.json digest; re-run scripts/vendor-simpleenglish.sh"
-        );
-    }
-    // The upstream MIT license travels with the surface.
-    assert!(read("third-party/simpleenglish/LICENSE").contains("MIT License"));
-}
-
-/// SATISFIES release:third-party-notices-travel-with-the-payload
 ///
-/// The crate excludes no vendored file, so the notice and the surface ship in
-/// the packaged crate.
+/// The crate excludes neither the notice nor the license, so both ship in the
+/// packaged crate.
 #[test]
-fn the_package_carries_the_notice_and_the_vendored_surface() {
+fn the_package_carries_the_notice_and_license() {
     let cargo = read("Cargo.toml");
-    for kept in ["/third-party", "/THIRD_PARTY_NOTICES.md", "/LICENSE"] {
+    for kept in ["/THIRD_PARTY_NOTICES.md", "/LICENSE"] {
         assert!(
             !cargo.contains(&format!("\"{kept}\"")),
             "Cargo.toml excludes {kept}, which must travel with the payload"
         );
     }
-}
-
-/// SATISFIES distribution:instances-operate-offline
-///
-/// The profile projects exactly the vendored files an installed author reads,
-/// and no canon-only oracle.
-#[test]
-fn the_profile_projects_the_instance_scope_of_the_vendored_surface() {
-    use spec_driven_docs::domain::profile::SIMPLE_ENGLISH_MANAGED;
-    let record = upstream_record();
-    let instance: std::collections::BTreeSet<String> = record["files"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .filter(|f| f["scope"] == "instance")
-        .map(|f| format!("third-party/simpleenglish/{}", f["path"].as_str().unwrap()))
-        .collect();
-    let projected: std::collections::BTreeSet<String> = SIMPLE_ENGLISH_MANAGED
-        .iter()
-        .map(|s| (*s).to_string())
-        .collect();
-    assert_eq!(
-        projected, instance,
-        "the projection and the instance-scope surface disagree"
-    );
-}
-
-/// SATISFIES tracking:an-upstream-derivation-pins-a-revision
-///
-/// The dependency's resolved object ID has one owner. The tracking entry and
-/// the notice both point at UPSTREAM.json rather than retyping it.
-#[test]
-fn the_tracking_entry_pins_the_vendored_revision() {
-    let revision = upstream_record()["revision"].as_str().unwrap().to_string();
-    let registry = read("_docs/reference/tracking.yaml");
-    assert!(
-        registry.contains(&format!("revision: {revision}")),
-        "the simple-english tracking entry does not pin the vendored revision"
-    );
 }
 
 /// The two retired names for the docs scratch, and how each is matched.
@@ -842,15 +839,10 @@ const RETIRED_TERMS: &[(&str, bool)] = &[(".draft", false), ("workshop", true)];
 
 /// Everything this repository authors that the retired-term sweep reads.
 ///
-/// The payload roots, minus the vendored upstream, plus the two root files
-/// that carry the same rule for this repository's own agents. The upstream
-/// is out because its prose is nobody here's to reword, and its bytes are
-/// pinned to a recorded digest.
+/// The payload roots plus the two root files that carry the same rule for this
+/// repository's own agents.
 fn authored_prose() -> Vec<(String, String)> {
-    let mut files: Vec<(String, String)> = payload_files()
-        .into_iter()
-        .filter(|(relative, _)| !relative.starts_with("third-party/"))
-        .collect();
+    let mut files = payload_files();
     for root_file in ["AGENTS.md", ".gitignore"] {
         files.push((root_file.to_string(), read(root_file)));
     }

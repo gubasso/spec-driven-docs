@@ -31,7 +31,7 @@ tracked:
     dependents: []
   - id: dependencies-and-conventions
     path: reference/dependencies-and-conventions.md
-    last_checked: 2026-09-05
+    last_checked: 2026-09-09
     cadence_days: 90
     why: the disclosed dependencies and conventions change over time
     revalidate:
@@ -39,30 +39,3 @@ tracked:
       - update the catalog and advance last_checked
     dependents:
       - README.md
-  - id: simple-english
-    path: third-party/simpleenglish/UPSTREAM.json
-    last_checked: 2026-09-05
-    cadence_days: 30
-    why: the vendored SimpleEnglish dependency has a release cadence
-    revalidate:
-      - run sdd track check --id simple-english to detect upstream movement
-      - preview the update with scripts/vendor-simpleenglish.sh --revision <observed-commit>
-      - review upstream changes against the file list and exclusions in third-party/simpleenglish/UPSTREAM.json
-      - apply the exact vendor refresh with scripts/vendor-simpleenglish.sh --revision <observed-commit> --apply
-      - update only the necessary compatibility adapters and run the conformance tests
-      - advance source.revision and last_checked
-    dependents:
-      - third-party/simpleenglish/LICENSE
-      - third-party/simpleenglish/prompts/system-prompt.md
-      - third-party/simpleenglish/skills/simple-english/SKILL.md
-      - third-party/simpleenglish/skills/simple-english/references/checklist.md
-      - third-party/simpleenglish/skills/simple-english/references/strict-vocabulary.md
-      - third-party/simpleenglish/skills/simple-english/references/use-cases.md
-      - third-party/simpleenglish/skills/simple-english/references/word-swaps.md
-      - THIRD_PARTY_NOTICES.md
-    source:
-      kind: git
-      repository: https://github.com/AminBlg/SimpleEnglish
-      reference: refs/tags/v2.0.0
-      revision: d9e523409686e88df175623f7a692d025aff95b1
-      license: MIT
