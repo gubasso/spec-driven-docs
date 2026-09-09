@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0](https://github.com/gubasso/spec-driven-docs/compare/v0.5.1...v0.6.0) - 2026-09-09
+
+This version removes the delivered prose gate and the spec that defined its rules. An instance that upgrades has work to do in the same change:
+
+- Run the upgrade so the managed pre-commit block loses the `simple-english` hook. An instance whose configuration still names that hook fails on a gate the binary no longer serves.
+- Read the writing style with `sdd method writing-style`. The documentation block in the project's `AGENTS.md` now routes to that command in one line, and no delivered gate judges prose against it.
+- Keep `specs/SPEC-simple-english.md` where it is, or delete it. `sdd` no longer seeds that file, so an adopted copy is the project's own from this version on. Its eleven `simple-english:` rule IDs no longer resolve, so re-point any local citation of them.
+
+No document converts on upgrade. A document converts the next time an author edits it, and nothing reports the ones that have not.
+
+```bash
+sdd upgrade --target . --dry-run
+sdd upgrade --target .
+```
+
+### Added
+
+- *(method)* Replace the prose gate with a writing style chapter ([#58](https://github.com/gubasso/spec-driven-docs/pull/58))
+
 ## [0.5.1](https://github.com/gubasso/spec-driven-docs/compare/v0.5.0...v0.5.1) - 2026-09-09
 
 This version adds two rules and one gate, and it widens what an existing gate sees. An instance that upgrades has work to do in the same change:
