@@ -391,8 +391,10 @@ fn creates_a_root_agents_file_with_the_managed_block() {
     let agents = fixture.read("AGENTS.md");
     assert!(agents.contains("<!-- BEGIN spec-driven-docs docs -->"));
     assert!(agents.contains("<!-- END spec-driven-docs docs -->"));
-    assert!(agents.contains("_docs/specs/SPEC-simple-english.md"));
-    assert!(agents.contains("SimpleEnglish `Plain` mode"));
+    assert!(agents.contains(
+        "Read the writing style before you author or edit prose: `sdd method writing-style`."
+    ));
+    assert!(!agents.contains("simple-english"));
 }
 
 #[test]

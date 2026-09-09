@@ -34,15 +34,11 @@ Adoption: over 60,000 repositories as of early 2026.
 
 ### Anthropic Recommendations
 
-<!-- simple-english-disable: quoted upstream text -->
-
 - CLAUDE.md should contain only broadly applicable rules. "For each line, ask: 'Would removing this cause Claude to make mistakes?' If not, cut it."
 - Do not include code snippets in context files, because they go stale. Use `file:line` references instead.
 - Use `.claude/skills/` for domain knowledge that is only sometimes relevant.
 - Spec-then-implement workflow: Have the agent interview you about requirements, write a spec, then start a fresh session to implement. The fresh session gets clean context focused entirely on implementation.
 - Progressive disclosure: "Don't tell Claude all the information you could possibly want it to know; rather, tell it how to find important information."
-
-<!-- simple-english-enable -->
 
 ### Martin Fowler's Analysis
 
@@ -62,13 +58,9 @@ His assessment is cautious:
 
 ### Thoughtworks Conservative Position
 
-<!-- simple-english-disable: quoted upstream text -->
-
 - "Executable code remains the source of truth you need to maintain"
 - Specs drive initial generation but cannot be trusted alone because "code generation from spec to LLMs isn't deterministic"
 - Specs are inputs to the process, not outputs that track the system
-
-<!-- simple-english-enable -->
 
 ### Addy Osmani (Google Chrome)
 
@@ -209,14 +201,10 @@ Key data points for justifying spec-driven workflows:
 
 ### Architecture Decision Records
 
-<!-- simple-english-disable: quoted upstream text -->
-
 - [Master ADR Best Practices](https://aws.amazon.com/blogs/architecture/master-architecture-decision-records-adrs-best-practices-for-effective-decision-making/) (AWS)
 - [ADR Overview](https://cloud.google.com/architecture/architecture-decision-records) (Google Cloud)
 - [Maintain an ADR](https://learn.microsoft.com/en-us/azure/well-architected/architect-role/architecture-decision-record) (Microsoft Azure)
 - [Why You Should Be Using ADRs](https://www.redhat.com/en/blog/architecture-decision-records) (Red Hat)
-
-<!-- simple-english-enable -->
 
 ### Executable Specs / Living Documentation
 

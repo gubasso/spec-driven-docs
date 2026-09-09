@@ -76,7 +76,7 @@ Both flags are optional, and an omitted flag keeps what is recorded: a later `sd
 
 ## Wire agent context
 
-`sdd init` manages this for you. The install writes a marker-delimited documentation block into the root `AGENTS.md` and records it as an integration block. The install creates the file when absent. The block routes an agent to the affected specs and names SimpleEnglish `Plain` as the default mode for technical text. That mode is loaded from `specs/SPEC-simple-english.md` and the vendored `.spec-driven-docs/upstreams/simpleenglish/skills/simple-english/SKILL.md`. Every byte outside the markers is your own. Do not hand-copy the block: an edit inside the markers is a conflict `sdd upgrade` refuses, and an edit outside them survives.
+`sdd init` manages this for you. The install writes a marker-delimited documentation block into the root `AGENTS.md` and records it as an integration block. The install creates the file when absent. The block routes an agent to the affected specs and to `sdd method writing-style` before the agent authors or edits prose. Every byte outside the markers is your own. Do not hand-copy the block: an edit inside the markers is a conflict `sdd upgrade` refuses, and an edit outside them survives.
 
 ## Verify
 
@@ -98,6 +98,8 @@ Install the newer `sdd` first. A locally edited managed file aborts the whole up
 An instance installed before 0.4.14 records manifest schema 2, and this binary reads 3. Every verb but `sdd upgrade` refuses that record and names the upgrade. Run the upgrade once. It migrates the record and keeps both declared locations, and it also migrates an instance whose canon version already matches this binary.
 
 An adopted seed the canon stops shipping is left in place, because the project owns it from the moment it lands. An upgrade that stops seeding one names it in the release notes. Delete the file once nothing local cites its rules. `SPEC-distribution.md` is the first: it states the installer's obligations, which no project can meet or check, and `SPEC-instance.md` now carries what a project owes its own installation.
+
+An upgrade removes a managed projection that the current payload drops. It removes the projection's immediate parent when that directory becomes empty, but it does not remove empty ancestors. After verification, remove any empty ancestor directories the project no longer needs.
 
 ## Defaults
 

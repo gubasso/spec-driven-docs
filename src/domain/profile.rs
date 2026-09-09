@@ -235,8 +235,8 @@ const ADOPTED: &[Projection] = &[
         "{docs_root}/specs/SPEC-guides.md",
     ),
     proj(
-        "_docs/specs/SPEC-simple-english.md",
-        "{docs_root}/specs/SPEC-simple-english.md",
+        "_docs/specs/SPEC-writing-style.md",
+        "{docs_root}/specs/SPEC-writing-style.md",
     ),
     proj(
         "_docs/specs/SPEC-tracking.md",

@@ -337,12 +337,6 @@ repos:
         language: system
         always_run: true
         pass_filenames: false
-      - id: simple-english
-        name: prose follows SimpleEnglish
-        entry: cargo run -q -- gate simple-english
-        language: system
-        types: [markdown]
-        exclude: '(^_docs/decisions/|^docs/decisions/|(?:^|/)CHANGELOG\.md$|^third-party/|^\.spec-driven-docs/|(?:^|/)tests/fixtures/)'
       - id: tracking-registry
         name: tracking registry is valid and current
         entry: cargo run -q -- gate tracking-registry

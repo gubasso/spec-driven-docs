@@ -35,8 +35,9 @@ When the request carries `--no-plan`, skip the plan gate's approval turn only. S
 ## Before writing
 
 1. Run `sdd status --target . --json`. Confirm the repository is an instance and note `docs_root`.
-2. Load the adopted spec for each domain the change touches, from `specs/` under `docs_root`: `SPEC-docs-format.md` always, `SPEC-docs-specs.md` for SPEC files, `SPEC-decision-records.md` for ADRs, `SPEC-comparison-docs.md` for comparisons, `SPEC-known-issues.md` for known-issue records, `SPEC-guides.md` for step-by-step guides. `sdd spec <domain>` prints the canon baseline where a domain is not adopted.
-3. Start from the matching template: `sdd template spec`, `sdd template adr`, `sdd template comparison`, `sdd template agents-digest`, `sdd template guide`, or `sdd template known-issue`.
+2. Read `sdd method writing-style` before you author or edit prose.
+3. Load the adopted spec for each domain the change touches, from `specs/` under `docs_root`: `SPEC-docs-format.md` always, `SPEC-docs-specs.md` for SPEC files, `SPEC-decision-records.md` for ADRs, `SPEC-comparison-docs.md` for comparisons, `SPEC-known-issues.md` for known-issue records, `SPEC-guides.md` for step-by-step guides. `sdd spec <domain>` prints the canon baseline where a domain is not adopted.
+4. Start from the matching template: `sdd template spec`, `sdd template adr`, `sdd template comparison`, `sdd template agents-digest`, `sdd template guide`, or `sdd template known-issue`.
 
 ## Format defaults
 

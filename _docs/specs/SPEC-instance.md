@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Rules a project owes the instance installed in it. Covers the installation record the installer writes into the project, and the managed regions the installer keeps inside project-owned files. It also covers the tracking registry the project owns, and every ownership check that reads these back. Every rule here is one the project itself can violate, and every verification runs with what the install wires. How the installer produces that record, and what the binary owes at install and upgrade time, belong to `SPEC-distribution.md`, which no instance adopts. The writing convention the project follows belongs to `SPEC-simple-english.md`. The registry's own shape belongs to `SPEC-tracking.md`.
+Rules a project owes the instance installed in it. Covers the installation record the installer writes into the project, and the managed regions the installer keeps inside project-owned files. It also covers the tracking registry the project owns, and every ownership check that reads these back. Every rule here is one the project itself can violate, and every verification runs with what the install wires. How the installer produces that record, and what the binary owes at install and upgrade time, belong to `SPEC-distribution.md`, which no instance adopts. The writing convention the project follows belongs to `SPEC-writing-style.md` and `sdd method writing-style`. The registry's own shape belongs to `SPEC-tracking.md`.
 
 ## Requirements
 
@@ -20,7 +20,7 @@ Verify: `pre-commit run instance-manifest --all-files`
 
 ### `instance:the-agents-block-stays-managed` — The managed AGENTS block stays intact
 
-The project MUST keep the marked documentation block inside the root `AGENTS.md` intact. The install writes the SimpleEnglish default and the docs routing into that region, so an edit inside the markers is a conflict.
+The project MUST keep the marked documentation block inside the root `AGENTS.md` intact. The install writes the documentation and writing-style routing into that region, so an edit inside the markers is a conflict.
 
 #### Scenario: An editor rewrites the marked block
 

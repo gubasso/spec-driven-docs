@@ -1,10 +1,9 @@
 //! Render the managed documentation block for a root `AGENTS.md`.
 //!
-//! The block is the canonical documentation-routing section plus the
-//! `SimpleEnglish` default directive, wrapped in the `AGENTS.md` markers with
-//! the profile's documentation root substituted. The installer places it;
-//! this only produces the bytes. The content lives in the embedded snippet,
-//! so the block and the snippet cannot drift.
+//! The block is the canonical documentation-routing section, wrapped in the
+//! `AGENTS.md` markers with the profile's documentation root substituted. The
+//! installer places it; this only produces the bytes. The content lives in
+//! the embedded snippet, so the block and the snippet cannot drift.
 
 use crate::domain::marker::{AGENTS_BEGIN, AGENTS_END};
 
@@ -37,14 +36,19 @@ mod tests {
         let block = render_block("docs");
         assert!(block.starts_with("<!-- BEGIN spec-driven-docs docs -->\n"));
         assert!(block.ends_with("<!-- END spec-driven-docs docs -->\n"));
-        assert!(block.contains("docs/specs/SPEC-simple-english.md"));
+        assert!(block.contains(
+            "Read the writing style before you author or edit prose: `sdd method writing-style`."
+        ));
         assert!(!block.contains("{docs_root}"));
-        assert!(block.contains("SimpleEnglish `Plain` mode"));
+        assert!(!block.contains("simple-english"));
     }
 
     #[test]
     fn the_underscore_root_reaches_the_block() {
         let block = render_block("_docs");
-        assert!(block.contains("_docs/specs/SPEC-simple-english.md"));
+        assert!(block.contains(
+            "Read the writing style before you author or edit prose: `sdd method writing-style`."
+        ));
+        assert!(!block.contains("simple-english"));
     }
 }

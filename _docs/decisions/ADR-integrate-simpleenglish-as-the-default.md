@@ -14,7 +14,7 @@ This project needed one writing convention for technical text that both people a
 
 Chosen option: `vendor SimpleEnglish and activate it by default` — the binary carries the pinned SimpleEnglish surface, the install projects it into every instance, and the root `AGENTS.md` block names its `Plain` mode as the default for technical text. This project owns only the compatibility adapters a single offline binary needs, never a forked writing pattern.
 
-Enforced by `simple-english:the-upstream-pattern-is-binding`, `simple-english:plain-is-the-default`, `simple-english:the-dependency-is-available-offline`, and `simple-english:an-objective-check-matches-its-upstream-rule`.
+Enforced by `writing-style:the-style-lives-in-one-document`, `writing-style:the-documentation-block-routes-to-the-style`, and `writing-style:no-delivered-gate-judges-prose`.
 
 ## Consequences
 
@@ -24,6 +24,4 @@ Enforced by `simple-english:the-upstream-pattern-is-binding`, `simple-english:pl
 
 ## Status
 
-Implemented
-
-Enacted by `src/gates/simple_english.rs`, the profile projection under `.spec-driven-docs/upstreams/simpleenglish/`, and the managed root `AGENTS.md` block.
+Superseded by [ADR-author-the-writing-style-and-drop-the-gate](./ADR-author-the-writing-style-and-drop-the-gate.md)

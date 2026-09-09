@@ -267,8 +267,8 @@ fn compute_target_state(target: &Utf8Path, options: &InitOptions) -> Result<Targ
         marker_hash,
     }];
 
-    // The root AGENTS.md documentation block: the seam that makes SimpleEnglish
-    // arrive by default. A symlinked host is refused before it is read, so a
+    // The root AGENTS.md documentation block routes authors to the context they
+    // load before editing. A symlinked host is refused before it is read, so a
     // link cannot redirect the read outside the target.
     let agents_relative = Utf8Path::new("AGENTS.md");
     if target.join(agents_relative).is_symlink() {

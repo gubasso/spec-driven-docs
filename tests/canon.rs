@@ -513,8 +513,8 @@ fn the_sdd_setup_skill_defers_the_agents_block_to_the_installer() {
         "skills/sdd-setup/SKILL.md no longer defers the AGENTS block to the installer"
     );
     assert!(
-        skill.contains("SPEC-simple-english.md"),
-        "the skill does not name the SimpleEnglish default the block installs"
+        skill.contains("`sdd method writing-style`"),
+        "the skill does not name the writing-style command the block installs"
     );
 }
 
@@ -790,7 +790,7 @@ fn the_package_carries_the_notice_and_the_vendored_surface() {
     }
 }
 
-/// SATISFIES simple-english:the-dependency-is-available-offline
+/// SATISFIES distribution:instances-operate-offline
 ///
 /// The profile projects exactly the vendored files an installed author reads,
 /// and no canon-only oracle.
