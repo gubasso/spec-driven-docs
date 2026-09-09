@@ -88,6 +88,8 @@ const FAMILIES: &[Family] = &[
         tokens: &[
             "shellcheck disable=",
             "noqa",
+            "ruff: noqa",
+            "flake8: noqa",
             "type: ignore",
             "zizmor: ignore[",
         ],
@@ -174,11 +176,15 @@ fn code_region<'a>(file: &str, line: &'a str) -> &'a str {
 }
 
 /// Whether the comment carries `token` right after one of its openers.
+///
+/// The match ignores case, because a linter that honors `noqa` honors
+/// `NOQA` too.
 fn comment_carries(comment: &str, opener: &str, token: &str) -> bool {
+    let lowered = comment.to_ascii_lowercase();
     let mut start = 0usize;
-    while let Some(offset) = comment[start..].find(opener) {
+    while let Some(offset) = lowered[start..].find(opener) {
         let index = start + offset;
-        if comment[index + opener.len()..]
+        if lowered[index + opener.len()..]
             .trim_start_matches(' ')
             .starts_with(token)
         {
@@ -296,7 +302,9 @@ fn quoted_lines(file: &str, lines: &[&str]) -> Vec<bool> {
                     Some(_) => {}
                 }
             }
-            was_open && open.is_some()
+            // A line that starts inside a multi-line string is content, and
+            // that includes the line the closing delimiter ends.
+            was_open
         })
         .collect()
 }
@@ -794,6 +802,29 @@ mod tests {
                 "const doc = `\n// eslint-disable-next-line\n`;\n",
             ),
             ("local.ts", "const doc = `// eslint-disable-next-line`;\n"),
+        ] {
+            assert!(run_on(name, text).is_empty(), "{name}: {text}");
+        }
+    }
+
+    #[test]
+    fn a_linters_other_spellings_are_the_same_form() {
+        for text in [
+            "value = 1  # NOQA: E501\n",
+            "# ruff: noqa\n",
+            "# flake8: noqa\n",
+        ] {
+            let out = run_on("local.py", text);
+            assert_eq!(out.len(), 2, "{text}");
+            assert_eq!(out[0], "FAIL spec-to-code:a-suppression-names-its-case");
+        }
+    }
+
+    #[test]
+    fn the_line_a_multiline_string_closes_on_is_still_content() {
+        for (name, text) in [
+            ("local.py", "DOC = \"\"\"\n# noqa: E501 \"\"\"\n"),
+            ("local.ts", "const doc = `\n// eslint-disable-next-line`;\n"),
         ] {
             assert!(run_on(name, text).is_empty(), "{name}: {text}");
         }
