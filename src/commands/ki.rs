@@ -41,9 +41,10 @@ fn list(ctx: &AppContext, args: ListArgs) -> Result<(), AppError> {
     let width = cases.iter().map(|case| case.id.len()).max().unwrap_or(0);
     for case in &cases {
         output::line(format!(
-            "{:width$}  {:<13}  {:<9}  {}",
+            "{:width$}  {:<13}  {:<10}  {:<9}  {}",
             case.id,
             case.state.as_deref().unwrap_or("-"),
+            case.checked.as_deref().unwrap_or("-"),
             case.filing.as_deref().unwrap_or("-"),
             case.upstream.as_deref().unwrap_or("-"),
         ));
