@@ -326,7 +326,7 @@ fn check_specs(
             .filter_map(Result::ok)
             .map(|entry| entry.file_name().to_string())
             .filter(|name| {
-                // The corpus convention is lowercase.
+                // sdd: permanent the corpus convention is lowercase
                 #[allow(clippy::case_sensitive_file_extension_comparisons)]
                 name.ends_with(".md")
             })

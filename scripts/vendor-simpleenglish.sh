@@ -122,7 +122,7 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
 work="$(mktemp -d "${TMPDIR:-/tmp}/vendor-simpleenglish.XXXXXX")"
-# shellcheck disable=SC2329  # invoked via trap
+# shellcheck disable=SC2329  # sdd: permanent the trap is the only call site shellcheck cannot see
 cleanup() { rm -rf "$work"; }
 trap cleanup EXIT
 
@@ -290,7 +290,7 @@ parent="$(dirname "$DESTINATION")"
 mkdir -p "$parent"
 incoming="$(mktemp -d "$parent/.simpleenglish.incoming.XXXXXX")"
 backup="$parent/.simpleenglish.previous.$$"
-# shellcheck disable=SC2329  # invoked via trap
+# shellcheck disable=SC2329  # sdd: permanent the trap is the only call site shellcheck cannot see
 restore() {
   rm -rf "$incoming"
   if [ -d "$backup" ]; then

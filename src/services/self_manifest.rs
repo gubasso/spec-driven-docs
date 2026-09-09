@@ -74,6 +74,7 @@ pub fn regenerate(root: &Utf8Path) -> Result<String, AppError> {
     let mut managed = Vec::new();
     // The payload convention is lowercase; the shell glob this replaces was
     // case-sensitive too.
+    // sdd: permanent the payload convention is lowercase, as the glob it replaces was
     #[allow(clippy::case_sensitive_file_extension_comparisons)]
     let jsonc = |name: &str| name.ends_with(".jsonc");
     for path in sorted_files(root, ".markdownlint", jsonc) {
@@ -111,6 +112,7 @@ pub fn regenerate(root: &Utf8Path) -> Result<String, AppError> {
         });
     }
 
+    // sdd: permanent the spec convention is lowercase, as the glob it replaces was
     #[allow(clippy::case_sensitive_file_extension_comparisons)]
     let spec = |name: &str| name.starts_with("SPEC-") && name.ends_with(".md");
     let mut adopted_paths = sorted_files(root, "_docs/specs", spec);

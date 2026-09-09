@@ -103,6 +103,7 @@ state: masked
 filing: filed
 workaround: <what the project does instead>
 retire_when: upstream release >= 2.4.0
+checked: 2026-06-18
 ---
 ```
 
@@ -111,6 +112,10 @@ retire_when: upstream release >= 2.4.0
 The case id is the filename, so a suppression that names `KI-krun-mangles-newlines` resolves to one file by inspection. A counter cannot: whoever trips over an external bug finds it, on whatever branch they are on. Two people allocating the next number is the same collision a decision record avoids the same way ([04 Decisions](./04-decisions.md)).
 
 The retire condition is what stops a workaround outliving its bug. Without it the workaround becomes permanent by default, and the next reader assumes it was a design choice.
+
+- A masked or monitoring record MUST carry the date its upstream state was last confirmed.
+
+A condition nobody tests is a condition nobody meets. The `checked:` date says when someone last read the upstream, so a reader sees the difference between a live watch and an abandoned one. The date is an observation rather than a third axis: nothing decides from it, and no command judges its age. An old date over an upstream that never moved is an accurate record. Failing it teaches people to touch the date rather than to read the upstream.
 
 - A record MUST walk its mechanism step by step, as a run a reader can follow, under a `## How it works` heading.
 

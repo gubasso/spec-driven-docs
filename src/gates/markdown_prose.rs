@@ -120,6 +120,7 @@ fn is_definition(content: &str) -> bool {
 
 /// Classify every line of a markdown document.
 #[must_use]
+// sdd: permanent the classifier is one state machine, and splitting it splits the state
 #[allow(clippy::too_many_lines, clippy::option_if_let_else)]
 pub fn classify(text: &str) -> Vec<LineKind> {
     let mut out = Vec::new();

@@ -108,6 +108,7 @@ fn is_clause_line(line: &str) -> bool {
         // The suffix is compared case-sensitively on purpose: the corpus
         // convention is lowercase, and a `.MD` path is not the shape the
         // chapter fixes.
+        // sdd: permanent the lowercase suffix is the shape this rule fixes
         #[allow(clippy::case_sensitive_file_extension_comparisons)]
         let names_a_spec = span.trim_end().ends_with(".md");
         if names_a_spec {

@@ -293,6 +293,13 @@ repos:
         always_run: true
         pass_filenames: false
         args: ['tests/fixtures']
+      - id: ki-checked-date
+        name: known issue last-check date
+        entry: cargo run -q -- gate ki-checked-date
+        language: system
+        always_run: true
+        pass_filenames: false
+        args: ['tests/fixtures']
       - id: comparison-dated-tables
         name: comparison tables are dated
         entry: cargo run -q -- gate comparison-dated-tables

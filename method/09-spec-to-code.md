@@ -69,8 +69,9 @@ Everything else is a deletion or a rename. A comment restating the next line goe
 
 The invariant a comment can hold has a second form: a live defect in a system this project does not own, worked around here. It carries no rule ID, because nothing about it was agreed. What makes it honest is the case it names and the condition that ends it.
 
-- A suppression MUST name its case id at the suppression.
-- A suppression MUST carry the condition under which it is removed.
+- A suppression over a defect this project does not own MUST name its case id at the suppression.
+- A suppression over a defect this project does not own MUST carry the condition under which it is removed.
+- A suppression that masks no external defect MUST state its reason at the suppression and MUST NOT name a case.
 
 The rule reaches every tool, not only the test runner. A formatter range, a linter disable comment, and a dependency pinned back one version are the same act with the same failure mode: the hazard is that a suppression with no exit becomes permanent by default.
 
@@ -81,6 +82,8 @@ def test_webhook_replay_is_idempotent():
 ```
 
 Prefer the strict form. A non-strict expected failure keeps passing after the upstream fix lands. As a result, the suppression outlives the bug it was written for and nobody learns the case can close. A strict one turns the suite red the moment the fix arrives, which is the signal that closes it.
+
+Some suppressions have no exit. A lint disabled over a construct this project chose and keeps masks nothing external. No record can carry a condition anyone meets. Writing one anyway produces the unremovable mask the case rule exists to prevent. That suppression carries a permanent marker and its reason instead, in the shape `sdd: permanent <reason>`, on the suppression line or in the comment above it. The two forms are exclusive: a suppression names a case or states a permanent reason, never both.
 
 A test that must not hide the bug at all keeps failing, with the case id in a comment beside it. The case id is the record's filename, so it resolves the same way a rule ID does. The reason string needs no restated summary, because the record it names holds the symptom, the workaround, and the retire condition. The case, its states, and its retirement belong to [07 Lifecycle](./07-lifecycle.md).
 

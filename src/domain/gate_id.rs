@@ -39,6 +39,8 @@ pub enum GateId {
     InstanceManifest,
     /// Bugzilla-bound report bodies fit the tracker's width.
     KiBugzillaReportWidth,
+    /// Known-issue records date their last check.
+    KiCheckedDate,
     /// Known-issue filenames are slugged case IDs.
     KiFilenameShape,
     /// Known-issue records carry one filing state.
@@ -91,6 +93,7 @@ impl GateId {
         Self::GateMessageCitesARule,
         Self::InstanceManifest,
         Self::KiBugzillaReportWidth,
+        Self::KiCheckedDate,
         Self::KiFilenameShape,
         Self::KiFiling,
         Self::KiMechanismWalkthrough,
@@ -127,6 +130,7 @@ impl GateId {
             Self::GateMessageCitesARule => "gate-message-cites-a-rule",
             Self::InstanceManifest => "instance-manifest",
             Self::KiBugzillaReportWidth => "ki-bugzilla-report-width",
+            Self::KiCheckedDate => "ki-checked-date",
             Self::KiFilenameShape => "ki-filename-shape",
             Self::KiFiling => "ki-filing",
             Self::KiMechanismWalkthrough => "ki-mechanism-walkthrough",
@@ -176,7 +180,7 @@ mod tests {
         for gate in GateId::ALL {
             assert!(seen.insert(gate.as_str()), "{gate} is duplicated");
         }
-        assert_eq!(GateId::ALL.len(), 30);
+        assert_eq!(GateId::ALL.len(), 31);
     }
 
     #[test]

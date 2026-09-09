@@ -31,7 +31,7 @@ fn cap_for(file: &str) -> usize {
     }
 }
 
-// The shell glob this matches was case-sensitive; `.MD` is not a chapter.
+// sdd: permanent the corpus convention is lowercase, and `.MD` is not a chapter
 #[allow(clippy::case_sensitive_file_extension_comparisons)]
 fn is_chapter(name: &str) -> bool {
     if name == "glossary.md" || name == "README.md" {

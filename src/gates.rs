@@ -22,6 +22,7 @@ pub mod comparison_verdict_word;
 pub mod gate_message_cites_a_rule;
 pub mod instance_manifest;
 pub mod ki_bugzilla_report_width;
+pub mod ki_checked_date;
 pub mod ki_filename_shape;
 pub mod ki_filing;
 pub mod ki_mechanism_walkthrough;
@@ -296,6 +297,16 @@ pub static GATES: &[GateSpec] = &[
         run: ki_bugzilla_report_width::run,
     },
     GateSpec {
+        id: GateId::KiCheckedDate,
+        name: "known issue last-check date",
+        files: None,
+        types: None,
+        exclude: None,
+        always_run: true,
+        cites: ki_checked_date::CITES,
+        run: ki_checked_date::run,
+    },
+    GateSpec {
         id: GateId::KiFilenameShape,
         name: "known issue filename shape",
         files: Some(r"^{docs_root}/reference/known-issues/.*\.md$"),
@@ -471,7 +482,15 @@ pub static GATES: &[GateSpec] = &[
 
 /// The directories every repository walk prunes: vendored or generated trees
 /// a consumer cannot be asked to author.
-pub const PRUNED_DIRS: &[&str] = &[".git", "node_modules", ".venv", "vendor", "target", "dist"];
+pub const PRUNED_DIRS: &[&str] = &[
+    ".git",
+    "node_modules",
+    ".venv",
+    "vendor",
+    "third-party",
+    "target",
+    "dist",
+];
 
 /// Count the newline-terminated lines of a text, as `wc -l` does.
 #[must_use]
@@ -544,6 +563,14 @@ pub(crate) mod tests_support {
     pub fn ki_fixture_state(state: &str, retire_line: &str) -> tempfile::TempDir {
         ki_record(&format!(
             "---\nupstream: https://example.invalid/issues\nstate: {state}\nfiling: gathering\n{retire_line}---\n# Vendor issue\n## How it works\nRun.\n"
+        ))
+    }
+
+    /// A repository holding one known-issue record with the given `state:`
+    /// value and `checked:` line.
+    pub fn ki_fixture_checked(state: &str, checked_line: &str) -> tempfile::TempDir {
+        ki_record(&format!(
+            "---\nupstream: https://example.invalid/issues\nstate: {state}\nfiling: gathering\nretire_when: release >= 2.0\n{checked_line}---\n# Vendor issue\n## How it works\nRun.\n"
         ))
     }
 

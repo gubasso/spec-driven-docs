@@ -31,7 +31,9 @@ Terms this framework fixes, each resolved at the chapter that owns it. A term is
 | Enact                    | to change behavior so a rule's verification command passes              | `09-spec-to-code.md`  |
 | Typed clause             | `ADDED`, `MODIFIED`, or `REMOVED` plus a rule ID, in an entry doc       | `09-spec-to-code.md`  |
 | Coverage tag             | `SATISFIES` or `VERIFIES` plus a rule ID, in a source comment           | `09-spec-to-code.md`  |
-| Suppression              | a failing or expected-failing test naming its case and its exit         | `09-spec-to-code.md`  |
+| Suppression              | a mask over a finding, naming its case or stating a permanent reason    | `09-spec-to-code.md`  |
+| Permanent exception      | a suppression masking no external defect, carrying its reason           | `09-spec-to-code.md`  |
+| Last check               | the date a record's upstream state was last confirmed                   | `07-lifecycle.md`     |
 | Known-issue case         | a live defect in a system the project does not own, recorded once       | `07-lifecycle.md`     |
 | Case id                  | `KI-<slug>`, the known-issue record's filename and citation token       | `07-lifecycle.md`     |
 | Mask                     | a temporary workaround, carrying the condition that removes it          | `07-lifecycle.md`     |

@@ -5,6 +5,7 @@ state: masked
 filing: filed
 workaround: treat an empty 200 body as the cached result rather than a failed write
 retire_when: vendor-sdk release >= 2.4.0
+checked: 2026-06-18
 ---
 
 # The vendor returns 200 with an empty body on a replayed idempotency key
