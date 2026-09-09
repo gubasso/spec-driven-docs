@@ -16,7 +16,7 @@ fn seed(fixture: &Fixture, name: &str, record: &str) {
     std::fs::write(zone.join(name), record).unwrap();
 }
 
-const MASKED: &str = "---\nupstream: https://example.invalid/issues/1234\nstate: masked\nfiling: filed\nretire_when: release >= 2.4.0\n---\n# Vendor issue\n";
+const MASKED: &str = "---\nupstream: https://example.invalid/issues/1234\nstate: masked\nchecked: 2026-06-18\nfiling: filed\nretire_when: release >= 2.4.0\n---\n# Vendor issue\n";
 const OPEN: &str = "---\nupstream: https://example.invalid/issues\nstate: investigating\nfiling: gathering\n---\n# Other issue\n";
 
 #[test]
@@ -41,10 +41,10 @@ fn the_listing_names_each_case_with_both_axes() {
         .assert()
         .success()
         .stdout(predicate::str::contains(
-            "KI-vendor-replays  masked         filed      https://example.invalid/issues/1234",
+            "KI-vendor-replays  masked         2026-06-18  filed      https://example.invalid/issues/1234",
         ))
         .stdout(predicate::str::contains(
-            "KI-other           investigating  gathering  https://example.invalid/issues",
+            "KI-other           investigating  -           gathering  https://example.invalid/issues",
         ));
 }
 
@@ -64,11 +64,30 @@ fn the_json_listing_carries_one_object_per_record() {
     assert_eq!(cases.as_array().unwrap().len(), 1);
     assert_eq!(cases[0]["id"], "KI-vendor-replays");
     assert_eq!(cases[0]["state"], "masked");
+    assert_eq!(cases[0]["checked"], "2026-06-18");
     assert_eq!(cases[0]["filing"], "filed");
     assert_eq!(
         cases[0]["path"],
         "_docs/reference/known-issues/KI-vendor-replays.md"
     );
+}
+
+#[test]
+fn the_json_listing_carries_a_null_checked_for_an_undated_record() {
+    let fixture = Fixture::new();
+    seed(&fixture, "KI-other.md", OPEN);
+    let output = fixture
+        .cmd()
+        .args(["ki", "list", "--target", &fixture.target(), "--json"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let cases: serde_json::Value = serde_json::from_slice(&output).unwrap();
+    let case = cases[0].as_object().unwrap();
+    assert!(case.contains_key("checked"));
+    assert!(case["checked"].is_null());
 }
 
 #[test]
@@ -84,7 +103,9 @@ fn a_record_stating_no_axis_is_listed_with_the_value_missing() {
         .args(["ki", "list", "--target", &fixture.target()])
         .assert()
         .success()
-        .stdout(predicate::str::contains("KI-bare  -"));
+        .stdout(predicate::str::contains(
+            "KI-bare  -              -           -          -",
+        ));
 }
 
 #[test]

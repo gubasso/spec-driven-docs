@@ -21,6 +21,8 @@ pub struct Case {
     pub id: String,
     /// How this project handles the defect, where the record states it.
     pub state: Option<String>,
+    /// When the upstream state was last confirmed, where the record states it.
+    pub checked: Option<String>,
     /// Where the case stands upstream, where the record states it.
     pub filing: Option<String>,
     /// The upstream issue or tracker, where the record names one.
@@ -42,6 +44,7 @@ pub fn cases(target: &Utf8Path) -> Result<Vec<Case>, AppError> {
         cases.push(Case {
             id: record.file_stem().unwrap_or_default().to_string(),
             state: first(&text, "state"),
+            checked: first(&text, "checked"),
             filing: first(&text, "filing"),
             upstream: first(&text, "upstream"),
             path: record.to_string(),
@@ -72,13 +75,14 @@ mod tests {
     #[test]
     fn reads_both_axes_and_the_upstream_reference() {
         let dir = target_with(
-            "---\nupstream: https://example.invalid/issues/1\nstate: masked\nfiling: filed\n---\n# V\n",
+            "---\nupstream: https://example.invalid/issues/1\nstate: masked\nchecked: 2026-06-18\nfiling: filed\n---\n# V\n",
         );
         let target = camino::Utf8Path::from_path(dir.path()).unwrap();
         let cases = cases(target).unwrap();
         assert_eq!(cases.len(), 1);
         assert_eq!(cases[0].id, "KI-vendor-replays");
         assert_eq!(cases[0].state.as_deref(), Some("masked"));
+        assert_eq!(cases[0].checked.as_deref(), Some("2026-06-18"));
         assert_eq!(cases[0].filing.as_deref(), Some("filed"));
         assert_eq!(
             cases[0].path,
@@ -93,8 +97,18 @@ mod tests {
         let cases = cases(target).unwrap();
         assert_eq!(cases.len(), 1);
         assert!(cases[0].state.is_none());
+        assert!(cases[0].checked.is_none());
         assert!(cases[0].filing.is_none());
         assert!(cases[0].upstream.is_none());
+    }
+
+    #[test]
+    fn a_record_stating_an_empty_checked_reports_none() {
+        let dir = target_with("---\nstate: masked\nchecked:\n---\n# V\n");
+        let target = camino::Utf8Path::from_path(dir.path()).unwrap();
+        let cases = cases(target).unwrap();
+        assert_eq!(cases.len(), 1);
+        assert!(cases[0].checked.is_none());
     }
 
     #[test]
