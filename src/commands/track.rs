@@ -41,6 +41,7 @@ fn resolve(ctx: &AppContext, target: &Utf8Path) -> Result<Utf8PathBuf, AppError>
     }
 }
 
+// sdd: permanent the match states the two clock sources side by side
 #[allow(clippy::option_if_let_else)]
 fn as_of(value: Option<&str>) -> Result<Date, AppError> {
     match value {

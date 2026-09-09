@@ -40,6 +40,7 @@ pub const ADOPTION_EXEMPT: &[&str] = &[];
 const DESCRIPTIVE_LIMIT: usize = 25;
 const PROCEDURAL_LIMIT: usize = 20;
 
+// sdd: permanent a static pattern that fails to compile is a build defect
 #[allow(clippy::expect_used)]
 fn re(cell: &'static OnceLock<Regex>, pattern: &str) -> &'static Regex {
     // The patterns are compile-time constants in this module; a compile
@@ -242,6 +243,7 @@ enum Marker {
     Unknown,
 }
 
+// sdd: permanent the if-let chain states the marker cases in order, and a closure hides them
 #[allow(clippy::option_if_let_else)]
 fn directive(content: &str) -> Option<Marker> {
     let inner = content.strip_prefix("<!--")?.strip_suffix("-->")?.trim();
@@ -258,6 +260,7 @@ fn directive(content: &str) -> Option<Marker> {
     }
 }
 
+// sdd: permanent one pass keeps the line kinds and the findings together
 #[allow(clippy::too_many_lines)]
 fn judge(path: &str, text: &str) -> Vec<Violation> {
     let kinds = classify(text);

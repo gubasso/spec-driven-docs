@@ -98,7 +98,7 @@ const fn proj(source: &'static str, destination: &'static str) -> Projection {
 
 /// Substitute the profile's documentation root into a destination template.
 #[must_use]
-// The braces are the template placeholder itself, not a formatting argument.
+// sdd: permanent the braces are the destination template's placeholder, not a formatting argument
 #[allow(clippy::literal_string_with_formatting_args)]
 pub fn resolve_destination(destination: &str, docs_root: DocsRoot) -> Utf8PathBuf {
     Utf8PathBuf::from(destination.replace("{docs_root}", docs_root.as_str()))

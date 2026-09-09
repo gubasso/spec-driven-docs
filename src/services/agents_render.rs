@@ -20,7 +20,7 @@ pub fn snippet() -> &'static str {
 /// The complete marked block for the given documentation root, newline-
 /// terminated.
 #[must_use]
-// The braces are the template placeholder itself, not a formatting argument.
+// sdd: permanent the braces are the block template's placeholder, not a formatting argument
 #[allow(clippy::literal_string_with_formatting_args)]
 pub fn render_block(docs_root: &str) -> String {
     let body = snippet().replace("{docs_root}", docs_root);

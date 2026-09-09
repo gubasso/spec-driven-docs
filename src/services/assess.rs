@@ -392,6 +392,7 @@ fn collisions(target: &Utf8Path) -> Result<BTreeMap<String, Vec<String>>, AppErr
 
 #[cfg(test)]
 mod tests {
+    // sdd: permanent a test panics as its failure signal, not as control flow
     #![allow(clippy::unwrap_used)]
 
     use super::*;
