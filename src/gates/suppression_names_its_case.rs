@@ -123,7 +123,7 @@ fn comment_opener(file: &str) -> Option<&'static str> {
 /// Quotes are interpreted in the code that precedes the comment and never
 /// inside it, so an apostrophe in comment prose closes nothing and a form
 /// written in a string literal opens nothing.
-fn comment_start(line: &str, opener: &str) -> Option<usize> {
+fn comment_start(line: &str, opener: &str, quotes: &[char]) -> Option<usize> {
     let mut open: Option<char> = None;
     let mut escaped = false;
     for (index, character) in line.char_indices() {
@@ -136,7 +136,7 @@ fn comment_start(line: &str, opener: &str) -> Option<usize> {
         }
         match (open, character) {
             (_, '\\') => escaped = true,
-            (None, '"' | '\'') => open = Some(character),
+            (None, character) if quotes.contains(&character) => open = Some(character),
             (Some(quote), character) if character == quote => open = None,
             _ => {}
         }
@@ -144,10 +144,32 @@ fn comment_start(line: &str, opener: &str) -> Option<usize> {
     None
 }
 
+/// The quote delimiters a file's own language carries. A JavaScript
+/// template literal is a string, so a form written in one is a quotation.
+fn quote_marks(file: &str) -> &'static [char] {
+    if comment_opener(file) == Some("//") && !is_rust(file) {
+        &['"', '\'', '`']
+    } else {
+        &['"', '\'']
+    }
+}
+
+fn is_rust(file: &str) -> bool {
+    // sdd: permanent the corpus convention is lowercase, and `.RS` is not Rust
+    #[allow(clippy::case_sensitive_file_extension_comparisons)]
+    file.ends_with(".rs")
+}
+
+fn is_python(file: &str) -> bool {
+    // sdd: permanent the corpus convention is lowercase, and `.PY` is not Python
+    #[allow(clippy::case_sensitive_file_extension_comparisons)]
+    file.ends_with(".py")
+}
+
 /// The line's code, with its comment removed.
 fn code_region<'a>(file: &str, line: &'a str) -> &'a str {
     comment_opener(file)
-        .and_then(|opener| comment_start(line, opener))
+        .and_then(|opener| comment_start(line, opener, quote_marks(file)))
         .map_or(line, |index| &line[..index])
 }
 
@@ -187,7 +209,7 @@ fn suppression_at(file: &str, line: &str) -> Option<usize> {
                 }
             }
             Opener::After(opener) => {
-                let Some(index) = comment_start(line, opener) else {
+                let Some(index) = comment_start(line, opener, quote_marks(file)) else {
                     continue;
                 };
                 let comment = &line[index..];
@@ -204,27 +226,74 @@ fn suppression_at(file: &str, line: &str) -> Option<usize> {
     None
 }
 
+/// Every fence delimiter the line opens or closes in live code.
+///
+/// A delimiter inside an ordinary string or a comment is content, so
+/// `delimiter = '\"\"\"'` opens nothing. The fence check runs before the
+/// quote check, so a real triple quote is not read as one ordinary quote.
+fn fence_toggles<'a>(line: &'a str, fences: &[&'a str], comment: Option<&str>) -> Vec<&'a str> {
+    let mut out = Vec::new();
+    let mut open: Option<char> = None;
+    let mut escaped = false;
+    let mut skip_to = 0usize;
+    for (index, character) in line.char_indices() {
+        if index < skip_to {
+            continue;
+        }
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        if open.is_none() {
+            if let Some(fence) = fences
+                .iter()
+                .find(|fence| line[index..].starts_with(**fence))
+            {
+                out.push(*fence);
+                skip_to = index + fence.len();
+                continue;
+            }
+            if comment.is_some_and(|opener| line[index..].starts_with(opener)) {
+                break;
+            }
+        }
+        match (open, character) {
+            (_, '\\') => escaped = true,
+            (None, '"' | '\'' | '`') => open = Some(character),
+            (Some(quote), character) if character == quote => open = None,
+            _ => {}
+        }
+    }
+    out
+}
+
 /// Every line that sits inside a multi-line string of the file's own
 /// language, where a form is content rather than a directive.
 fn quoted_lines(file: &str, lines: &[&str]) -> Vec<bool> {
-    // sdd: permanent the corpus convention is lowercase, and `.PY` is not Python
-    #[allow(clippy::case_sensitive_file_extension_comparisons)]
-    let fences: &[&str] = if file.ends_with(".py") {
+    let fences: &[&str] = if is_python(file) {
         &["\"\"\"", "'''"]
-    } else if comment_opener(file) == Some("//") && !file.ends_with(".rs") {
+    } else if comment_opener(file) == Some("//") && !is_rust(file) {
         &["`"]
     } else {
         return vec![false; lines.len()];
     };
+    let comment = comment_opener(file);
     let mut open: Option<&str> = None;
     lines
         .iter()
         .map(|line| {
             let was_open = open.is_some();
-            for fence in fences {
-                let count = line.matches(fence).count();
-                if count % 2 == 1 && (open.is_none() || open == Some(*fence)) {
-                    open = if open.is_none() { Some(fence) } else { None };
+            // Inside a multi-line string the whole line is content, so only
+            // the delimiter that closes it is read.
+            let toggles = open.map_or_else(
+                || fence_toggles(line, fences, comment),
+                |fence| line.matches(fence).map(|_| fence).take(1).collect(),
+            );
+            for fence in toggles {
+                match open {
+                    None => open = Some(fence),
+                    Some(current) if current == fence => open = None,
+                    Some(_) => {}
                 }
             }
             was_open && open.is_some()
@@ -249,11 +318,18 @@ fn cited_cases(line: &str) -> impl Iterator<Item = String> + '_ {
     line.match_indices("KI-")
         .filter(|(index, _)| on_a_boundary(line, *index))
         .filter_map(|(index, _)| {
-            let slug: String = line[index + 3..]
+            let rest = &line[index + 3..];
+            let slug: String = rest
                 .chars()
                 .take_while(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == '-')
                 .collect();
-            (!slug.is_empty()).then(|| format!("KI-{slug}"))
+            // The slug closes on a boundary too, so `KI-vendor-quirkXYZ` is
+            // one unknown case rather than a known one with a suffix.
+            let closes = rest[slug.len()..]
+                .chars()
+                .next()
+                .is_none_or(|c| !c.is_ascii_alphanumeric() && c != '_');
+            (!slug.is_empty() && closes).then(|| format!("KI-{slug}"))
         })
 }
 
@@ -262,13 +338,15 @@ fn cited_cases(line: &str) -> impl Iterator<Item = String> + '_ {
 /// The reason is read from the marker's own line, so a marker that ends its
 /// line states no reason. Reading past the line end would let the
 /// suppression below a bare marker read as its reason. The marker opens on
-/// a word boundary, so `not-sdd: permanent` is a different word.
+/// a word boundary and closes on whitespace, so `not-sdd: permanent` and
+/// `sdd: permanently` are different words.
 fn permanent_reason(line: &str) -> Option<String> {
-    let index = line
+    let after = line
         .match_indices(MARKER)
-        .map(|(index, _)| index)
-        .find(|index| on_a_boundary(line, *index))?;
-    let rest = line[index + MARKER.len()..]
+        .filter(|(index, _)| on_a_boundary(line, *index))
+        .map(|(index, _)| &line[index + MARKER.len()..])
+        .find(|after| after.is_empty() || after.starts_with(char::is_whitespace))?;
+    let rest = after
         .trim_end()
         .trim_end_matches("-->")
         .trim_end_matches("*/")
@@ -715,9 +793,36 @@ mod tests {
                 "local.ts",
                 "const doc = `\n// eslint-disable-next-line\n`;\n",
             ),
+            ("local.ts", "const doc = `// eslint-disable-next-line`;\n"),
         ] {
-            assert!(run_on(name, text).is_empty(), "{name}");
+            assert!(run_on(name, text).is_empty(), "{name}: {text}");
         }
+    }
+
+    #[test]
+    fn a_quoted_fence_delimiter_opens_no_multiline_string() {
+        for opener in [
+            "delimiter = '\"\"\"'\n",
+            "# a docstring opens with \"\"\"\n",
+        ] {
+            let out = run_on("local.py", &format!("{opener}value = 1  # noqa: E501\n"));
+            assert_eq!(out.len(), 2, "{opener}");
+            assert_eq!(out[0], "FAIL spec-to-code:a-suppression-names-its-case");
+        }
+    }
+
+    #[test]
+    fn a_token_that_runs_on_is_not_the_token() {
+        let out = run_on(
+            "local.py",
+            "x = 1  # noqa: E501 sdd: permanently justified\n",
+        );
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[0], "FAIL spec-to-code:a-suppression-names-its-case");
+
+        let out = run_on("local.rs", "#[allow(dead_code)] // KI-vendor-quirkXYZ\n");
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[0], "FAIL spec-to-code:a-suppression-names-its-case");
     }
 
     #[test]
