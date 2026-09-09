@@ -482,7 +482,15 @@ pub static GATES: &[GateSpec] = &[
 
 /// The directories every repository walk prunes: vendored or generated trees
 /// a consumer cannot be asked to author.
-pub const PRUNED_DIRS: &[&str] = &[".git", "node_modules", ".venv", "vendor", "target", "dist"];
+pub const PRUNED_DIRS: &[&str] = &[
+    ".git",
+    "node_modules",
+    ".venv",
+    "vendor",
+    "third-party",
+    "target",
+    "dist",
+];
 
 /// Count the newline-terminated lines of a text, as `wc -l` does.
 #[must_use]

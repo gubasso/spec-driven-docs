@@ -12,6 +12,7 @@
   - [`spec-to-code:a-gate-message-cites-the-rule` — A gate message cites the rule it enforces](#spec-to-codea-gate-message-cites-the-rule--a-gate-message-cites-the-rule-it-enforces)
   - [`spec-to-code:a-comment-names-no-record` — A comment names no decision record](#spec-to-codea-comment-names-no-record--a-comment-names-no-decision-record)
   - [`spec-to-code:a-suppression-names-its-case` — A suppression names its known-issue case](#spec-to-codea-suppression-names-its-case--a-suppression-names-its-known-issue-case)
+  - [`spec-to-code:a-permanent-exception-states-its-reason` — A permanent exception states its reason](#spec-to-codea-permanent-exception-states-its-reason--a-permanent-exception-states-its-reason)
 
 <!--TOC-->
 
@@ -111,12 +112,24 @@ Verify: `rg -n "^[[:space:]]*(#|//).*\bADR-[a-z0-9]" . --type-not md && exit 1 |
 
 ### `spec-to-code:a-suppression-names-its-case` — A suppression names its known-issue case
 
-Where a test is suppressed or left failing, the author MUST name the `KI-<slug>` case at the suppression.
+Where a suppression masks a defect outside this repository, the author MUST name the `KI-<slug>` case at the suppression.
 
 #### Scenario: A suppression names a case that no record defines
 
 - GIVEN an expected failure whose reason is `KI-vendor-drops-the-body`
 - WHEN no record under known-issues carries that name
 - THEN the suppression fails, because a mask nobody can look up never gets removed
+
+Verify: `pre-commit run suppression-names-its-case --all-files`
+
+### `spec-to-code:a-permanent-exception-states-its-reason` — A permanent exception states its reason
+
+Where a suppression masks no external defect, the author MUST state its reason in a permanent marker at it and MUST NOT name a case.
+
+#### Scenario: A permanent exception is given a case anyway
+
+- GIVEN a suppression over a construct this project chose deliberately and keeps
+- WHEN the author writes a record for it to satisfy the case rule
+- THEN that record carries a retirement condition nobody can meet, which is the mask the case rule exists to prevent
 
 Verify: `pre-commit run suppression-names-its-case --all-files`
