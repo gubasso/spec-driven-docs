@@ -273,6 +273,26 @@ fn fence_toggles<'a>(line: &'a str, fences: &[&'a str], comment: Option<&str>) -
     out
 }
 
+/// Where `fence` first appears unescaped. An escaped delimiter is part of
+/// the string it sits in, so it closes nothing.
+fn find_unescaped(line: &str, fence: &str) -> Option<usize> {
+    let mut escaped = false;
+    for (index, character) in line.char_indices() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        if character == '\\' {
+            escaped = true;
+            continue;
+        }
+        if line[index..].starts_with(fence) {
+            return Some(index);
+        }
+    }
+    None
+}
+
 /// Where each line's live code begins, or `None` where the whole line sits
 /// inside a multi-line string of the file's own language.
 ///
@@ -302,7 +322,7 @@ fn live_from(file: &str, lines: &[&str]) -> Vec<Option<usize>> {
                 }
                 return Some(0);
             };
-            let closes = line.find(fence);
+            let closes = find_unescaped(line, fence);
             if closes.is_some() {
                 open = None;
             }
@@ -831,6 +851,12 @@ mod tests {
         ] {
             assert!(run_on(name, text).is_empty(), "{name}: {text}");
         }
+    }
+
+    #[test]
+    fn an_escaped_delimiter_closes_no_multiline_string() {
+        let text = "const t = `\nconst label = \\`value\\`;\n// eslint-disable-next-line\n`;\n";
+        assert!(run_on("local.ts", text).is_empty());
     }
 
     #[test]
