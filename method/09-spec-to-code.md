@@ -70,7 +70,7 @@ Everything else is a deletion or a rename. A comment restating the next line goe
 The invariant a comment can hold has a second form: a live defect in a system this project does not own, worked around here. It carries no rule ID, because nothing about it was agreed. What makes it honest is the case it names and the condition that ends it.
 
 - A suppression over a defect this project does not own MUST name its case id at the suppression.
-- A suppression MUST carry the condition under which it is removed.
+- A suppression over a defect this project does not own MUST carry the condition under which it is removed.
 - A suppression that masks no external defect MUST state its reason at the suppression and MUST NOT name a case.
 
 The rule reaches every tool, not only the test runner. A formatter range, a linter disable comment, and a dependency pinned back one version are the same act with the same failure mode: the hazard is that a suppression with no exit becomes permanent by default.

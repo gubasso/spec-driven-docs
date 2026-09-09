@@ -71,7 +71,7 @@ Verify: `pre-commit run ki-retire-when --all-files`
 
 ### `known-issues:a-record-records-its-last-check` — A record records its last check
 
-Where `state:` is `masked` or `monitoring`, the author MUST give the record an ISO `checked:` date and MUST NOT give any other record one.
+Where `state:` is `masked` or `monitoring`, the author MUST give the record an ISO `checked:` date not after today, and no other record one.
 
 #### Scenario: A retire condition is never tested against reality
 

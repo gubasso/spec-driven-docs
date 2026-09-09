@@ -139,8 +139,8 @@
     {
       "source": "_docs/specs/SPEC-known-issues.md",
       "destination": "_docs/specs/SPEC-known-issues.md",
-      "sha256": "6ed18cbbcfbc16767823d1e64da5f46fb92824ffb9fcd51c9081c66167432dc8",
-      "baseline_sha256": "6ed18cbbcfbc16767823d1e64da5f46fb92824ffb9fcd51c9081c66167432dc8"
+      "sha256": "00f3396494b816eba4904f90567db12729e99aa8e71e21d3018f40728c07336f",
+      "baseline_sha256": "00f3396494b816eba4904f90567db12729e99aa8e71e21d3018f40728c07336f"
     },
     {
       "source": "_docs/specs/SPEC-release.md",

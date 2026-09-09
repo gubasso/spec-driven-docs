@@ -13,8 +13,10 @@
 //! is live Rust and a quotation in markdown; `noqa` is live in a Python or
 //! shell comment and a quotation here. That scoping is what lets this file,
 //! the specs and the method chapters name a form without being judged by
-//! it. Binary files and vendored trees are skipped, and the known-issues
-//! directory is exempt, because a record may discuss suppressions.
+//! it. A form inside a quoted span, or inside a document's fence, is a
+//! quotation for the same reason. Binary files and vendored trees are
+//! skipped, and the known-issues directory is exempt, because a record may
+//! discuss suppressions.
 //!
 //! Three surfaces stay outside a line-scoped scan: an extensionless shell
 //! script, a block comment holding a suppression, and the `[lints]` table
@@ -26,6 +28,7 @@ use std::collections::BTreeSet;
 
 use crate::domain::finding::Finding;
 use crate::domain::rule_id::RuleId;
+use crate::gates::markdown_prose::{LineKind, classify};
 use crate::gates::paths::ki_records;
 use crate::gates::{GateCtx, GateError, GateResult, Violation, walk_files};
 
@@ -70,6 +73,16 @@ const FAMILIES: &[Family] = &[
         ],
     },
     Family {
+        suffixes: &[".py"],
+        opener: Opener::Line,
+        tokens: &[
+            "@pytest.mark.xfail",
+            "@pytest.mark.skip",
+            "@unittest.skip",
+            "@unittest.expectedFailure",
+        ],
+    },
+    Family {
         suffixes: &[".py", ".sh", ".bash", ".yaml", ".yml", ".toml"],
         opener: Opener::After("#"),
         tokens: &[
@@ -95,63 +108,122 @@ const FAMILIES: &[Family] = &[
 /// suppression. The markdown forms have room on their own line, so they
 /// take no window.
 fn comment_opener(file: &str) -> Option<&'static str> {
-    FAMILIES
+    const OPENERS: &[(&[&str], &str)] = &[
+        (&[".rs", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"], "//"),
+        (&[".py", ".sh", ".bash", ".yaml", ".yml", ".toml"], "#"),
+    ];
+    OPENERS
         .iter()
-        .find(|family| family.suffixes.iter().any(|suffix| file.ends_with(suffix)))
-        .and_then(|family| match family.opener {
-            Opener::Line => Some("//"),
-            Opener::After("<!--") => None,
-            Opener::After(opener) => Some(opener),
-        })
+        .find(|(suffixes, _)| suffixes.iter().any(|suffix| file.ends_with(suffix)))
+        .map(|(_, opener)| *opener)
 }
 
-/// Every occurrence of `token` that follows `opener` on the line.
-fn follows_opener(line: &str, opener: &str, token: &str) -> bool {
-    let mut rest = line;
-    while let Some(index) = rest.find(opener) {
-        let after = rest[index + opener.len()..].trim_start_matches(' ');
-        if after.starts_with(token) {
-            return true;
+/// Whether the byte at `index` sits inside a quoted span of the line.
+///
+/// A full lexer is out of scope. One active-quote state machine settles the
+/// case this gate meets: a form written inside a string literal is a
+/// quotation, and a quote of the other kind inside that string is content
+/// rather than a delimiter.
+fn inside_quotes(line: &str, index: usize) -> bool {
+    let mut open: Option<u8> = None;
+    let mut escaped = false;
+    for (position, byte) in line.bytes().enumerate() {
+        if position >= index {
+            break;
         }
-        rest = &rest[index + opener.len()..];
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        match (open, byte) {
+            (_, b'\\') => escaped = true,
+            (None, b'"' | b'\'') => open = Some(byte),
+            (Some(quote), byte) if byte == quote => open = None,
+            _ => {}
+        }
     }
-    false
+    open.is_some()
 }
 
-fn is_suppression(file: &str, line: &str) -> bool {
+/// Where `token` first follows `opener` in a live comment on the line.
+fn follows_opener(line: &str, opener: &str, token: &str) -> Option<usize> {
+    let mut start = 0usize;
+    while let Some(offset) = line[start..].find(opener) {
+        let index = start + offset;
+        let after = line[index + opener.len()..].trim_start_matches(' ');
+        if after.starts_with(token) && !inside_quotes(line, index) {
+            return Some(index);
+        }
+        start = index + opener.len();
+    }
+    None
+}
+
+/// Where a suppression on this line starts carrying its annotation.
+///
+/// A comment-borne form annotates from its comment opener, so a case id or
+/// a marker written in code earlier on the line is not the suppression's.
+/// A line-borne form carries its annotation on the whole line: a Rust
+/// attribute and a Python decorator both hold their reason inside
+/// themselves.
+fn suppression_at(file: &str, line: &str) -> Option<usize> {
     for family in FAMILIES {
         if !family.suffixes.iter().any(|suffix| file.ends_with(suffix)) {
             continue;
         }
-        let matched = family.tokens.iter().any(|token| match family.opener {
-            Opener::Line => line.trim_start().starts_with(token),
-            Opener::After(opener) => follows_opener(line, opener, token),
-        });
-        if matched {
-            return true;
+        for token in family.tokens {
+            match family.opener {
+                Opener::Line if line.trim_start().starts_with(token) => return Some(0),
+                Opener::Line => {}
+                Opener::After(opener) => {
+                    if let Some(index) = follows_opener(line, opener, token) {
+                        return Some(index);
+                    }
+                }
+            }
         }
     }
-    false
+    None
 }
 
 fn is_closing(line: &str) -> bool {
     line.contains("dprint-ignore-end") || line.contains("markdownlint-enable")
 }
 
-fn cited_cases(line: &str) -> impl Iterator<Item = String> + '_ {
-    line.match_indices("KI-").filter_map(|(index, _)| {
-        let slug: String = line[index + 3..]
-            .chars()
-            .take_while(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == '-')
-            .collect();
-        (!slug.is_empty()).then(|| format!("KI-{slug}"))
-    })
+/// Whether a token starting at `index` opens on a word boundary, so a
+/// longer word that ends in the token is not read as the token.
+const fn on_a_boundary(text: &str, index: usize) -> bool {
+    index == 0
+        || !text.as_bytes()[index - 1].is_ascii_alphanumeric()
+            && text.as_bytes()[index - 1] != b'-'
+            && text.as_bytes()[index - 1] != b'_'
 }
 
-/// The reason a permanent marker states, where the annotation carries one.
-fn permanent_reason(text: &str) -> Option<String> {
-    let index = text.find(MARKER)?;
-    let rest = text[index + MARKER.len()..]
+fn cited_cases(line: &str) -> impl Iterator<Item = String> + '_ {
+    line.match_indices("KI-")
+        .filter(|(index, _)| on_a_boundary(line, *index))
+        .filter_map(|(index, _)| {
+            let slug: String = line[index + 3..]
+                .chars()
+                .take_while(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == '-')
+                .collect();
+            (!slug.is_empty()).then(|| format!("KI-{slug}"))
+        })
+}
+
+/// The reason a permanent marker states on one line.
+///
+/// The reason is read from the marker's own line, so a marker that ends its
+/// line states no reason. Reading past the line end would let the
+/// suppression below a bare marker read as its reason. The marker opens on
+/// a word boundary, so `not-sdd: permanent` is a different word.
+fn permanent_reason(line: &str) -> Option<String> {
+    let index = line
+        .match_indices(MARKER)
+        .map(|(index, _)| index)
+        .find(|index| on_a_boundary(line, *index))?;
+    let rest = line[index + MARKER.len()..]
+        .trim_end()
         .trim_end_matches("-->")
         .trim_end_matches("*/")
         .trim();
@@ -162,29 +234,84 @@ fn looks_binary(bytes: &[u8]) -> bool {
     bytes.iter().take(4096).any(|&b| b == 0)
 }
 
-/// One suppression, with the text a reader can read its reason from.
+/// One suppression, with the lines a reader can read its reason from.
 struct Site {
     file: String,
     number: usize,
     line: String,
-    annotation: String,
+    annotation: Vec<String>,
 }
 
-/// The suppression line, plus the line above it when that line is a comment
-/// in the file's own syntax. Eight of Rust's own idiomatic sites carry the
-/// reason above the attribute, and a multi-line inner attribute has no room
-/// on its own line.
-fn annotation(file: &str, lines: &[&str], index: usize) -> String {
-    let line = lines[index];
-    let Some(opener) = comment_opener(file) else {
-        return line.to_string();
-    };
-    let above = index
-        .checked_sub(1)
-        .map(|previous| lines[previous].trim_start())
-        .filter(|previous| previous.starts_with(opener))
-        .unwrap_or_default();
-    format!("{above}\n{line}")
+impl Site {
+    fn cites_a_case(&self) -> bool {
+        self.annotation
+            .iter()
+            .any(|line| cited_cases(line).next().is_some())
+    }
+
+    fn reason(&self) -> Option<String> {
+        self.annotation
+            .iter()
+            .find_map(|line| permanent_reason(line))
+    }
+}
+
+/// How far a suppression opened on this line runs, when its delimiters are
+/// still unbalanced at the line end.
+///
+/// A Rust inner attribute and a Python decorator both continue across lines
+/// inside their parentheses, and the reason a reader wrote lives in that
+/// continuation.
+const CONTINUATION_CAP: usize = 12;
+
+fn unbalanced(text: &str) -> i32 {
+    let mut depth = 0i32;
+    let mut open: Option<u8> = None;
+    let mut escaped = false;
+    for byte in text.bytes() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        match (open, byte) {
+            (_, b'\\') => escaped = true,
+            (None, b'"' | b'\'') => open = Some(byte),
+            (Some(quote), byte) if byte == quote => open = None,
+            (None, b'(' | b'[') => depth += 1,
+            (None, b')' | b']') => depth -= 1,
+            _ => {}
+        }
+    }
+    depth
+}
+
+/// Every line a reader can read the suppression's reason from: the comment
+/// line above it when the file's syntax has one, the suppression's own
+/// annotation region, and the lines its delimiters continue onto.
+///
+/// The lines stay separate, because a reason is read from the line its
+/// marker sits on. Rust's own idiom carries the reason above the attribute,
+/// and a multi-line inner attribute has no room on its own line.
+fn annotation(file: &str, lines: &[&str], index: usize, start: usize) -> Vec<String> {
+    let mut out = Vec::new();
+    if let Some(opener) = comment_opener(file) {
+        if let Some(above) = index
+            .checked_sub(1)
+            .map(|previous| lines[previous].trim_start())
+            .filter(|previous| previous.starts_with(opener))
+        {
+            out.push(above.to_string());
+        }
+    }
+    out.push(lines[index][start..].to_string());
+    let mut depth = unbalanced(lines[index]);
+    let mut next = index + 1;
+    while depth > 0 && next < lines.len() && next - index <= CONTINUATION_CAP {
+        out.push(lines[next].to_string());
+        depth += unbalanced(lines[next]);
+        next += 1;
+    }
+    out
 }
 
 fn sites(ctx: &GateCtx) -> Result<Vec<Site>, GateError> {
@@ -206,13 +333,33 @@ fn sites(ctx: &GateCtx) -> Result<Vec<Site>, GateError> {
         };
         let name = file.as_str().trim_start_matches("./").to_string();
         let lines: Vec<&str> = text.lines().collect();
+        // A fence in a document holds an example of a form rather than a
+        // live one, and every chapter that teaches a form shows it in a
+        // fence. The shared classifier owns which lines those are, so this
+        // gate keeps no second fence state machine.
+        // sdd: permanent the corpus convention is lowercase, and `.MD` is not a document
+        #[allow(clippy::case_sensitive_file_extension_comparisons)]
+        let kinds = if name.ends_with(".md") {
+            classify(&text)
+        } else {
+            Vec::new()
+        };
         for (index, line) in lines.iter().enumerate() {
-            if is_suppression(&name, line) && !is_closing(line) {
+            if matches!(
+                kinds.get(index),
+                Some(LineKind::Fence | LineKind::FrontMatter)
+            ) {
+                continue;
+            }
+            let Some(start) = suppression_at(&name, line) else {
+                continue;
+            };
+            if !is_closing(line) {
                 sites.push(Site {
                     file: name.clone(),
                     number: index + 1,
                     line: (*line).to_string(),
-                    annotation: annotation(&name, &lines, index),
+                    annotation: annotation(&name, &lines, index, start),
                 });
             }
         }
@@ -231,8 +378,7 @@ pub fn run(ctx: &GateCtx, args: &[String]) -> GateResult {
 
     let mut caseless = Vec::new();
     for site in &sites {
-        let cased = cited_cases(&site.annotation).next().is_some();
-        match (cased, permanent_reason(&site.annotation)) {
+        match (site.cites_a_case(), site.reason()) {
             (true, None) => {}
             (false, Some(reason)) if !reason.is_empty() => {}
             (false, Some(_)) => violations.push(Violation::Finding(Finding::on_line(
@@ -270,7 +416,7 @@ pub fn run(ctx: &GateCtx, args: &[String]) -> GateResult {
         .collect();
     let cited: BTreeSet<String> = sites
         .iter()
-        .flat_map(|site| cited_cases(&site.annotation))
+        .flat_map(|site| site.annotation.iter().flat_map(|line| cited_cases(line)))
         .collect();
     for case in cited {
         if !known.contains(&case) {
@@ -400,12 +546,89 @@ mod tests {
 
     #[test]
     fn a_marker_without_a_reason_is_rejected() {
-        let out = run_on("local.rs", "#[allow(dead_code)] // sdd: permanent\n");
-        assert_eq!(out.len(), 1);
-        assert_eq!(
-            out[0],
-            "FAIL spec-to-code:a-permanent-exception-states-its-reason local.rs:1: the permanent marker states no reason"
+        for text in [
+            "#[allow(dead_code)] // sdd: permanent\n",
+            "// sdd: permanent\n#[allow(dead_code)]\n",
+        ] {
+            let out = run_on("local.rs", text);
+            assert_eq!(out.len(), 1, "{text}");
+            assert!(
+                out[0].ends_with(": the permanent marker states no reason"),
+                "{text}"
+            );
+        }
+    }
+
+    #[test]
+    fn an_expected_failure_is_a_suppression() {
+        assert!(
+            run_on(
+                "test_x.py",
+                "@pytest.mark.xfail(reason=\"KI-vendor-quirk\", strict=True)\ndef test_x():\n    pass\n"
+            )
+            .is_empty()
         );
+        let out = run_on(
+            "test_x.py",
+            "@pytest.mark.xfail(strict=True)\ndef test_x():\n    pass\n",
+        );
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[0], "FAIL spec-to-code:a-suppression-names-its-case");
+    }
+
+    #[test]
+    fn a_form_inside_a_string_is_a_quotation() {
+        for (name, text) in [
+            ("local.py", "value = \"# noqa: E501\"\n"),
+            ("local.sh", "printf '%s' '# shellcheck disable=SC2329'\n"),
+            (
+                "local.ts",
+                "const form = \"// eslint-disable-next-line\";\n",
+            ),
+        ] {
+            assert!(run_on(name, text).is_empty(), "{name}: {text}");
+        }
+    }
+
+    #[test]
+    fn a_fenced_example_in_a_document_is_a_quotation() {
+        for fence in ["```markdown", "~~~markdown", "````markdown"] {
+            let close = fence.trim_end_matches("markdown");
+            let text = format!(
+                "# Chapter\n\n{fence}\n<!-- markdownlint-disable MD013 -->\n{close}\n\nProse.\n"
+            );
+            assert!(run_on("chapter.md", &text).is_empty(), "{fence}");
+        }
+    }
+
+    #[test]
+    fn an_apostrophe_before_a_live_directive_does_not_hide_it() {
+        let out = run_on("local.py", "value = \"it's long\"  # noqa: E501\n");
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[0], "FAIL spec-to-code:a-suppression-names-its-case");
+    }
+
+    #[test]
+    fn a_marker_inside_a_longer_word_is_not_the_marker() {
+        let out = run_on(
+            "local.py",
+            "x = 1  # noqa: E501 not-sdd: permanent reason\n",
+        );
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[0], "FAIL spec-to-code:a-suppression-names-its-case");
+    }
+
+    #[test]
+    fn a_case_written_in_code_before_the_comment_is_not_the_suppressions() {
+        let out = run_on("local.py", "path = \"KI-vendor-quirk.md\"  # noqa: E501\n");
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[0], "FAIL spec-to-code:a-suppression-names-its-case");
+    }
+
+    #[test]
+    fn a_multiline_expected_failure_carries_its_case() {
+        let text = "@pytest.mark.xfail(\n    reason=\"KI-vendor-quirk\",\n    strict=True,\n)\ndef test_x():\n    pass\n";
+        assert!(run_on("test_x.py", text).is_empty());
     }
 
     #[test]

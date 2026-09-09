@@ -112,7 +112,7 @@ Owner: [09 Spec to Code](./09-spec-to-code.md).
 - [ ] Every comment citing an agreement cites it by rule ID as `SATISFIES` or `VERIFIES`, and no comment names a decision record.
 - [ ] Every rule ID cited in code resolves to a requirement in a spec.
 - [ ] A comment that survived holds what the code cannot express. One restating the next line was deleted, and one covering for a vague name became the name.
-- [ ] Every suppressed or failing test names its case id, and every case id resolves to a `KI-<slug>.md` record. Every expected failure uses the strict form.
+- [ ] Every suppressed or failing test over an external defect names its case id, and every case id resolves to a `KI-<slug>.md` record. Every expected failure uses the strict form.
 - [ ] Every suppression this diff adds names its case id or states a permanent reason, and none does both.
 
 ## Procedures
