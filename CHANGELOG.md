@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1](https://github.com/gubasso/spec-driven-docs/compare/v0.6.0...v0.6.1) - 2026-09-09
+
+### Added
+
+- *(distribution)* Show the last-check date in the known-issue listing ([#60](https://github.com/gubasso/spec-driven-docs/pull/60))
+
 ## [0.6.0](https://github.com/gubasso/spec-driven-docs/compare/v0.5.1...v0.6.0) - 2026-09-09
 
 This version removes the delivered prose gate and the spec that defined its rules. An instance that upgrades has work to do in the same change:
