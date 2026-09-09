@@ -273,38 +273,40 @@ fn fence_toggles<'a>(line: &'a str, fences: &[&'a str], comment: Option<&str>) -
     out
 }
 
-/// Every line that sits inside a multi-line string of the file's own
-/// language, where a form is content rather than a directive.
-fn quoted_lines(file: &str, lines: &[&str]) -> Vec<bool> {
+/// Where each line's live code begins, or `None` where the whole line sits
+/// inside a multi-line string of the file's own language.
+///
+/// A line that opens inside such a string is content up to its closing
+/// delimiter and live code after it, which is where a linter asks for the
+/// suppression a long string earns.
+fn live_from(file: &str, lines: &[&str]) -> Vec<Option<usize>> {
     let fences: &[&str] = if is_python(file) {
         &["\"\"\"", "'''"]
     } else if comment_opener(file) == Some("//") && !is_rust(file) {
         &["`"]
     } else {
-        return vec![false; lines.len()];
+        return vec![Some(0); lines.len()];
     };
     let comment = comment_opener(file);
     let mut open: Option<&str> = None;
     lines
         .iter()
         .map(|line| {
-            let was_open = open.is_some();
-            // Inside a multi-line string the whole line is content, so only
-            // the delimiter that closes it is read.
-            let toggles = open.map_or_else(
-                || fence_toggles(line, fences, comment),
-                |fence| line.matches(fence).map(|_| fence).take(1).collect(),
-            );
-            for fence in toggles {
-                match open {
-                    None => open = Some(fence),
-                    Some(current) if current == fence => open = None,
-                    Some(_) => {}
+            let Some(fence) = open else {
+                for opened in fence_toggles(line, fences, comment) {
+                    open = match open {
+                        None => Some(opened),
+                        Some(current) if current == opened => None,
+                        Some(current) => Some(current),
+                    };
                 }
+                return Some(0);
+            };
+            let closes = line.find(fence);
+            if closes.is_some() {
+                open = None;
             }
-            // A line that starts inside a multi-line string is content, and
-            // that includes the line the closing delimiter ends.
-            was_open
+            closes.map(|index| index + fence.len())
         })
         .collect()
 }
@@ -475,18 +477,19 @@ fn sites(ctx: &GateCtx) -> Result<Vec<Site>, GateError> {
         } else {
             Vec::new()
         };
-        let quoted = quoted_lines(&name, &lines);
+        let live = live_from(&name, &lines);
         for (index, line) in lines.iter().enumerate() {
             if matches!(
                 kinds.get(index),
                 Some(LineKind::Fence | LineKind::FrontMatter)
-            ) || quoted[index]
-            {
+            ) {
                 continue;
             }
-            let Some(start) = suppression_at(&name, line) else {
+            let Some(offset) = live[index] else { continue };
+            let Some(found) = suppression_at(&name, &line[offset..]) else {
                 continue;
             };
+            let start = offset + found;
             if !is_closing(line) {
                 sites.push(Site {
                     file: name.clone(),
@@ -828,6 +831,19 @@ mod tests {
         ] {
             assert!(run_on(name, text).is_empty(), "{name}: {text}");
         }
+    }
+
+    #[test]
+    fn a_suppression_after_a_closing_delimiter_is_live() {
+        let out = run_on(
+            "local.py",
+            "DOC = \"\"\"\nlong text\n\"\"\"  # noqa: E501\n",
+        );
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[0], "FAIL spec-to-code:a-suppression-names-its-case");
+        assert!(out[1].contains("local.py:3"));
+        let text = "DOC = \"\"\"\nlong text\n\"\"\"  # noqa: E501 KI-vendor-quirk\n";
+        assert!(run_on("local.py", text).is_empty());
     }
 
     #[test]
