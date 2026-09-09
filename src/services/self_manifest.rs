@@ -1,9 +1,8 @@
 //! Regenerate the canon's own instance manifest.
 //!
 //! The canon is an instance of itself, but not one the installer can
-//! produce: its files sit where it authors them rather than under the
-//! vendored directory. Recording their hashes by hand is how the manifest
-//! drifts from the payload, so it is generated from the payload instead —
+//! produce: its files sit at their canonical authored paths. Recording their
+//! hashes by hand is how the manifest drifts from the payload, so it is generated from the payload instead —
 //! and only in the canon checkout, which is recognised by its own crate
 //! manifest.
 
@@ -101,17 +100,6 @@ pub fn regenerate(root: &Utf8Path) -> Result<String, AppError> {
             sha256: sha256_file(&root.join(&path))?,
         });
     }
-    // The vendored SimpleEnglish surface the profiles project into an
-    // instance. The canon records it at its authored path, so this record
-    // and an instance's hold the same bytes under different destinations.
-    for path in crate::domain::profile::SIMPLE_ENGLISH_MANAGED {
-        managed.push(ManagedEntry {
-            source: (*path).into(),
-            destination: (*path).into(),
-            sha256: sha256_file(&root.join(path))?,
-        });
-    }
-
     // sdd: permanent the spec convention is lowercase, as the glob it replaces was
     #[allow(clippy::case_sensitive_file_extension_comparisons)]
     let spec = |name: &str| name.starts_with("SPEC-") && name.ends_with(".md");

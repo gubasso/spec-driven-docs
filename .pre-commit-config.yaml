@@ -1,10 +1,5 @@
 default_install_hook_types: [pre-commit, commit-msg, pre-push]
 
-# The vendored dependency surface is owned upstream and refreshed only by
-# scripts/vendor-simpleenglish.sh. No repo-wide formatter or linter may touch
-# it, or it drifts from its recorded digests.
-exclude: '^third-party/'
-
 repos:
 # BEGIN release-kit
 # The release convention's hooks. Install every stage they run at:

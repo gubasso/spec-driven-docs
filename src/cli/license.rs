@@ -13,7 +13,7 @@ pub struct LicenseArgs {
     #[arg(long)]
     pub payload: bool,
 
-    /// Print the third-party notices for every vendored dependency.
+    /// Print the notices for every third-party source the payload derives from.
     #[arg(long)]
     pub third_party: bool,
 }
