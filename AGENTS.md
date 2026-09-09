@@ -52,7 +52,6 @@ This repository is the canonical knowledge product for spec-driven documentation
 - Cutting a release: `_docs/guides/release.md`.
 - Step-by-step guides: `_docs/specs/SPEC-guides.md`.
 
-<!-- simple-english-disable: release-kit managed block, owned upstream -->
 <!-- BEGIN release-kit -->
 
 ## Releases
@@ -68,4 +67,3 @@ This repository is the canonical knowledge product for spec-driven documentation
 - The full method is `rk method --list`; the recovery paths are `rk method recovery`.
 
 <!-- END release-kit -->
-<!-- simple-english-enable -->

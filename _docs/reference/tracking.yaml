@@ -47,7 +47,7 @@ tracked:
     revalidate:
       - run sdd track check --id simple-english to detect upstream movement
       - preview the update with scripts/vendor-simpleenglish.sh --revision <observed-commit>
-      - review upstream changes against the compatibility table in specs/SPEC-simple-english.md
+      - review upstream changes against the file list and exclusions in third-party/simpleenglish/UPSTREAM.json
       - apply the exact vendor refresh with scripts/vendor-simpleenglish.sh --revision <observed-commit> --apply
       - update only the necessary compatibility adapters and run the conformance tests
       - advance source.revision and last_checked

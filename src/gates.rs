@@ -34,7 +34,6 @@ pub mod markdown_prose;
 pub mod no_personal_path;
 pub mod no_self_narration;
 pub mod prose_stays_unwrapped;
-pub mod simple_english;
 pub mod spec_change_is_typed;
 pub mod spec_requirement_parts;
 pub mod spec_rule_id_unique;
@@ -455,18 +454,6 @@ pub static GATES: &[GateSpec] = &[
         always_run: true,
         cites: suppression_names_its_case::CITES,
         run: suppression_names_its_case::run,
-    },
-    GateSpec {
-        id: GateId::SimpleEnglish,
-        name: "prose follows SimpleEnglish",
-        files: None,
-        types: Some("markdown"),
-        exclude: Some(
-            r"^_docs/decisions/|^docs/decisions/|(?:^|/)CHANGELOG\.md$|^third-party/|^\.spec-driven-docs/|(?:^|/)tests/fixtures/",
-        ),
-        always_run: false,
-        cites: simple_english::CITES,
-        run: simple_english::run,
     },
     GateSpec {
         id: GateId::TrackingRegistry,

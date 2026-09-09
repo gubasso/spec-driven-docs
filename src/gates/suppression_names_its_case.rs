@@ -20,9 +20,7 @@
 //!
 //! Three surfaces stay outside this scan: an extensionless shell script, a
 //! block comment holding a suppression, and the `[lints]` table of a
-//! manifest. The `simple-english-disable` marker stays outside too,
-//! because `simple-english:an-exception-names-its-reason` already requires
-//! a reason on it, and a second rule would name one defect twice.
+//! manifest.
 
 use std::collections::BTreeSet;
 

@@ -1,7 +1,7 @@
 ---
 digest-of: method/
-last-synced: 2026-09-03
-token-estimate: 560
+last-synced: 2026-09-09
+token-estimate: 580
 ---
 
 # AGENTS
@@ -31,6 +31,7 @@ Load this digest, then the one chapter that owns the question. Load `_docs/specs
 | Procedures                        | `10-procedures.md`    |
 | Operational documents             | `11-operational.md`   |
 | Migrating an existing corpus      | `12-migration.md`     |
+| Writing prose                     | `writing-style.md`    |
 | Review                            | `99-checklist.md`     |
 
 Stable copies live under `../templates/`. Installation and ownership live under `../instance/`.

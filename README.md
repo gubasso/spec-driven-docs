@@ -29,11 +29,11 @@ The `sdd` CLI is the whole interface. Nothing here is tied to a particular edito
 
 ## Conventions and dependencies
 
-This project depends on and integrates [SimpleEnglish](https://github.com/AminBlg/SimpleEnglish), and activates its `Plain` mode as the default for in-scope technical writing. The consumed surface is vendored under `third-party/simpleenglish/` for offline use, and the binary embeds it. As a result, a fresh `sdd init` writes the default into the project's `AGENTS.md` and every instance reads the pattern with no network. This project implements only the compatibility adapters a single offline binary needs: a rule-citing gate, structural passage resolution, and the tracking registry that reports a stale upstream. It does not fork, rename, or paraphrase the SimpleEnglish pattern.
+The writing convention lives in one project-owned chapter, available offline through `sdd method writing-style`. A fresh `sdd init` routes document authors to that command from the project's `AGENTS.md`. No delivered gate judges prose against the style. The chapter draws its word and sentence register from [SimpleEnglish](https://github.com/AminBlg/SimpleEnglish) and its information architecture from [i-have-adhd](https://github.com/ayghri/i-have-adhd), at the revisions it names.
 
 Every adopted convention and material dependency has one owner and an outward link:
 
-- The integration contract: [`_docs/specs/SPEC-simple-english.md`](./_docs/specs/SPEC-simple-english.md).
+- The writing contract, which states how the style binds and how a project reaches it: [`_docs/specs/SPEC-writing-style.md`](./_docs/specs/SPEC-writing-style.md). The style it routes to is the chapter, served by `sdd method writing-style`.
 - The full catalog of dependencies and conventions: [reference/dependencies-and-conventions.md](./reference/dependencies-and-conventions.md).
 - The pinned upstream, its license, and the vendored paths: [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md), also printed by `sdd license --third-party`.
 - The freshness registry that detects a moved upstream: `sdd track status` reads it offline, and `sdd track check` compares the pinned revision online.

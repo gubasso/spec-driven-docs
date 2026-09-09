@@ -71,8 +71,6 @@ pub enum GateId {
     SpecVerifyHooksExist,
     /// Suppression comments name a known-issue case.
     SuppressionNamesItsCase,
-    /// Prose follows the objective `SimpleEnglish` checks.
-    SimpleEnglish,
     /// The tracking registry is valid, current, and its dependents exist.
     TrackingRegistry,
 }
@@ -109,7 +107,6 @@ impl GateId {
         Self::SpecSizeCap,
         Self::SpecVerifyHooksExist,
         Self::SuppressionNamesItsCase,
-        Self::SimpleEnglish,
         Self::TrackingRegistry,
     ];
 
@@ -146,7 +143,6 @@ impl GateId {
             Self::SpecSizeCap => "spec-size-cap",
             Self::SpecVerifyHooksExist => "spec-verify-hooks-exist",
             Self::SuppressionNamesItsCase => "suppression-names-its-case",
-            Self::SimpleEnglish => "simple-english",
             Self::TrackingRegistry => "tracking-registry",
         }
     }
@@ -180,7 +176,7 @@ mod tests {
         for gate in GateId::ALL {
             assert!(seen.insert(gate.as_str()), "{gate} is duplicated");
         }
-        assert_eq!(GateId::ALL.len(), 31);
+        assert_eq!(GateId::ALL.len(), 30);
     }
 
     #[test]

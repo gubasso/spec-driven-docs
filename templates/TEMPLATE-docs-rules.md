@@ -6,6 +6,7 @@ Copy the block below into the project's root author-instructions file. It tells 
 ## Documentation
 
 - Load the specs of the domains you touch before acting: `<root>/specs/SPEC-<domain>.md`.
+- Read the writing style before you author or edit prose: `sdd method writing-style`.
 - Do not load the decision log unless someone asks why a rule exists.
 - When a spec and a decision record disagree, follow the spec and leave the record alone.
 - When you change current behavior, update the owning spec in the same change.
