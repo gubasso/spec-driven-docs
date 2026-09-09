@@ -71,7 +71,7 @@ Scope the hook to the directory, not the prefix. A `files:` pattern of `^_docs/d
 
 ## Case ids
 
-A suppression names a case, and the name is worth nothing if it resolves to no record. This is the coverage grep again: every `KI-` token cited outside the docs root, against the records that exist.
+A suppression names a case or states a permanent reason, and a name is worth nothing if it resolves to no record. This is the coverage grep again: every `KI-` token cited outside the docs root, against the records that exist.
 
 ```bash
 rg -o '\bKI-[a-z0-9-]+' --glob '!<root>/**' . | sed 's/.*://' | sort -u > /tmp/cited
@@ -79,7 +79,7 @@ ls <root>/reference/known-issues/ | sed 's/\.md$//' | sort -u > /tmp/recorded
 comm -13 /tmp/recorded /tmp/cited | grep . && exit 1 || exit 0
 ```
 
-The check runs one way only: a cited case with no record is a fabrication and fails. A record no suppression cites is ordinary, because the workaround can live in a config or a dependency pin.
+The check runs one way only: a cited case with no record is a fabrication and fails. A record no suppression cites is ordinary, because the workaround can live in a config or a dependency pin. Scope each form to the file kind that honors it. A form named in prose or in a string then stays a quotation.
 
 Wire it as `always_run`, not behind a `files:` filter. The commit this check exists to catch deletes a record while a suppression still cites it. Pre-commit selects staged files with `--diff-filter=ACMRTUXB`, which omits deletions. As a result, a filter hands the hook an empty list on exactly that commit. The same reasoning binds every gate that compares two sets.
 

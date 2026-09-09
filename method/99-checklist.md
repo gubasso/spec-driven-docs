@@ -97,7 +97,7 @@ Owner: [07 Lifecycle](./07-lifecycle.md).
 - [ ] No exploratory material entered the docs root, and any promoted draft was deleted.
 - [ ] A fact depending on an external source has an entry in the tracking registry.
 - [ ] A workaround added here names the condition that retires it, and a workaround whose condition is met was removed along with its record.
-- [ ] Every known-issue record is named `KI-<slug>.md` and carries exactly one state and exactly one filing state. A masked one carries a retire condition where a mitigated one carries none.
+- [ ] Every known-issue record is named `KI-<slug>.md` and carries exactly one state and exactly one filing state. A masked one carries a retire condition where a mitigated one carries none. A masked or monitoring one carries its last-check date.
 - [ ] Every known-issue record walks its mechanism step by step, showing the state each step leaves behind, rather than naming the defect once.
 - [ ] Every record at `filing: filed` names its upstream issue and carries a `## Report` section holding the filed body in the tracker's own markup.
 - [ ] A resolved symptom that can recur and be misread left a diagnostic entry, and no archive of resolved cases was created.
@@ -113,6 +113,7 @@ Owner: [09 Spec to Code](./09-spec-to-code.md).
 - [ ] Every rule ID cited in code resolves to a requirement in a spec.
 - [ ] A comment that survived holds what the code cannot express. One restating the next line was deleted, and one covering for a vague name became the name.
 - [ ] Every suppressed or failing test names its case id, and every case id resolves to a `KI-<slug>.md` record. Every expected failure uses the strict form.
+- [ ] Every suppression this diff adds names its case id or states a permanent reason, and none does both.
 
 ## Procedures
 
