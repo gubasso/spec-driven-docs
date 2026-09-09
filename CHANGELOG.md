@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2](https://github.com/gubasso/spec-driven-docs/compare/v0.6.1...v0.6.2) - 2026-09-09
+
+### Other
+
+- *(distribution)* Remove the vendored upstream surface ([#62](https://github.com/gubasso/spec-driven-docs/pull/62))
+
 ## [0.6.1](https://github.com/gubasso/spec-driven-docs/compare/v0.6.0...v0.6.1) - 2026-09-09
 
 ### Added
