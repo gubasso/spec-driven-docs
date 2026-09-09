@@ -139,8 +139,8 @@
     {
       "source": "_docs/specs/SPEC-known-issues.md",
       "destination": "_docs/specs/SPEC-known-issues.md",
-      "sha256": "33a9d4b02c975e2db5eff8e1df69ddabc2686ff8df0b7c22c07666ac6bbeba63",
-      "baseline_sha256": "33a9d4b02c975e2db5eff8e1df69ddabc2686ff8df0b7c22c07666ac6bbeba63"
+      "sha256": "6ed18cbbcfbc16767823d1e64da5f46fb92824ffb9fcd51c9081c66167432dc8",
+      "baseline_sha256": "6ed18cbbcfbc16767823d1e64da5f46fb92824ffb9fcd51c9081c66167432dc8"
     },
     {
       "source": "_docs/specs/SPEC-release.md",
@@ -188,7 +188,7 @@
   "integration_blocks": [
     {
       "path": ".pre-commit-config.yaml",
-      "marker_hash": "81ff663399f0a80bb1deeccd37558f4227cb440051b67f1cee0b5f939d6b680f"
+      "marker_hash": "a537a51659c34da1aa9b1def52cb01adc17bb88524d38efad28833be8716766a"
     }
   ]
 }

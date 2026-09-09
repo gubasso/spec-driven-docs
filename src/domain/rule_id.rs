@@ -108,6 +108,7 @@ rule_ids! {
     RecordCarriesItsRetirementCondition => "known-issues:a-record-carries-its-retirement-condition",
     RecordCarriesOneFilingState => "known-issues:a-record-carries-one-filing-state",
     RecordCarriesOneState => "known-issues:a-record-carries-one-state",
+    RecordRecordsItsLastCheck => "known-issues:a-record-records-its-last-check",
     RecordWalksTheMechanism => "known-issues:a-record-walks-the-mechanism",
     CaseIdIsASlug => "known-issues:case-id-is-a-slug",
     CanonGateIsNotDelivered => "release:a-canon-gate-is-not-delivered",
