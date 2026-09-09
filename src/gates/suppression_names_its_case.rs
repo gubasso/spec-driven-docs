@@ -13,14 +13,14 @@
 //! is live Rust and a quotation in markdown; `noqa` is live in a Python or
 //! shell comment and a quotation here. That scoping is what lets this file,
 //! the specs and the method chapters name a form without being judged by
-//! it. A form inside a quoted span, or inside a document's fence, is a
-//! quotation for the same reason. Binary files and vendored trees are
-//! skipped, and the known-issues directory is exempt, because a record may
-//! discuss suppressions.
+//! it. A form inside a string, inside a multi-line string, or inside a
+//! document's fence is a quotation for the same reason. Binary files and
+//! vendored trees are skipped, and the known-issues directory is exempt,
+//! because a record may discuss suppressions.
 //!
-//! Three surfaces stay outside a line-scoped scan: an extensionless shell
-//! script, a block comment holding a suppression, and the `[lints]` table
-//! of a manifest. The `simple-english-disable` marker stays outside too,
+//! Three surfaces stay outside this scan: an extensionless shell script, a
+//! block comment holding a suppression, and the `[lints]` table of a
+//! manifest. The `simple-english-disable` marker stays outside too,
 //! because `simple-english:an-exception-names-its-reason` already requires
 //! a reason on it, and a second rule would name one defect twice.
 
@@ -118,72 +118,118 @@ fn comment_opener(file: &str) -> Option<&'static str> {
         .map(|(_, opener)| *opener)
 }
 
-/// Whether the byte at `index` sits inside a quoted span of the line.
+/// Where the line's own comment opens, outside every quoted span.
 ///
-/// A full lexer is out of scope. One active-quote state machine settles the
-/// case this gate meets: a form written inside a string literal is a
-/// quotation, and a quote of the other kind inside that string is content
-/// rather than a delimiter.
-fn inside_quotes(line: &str, index: usize) -> bool {
-    let mut open: Option<u8> = None;
+/// Quotes are interpreted in the code that precedes the comment and never
+/// inside it, so an apostrophe in comment prose closes nothing and a form
+/// written in a string literal opens nothing.
+fn comment_start(line: &str, opener: &str) -> Option<usize> {
+    let mut open: Option<char> = None;
     let mut escaped = false;
-    for (position, byte) in line.bytes().enumerate() {
-        if position >= index {
-            break;
-        }
+    for (index, character) in line.char_indices() {
         if escaped {
             escaped = false;
             continue;
         }
-        match (open, byte) {
-            (_, b'\\') => escaped = true,
-            (None, b'"' | b'\'') => open = Some(byte),
-            (Some(quote), byte) if byte == quote => open = None,
-            _ => {}
-        }
-    }
-    open.is_some()
-}
-
-/// Where `token` first follows `opener` in a live comment on the line.
-fn follows_opener(line: &str, opener: &str, token: &str) -> Option<usize> {
-    let mut start = 0usize;
-    while let Some(offset) = line[start..].find(opener) {
-        let index = start + offset;
-        let after = line[index + opener.len()..].trim_start_matches(' ');
-        if after.starts_with(token) && !inside_quotes(line, index) {
+        if open.is_none() && line[index..].starts_with(opener) {
             return Some(index);
         }
-        start = index + opener.len();
+        match (open, character) {
+            (_, '\\') => escaped = true,
+            (None, '"' | '\'') => open = Some(character),
+            (Some(quote), character) if character == quote => open = None,
+            _ => {}
+        }
     }
     None
 }
 
+/// The line's code, with its comment removed.
+fn code_region<'a>(file: &str, line: &'a str) -> &'a str {
+    comment_opener(file)
+        .and_then(|opener| comment_start(line, opener))
+        .map_or(line, |index| &line[..index])
+}
+
+/// Whether the comment carries `token` right after one of its openers.
+fn comment_carries(comment: &str, opener: &str, token: &str) -> bool {
+    let mut start = 0usize;
+    while let Some(offset) = comment[start..].find(opener) {
+        let index = start + offset;
+        if comment[index + opener.len()..]
+            .trim_start_matches(' ')
+            .starts_with(token)
+        {
+            return true;
+        }
+        start = index + opener.len();
+    }
+    false
+}
+
 /// Where a suppression on this line starts carrying its annotation.
 ///
-/// A comment-borne form annotates from its comment opener, so a case id or
-/// a marker written in code earlier on the line is not the suppression's.
-/// A line-borne form carries its annotation on the whole line: a Rust
-/// attribute and a Python decorator both hold their reason inside
-/// themselves.
+/// A comment-borne form annotates from where the comment opens, so a case
+/// id or a marker written in code earlier on the line is not the
+/// suppression's. A line-borne form carries its annotation on the whole
+/// line: a Rust attribute and a Python decorator both hold their reason
+/// inside themselves.
 fn suppression_at(file: &str, line: &str) -> Option<usize> {
     for family in FAMILIES {
         if !family.suffixes.iter().any(|suffix| file.ends_with(suffix)) {
             continue;
         }
-        for token in family.tokens {
-            match family.opener {
-                Opener::Line if line.trim_start().starts_with(token) => return Some(0),
-                Opener::Line => {}
-                Opener::After(opener) => {
-                    if let Some(index) = follows_opener(line, opener, token) {
-                        return Some(index);
-                    }
+        match family.opener {
+            Opener::Line => {
+                let code = line.trim_start();
+                if family.tokens.iter().any(|token| code.starts_with(token)) {
+                    return Some(0);
+                }
+            }
+            Opener::After(opener) => {
+                let Some(index) = comment_start(line, opener) else {
+                    continue;
+                };
+                let comment = &line[index..];
+                if family
+                    .tokens
+                    .iter()
+                    .any(|token| comment_carries(comment, opener, token))
+                {
+                    return Some(index);
                 }
             }
         }
     }
     None
+}
+
+/// Every line that sits inside a multi-line string of the file's own
+/// language, where a form is content rather than a directive.
+fn quoted_lines(file: &str, lines: &[&str]) -> Vec<bool> {
+    // sdd: permanent the corpus convention is lowercase, and `.PY` is not Python
+    #[allow(clippy::case_sensitive_file_extension_comparisons)]
+    let fences: &[&str] = if file.ends_with(".py") {
+        &["\"\"\"", "'''"]
+    } else if comment_opener(file) == Some("//") && !file.ends_with(".rs") {
+        &["`"]
+    } else {
+        return vec![false; lines.len()];
+    };
+    let mut open: Option<&str> = None;
+    lines
+        .iter()
+        .map(|line| {
+            let was_open = open.is_some();
+            for fence in fences {
+                let count = line.matches(fence).count();
+                if count % 2 == 1 && (open.is_none() || open == Some(*fence)) {
+                    open = if open.is_none() { Some(fence) } else { None };
+                }
+            }
+            was_open && open.is_some()
+        })
+        .collect()
 }
 
 fn is_closing(line: &str) -> bool {
@@ -256,14 +302,6 @@ impl Site {
     }
 }
 
-/// How far a suppression opened on this line runs, when its delimiters are
-/// still unbalanced at the line end.
-///
-/// A Rust inner attribute and a Python decorator both continue across lines
-/// inside their parentheses, and the reason a reader wrote lives in that
-/// continuation.
-const CONTINUATION_CAP: usize = 12;
-
 fn unbalanced(text: &str) -> i32 {
     let mut depth = 0i32;
     let mut open: Option<u8> = None;
@@ -304,12 +342,19 @@ fn annotation(file: &str, lines: &[&str], index: usize, start: usize) -> Vec<Str
         }
     }
     out.push(lines[index][start..].to_string());
-    let mut depth = unbalanced(lines[index]);
+    // Delimiters are counted in the code alone, so punctuation in a trailing
+    // comment cannot borrow the line below as this suppression's annotation.
+    // A suppression that never balances owns its opening line only.
+    let mut depth = unbalanced(code_region(file, lines[index]));
+    let mut continuation = Vec::new();
     let mut next = index + 1;
-    while depth > 0 && next < lines.len() && next - index <= CONTINUATION_CAP {
-        out.push(lines[next].to_string());
-        depth += unbalanced(lines[next]);
+    while depth > 0 && next < lines.len() {
+        continuation.push(lines[next].to_string());
+        depth += unbalanced(code_region(file, lines[next]));
         next += 1;
+    }
+    if depth == 0 {
+        out.extend(continuation);
     }
     out
 }
@@ -344,11 +389,13 @@ fn sites(ctx: &GateCtx) -> Result<Vec<Site>, GateError> {
         } else {
             Vec::new()
         };
+        let quoted = quoted_lines(&name, &lines);
         for (index, line) in lines.iter().enumerate() {
             if matches!(
                 kinds.get(index),
                 Some(LineKind::Fence | LineKind::FrontMatter)
-            ) {
+            ) || quoted[index]
+            {
                 continue;
             }
             let Some(start) = suppression_at(&name, line) else {
@@ -629,6 +676,48 @@ mod tests {
     fn a_multiline_expected_failure_carries_its_case() {
         let text = "@pytest.mark.xfail(\n    reason=\"KI-vendor-quirk\",\n    strict=True,\n)\ndef test_x():\n    pass\n";
         assert!(run_on("test_x.py", text).is_empty());
+    }
+
+    #[test]
+    fn a_long_attribute_carries_its_case_past_any_line_count() {
+        let lints = "    clippy::a_lint,\n".repeat(20);
+        let text = format!("#[allow(\n{lints}    // KI-vendor-quirk\n)]\nfn f() {{}}\n");
+        assert!(run_on("local.rs", &text).is_empty());
+    }
+
+    #[test]
+    fn an_apostrophe_in_comment_prose_does_not_hide_a_later_directive() {
+        let out = run_on("local.py", "value = 1  # don't reflow  # noqa: E501\n");
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[0], "FAIL spec-to-code:a-suppression-names-its-case");
+    }
+
+    #[test]
+    fn comment_punctuation_does_not_extend_the_annotation() {
+        let text = "#[allow(dead_code)] // (\nfn kept() {} // KI-vendor-quirk\n";
+        let out = run_on("local.rs", text);
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[0], "FAIL spec-to-code:a-suppression-names-its-case");
+    }
+
+    #[test]
+    fn a_line_carrying_multibyte_text_is_scanned_without_panicking() {
+        assert!(run_on("local.py", "value = \"a 🤖 walks in\"  # a note\n").is_empty());
+        let out = run_on("local.py", "value = \"a 🤖 walks in\"  # noqa: E501\n");
+        assert_eq!(out.len(), 2);
+    }
+
+    #[test]
+    fn a_form_inside_a_multiline_string_is_a_quotation() {
+        for (name, text) in [
+            ("local.py", "DOC = \"\"\"\n# noqa: E501\n\"\"\"\n"),
+            (
+                "local.ts",
+                "const doc = `\n// eslint-disable-next-line\n`;\n",
+            ),
+        ] {
+            assert!(run_on(name, text).is_empty(), "{name}");
+        }
     }
 
     #[test]
