@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.1](https://github.com/gubasso/spec-driven-docs/compare/v0.5.0...v0.5.1) - 2026-09-09
 
+This version adds two rules and one gate, and it widens what an existing gate sees. An instance that upgrades has work to do in the same change:
+
+- Give every `masked` or `monitoring` known-issue record a `checked:` ISO date, holding the date its upstream state was last confirmed. Every other state carries none. `ki-checked-date` holds it.
+- Give every suppression that `suppression-names-its-case` now sees either a `KI-<slug>` case or an `sdd: permanent <reason>` marker, never both. The gate saw two markdown comment forms before. It now also sees Rust attributes, Python decorators and `noqa` comments, `shellcheck disable=`, `type: ignore`, `zizmor: ignore[`, and `eslint-disable`, each in the files the tool that honors it reads.
+
+```bash
+sdd upgrade --target . --dry-run
+sdd upgrade --target .
+```
+
 ### Added
 
 - *(gates)* Date a record's last check and let a suppression state a permanent reason ([#55](https://github.com/gubasso/spec-driven-docs/pull/55))
