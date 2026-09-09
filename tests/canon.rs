@@ -728,34 +728,81 @@ fn a_seeded_rule_runs_no_canon_command() {
     assert!(commands > 0, "no seeded rule carries a command to judge");
 }
 
+/// One row of the chapter's sources table: what was read, and on what terms.
+struct Source {
+    repository: String,
+    revision: String,
+    terms: String,
+}
+
+/// Every source `method/writing-style.md` declares, read from its table.
+///
+/// The chapter is the one owner of what the style draws on, so the notice is
+/// judged against whatever that table says today. Naming the sources here
+/// instead would be a second list, and a source added to the chapter and
+/// forgotten in the notice would pass.
+fn declared_sources() -> Vec<Source> {
+    let style = read("method/writing-style.md");
+    let sources = style
+        .split_once("## Sources")
+        .expect("the chapter has no sources section")
+        .1;
+    let rows: Vec<Source> = sources
+        .lines()
+        .take_while(|line| !line.starts_with("## "))
+        .filter(|line| line.starts_with('|'))
+        // The header row and the delimiter row carry no source.
+        .filter(|line| !line.contains("| ---") && !line.contains("Revision read"))
+        .map(|line| {
+            let cells: Vec<&str> = line.trim_matches('|').split('|').map(str::trim).collect();
+            assert!(
+                cells.len() >= 3,
+                "a sources row has too few columns: {line}"
+            );
+            let repository = cells[0]
+                .split_once('(')
+                .expect("a sources row names no repository link")
+                .1
+                .trim_end_matches(')')
+                .to_string();
+            Source {
+                repository,
+                revision: cells[1].trim_matches('`').to_string(),
+                terms: cells[2].to_string(),
+            }
+        })
+        .collect();
+    assert!(!rows.is_empty(), "the sources table declares no source");
+    for row in &rows {
+        // An empty cell would assert nothing against the notice.
+        assert!(
+            !row.repository.is_empty() && !row.revision.is_empty() && !row.terms.is_empty(),
+            "a sources row leaves a cell empty: {}",
+            row.repository
+        );
+    }
+    rows
+}
+
 /// SATISFIES release:third-party-notices-travel-with-the-payload
 #[test]
 fn the_notice_names_the_resolved_revision_and_terms() {
     let notice = read("THIRD_PARTY_NOTICES.md");
-    let style = read("method/writing-style.md");
-    let sources = style.split_once("## Sources").unwrap().1;
-    for repository in [
-        "https://github.com/AminBlg/SimpleEnglish",
-        "https://github.com/ayghri/i-have-adhd",
-    ] {
-        let row = sources
-            .lines()
-            .find(|line| line.contains(repository))
-            .unwrap_or_else(|| panic!("the sources table omits {repository}"));
-        let revision = row
-            .split('`')
-            .nth(1)
-            .unwrap_or_else(|| panic!("the sources table gives {repository} no revision"));
-        assert!(
-            notice.contains(revision),
-            "the notice omits the revision read for {repository}"
-        );
+    for source in declared_sources() {
+        let repository = &source.repository;
         assert!(
             notice.contains(repository),
             "the notice omits the source repository {repository}"
         );
+        assert!(
+            notice.contains(&source.revision),
+            "the notice omits the revision read for {repository}"
+        );
+        assert!(
+            notice.contains(&source.terms),
+            "the notice omits the terms of {repository}"
+        );
     }
-    assert!(notice.contains("MIT"), "the notice omits the MIT terms");
     // The binary carries the notice byte-for-byte.
     assert_eq!(
         spec_driven_docs::embedded::THIRD_PARTY_NOTICES,
