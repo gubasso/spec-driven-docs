@@ -1,4 +1,4 @@
-# 00 — Model
+# Model
 
 A comparison document answers whether to use this instead of that with observations rather than claims. The matrix is an index. Every verdict in it points at a scenario someone ran. This chapter fixes what each layer owns and what wins when two of them disagree.
 

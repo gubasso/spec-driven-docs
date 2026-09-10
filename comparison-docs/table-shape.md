@@ -1,4 +1,4 @@
-# 01 — Table shape
+# Table shape
 
 The matrix is scanned, not read. This chapter fixes its width, how a wide comparison is split, and how a row is phrased. The row is phrased so the verdict in it is a fact rather than a label.
 
@@ -47,7 +47,7 @@ A merged heading is a convenience that turns into a lie in the first row where t
 - Column headings MUST use sentence case and carry no terminal punctuation.
 - A table MUST be introduced by a complete sentence before it.
 
-The pipe rule is the one with teeth. An unescaped pipe inside a code span splits the row. A formatter run afterwards re-pads the broken table down to the header's column count, destroying the evidence before a column-count linter can see it. [06 Gates](./06-gates.md) wires the check ahead of the formatter.
+The pipe rule is the one with teeth. An unescaped pipe inside a code span splits the row. A formatter run afterwards re-pads the broken table down to the header's column count, destroying the evidence before a column-count linter can see it. [Gates](./gates.md) wires the check ahead of the formatter.
 
 The introductory sentence is an accessibility requirement, not a stylistic one: not all screen readers preannounce a table, so a reader arriving by audio needs the sentence to know one is coming.
 

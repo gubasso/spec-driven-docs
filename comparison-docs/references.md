@@ -1,4 +1,4 @@
-# 03 — References
+# References
 
 A table cell cannot hold prose, so every qualification leaves the table by a link. This chapter fixes the two places a link can start, where each one lands, and how many are allowed.
 
@@ -45,7 +45,7 @@ Uniqueness is not cosmetic. Repeating `### Result` under every capability produc
 
 - A table MAY replace verdict-level links with one trailing notes column when it compares at most two subjects.
 
-The notes column is what several published matrices use, and it reads well when the width is available. It costs a column against the budget in [01 Table shape](./01-table-shape.md). It puts prose back into a cell that cannot hold a paragraph, a list, or a line break. Above two subjects the linked verdict wins on both counts. Do not use both mechanisms in one document.
+The notes column is what several published matrices use, and it reads well when the width is available. It costs a column against the budget in [Table shape](./table-shape.md). It puts prose back into a cell that cannot hold a paragraph, a list, or a line break. Above two subjects the linked verdict wins on both counts. Do not use both mechanisms in one document.
 
 ## Sources
 

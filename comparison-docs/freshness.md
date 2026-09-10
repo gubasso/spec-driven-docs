@@ -1,4 +1,4 @@
-# 05 — Freshness
+# Freshness
 
 A comparison document is the most perishable page a project publishes: every cell is a claim about software that ships without asking. This chapter fixes what each table must date, how a stale verdict is retired, and what the untested state is for.
 
