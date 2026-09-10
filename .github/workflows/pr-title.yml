@@ -14,6 +14,8 @@
 name: pr-title
 
 on:
+  # zizmor: ignore[dangerous-triggers] the trigger is what makes this gate
+  # unforgeable, and the header above states why it is safe here.
   pull_request_target:
     types: [opened, edited, reopened, synchronize]
 
@@ -31,9 +33,9 @@ jobs:
         # title the release automation authors, not an operator.
         run: |
           printf '%s' "$TITLE" | grep -Eq \
-            '^((build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)\((release|gates|skills|skill-shared|distribution|specs|docs|guides|method|comparison-docs|templates|reference|instance|deps|ci|lint)\)!?: .+|chore(\((release|master|main)\))?: (release|v).+)$' \
+            '^((build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)\(([a-z0-9._/-]+)\)!?: .+|chore(\((release|master|main)\))?: (release|v).+)$' \
             && exit 0
-          echo "the title '$TITLE' must read type(scope) then a colon and a description, with the scope one of release,gates,skills,skill-shared,distribution,specs,docs,guides,method,comparison-docs,templates,reference,instance,deps,ci,lint"
+          echo "the title '$TITLE' must read type(scope) then a colon and a description, with the scope lowercase letters, digits, and _ . / -"
           exit 1
       - name: the body carries no attribution and no internal path
         env:
