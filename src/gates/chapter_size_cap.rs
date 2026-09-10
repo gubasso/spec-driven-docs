@@ -18,31 +18,37 @@ pub const CITES: &[RuleId] = &[RuleId::ChapterStaysWithinLineCap];
 
 const RULE: RuleId = RuleId::ChapterStaysWithinLineCap;
 const DEBT: &str = ".spec-driven-docs/chapter-size-debt.txt";
+const CHAPTER_ZONES: &[&str] = &["./method", "./comparison-docs"];
 
-fn cap_for(file: &str) -> usize {
-    if file.ends_with("-gates.md")
-        || file.ends_with("-checklist.md")
-        || file.ends_with("glossary.md")
-        || file.ends_with("README.md")
-    {
+fn cap_for(file: &Utf8Path) -> usize {
+    if file.file_name().is_some_and(|name| {
+        name.ends_with("-gates.md")
+            || name.ends_with("-checklist.md")
+            || matches!(
+                name,
+                "gates.md" | "checklist.md" | "glossary.md" | "README.md" | "SOURCES.md"
+            )
+    }) {
         300
     } else {
         200
     }
 }
 
-// sdd: permanent the corpus convention is lowercase, and `.MD` is not a chapter
-#[allow(clippy::case_sensitive_file_extension_comparisons)]
-fn is_chapter(name: &str) -> bool {
+fn is_chapter(file: &Utf8Path) -> bool {
+    let Some(name) = file.file_name() else {
+        return false;
+    };
+    if name == "AGENTS.md" {
+        return false;
+    }
     if name == "glossary.md" || name == "README.md" {
         return true;
     }
-    let bytes = name.as_bytes();
-    name.ends_with(".md")
-        && bytes.len() > 3
-        && bytes[0].is_ascii_digit()
-        && bytes[1].is_ascii_digit()
-        && bytes[2] == b'-'
+    file.extension() == Some("md")
+        && file
+            .parent()
+            .is_some_and(|parent| CHAPTER_ZONES.contains(&parent.as_str()))
 }
 
 /// Judge every chapter and catalog, honoring the debt list.
@@ -72,7 +78,7 @@ pub fn run(ctx: &GateCtx, _files: &[String]) -> GateResult {
                 )));
                 continue;
             }
-            if line_count(&read_text(ctx, Utf8Path::new(&file))?) <= cap_for(&file) {
+            if line_count(&read_text(ctx, Utf8Path::new(&file))?) <= cap_for(Utf8Path::new(&file)) {
                 violations.push(Violation::Finding(Finding::on_file(
                     RULE,
                     format!("delist {file}"),
@@ -84,10 +90,7 @@ pub fn run(ctx: &GateCtx, _files: &[String]) -> GateResult {
     }
 
     for file in walk_files(ctx) {
-        let Some(name) = file.file_name() else {
-            continue;
-        };
-        if !is_chapter(name) {
+        if !is_chapter(&file) {
             continue;
         }
         let as_listed = file.as_str();
@@ -98,7 +101,7 @@ pub fn run(ctx: &GateCtx, _files: &[String]) -> GateResult {
         {
             continue;
         }
-        if line_count(&read_text(ctx, &file)?) > cap_for(as_listed) {
+        if line_count(&read_text(ctx, &file)?) > cap_for(&file) {
             violations.push(Violation::Finding(Finding::on_file(RULE, file, "")));
         }
     }
@@ -127,7 +130,7 @@ mod tests {
     #[test]
     fn accepts_chapters_within_cap_and_ignores_vendored_trees() {
         let dir = tempfile::tempdir().unwrap();
-        write(&dir, "00-chapter.md", "# Chapter\n");
+        write(&dir, "method/chapter.md", "# Chapter\n");
         write(&dir, "node_modules/pkg/README.md", &"line\n".repeat(400));
         assert!(run_in(&dir).is_empty());
     }
@@ -135,10 +138,10 @@ mod tests {
     #[test]
     fn rejects_a_chapter_over_cap() {
         let dir = tempfile::tempdir().unwrap();
-        write(&dir, "00-chapter.md", &"line\n".repeat(201));
+        write(&dir, "method/chapter.md", &"line\n".repeat(201));
         assert_eq!(
             run_in(&dir),
-            vec!["FAIL docs-format:chapter-stays-within-200-lines ./00-chapter.md".to_string()]
+            vec!["FAIL docs-format:chapter-stays-within-200-lines ./method/chapter.md".to_string()]
         );
     }
 
@@ -146,18 +149,40 @@ mod tests {
     fn catalogs_get_the_larger_cap() {
         let dir = tempfile::tempdir().unwrap();
         write(&dir, "README.md", &"line\n".repeat(300));
-        write(&dir, "08-gates.md", &"line\n".repeat(300));
+        write(&dir, "instance/README.md", &"line\n".repeat(300));
+        write(&dir, "method/README.md", &"line\n".repeat(300));
+        write(&dir, "method/gates.md", &"line\n".repeat(300));
+        write(&dir, "method/checklist.md", &"line\n".repeat(300));
+        write(&dir, "method/glossary.md", &"line\n".repeat(300));
+        write(&dir, "method/08-gates.md", &"line\n".repeat(300));
+        write(&dir, "method/08-checklist.md", &"line\n".repeat(300));
+        write(&dir, "comparison-docs/SOURCES.md", &"line\n".repeat(300));
         assert!(run_in(&dir).is_empty());
+
+        for path in [
+            "README.md",
+            "comparison-docs/SOURCES.md",
+            "instance/README.md",
+            "method/08-checklist.md",
+            "method/08-gates.md",
+            "method/README.md",
+            "method/checklist.md",
+            "method/gates.md",
+            "method/glossary.md",
+        ] {
+            write(&dir, path, &"line\n".repeat(301));
+        }
+        assert_eq!(run_in(&dir).len(), 9);
     }
 
     #[test]
     fn debt_exempts_an_oversize_chapter() {
         let dir = tempfile::tempdir().unwrap();
-        write(&dir, "00-chapter.md", &"line\n".repeat(201));
+        write(&dir, "method/debt-chapter.md", &"line\n".repeat(201));
         write(
             &dir,
             ".spec-driven-docs/chapter-size-debt.txt",
-            "00-chapter.md\n",
+            "method/debt-chapter.md\n",
         );
         assert!(run_in(&dir).is_empty());
     }
@@ -165,18 +190,18 @@ mod tests {
     #[test]
     fn debt_expires_when_the_chapter_fits_even_unterminated() {
         let dir = tempfile::tempdir().unwrap();
-        write(&dir, "00-chapter.md", "# fits\n");
+        write(&dir, "method/debt-chapter.md", "# fits\n");
         write(
             &dir,
             ".spec-driven-docs/chapter-size-debt.txt",
-            "00-chapter.md\n",
+            "method/debt-chapter.md\n",
         );
-        assert!(run_in(&dir)[0].contains("delist ./00-chapter.md: now fits"));
+        assert!(run_in(&dir)[0].contains("delist ./method/debt-chapter.md: now fits"));
 
         write(
             &dir,
             ".spec-driven-docs/chapter-size-debt.txt",
-            "00-chapter.md",
+            "method/debt-chapter.md",
         );
         assert!(run_in(&dir)[0].contains("now fits"));
     }
@@ -187,15 +212,67 @@ mod tests {
         write(
             &dir,
             ".spec-driven-docs/chapter-size-debt.txt",
-            "missing.md\n",
+            "method/missing-chapter.md\n",
         );
-        assert!(run_in(&dir)[0].contains("delist ./missing.md: deleted"));
+        assert!(run_in(&dir)[0].contains("delist ./method/missing-chapter.md: deleted"));
 
         write(
             &dir,
             ".spec-driven-docs/chapter-size-debt.txt",
-            "missing.md",
+            "method/missing-chapter.md",
         );
         assert!(run_in(&dir)[0].contains("deleted"));
+    }
+
+    #[test]
+    fn rejects_a_slug_named_chapter_in_a_zone() {
+        let dir = tempfile::tempdir().unwrap();
+        write(
+            &dir,
+            "comparison-docs/slug-chapter.md",
+            &"line\n".repeat(201),
+        );
+        assert_eq!(
+            run_in(&dir),
+            vec![
+                "FAIL docs-format:chapter-stays-within-200-lines ./comparison-docs/slug-chapter.md"
+                    .to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn ignores_a_slug_named_markdown_file_outside_every_zone() {
+        let dir = tempfile::tempdir().unwrap();
+        write(&dir, "reference/slug-document.md", &"line\n".repeat(201));
+        assert!(run_in(&dir).is_empty());
+    }
+
+    #[test]
+    fn ignores_a_markdown_file_nested_below_a_chapter_zone() {
+        let dir = tempfile::tempdir().unwrap();
+        write(&dir, "method/nested/slug-chapter.md", &"line\n".repeat(201));
+        assert!(run_in(&dir).is_empty());
+    }
+
+    #[test]
+    fn judges_a_glossary_outside_every_zone() {
+        let dir = tempfile::tempdir().unwrap();
+        write(&dir, "reference/glossary.md", &"line\n".repeat(301));
+        assert_eq!(
+            run_in(&dir),
+            vec![
+                "FAIL docs-format:chapter-stays-within-200-lines ./reference/glossary.md"
+                    .to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn ignores_agents_md_in_a_chapter_zone() {
+        let dir = tempfile::tempdir().unwrap();
+        write(&dir, "method/AGENTS.md", &"line\n".repeat(301));
+        write(&dir, "comparison-docs/AGENTS.md", &"line\n".repeat(301));
+        assert!(run_in(&dir).is_empty());
     }
 }

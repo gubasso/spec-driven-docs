@@ -10,6 +10,10 @@ Rules governing the markdown every document in this project is written in, and t
 
 The author MUST keep a chapter at or below 200 lines.
 
+A chapter is a markdown document directly inside `method/` or `comparison-docs/`, or a file named `glossary.md` or `README.md` anywhere. `AGENTS.md` is never a chapter, because `docs-format:author-instructions-stay-within-budget` owns it.
+
+A catalog chapter takes a 300-line cap instead. The catalog names are `gates.md`, `checklist.md`, `glossary.md`, `README.md`, and `SOURCES.md`.
+
 #### Scenario: A chapter acquires a second subject
 
 - GIVEN a chapter approaching the cap
