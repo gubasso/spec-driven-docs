@@ -124,12 +124,20 @@ Verify: `pre-commit run suppression-names-its-case --all-files`
 
 ### `spec-to-code:a-permanent-exception-states-its-reason` — A permanent exception states its reason
 
-Where a suppression masks no external defect, the author MUST state its reason in a permanent marker at it and MUST NOT name a case.
+Where a suppression masks no external defect, the author MUST state its reason at the suppression and MUST NOT name a case. The reason counts in either of two positions. Where the tool that honors the form defines a reason position, the reason written there counts. Where the tool defines none, the reason MUST carry the `sdd: permanent` marker.
+
+Only a position the tool defines counts. Prose near a suppression carries no reason, so a comment above one satisfies this rule only through the marker.
 
 #### Scenario: A permanent exception is given a case anyway
 
 - GIVEN a suppression over a construct this project chose deliberately and keeps
 - WHEN the author writes a record for it to satisfy the case rule
 - THEN that record carries a retirement condition nobody can meet, which is the mask the case rule exists to prevent
+
+#### Scenario: A generated artifact states its reason in its own idiom
+
+- GIVEN a workflow another project generates, carrying `# zizmor: ignore[dangerous-triggers] <reason>`
+- WHEN this repository must not edit those bytes
+- THEN the suppression passes on the tool's own reason, because requiring the marker there would couple this repository to that generator
 
 Verify: `pre-commit run suppression-names-its-case --all-files`

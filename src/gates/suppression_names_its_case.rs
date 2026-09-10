@@ -9,6 +9,15 @@
 //! suppression with neither becomes permanent by default: the next reader
 //! takes it for a design choice and nothing says what would retire it.
 //!
+//! A suppression states that reason in either of two places. Where the tool
+//! that honors the form defines a reason position of its own, the reason
+//! written there counts, so a generated artifact another project owns
+//! satisfies this rule in its own idiom and nothing here reaches into bytes
+//! it does not author. Where the tool defines no such position, the
+//! `sdd: permanent` marker is the portable fallback. Only a position the
+//! tool formally defines counts, so prose that merely sits near a
+//! suppression never satisfies the rule.
+//!
 //! A form counts only in a file the tool that honors it reads. `#[allow(`
 //! is live Rust and a quotation in markdown; `noqa` is live in a Python or
 //! shell comment and a quotation here. That scoping is what lets this file,
@@ -51,56 +60,89 @@ enum Opener {
     After(&'static str),
 }
 
+/// Where a form's own tool reads the reason the author wrote for it.
+///
+/// Only a position the tool formally defines counts. Prose that merely sits
+/// near a suppression is not a reason channel: accepting it would let an
+/// unrelated comment satisfy the rule.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Channel {
+    /// The tool defines no reason position, so the marker is the only form.
+    None,
+    /// The text after the directive's closing bracket, as zizmor reads it.
+    AfterBracket,
+    /// The text after a `--` separator, as `ESLint` reads it.
+    AfterSeparator,
+    /// The string of a `reason` argument, as Rust and pytest read it.
+    ReasonArgument,
+    /// The string of a bare `=` value, as `#[ignore]` reads it.
+    ValueString,
+}
+
+/// One suppression form: the text that opens it and the reason channel its
+/// own tool defines.
+struct Form {
+    token: &'static str,
+    channel: Channel,
+}
+
+const fn form(token: &'static str, channel: Channel) -> Form {
+    Form { token, channel }
+}
+
 /// One family of suppression forms, with the file suffixes it is live in.
 struct Family {
     suffixes: &'static [&'static str],
     opener: Opener,
-    tokens: &'static [&'static str],
+    forms: &'static [Form],
 }
 
 const FAMILIES: &[Family] = &[
     Family {
         suffixes: &[".rs"],
         opener: Opener::Line,
-        tokens: &[
-            "#[allow(",
-            "#[expect(",
-            "#![allow(",
-            "#![expect(",
-            "#[ignore",
+        forms: &[
+            form("#[allow(", Channel::ReasonArgument),
+            form("#[expect(", Channel::ReasonArgument),
+            form("#![allow(", Channel::ReasonArgument),
+            form("#![expect(", Channel::ReasonArgument),
+            form("#[ignore", Channel::ValueString),
         ],
     },
     Family {
         suffixes: &[".py"],
         opener: Opener::Line,
-        tokens: &[
-            "@pytest.mark.xfail",
-            "@pytest.mark.skip",
-            "@unittest.skip",
-            "@unittest.expectedFailure",
+        forms: &[
+            form("@pytest.mark.xfail", Channel::ReasonArgument),
+            form("@pytest.mark.skip", Channel::ReasonArgument),
+            form("@unittest.skip", Channel::None),
+            form("@unittest.expectedFailure", Channel::None),
         ],
     },
     Family {
         suffixes: &[".py", ".sh", ".bash", ".yaml", ".yml", ".toml"],
         opener: Opener::After("#"),
-        tokens: &[
-            "shellcheck disable=",
-            "noqa",
-            "ruff: noqa",
-            "flake8: noqa",
-            "type: ignore",
-            "zizmor: ignore[",
+        forms: &[
+            form("shellcheck disable=", Channel::None),
+            form("noqa", Channel::None),
+            form("ruff: noqa", Channel::None),
+            form("flake8: noqa", Channel::None),
+            form("type: ignore", Channel::None),
+            form("zizmor: ignore[", Channel::AfterBracket),
         ],
     },
     Family {
         suffixes: &[".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"],
         opener: Opener::After("//"),
-        tokens: &["eslint-disable"],
+        forms: &[form("eslint-disable", Channel::AfterSeparator)],
     },
     Family {
         suffixes: &[".md", ".html"],
         opener: Opener::After("<!--"),
-        tokens: &["dprint-ignore", "markdownlint-disable"],
+        forms: &[
+            form("dprint-ignore", Channel::None),
+            form("markdownlint-disable", Channel::None),
+        ],
     },
 ];
 
@@ -193,14 +235,15 @@ fn comment_carries(comment: &str, opener: &str, token: &str) -> bool {
     false
 }
 
-/// Where a suppression on this line starts carrying its annotation.
+/// Where a suppression on this line starts carrying its annotation, and the
+/// reason channel the form's own tool defines.
 ///
 /// A comment-borne form annotates from where the comment opens, so a case
 /// id or a marker written in code earlier on the line is not the
 /// suppression's. A line-borne form carries its annotation on the whole
 /// line: a Rust attribute and a Python decorator both hold their reason
 /// inside themselves.
-fn suppression_at(file: &str, line: &str) -> Option<usize> {
+fn suppression_at(file: &str, line: &str) -> Option<(usize, Channel)> {
     for family in FAMILIES {
         if !family.suffixes.iter().any(|suffix| file.ends_with(suffix)) {
             continue;
@@ -208,8 +251,12 @@ fn suppression_at(file: &str, line: &str) -> Option<usize> {
         match family.opener {
             Opener::Line => {
                 let code = line.trim_start();
-                if family.tokens.iter().any(|token| code.starts_with(token)) {
-                    return Some(0);
+                if let Some(form) = family
+                    .forms
+                    .iter()
+                    .find(|form| code.starts_with(form.token))
+                {
+                    return Some((0, form.channel));
                 }
             }
             Opener::After(opener) => {
@@ -217,12 +264,12 @@ fn suppression_at(file: &str, line: &str) -> Option<usize> {
                     continue;
                 };
                 let comment = &line[index..];
-                if family
-                    .tokens
+                if let Some(form) = family
+                    .forms
                     .iter()
-                    .any(|token| comment_carries(comment, opener, token))
+                    .find(|form| comment_carries(comment, opener, form.token))
                 {
-                    return Some(index);
+                    return Some((index, form.channel));
                 }
             }
         }
@@ -382,8 +429,103 @@ fn permanent_reason(line: &str) -> Option<String> {
     Some(rest.to_string())
 }
 
+/// The text of a quoted string starting at `from`, or `None` where no
+/// string opens there. The scan stops at the closing quote, so a reason
+/// carries its own text and nothing after it.
+fn quoted_from(line: &str, from: usize) -> Option<String> {
+    let rest = line[from..].trim_start();
+    let quote = rest.chars().next().filter(|c| *c == '"' || *c == '\'')?;
+    let body = &rest[quote.len_utf8()..];
+    let mut out = String::new();
+    let mut escaped = false;
+    for character in body.chars() {
+        if escaped {
+            out.push(character);
+            escaped = false;
+            continue;
+        }
+        match character {
+            '\\' => escaped = true,
+            c if c == quote => return Some(out),
+            c => out.push(c),
+        }
+    }
+    None
+}
+
+/// The text a `reason` argument carries, in the `reason = "..."` Rust
+/// writes and the `reason="..."` pytest writes.
+fn reason_argument(line: &str) -> Option<String> {
+    line.match_indices("reason")
+        .filter(|(index, _)| on_a_boundary(line, *index))
+        .find_map(|(index, _)| {
+            let after = &line[index + "reason".len()..];
+            let equals = after
+                .find('=')
+                .filter(|at| after[..*at].trim().is_empty())?;
+            quoted_from(after, equals + 1)
+        })
+}
+
+/// The reason the form's own tool reads, or `None` where the tool defines
+/// no reason position or the author left it empty.
+///
+/// The reason is read from the suppression's own lines alone. A comment
+/// above the suppression is prose the tool never reads, so it satisfies
+/// nothing here. An argument channel reads the line's code alone for the
+/// same reason: the word `reason` in a trailing comment is prose.
+fn native_reason(file: &str, channel: Channel, line: &str) -> Option<String> {
+    let text = match channel {
+        Channel::None => return None,
+        Channel::AfterBracket => {
+            let close = line.find(']')?;
+            line[close + 1..].to_string()
+        }
+        // ESLint separates the rule list from the description with a `--`
+        // that stands alone, so a hyphenated rule name is not a separator.
+        Channel::AfterSeparator => {
+            let at = line.find(" -- ")?;
+            line[at + 4..].to_string()
+        }
+        Channel::ReasonArgument => return reason_argument(code_region(file, line)),
+        Channel::ValueString => {
+            let code = code_region(file, line);
+            let equals = code.find('=')?;
+            return quoted_from(code, equals + 1);
+        }
+    };
+    Some(
+        text.trim_end()
+            .trim_end_matches("-->")
+            .trim_end_matches("*/")
+            .trim()
+            .to_string(),
+    )
+}
+
 fn looks_binary(bytes: &[u8]) -> bool {
     bytes.iter().take(4096).any(|&b| b == 0)
+}
+
+/// What a suppression declares about itself.
+///
+/// The disposition carries no reason text, because no caller reads one: the
+/// gate judges that a reason exists and leaves whether it is truthful to
+/// review, exactly as it does for the marker form.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Disposition {
+    /// Neither a case nor a reason, so the suppression becomes permanent by
+    /// default.
+    Missing,
+    /// A `KI-<slug>` case, which a record must define.
+    KnownIssue,
+    /// A permanent exception, stated in the tool's own reason channel or in
+    /// the portable marker.
+    Accepted,
+    /// A case and an explicit permanent marker, which are exclusive.
+    Conflict,
+    /// The marker with nothing after it.
+    MarkerWithoutReason,
 }
 
 /// One suppression, with the lines a reader can read its reason from.
@@ -392,6 +534,10 @@ struct Site {
     number: usize,
     line: String,
     annotation: Vec<String>,
+    /// Where the suppression's own lines start in `annotation`, past the
+    /// comment line above it.
+    region_from: usize,
+    channel: Channel,
 }
 
 impl Site {
@@ -401,10 +547,34 @@ impl Site {
             .any(|line| cited_cases(line).next().is_some())
     }
 
-    fn reason(&self) -> Option<String> {
+    /// The reason the portable marker states, wherever a reader can see it.
+    fn marker_reason(&self) -> Option<String> {
         self.annotation
             .iter()
             .find_map(|line| permanent_reason(line))
+    }
+
+    /// The reason the form's own tool carries, read from the suppression's
+    /// own lines.
+    fn native_reason(&self) -> Option<String> {
+        self.annotation[self.region_from..]
+            .iter()
+            .find_map(|line| native_reason(&self.file, self.channel, line))
+            .filter(|reason| !reason.is_empty())
+    }
+
+    /// The marker is an explicit declaration, so it decides on its own
+    /// wherever the author wrote one. The native channel decides only where
+    /// no marker and no case is present.
+    fn disposition(&self) -> Disposition {
+        match (self.cites_a_case(), self.marker_reason()) {
+            (true, Some(_)) => Disposition::Conflict,
+            (true, None) => Disposition::KnownIssue,
+            (false, Some(reason)) if reason.is_empty() => Disposition::MarkerWithoutReason,
+            (false, Some(_)) => Disposition::Accepted,
+            (false, None) if self.native_reason().is_some() => Disposition::Accepted,
+            (false, None) => Disposition::Missing,
+        }
     }
 }
 
@@ -436,7 +606,11 @@ fn unbalanced(text: &str) -> i32 {
 /// The lines stay separate, because a reason is read from the line its
 /// marker sits on. Rust's own idiom carries the reason above the attribute,
 /// and a multi-line inner attribute has no room on its own line.
-fn annotation(file: &str, lines: &[&str], index: usize, start: usize) -> Vec<String> {
+///
+/// The second return names where the suppression's own lines start, so a
+/// channel the tool defines is read from those lines and never from the
+/// comment above them.
+fn annotation(file: &str, lines: &[&str], index: usize, start: usize) -> (Vec<String>, usize) {
     let mut out = Vec::new();
     if let Some(opener) = comment_opener(file) {
         if let Some(above) = index
@@ -447,6 +621,7 @@ fn annotation(file: &str, lines: &[&str], index: usize, start: usize) -> Vec<Str
             out.push(above.to_string());
         }
     }
+    let region_from = out.len();
     out.push(lines[index][start..].to_string());
     // Delimiters are counted in the code alone, so punctuation in a trailing
     // comment cannot borrow the line below as this suppression's annotation.
@@ -462,7 +637,7 @@ fn annotation(file: &str, lines: &[&str], index: usize, start: usize) -> Vec<Str
     if depth == 0 {
         out.extend(continuation);
     }
-    out
+    (out, region_from)
 }
 
 fn sites(ctx: &GateCtx) -> Result<Vec<Site>, GateError> {
@@ -504,16 +679,19 @@ fn sites(ctx: &GateCtx) -> Result<Vec<Site>, GateError> {
                 continue;
             }
             let Some(offset) = live[index] else { continue };
-            let Some(found) = suppression_at(&name, &line[offset..]) else {
+            let Some((found, channel)) = suppression_at(&name, &line[offset..]) else {
                 continue;
             };
             let start = offset + found;
             if !is_closing(line) {
+                let (annotation, region_from) = annotation(&name, &lines, index, start);
                 sites.push(Site {
                     file: name.clone(),
                     number: index + 1,
                     line: (*line).to_string(),
-                    annotation: annotation(&name, &lines, index, start),
+                    annotation,
+                    region_from,
+                    channel,
                 });
             }
         }
@@ -532,22 +710,23 @@ pub fn run(ctx: &GateCtx, args: &[String]) -> GateResult {
 
     let mut caseless = Vec::new();
     for site in &sites {
-        match (site.cites_a_case(), site.reason()) {
-            (true, None) => {}
-            (false, Some(reason)) if !reason.is_empty() => {}
-            (false, Some(_)) => violations.push(Violation::Finding(Finding::on_line(
-                PERMANENT,
-                &site.file,
-                site.number,
-                "the permanent marker states no reason",
-            ))),
-            (true, Some(_)) => violations.push(Violation::Finding(Finding::on_line(
+        match site.disposition() {
+            Disposition::KnownIssue | Disposition::Accepted => {}
+            Disposition::MarkerWithoutReason => {
+                violations.push(Violation::Finding(Finding::on_line(
+                    PERMANENT,
+                    &site.file,
+                    site.number,
+                    "the permanent marker states no reason",
+                )));
+            }
+            Disposition::Conflict => violations.push(Violation::Finding(Finding::on_line(
                 PERMANENT,
                 &site.file,
                 site.number,
                 "names a case and states a permanent exception",
             ))),
-            (false, None) => caseless.push(site),
+            Disposition::Missing => caseless.push(site),
         }
     }
     if !caseless.is_empty() {
@@ -682,6 +861,120 @@ mod tests {
         ] {
             assert!(run_on(name, text).is_empty(), "{name}: {text}");
         }
+    }
+
+    #[test]
+    fn a_tools_own_reason_states_a_permanent_exception() {
+        for (name, text) in [
+            (
+                "local.yml",
+                "on: push  # zizmor: ignore[dangerous-triggers] the definition is the trusted one\n",
+            ),
+            (
+                "local.rs",
+                "#[allow(dead_code, reason = \"the field is the wire format\")]\n",
+            ),
+            (
+                "local.rs",
+                "#[expect(dead_code, reason = \"the field is the wire format\")]\n",
+            ),
+            (
+                "local.rs",
+                "#[ignore = \"the fixture needs a live network\"]\n",
+            ),
+            (
+                "local.py",
+                "@pytest.mark.xfail(reason=\"the parser rejects a valid literal\", strict=True)\ndef test_x():\n    pass\n",
+            ),
+            (
+                "local.ts",
+                "// eslint-disable-next-line no-eval -- the input is a literal in this file\n",
+            ),
+        ] {
+            assert!(run_on(name, text).is_empty(), "{name}: {text}");
+        }
+    }
+
+    /// The shape a generated workflow carries, which this project does not
+    /// author and must not edit.
+    #[test]
+    fn a_generated_workflow_states_its_reason_in_its_own_idiom() {
+        let text = concat!(
+            "on:\n",
+            "  # zizmor: ignore[dangerous-triggers] the trigger is what makes this gate\n",
+            "  # unforgeable, and the header above states why it is safe here.\n",
+            "  pull_request_target:\n",
+        );
+        assert!(run_on("local.yml", text).is_empty());
+    }
+
+    #[test]
+    fn a_tools_own_reason_left_empty_is_no_reason() {
+        for (name, text) in [
+            (
+                "local.yml",
+                "on: push  # zizmor: ignore[dangerous-triggers]\n",
+            ),
+            ("local.rs", "#[allow(dead_code, reason = \"\")]\n"),
+            ("local.rs", "#[ignore]\n"),
+            ("local.ts", "// eslint-disable-next-line no-eval --\n"),
+        ] {
+            let out = run_on(name, text);
+            assert_eq!(out.len(), 2, "{name}: {text}");
+            assert_eq!(out[0], "FAIL spec-to-code:a-suppression-names-its-case");
+        }
+    }
+
+    #[test]
+    fn a_tool_that_defines_no_reason_position_still_takes_the_marker() {
+        for (name, text) in [
+            ("local.py", "x = 1  # noqa: E501 the line is one URL\n"),
+            (
+                "local.sh",
+                "# shellcheck disable=SC2329 reached through a trap\n",
+            ),
+            (
+                "local.md",
+                "<!-- markdownlint-disable MD013 the table is data -->\n",
+            ),
+        ] {
+            let out = run_on(name, text);
+            assert_eq!(out.len(), 2, "{name}: {text}");
+            assert_eq!(out[0], "FAIL spec-to-code:a-suppression-names-its-case");
+        }
+    }
+
+    #[test]
+    fn prose_above_a_suppression_is_not_the_tools_own_reason() {
+        for (name, text) in [
+            (
+                "local.rs",
+                "// reason = \"this comment is not the attribute\"\n#[allow(dead_code)]\n",
+            ),
+            (
+                "local.rs",
+                "#[allow(dead_code)] // reason = \"this comment is not the attribute\"\n",
+            ),
+        ] {
+            let out = run_on(name, text);
+            assert_eq!(out[0], "FAIL spec-to-code:a-suppression-names-its-case");
+        }
+    }
+
+    #[test]
+    fn a_case_inside_a_tools_own_reason_stays_a_known_issue() {
+        assert!(
+            run_on(
+                "local.rs",
+                "#[allow(dead_code, reason = \"KI-vendor-quirk\")]\n"
+            )
+            .is_empty()
+        );
+        let out = run_on("local.rs", "#[allow(dead_code, reason = \"KI-absent\")]\n");
+        assert_eq!(
+            out[0],
+            "FAIL spec-to-code:a-suppression-names-its-case: KI-absent resolves to no record"
+        );
     }
 
     #[test]
