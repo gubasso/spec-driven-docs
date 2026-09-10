@@ -83,7 +83,23 @@ def test_webhook_replay_is_idempotent():
 
 Prefer the strict form. A non-strict expected failure keeps passing after the upstream fix lands. As a result, the suppression outlives the bug it was written for and nobody learns the case can close. A strict one turns the suite red the moment the fix arrives, which is the signal that closes it.
 
-Some suppressions have no exit. A lint disabled over a construct this project chose and keeps masks nothing external. No record can carry a condition anyone meets. Writing one anyway produces the unremovable mask the case rule exists to prevent. That suppression carries a permanent marker and its reason instead, in the shape `sdd: permanent <reason>`, on the suppression line or in the comment above it. The two forms are exclusive: a suppression names a case or states a permanent reason, never both.
+Some suppressions have no exit. A lint disabled over a construct this project chose and keeps masks nothing external. No record can carry a condition anyone meets. Writing one anyway produces the unremovable mask the case rule exists to prevent. That suppression states its reason instead. The two forms are exclusive: a suppression names a case or states a permanent reason, never both.
+
+The reason goes where the tool that honors the suppression already reads one. Most modern linters define that position, and the idiom differs per tool.
+
+```text
+zizmor    # zizmor: ignore[dangerous-triggers] <reason>
+ESLint    // eslint-disable-next-line no-eval -- <reason>
+Rust      #[expect(dead_code, reason = "<reason>")]
+pytest    @pytest.mark.skip(reason="<reason>")
+unittest  @unittest.skip("<reason>")
+```
+
+The reason belongs to the suppression that carries it, and reaches no further than the construct it sits in. A second attribute on the line states its own reason, never its neighbour's.
+
+Where the tool defines no reason position, as `noqa` and `shellcheck disable=` do not, the reason carries the `sdd: permanent <reason>` marker, on the suppression line or in the comment above it. Writing the reason in the tool's own idiom keeps a generated file another project owns readable by both: it satisfies this rule without one byte of this convention inside it.
+
+Only the position the tool defines counts. A comment that merely sits near a suppression states no reason, because accepting nearby prose would let an unrelated sentence close the rule.
 
 A test that must not hide the bug at all keeps failing, with the case id in a comment beside it. The case id is the record's filename, so it resolves the same way a rule ID does. The reason string needs no restated summary, because the record it names holds the symptom, the workaround, and the retire condition. The case, its states, and its retirement belong to [07 Lifecycle](./07-lifecycle.md).
 
