@@ -88,11 +88,14 @@ Some suppressions have no exit. A lint disabled over a construct this project ch
 The reason goes where the tool that honors the suppression already reads one. Most modern linters define that position, and the idiom differs per tool.
 
 ```text
-zizmor  # zizmor: ignore[dangerous-triggers] <reason>
-ESLint  // eslint-disable-next-line no-eval -- <reason>
-Rust    #[expect(dead_code, reason = "<reason>")]
-pytest  @pytest.mark.skip(reason="<reason>")
+zizmor    # zizmor: ignore[dangerous-triggers] <reason>
+ESLint    // eslint-disable-next-line no-eval -- <reason>
+Rust      #[expect(dead_code, reason = "<reason>")]
+pytest    @pytest.mark.skip(reason="<reason>")
+unittest  @unittest.skip("<reason>")
 ```
+
+The reason belongs to the suppression that carries it, and reaches no further than the construct it sits in. A second attribute on the line states its own reason, never its neighbour's.
 
 Where the tool defines no reason position, as `noqa` and `shellcheck disable=` do not, the reason carries the `sdd: permanent <reason>` marker, on the suppression line or in the comment above it. Writing the reason in the tool's own idiom keeps a generated file another project owns readable by both: it satisfies this rule without one byte of this convention inside it.
 

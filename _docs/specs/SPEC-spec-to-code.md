@@ -126,7 +126,7 @@ Verify: `pre-commit run suppression-names-its-case --all-files`
 
 Where a suppression masks no external defect, the author MUST state its reason at the suppression and MUST NOT name a case. The reason counts in either of two positions. Where the tool that honors the form defines a reason position, the reason written there counts. Where the tool defines none, the reason MUST carry the `sdd: permanent` marker.
 
-Only a position the tool defines counts. Prose near a suppression carries no reason, so a comment above one satisfies this rule only through the marker.
+Only a position the tool defines counts. Prose near a suppression carries no reason, so a comment above one satisfies this rule only through the marker. The reason reaches no further than the suppression that carries it, and whitespace states nothing.
 
 #### Scenario: A permanent exception is given a case anyway
 

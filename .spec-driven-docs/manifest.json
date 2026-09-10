@@ -116,8 +116,8 @@
     {
       "source": "_docs/specs/SPEC-spec-to-code.md",
       "destination": "_docs/specs/SPEC-spec-to-code.md",
-      "sha256": "6ecde527a69675e64fde8928fed3604a021b307c62db76832338835984ee611f",
-      "baseline_sha256": "6ecde527a69675e64fde8928fed3604a021b307c62db76832338835984ee611f"
+      "sha256": "d65421dbb7ad96237efa69dec877a3b24481016b252c162a76ffcde17b5857ba",
+      "baseline_sha256": "d65421dbb7ad96237efa69dec877a3b24481016b252c162a76ffcde17b5857ba"
     },
     {
       "source": "_docs/specs/SPEC-tracking.md",
