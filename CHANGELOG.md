@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.3](https://github.com/gubasso/spec-driven-docs/compare/v0.6.2...v0.6.3) - 2026-09-10
+
+### Fixed
+
+- *(gates)* Select a chapter by the zone it sits in ([#66](https://github.com/gubasso/spec-driven-docs/pull/66))
+
 ## [0.6.2](https://github.com/gubasso/spec-driven-docs/compare/v0.6.1...v0.6.2) - 2026-09-09
 
 ### Other
