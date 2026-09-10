@@ -14,21 +14,21 @@ The documentation method itself (zones, specs, decision records, the markdown re
 
 ## How to use this shelf
 
-Load this file, find the owning chapter below, then read that chapter. Do not read the shelf linearly. Building a comparison document from scratch means reading `00-model.md` first, then following `README.md` under Apply the genre.
+Load this file, find the owning chapter below, then read that chapter. Do not read the shelf linearly. Building a comparison document from scratch means reading `model.md` first, then following `README.md` under Apply the genre.
 
 ## Where the rules live
 
-| Question the agent arrives with                             | Owning chapter      |
-| ----------------------------------------------------------- | ------------------- |
-| What is a verdict allowed to be based on?                   | `00-model.md`       |
-| How wide may the table be, and when do I split it?          | `01-table-shape.md` |
-| Which verdict do I put in this cell, and how is it written? | `02-verdicts.md`    |
-| Where may a link start, where does it land, how many?       | `03-references.md`  |
-| What shape is the scenario and its result?                  | `04-scenarios.md`   |
-| How is the document dated and refreshed?                    | `05-freshness.md`   |
-| What command enforces this rule?                            | `06-gates.md`       |
-| What must pass before this merges?                          | `99-checklist.md`   |
-| Why does this rule exist?                                   | `SOURCES.md`        |
+| Question the agent arrives with                             | Owning chapter   |
+| ----------------------------------------------------------- | ---------------- |
+| What is a verdict allowed to be based on?                   | `model.md`       |
+| How wide may the table be, and when do I split it?          | `table-shape.md` |
+| Which verdict do I put in this cell, and how is it written? | `verdicts.md`    |
+| Where may a link start, where does it land, how many?       | `references.md`  |
+| What shape is the scenario and its result?                  | `scenarios.md`   |
+| How is the document dated and refreshed?                    | `freshness.md`   |
+| What command enforces this rule?                            | `gates.md`       |
+| What must pass before this merges?                          | `checklist.md`   |
+| Why does this rule exist?                                   | `SOURCES.md`     |
 
 Template: `../templates/TEMPLATE-comparison.md`.
 

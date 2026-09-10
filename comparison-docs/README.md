@@ -19,18 +19,18 @@ Two failures produce most comparison pages. The first is a matrix built by readi
 
 ## Chapters
 
-| #        | Chapter                                           | One-line hook                                                       |
-| -------- | ------------------------------------------------- | ------------------------------------------------------------------- |
-| 0        | [Model](./00-model.md)                            | A verdict is an observation, and row selection is the honest part.  |
-| 1        | [Table shape](./01-table-shape.md)                | Five columns, split by theme, rows phrased as observable behavior.  |
-| 2        | [Verdicts](./02-verdicts.md)                      | Six states, symbol plus word, and why a blank cell is not a value.  |
-| 3        | [References](./03-references.md)                  | Label links to the method, verdict links to the evidence.           |
-| 4        | [Scenarios](./04-scenarios.md)                    | The method names no expected outcome; the evidence names a version. |
-| 5        | [Freshness](./05-freshness.md)                    | Every table is dated, and untested beats a stale yes.               |
-| 6        | [Gates](./06-gates.md)                            | Five working commands, and the rules no command can check.          |
-| 99       | [Checklist](./99-checklist.md)                    | What must pass before the document merges.                          |
-|          | [Sources](./SOURCES.md)                           | The research behind each rule, with confirmation dates.             |
-| Template | [Comparison](../templates/TEMPLATE-comparison.md) | Start one.                                                          |
+| Chapter                                                    | One-line hook                                                       |
+| ---------------------------------------------------------- | ------------------------------------------------------------------- |
+| [Model](./model.md)                                        | A verdict is an observation, and row selection is the honest part.  |
+| [Table shape](./table-shape.md)                            | Five columns, split by theme, rows phrased as observable behavior.  |
+| [Verdicts](./verdicts.md)                                  | Six states, symbol plus word, and why a blank cell is not a value.  |
+| [References](./references.md)                              | Label links to the method, verdict links to the evidence.           |
+| [Scenarios](./scenarios.md)                                | The method names no expected outcome; the evidence names a version. |
+| [Freshness](./freshness.md)                                | Every table is dated, and untested beats a stale yes.               |
+| [Gates](./gates.md)                                        | Five working commands, and the rules no command can check.          |
+| [Checklist](./checklist.md)                                | What must pass before the document merges.                          |
+| [Sources](./SOURCES.md)                                    | The research behind each rule, with confirmation dates.             |
+| [Comparison template](../templates/TEMPLATE-comparison.md) | Start one.                                                          |
 
 ## Apply the genre
 
@@ -39,7 +39,7 @@ Two failures produce most comparison pages. The first is a matrix built by readi
 3. Write the method for each row before filling any cell.
 4. Run every method against every subject. Anything not run stays `❓ untested`.
 5. Fill the `Verified:` line with the run date and every subject version.
-6. Wire the five commands from [06 Gates](./06-gates.md), with the escaped-pipe check ahead of the markdown formatter.
+6. Wire the five commands from [Gates](./gates.md), with the escaped-pipe check ahead of the markdown formatter.
 7. Record the re-verification cadence where the project tracks perishable facts.
 
 Start with one theme. A matrix that covers everything on the day it ships covers nothing six months later, because nobody starts a refresh nobody can finish.

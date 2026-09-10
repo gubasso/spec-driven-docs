@@ -1,4 +1,4 @@
-# 02 — Verdicts
+# Verdicts
 
 A cell holds one verdict from a fixed vocabulary, written as a symbol and a word. This chapter owns the vocabulary, why the word is not optional, and the two states that must never be spelled as an absence.
 
@@ -46,7 +46,7 @@ Legend: ✅ yes, works on the default path · ⚠️ partial, needs configuratio
 
 An empty cell means one of four different things and the reader cannot tell which: not applicable, not tested, tested and negative, or the author stopped filling the table. `➖ n/a` and `❓ untested` exist to separate the two honest cases, and they read as deliberate where a blank reads as unfinished.
 
-`❓ untested` is the state authors are most tempted to skip, and it is the one that keeps the document trustworthy. [05 Freshness](./05-freshness.md) owns what to do with it.
+`❓ untested` is the state authors are most tempted to skip, and it is the one that keeps the document trustworthy. [Freshness](./freshness.md) owns what to do with it.
 
 ## Sources
 

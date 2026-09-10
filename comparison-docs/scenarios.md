@@ -1,4 +1,4 @@
-# 04 — Scenarios
+# Scenarios
 
 The scenario is what a comparison document actually contains. The matrix is a view over it. This chapter fixes the shape of a method section and the shape of an evidence section. It also fixes the rule that keeps a scenario runnable by someone who did not write it.
 
