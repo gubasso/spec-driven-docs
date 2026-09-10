@@ -1,31 +1,13 @@
 {
-  "schema_version": 4,
-  "rk_version": "0.2.18",
-  "payload_sha256": "bc0aa39283d3424cb3eb8f8ea97bc0d6b537ef9f841c2e4dca238b35cb3e9ebd",
+  "schema_version": 5,
+  "rk_version": "0.3.11",
+  "payload_sha256": "66b28e19626fd261cd57b964efec3c9d0859da014c10b1eb26f75b14c969e8d2",
   "origin": "init",
   "tech": "rust",
   "forge": "github",
   "landed_at": "2026-09-02T20:44:07Z",
   "parameters": {
     "repo": "gubasso/spec-driven-docs",
-    "scopes": [
-      "release",
-      "gates",
-      "skills",
-      "skill-shared",
-      "distribution",
-      "specs",
-      "docs",
-      "guides",
-      "method",
-      "comparison-docs",
-      "templates",
-      "reference",
-      "instance",
-      "deps",
-      "ci",
-      "lint"
-    ],
     "workflow": "worktree",
     "style": "trunk",
     "nix": true
@@ -34,37 +16,37 @@
     {
       "destination": ".github/workflows/pr-title.yml",
       "kind": "rendered",
-      "sha256": "ac1f62d5881e596d3de46f47df1a0e2a35117d30ced18858a6c09db5e8f1b4f1",
-      "baseline_sha256": "8fe464039815a02dba2a5feb9b5c10c3332729ef982ef209a4560b45aa5cb396"
+      "sha256": "972336ac17d76fa11d785a8dfb381b3bdc7dc8af318ae9225a4855c08bc1b13c",
+      "baseline_sha256": "0205b9f369179ae855a5feb84d034860632c3187818dd4ae8a23b1fe0aa79bda"
     },
     {
       "destination": ".github/workflows/release-plz.yml",
       "kind": "rendered",
-      "sha256": "c6caff0323bb4489ea637178c99ac836c3c55c40ac4b4437e1345da12be272b7",
-      "baseline_sha256": "f67151adc5f1c8a215e2320edef81151435c71a837e175e7f4aeed5cf8d77ff1"
+      "sha256": "dae0bfc1282b30535df0a13562b0b3ea5b4ff59af63009301f5ee86a9406c968",
+      "baseline_sha256": "4fb58d8ee980491f9ce7a650829864261cd51a27d6eea0801290a96e3e148fa5"
     },
     {
       "destination": ".pre-commit-config.yaml",
       "kind": "rendered",
-      "sha256": "707fa9fb6d6bf06f6d71394c9d8c2fa5a3a6be0bc6f039cee5642905d81780ba",
-      "baseline_sha256": "c8a628ef3ed94761fee8c55e830714f8a0dc3dbc84c1699a1a97e1696652aa7a"
+      "sha256": "78149baea10341037a25dd728b31ae014c9d391a1c75375076d494663783e6f1",
+      "baseline_sha256": "78149baea10341037a25dd728b31ae014c9d391a1c75375076d494663783e6f1"
     },
     {
       "destination": "AGENTS.md",
       "kind": "rendered",
-      "sha256": "7f5360c80825125b0143c7e3e91a6fe9d24cf087b3426660de2960c0303d980b",
-      "baseline_sha256": "590006b7fb873a8b5af79e89baea29276b02cc59bfea7fb2a680f6855b097317"
+      "sha256": "2c8d67375a633a9a6028766cc51630c4c03fed7ab89290e833590c4ee8ff50e1",
+      "baseline_sha256": "2c8d67375a633a9a6028766cc51630c4c03fed7ab89290e833590c4ee8ff50e1"
     },
     {
       "destination": "dist-workspace.toml",
       "kind": "seeded",
-      "sha256": "d51e679ff879c46e87d722fc3572a52a2e9e2ca85796c0635a580506622c47bb",
+      "sha256": "ed8b7155a00cd3007bb5d29f207fd6c6f902d5f22f509374acfd2e31195cc91e",
       "baseline_sha256": "d51e679ff879c46e87d722fc3572a52a2e9e2ca85796c0635a580506622c47bb"
     },
     {
       "destination": "nix/package.nix",
       "kind": "seeded",
-      "sha256": "bd1537cc2c4ef5e46c29d65a9149bdeaafbc448632f9fabd37aeff6deeb2a3eb",
+      "sha256": "d4a128888e23d322dc80690a5bb82ae587a4ebf61745a6060f590bed8c4f77e2",
       "baseline_sha256": "bd1537cc2c4ef5e46c29d65a9149bdeaafbc448632f9fabd37aeff6deeb2a3eb"
     },
     {
@@ -84,6 +66,7 @@
     "dist-download-artifact": "8",
     "dist-upload-artifact": "7",
     "magic-nix-cache-action": "13",
+    "nix-image": "2.35.2",
     "nix-installer-action": "19",
     "pre-commit-hooks": "6.0.0",
     "release-plz": "0.3.160",
