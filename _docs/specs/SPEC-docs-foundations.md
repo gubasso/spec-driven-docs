@@ -49,7 +49,7 @@ Verify: reviewer confirms no record was edited to match a later spec
 
 The author MUST use `~/`, `$HOME/`, or a bracketed placeholder for home-directory paths, except in a file dedicated to one person's environment.
 
-The rule binds an author writing any document. The gate that checks it reads the documentation root alone, because a file outside that root belongs to the project or to another tool.
+The rule binds an author writing any document, and the gate judges the whole project. Whether a string is a real person's home directory does not depend on which conventions a project follows, so the check has no register to collide with and its value is entirely in breadth. A project that needs a path exempt reserves it in its own declaration.
 
 #### Scenario: A walkthrough is written from the author's own terminal
 

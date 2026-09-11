@@ -201,7 +201,7 @@ The emphasis rule is stated without a gate. See the table below. The wrap rule i
 
 ## Personal paths
 
-`sdd gate no-personal-path` reports an absolute path into a home directory: `/home/<name>`, `/Users/<name>`, and the Windows spelling. The delivered hook passes it the markdown under the documentation root. To reach a file outside that root, name the file on the command line or wire a hook of your own.
+`sdd gate no-personal-path` reports an absolute path into a home directory: `/home/<name>`, `/Users/<name>`, and the Windows spelling. It judges the whole project. Whether a string is a real person's home directory does not depend on which conventions you follow, so the check has no register to collide with and its value is entirely in breadth. To keep a path out of it, reserve that path in `.spec-driven-docs/config.yaml`.
 
 This is the one prose check that does not strip code first. A fenced command carrying a real home directory is the leak, not a quotation of it. As a result, a document teaching the shape writes a placeholder segment: `<user>`, `$USER`, `~`. Two exemptions are by purpose rather than path: a file whose job is one person's environment (`.env`, `.envrc.local`, and their sample copies), and any file git ignores, which never reaches a hook at all.
 

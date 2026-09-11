@@ -76,7 +76,7 @@ Verify: reviewer confirms the change introduces no bold or italic text
 
 The author MUST NOT record what a document used to say, what it replaces, or why something is absent.
 
-The gate reads the markdown under the documentation root, and it skips the decision records there. A record states the reasoning of one moment and is the only document class that carries history.
+The gate skips the decision records. A record states the reasoning of one moment and is the only document class that carries history. Which paths the gate judges is the project's to state, and the documentation root is only where it starts.
 
 #### Scenario: A rule is removed
 
@@ -104,7 +104,7 @@ The author MUST keep each paragraph, list item, and blockquote paragraph on one 
 
 A generated `CHANGELOG.md` is exempt: the rule binds the author, and a release tool writes that file at its own wrap width.
 
-The gate reads the markdown under the documentation root. Prose the project keeps elsewhere belongs to the project, so the rule binds its author and no delivered gate judges it.
+Prose the project keeps outside the paths it declares for this gate belongs to the project, so the rule binds its author and no delivered gate judges it. Which paths those are is the project's to state, and the documentation root is only where it starts.
 
 #### Scenario: A paragraph is hard-wrapped at a column width
 

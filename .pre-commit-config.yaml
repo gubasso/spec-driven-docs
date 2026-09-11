@@ -163,7 +163,6 @@ repos:
         name: no personal path
         entry: cargo run -q -- gate no-personal-path
         language: system
-        files: '^_docs/(?:.*/)?[^/]*\.md$'
         types: [text]
       - id: no-self-narration
         name: documents state the present

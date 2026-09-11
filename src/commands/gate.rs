@@ -60,26 +60,27 @@ fn declaration() -> Result<InstanceConfig, AppError> {
     InstanceConfig::read(Utf8Path::new(".")).map_err(|error| AppError::Usage(error.to_string()))
 }
 
-/// Refuse a path that names something outside the repository.
+/// Refuse a path this command must not follow.
 ///
-/// Pre-commit supplies safe paths. The public direct command must not read
-/// an arbitrary host file, so the check sits where operator input arrives
-/// rather than where a gate reads.
+/// A relative path that climbs out of the repository is refused, and so is
+/// one reached through a link that leaves it. An absolute path is not:
+/// pre-commit hands the message file at the `commit-msg` stage by absolute
+/// path, and it sits outside the working tree by design, so refusing
+/// absolutes would break a delivered wiring. What a gate reads stays bounded
+/// by what pre-commit or the operator names, which was already true.
 fn contained(path: &str) -> Result<(), AppError> {
     let candidate = Utf8Path::new(path);
-    if candidate.is_absolute() {
-        return Err(AppError::Usage(format!(
-            "{path} is absolute: a gate judges repository-relative paths"
-        )));
-    }
     if candidate.components().any(|part| part.as_str() == "..") {
         return Err(AppError::Usage(format!(
             "{path} climbs out of the repository"
         )));
     }
-    let resolved = std::fs::canonicalize(path);
-    let root = std::fs::canonicalize(".");
-    if let (Ok(resolved), Ok(root)) = (resolved, root) {
+    if candidate.is_absolute() {
+        return Ok(());
+    }
+    // A relative path that resolves outside the repository got there through
+    // a link, which is the case the `..` check cannot see.
+    if let (Ok(resolved), Ok(root)) = (std::fs::canonicalize(path), std::fs::canonicalize(".")) {
         if !resolved.starts_with(&root) {
             return Err(AppError::Usage(format!(
                 "{path} is reached through a link that leaves the repository"

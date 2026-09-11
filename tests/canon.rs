@@ -222,6 +222,7 @@ fn every_gate_declares_what_it_judges() {
     // permitted for 19 of the 30 rows.
     const JUDGES_EVERYTHING: &[&str] = &[
         "gate-message-cites-a-rule",
+        "no-personal-path",
         "spec-change-is-typed",
         "suppression-names-its-case",
     ];

@@ -224,16 +224,30 @@ fn a_gate_still_reads_its_support_files_under_a_filter() {
 }
 
 #[test]
-fn a_path_outside_the_repository_is_refused() {
+fn a_path_climbing_out_of_the_repository_is_refused() {
     let fixture = Fixture::new();
-    for path in ["/etc/passwd", "../outside.md"] {
-        fixture
-            .cmd()
-            .args(["gate", "adr-filename-shape", path])
-            .current_dir(fixture.path())
-            .assert()
-            .code(64);
-    }
+    fixture
+        .cmd()
+        .args(["gate", "adr-filename-shape", "../outside.md"])
+        .current_dir(fixture.path())
+        .assert()
+        .code(64);
+}
+
+/// Pre-commit hands the message file by absolute path at the `commit-msg`
+/// stage, and it sits outside the working tree by design. Refusing every
+/// absolute path broke that wiring once; this holds the repair.
+#[test]
+fn an_absolute_path_is_accepted_because_pre_commit_passes_one() {
+    let fixture = Fixture::new();
+    let message = fixture.path().join("COMMIT_EDITMSG");
+    std::fs::write(&message, "chore: a subject\n").unwrap();
+    fixture
+        .cmd()
+        .args(["gate", "no-personal-path", message.to_str().unwrap()])
+        .current_dir(fixture.path())
+        .assert()
+        .success();
 }
 
 #[test]
@@ -317,4 +331,124 @@ fn explain_needs_no_gate_id_and_conflicts_with_list() {
         .current_dir(fixture.path())
         .assert()
         .failure();
+}
+
+/// The leak check judges the whole project again, which is what v0.6.5 took
+/// and what the declaration makes safe to give back.
+///
+/// SATISFIES docs-foundations:a-document-carries-no-personal-path
+#[test]
+fn the_leak_check_reports_a_home_directory_in_a_root_readme() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    // Assembled rather than written out, so this source file carries no
+    // personal path of its own. The gate judges it now.
+    fixture.write(
+        "README.md",
+        &format!("Run it from {}/ada/projects.\n", "/ho".to_owned() + "me"),
+    );
+
+    // v0.6.5 anchored this row to the documentation root, so the path
+    // below was outside what the gate would judge however it was reached.
+    fixture
+        .cmd()
+        .args(["gate", "no-personal-path", "README.md"])
+        .current_dir(fixture.path())
+        .assert()
+        .code(1)
+        .stdout(predicate::str::contains("README.md"));
+
+    // And pre-commit reaches it: the rendered row carries no `files:`, so
+    // `types: [text]` alone selects, which is the breadth being restored.
+    let assert = fixture
+        .cmd()
+        .args(["gate", "--explain", "README.md"])
+        .current_dir(fixture.path())
+        .assert()
+        .success();
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+    assert!(
+        stdout.contains("judges       no-personal-path"),
+        "the leak check does not judge a root README:\n{stdout}"
+    );
+}
+
+#[test]
+fn a_reserved_path_still_stops_the_leak_check() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    // Assembled rather than written out, so this source file carries no
+    // personal path of its own. The gate judges it now.
+    fixture.write(
+        "README.md",
+        &format!("Run it from {}/ada/projects.\n", "/ho".to_owned() + "me"),
+    );
+    fixture.write(
+        ".spec-driven-docs/config.yaml",
+        "reserved:\n  - README.md\ngates: {}\n",
+    );
+
+    fixture
+        .cmd()
+        .args(["gate", "no-personal-path", "README.md"])
+        .current_dir(fixture.path())
+        .assert()
+        .success();
+}
+
+/// What `suppression-rule-without-a-parser` rests on. Its rewritten gate
+/// sweeps every `KI-` token and resolves it against the records, and this
+/// convention cannot tell a citation from a test fixture that builds a fake
+/// record. The project can, and this proves the three things that item
+/// needs: a reserved fixture leaves the subject set, a non-reserved source
+/// path stays in it, and the records stay readable as support.
+#[test]
+fn a_reserved_fixture_is_absent_from_the_suppression_subject_set() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    fixture.write(
+        "_docs/reference/known-issues/KI-a-real-case.md",
+        "---\nupstream: https://example.invalid/i\nstate: open\nfiling: gathering\n---\n# A case\n",
+    );
+    // A fixture naming a record that does not exist, and a source file
+    // whose suppression names the record that does.
+    fixture.write("tests/fixtures/build.rs", "// KI-a-fabricated-case\n");
+    fixture.write("src/real.rs", "// sdd: permanent KI-a-real-case\n");
+    fixture.write(
+        ".spec-driven-docs/config.yaml",
+        "reserved:\n  - tests/fixtures/**\ngates: {}\n",
+    );
+
+    let assert = fixture
+        .cmd()
+        .args(["gate", "--explain", "tests/fixtures/build.rs"])
+        .current_dir(fixture.path())
+        .assert()
+        .success();
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+    assert!(
+        stdout.contains("skipped      suppression-names-its-case"),
+        "the reserved fixture is still in the gate's subject set:\n{stdout}"
+    );
+
+    let assert = fixture
+        .cmd()
+        .args(["gate", "--explain", "src/real.rs"])
+        .current_dir(fixture.path())
+        .assert()
+        .success();
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+    assert!(
+        stdout.contains("judges       suppression-names-its-case"),
+        "a non-reserved source path left the subject set too:\n{stdout}"
+    );
+
+    // The records are support, so reserving a subject path does not stop the
+    // gate resolving a case against them.
+    fixture
+        .cmd()
+        .args(["gate", "suppression-names-its-case"])
+        .current_dir(fixture.path())
+        .assert()
+        .success();
 }

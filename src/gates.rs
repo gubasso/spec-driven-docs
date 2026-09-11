@@ -441,7 +441,15 @@ pub static GATES: &[GateSpec] = &[
     GateSpec {
         id: GateId::NoPersonalPath,
         name: "no personal path",
-        include: &[r"{docs_root}/**/*.md"],
+        // Judges the whole project. Whether a string is a real person's
+        // home directory does not depend on which conventions a project
+        // follows, so a false positive is nearly impossible and the value
+        // is entirely in breadth. v0.6.5 anchored this to the documentation
+        // root over two register collisions, which a leak check does not
+        // have: a rendered release block carries no home directory. A
+        // project that needs a path exempt reserves it
+        // (ADR-a-project-declares-what-its-gates-read).
+        include: &[],
         types: Some("text"),
         exclude: &[],
         always_run: false,
