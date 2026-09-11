@@ -79,7 +79,7 @@ ls <root>/reference/known-issues/ | sed 's/\.md$//' | sort -u > /tmp/recorded
 comm -13 /tmp/recorded /tmp/cited | grep . && exit 1 || exit 0
 ```
 
-The check runs one way only: a cited case with no record is a fabrication and fails. A record no suppression cites is ordinary, because the workaround can live in a configuration file or a dependency pin. The scan reads the `KI-` token alone and recognizes no suppression syntax, so a gate delivers no model of another tool's grammar. Whether a suppression that names no case states a reason belongs to the linter that owns the language, and [09 Spec to Code](./09-spec-to-code.md) names those lints.
+The check runs one way only: a cited case with no record is a fabrication and fails. A record no suppression cites is ordinary, because the workaround can live in a configuration file or a dependency pin. The scan reads the `KI-` token alone and recognizes no suppression syntax, so a gate delivers no model of another tool's grammar. Whether a suppression that names no case states a reason belongs to the linter that owns the language, where that linter has a rule for it. [09 Spec to Code](./09-spec-to-code.md) names the lints that do and the case where none exists.
 
 Wire it as `always_run`, not behind a `files:` filter. The commit this check exists to catch deletes a record while a suppression still cites it. Pre-commit selects staged files with `--diff-filter=ACMRTUXB`, which omits deletions. As a result, a filter hands the hook an empty list on exactly that commit. The same reasoning binds every gate that compares two sets.
 

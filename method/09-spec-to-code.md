@@ -85,7 +85,7 @@ Prefer the strict form. A non-strict expected failure keeps passing after the up
 
 Some suppressions have no exit. A lint disabled over a construct this project chose and keeps masks nothing external. No record can carry a condition anyone meets. Writing one anyway produces the unremovable mask the case rule exists to prevent. That suppression states its reason instead, in the position its own tool defines.
 
-The language's own linter enforces that reason, and no gate of this framework reads one. Turn on the rule your toolchain already ships.
+No gate of this framework reads that reason. Where the language's own linter has a rule for it, turn that rule on.
 
 ```text
 Rust        clippy::allow_attributes_without_reason

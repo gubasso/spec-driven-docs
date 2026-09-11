@@ -113,7 +113,7 @@ Verify: `rg -n "^[[:space:]]*(#|//).*\bADR-[a-z0-9]" . --type-not md && exit 1 |
 
 Where a `KI-<slug>` case is cited outside the documentation root, the author MUST make that case resolve to a known-issue record.
 
-The citation is the subject, not the suppression that carries it. This convention defines the `KI-` token and owns the records it resolves against. It defines no suppression syntax, so no gate here reads one. A suppression that names no case states its reason where its own linter reads one, and `09-spec-to-code.md` names the lints that enforce it and the case that none does.
+The citation is the subject, not the suppression that carries it. This convention defines the `KI-` token and owns the records it resolves against. It defines no suppression syntax, so no gate here reads one. A suppression that names no case states its reason where its own linter reads one. `09-spec-to-code.md` names the lints that enforce that reason, and the case where a language has none.
 
 #### Scenario: A record is deleted while a suppression still cites it
 
