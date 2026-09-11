@@ -174,6 +174,9 @@ fn explain(path: &str) -> Result<(), AppError> {
         output::line(line);
     }
     output::line("note: pre-commit also applies each row's types:, which this answer does not.");
+    output::line(
+        "note: `not discovered` means outside the gate's own set; it still judges the path when pointed at it.",
+    );
     Ok(())
 }
 

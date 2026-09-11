@@ -829,4 +829,8 @@ fn explain_does_not_overclaim_for_a_fixed_subject_gate() {
         stdout.contains("judges       instance-manifest"),
         "explain lost the true answer:\n{stdout}"
     );
+    assert!(
+        stdout.contains("`not discovered` means outside the gate's own set"),
+        "the answer does not say what `not discovered` means:\n{stdout}"
+    );
 }
