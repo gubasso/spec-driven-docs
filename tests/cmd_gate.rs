@@ -731,8 +731,8 @@ fn explain_answers_with_the_rule_a_self_discovering_gate_applies() {
         .success();
     let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
     assert!(
-        stdout.contains("judges       ki-state"),
-        "explain contradicts what the gate does:\n{stdout}"
+        stdout.contains("not discovered ki-state"),
+        "explain does not say the gate reaches this path only when pointed at it:\n{stdout}"
     );
 }
 
@@ -786,5 +786,47 @@ fn a_reservation_binds_through_a_symlinked_checkout_root() {
     assert!(
         stdout.contains("(reserved)"),
         "the symlinked checkout spelling walked past the reservation:\n{stdout}"
+    );
+}
+
+/// A gate whose subject set is one fixed file must not claim every path it
+/// does not exclude. The answer for a discovering gate is three-valued:
+/// what it discovers, what it excludes, and what it reaches only when
+/// pointed at it.
+#[test]
+fn explain_does_not_overclaim_for_a_fixed_subject_gate() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+
+    let assert = fixture
+        .cmd()
+        .args(["gate", "--explain", "README.md"])
+        .current_dir(fixture.path())
+        .assert()
+        .success();
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+
+    for gate in ["instance-manifest", "spec-size-cap", "tracking-registry"] {
+        assert!(
+            !stdout.contains(&format!("judges       {gate}")),
+            "{gate} cannot judge README.md and explain says it does:\n{stdout}"
+        );
+        assert!(
+            stdout.contains(&format!("not discovered {gate}")),
+            "{gate} is missing its three-valued answer:\n{stdout}"
+        );
+    }
+
+    // And the answer stays right where the gate really does judge.
+    let assert = fixture
+        .cmd()
+        .args(["gate", "--explain", ".spec-driven-docs/manifest.json"])
+        .current_dir(fixture.path())
+        .assert()
+        .success();
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+    assert!(
+        stdout.contains("judges       instance-manifest"),
+        "explain lost the true answer:\n{stdout}"
     );
 }

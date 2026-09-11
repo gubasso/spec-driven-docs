@@ -103,6 +103,16 @@ fn contained(path: &str) -> Result<(), AppError> {
     Ok(())
 }
 
+/// Every include pattern a filter carries, for the explain output.
+fn declared_globs(filter: &PathFilter) -> String {
+    filter
+        .includes()
+        .iter()
+        .map(|pattern| pattern.glob.clone())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
 /// Report which gates judge one path, and what decided each answer.
 ///
 /// This answers path-declaration eligibility. It is not a prediction of what
@@ -122,31 +132,44 @@ fn explain(path: &str) -> Result<(), AppError> {
         let types = gate
             .types
             .map_or_else(String::new, |types| format!("  types: [{types}]"));
-        // The row states whether it discovers its own subjects. Reading
-        // `always_run` instead was wrong: `agents-digest-size` runs always
-        // and still judges what the walk hands it, which the registry
-        // include narrows.
-        let decision = if gate.discovers && filter.retains(subject) {
-            Decision::Read
+        // Three answers for a discovering row, because two would lie. The
+        // gate judges what its discovery produces, and it also judges a
+        // path an operator points it at through a support root. So a path
+        // outside its registry include is not "not included" — that is the
+        // whitelist answer and this gate does not apply one — and it is not
+        // "judges" either, because the discovery will not produce it on its
+        // own.
+        let line = if gate.discovers {
+            match filter.decide(subject) {
+                Decision::Skipped(pattern) => format!(
+                    "skipped      {}  exclude {}  ({}){types}",
+                    gate.id, pattern.glob, pattern.layer
+                ),
+                _ if !filter.retains(subject) => format!(
+                    "not included {}  include {}{types}",
+                    gate.id,
+                    declared_globs(&filter)
+                ),
+                Decision::Read => format!("judges       {}{types}", gate.id),
+                Decision::NotIncluded => format!(
+                    "not discovered {}  its set is {}{types}",
+                    gate.id,
+                    declared_globs(&filter)
+                ),
+            }
         } else {
-            filter.decide(subject)
-        };
-        let line = match decision {
-            Decision::Read => format!("judges       {}{types}", gate.id),
-            Decision::Skipped(pattern) => format!(
-                "skipped      {}  exclude {}  ({}){types}",
-                gate.id, pattern.glob, pattern.layer
-            ),
-            Decision::NotIncluded => format!(
-                "not included {}  include {}{types}",
-                gate.id,
-                filter
-                    .includes()
-                    .iter()
-                    .map(|p| p.glob.clone())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            ),
+            match filter.decide(subject) {
+                Decision::Read => format!("judges       {}{types}", gate.id),
+                Decision::Skipped(pattern) => format!(
+                    "skipped      {}  exclude {}  ({}){types}",
+                    gate.id, pattern.glob, pattern.layer
+                ),
+                Decision::NotIncluded => format!(
+                    "not included {}  include {}{types}",
+                    gate.id,
+                    declared_globs(&filter)
+                ),
+            }
         };
         output::line(line);
     }
