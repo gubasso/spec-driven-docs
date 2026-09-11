@@ -735,3 +735,56 @@ fn explain_answers_with_the_rule_a_self_discovering_gate_applies() {
         "explain contradicts what the gate does:\n{stdout}"
     );
 }
+
+/// An always-run gate is not necessarily one that discovers its own
+/// subjects. `agents-digest-size` runs always and still judges what the
+/// walk hands it, which the registry include narrows, so `--explain` must
+/// not answer for it with the retained rule.
+#[test]
+fn explain_answers_with_the_rule_a_walking_gate_applies() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+
+    let assert = fixture
+        .cmd()
+        .args(["gate", "--explain", "README.md"])
+        .current_dir(fixture.path())
+        .assert()
+        .success();
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+    assert!(
+        stdout.contains("not included agents-digest-size"),
+        "explain claims a walking gate ignores its include:\n{stdout}"
+    );
+}
+
+/// An operator who entered through a symlinked checkout types that
+/// spelling, and a reservation must still bind.
+#[test]
+fn a_reservation_binds_through_a_symlinked_checkout_root() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    fixture.write("_docs/private.md", "Nothing here.\n");
+    fixture.write(
+        ".spec-driven-docs/config.yaml",
+        "reserved:\n  - '_docs/private.md'\ngates: {}\n",
+    );
+
+    let link = std::env::temp_dir().join(format!("sdd-link-{}", std::process::id()));
+    let _ = std::fs::remove_file(&link);
+    std::os::unix::fs::symlink(fixture.path(), &link).unwrap();
+
+    let through_link = link.join("_docs/private.md");
+    let assert = fixture
+        .cmd()
+        .args(["gate", "--explain", through_link.to_str().unwrap()])
+        .current_dir(&link)
+        .assert()
+        .success();
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+    let _ = std::fs::remove_file(&link);
+    assert!(
+        stdout.contains("(reserved)"),
+        "the symlinked checkout spelling walked past the reservation:\n{stdout}"
+    );
+}

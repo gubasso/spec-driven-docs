@@ -122,11 +122,11 @@ fn explain(path: &str) -> Result<(), AppError> {
         let types = gate
             .types
             .map_or_else(String::new, |types| format!("  types: [{types}]"));
-        // An `always_run` row discovers its own subjects, so the registry
-        // include does not narrow them and `--explain` must say so. Answering
-        // with `decide` here reported a path the gate does judge as
-        // `not included`.
-        let decision = if gate.always_run && filter.retains(subject) {
+        // The row states whether it discovers its own subjects. Reading
+        // `always_run` instead was wrong: `agents-digest-size` runs always
+        // and still judges what the walk hands it, which the registry
+        // include narrows.
+        let decision = if gate.discovers && filter.retains(subject) {
             Decision::Read
         } else {
             filter.decide(subject)

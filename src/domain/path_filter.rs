@@ -286,21 +286,57 @@ pub fn project(path: &Utf8Path, repo_root: &Utf8Path) -> Utf8PathBuf {
     if path.is_relative() {
         return path.to_path_buf();
     }
-    let Ok(root) = std::fs::canonicalize(repo_root) else {
-        return path.to_path_buf();
-    };
-    let Ok(root) = Utf8PathBuf::from_path_buf(root) else {
-        return path.to_path_buf();
-    };
     // Drop `.` components. A `..` component never reaches here: the command
     // refuses one, and no gate builds one.
     let lexical: Utf8PathBuf = path
         .components()
         .filter(|part| part.as_str() != ".")
         .collect();
-    lexical
-        .strip_prefix(&root)
-        .map_or_else(|_| path.to_path_buf(), Utf8Path::to_path_buf)
+
+    // Try both spellings of the root. The canonical one resolves a
+    // symlinked checkout, and the literal one is what an operator who
+    // entered through that link will type. Matching only the canonical
+    // spelling let `/tmp/repo-link/alias.md` past every reservation.
+    let mut roots: Vec<Utf8PathBuf> = Vec::new();
+    if let Ok(absolute) = std::path::absolute(repo_root.as_std_path()) {
+        if let Ok(absolute) = Utf8PathBuf::from_path_buf(absolute) {
+            roots.push(
+                absolute
+                    .components()
+                    .filter(|p| p.as_str() != ".")
+                    .collect(),
+            );
+        }
+    }
+    if let Ok(canonical) = std::fs::canonicalize(repo_root) {
+        if let Ok(canonical) = Utf8PathBuf::from_path_buf(canonical) {
+            roots.push(canonical);
+        }
+    }
+    for root in &roots {
+        if let Ok(rest) = lexical.strip_prefix(root) {
+            return rest.to_path_buf();
+        }
+    }
+
+    // Last, and only here: resolve the candidate. A path matching neither
+    // spelling of the root was reached through a link above the repository,
+    // which is the case a lexical projection cannot see. The order is what
+    // keeps this safe — a file under either root spelling is already
+    // projected lexically, so a symlinked file keeps its own name and its
+    // reservation.
+    let (Ok(resolved), Some(canonical)) = (std::fs::canonicalize(path), roots.last()) else {
+        return path.to_path_buf();
+    };
+    Utf8PathBuf::from_path_buf(resolved)
+        .ok()
+        .and_then(|resolved| {
+            resolved
+                .strip_prefix(canonical)
+                .map(Utf8Path::to_path_buf)
+                .ok()
+        })
+        .unwrap_or_else(|| path.to_path_buf())
 }
 
 /// Strip the `./` prefix `walk_files` produces, so one path form reaches

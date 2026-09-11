@@ -265,7 +265,7 @@ fn every_subject_producer_is_filter_aware() {
 
     let typed = std::fs::read_to_string(canon().join("src/gates/spec_change_is_typed.rs")).unwrap();
     assert!(
-        typed.contains("ctx.subjects("),
+        typed.contains("ctx.retained("),
         "spec_change_is_typed resolves its own candidates and stopped filtering them"
     );
 
@@ -317,6 +317,72 @@ fn every_subject_producer_is_filter_aware() {
         "these gates walk the tree outside walk_files, so their subjects are \
          unfiltered: {unfiltered:?}"
     );
+}
+
+/// A row's `discovers` matches the route its implementation takes.
+///
+/// `--explain` reads the field, so a wrong value makes the public
+/// diagnostic contradict the gate it describes.
+///
+/// SATISFIES release:a-delivered-gate-reads-what-the-convention-owns
+#[test]
+fn every_row_declaring_discovery_takes_the_retained_route() {
+    // Every row that declares `discovers` uses the retained route, and no
+    // row that does not. `--explain` reads the field, so a wrong value
+    // makes the diagnostic contradict the gate it describes.
+    let retained_route: &[(&str, &[&str])] = &[
+        (
+            "src/gates/paths.rs",
+            &[
+                "ki-bugzilla-report-width",
+                "ki-checked-date",
+                "ki-mechanism-walkthrough",
+                "ki-report-body",
+                "ki-retire-when",
+                "ki-filing",
+                "ki-state",
+            ],
+        ),
+        (
+            "src/gates/spec_rule_id_unique.rs",
+            &[
+                "spec-rule-id-unique",
+                "spec-size-cap",
+                "spec-verify-hooks-exist",
+            ],
+        ),
+        (
+            "src/gates/adr_cites_a_live_rule.rs",
+            &["adr-cites-a-live-rule"],
+        ),
+        ("src/gates/adr_word_cap.rs", &["adr-word-cap"]),
+        ("src/gates/instance_manifest.rs", &["instance-manifest"]),
+        ("src/gates/tracking_registry.rs", &["tracking-registry"]),
+        (
+            "src/gates/spec_change_is_typed.rs",
+            &["spec-change-is-typed"],
+        ),
+    ];
+    let declared: std::collections::BTreeSet<String> = spec_driven_docs::gates::GATES
+        .iter()
+        .filter(|row| row.discovers)
+        .map(|row| row.id.to_string())
+        .collect();
+    let routed: std::collections::BTreeSet<String> = retained_route
+        .iter()
+        .flat_map(|(_, ids)| ids.iter().map(ToString::to_string))
+        .collect();
+    assert_eq!(
+        declared, routed,
+        "a row's `discovers` disagrees with the route its implementation takes"
+    );
+    for (file, _) in retained_route {
+        let text = std::fs::read_to_string(canon().join(file)).unwrap();
+        assert!(
+            text.contains("retained("),
+            "{file} serves a row declaring `discovers` and stopped using the retained route"
+        );
+    }
 }
 
 fn walk_markdown(dir: &Path, files: &mut Vec<PathBuf>) {

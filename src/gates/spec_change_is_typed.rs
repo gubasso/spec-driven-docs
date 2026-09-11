@@ -165,7 +165,7 @@ fn judge(file: &str, text: &str, violations: &mut Vec<Violation>) {
 ///
 /// This is the second route a subject path takes into a gate, after
 /// [`crate::gates::walk_files`], so the result passes through
-/// [`GateCtx::subjects`]. A zone inside the repository is filtered on its
+/// [`GateCtx::retained`]. A zone inside the repository is filtered on its
 /// repository-relative form, which is the form a project's declaration
 /// speaks. A zone outside the repository is not filtered, because no
 /// repository-relative pattern can name it and the project declared the zone
@@ -206,7 +206,7 @@ fn documents(ctx: &GateCtx, root: &Utf8Path) -> Result<Vec<Utf8PathBuf>, GateErr
     if relative.len() != files.len() {
         return Ok(files);
     }
-    let kept = ctx.subjects(relative);
+    let kept = ctx.retained(relative);
     Ok(kept
         .into_iter()
         .map(|path| ctx.repo_root.join(path))
