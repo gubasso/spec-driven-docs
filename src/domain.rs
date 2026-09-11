@@ -10,6 +10,7 @@ pub mod gate_id;
 pub mod manifest;
 pub mod marker;
 pub mod ownership;
+pub mod path_filter;
 pub mod profile;
 pub mod rule_id;
 pub mod skill_record;

@@ -522,23 +522,48 @@ pub fn front_matter_values(text: &str, key: &str) -> Vec<String> {
         .collect()
 }
 
-/// Walk the repository, pruning [`PRUNED_DIRS`], and yield every file as a
-/// `./`-prefixed repository-relative path in sorted order.
+/// The traversal pruner: [`PRUNED_DIRS`] as an `ignore` override.
+///
+/// `Override` is the right tool here and the wrong one in
+/// [`crate::domain::path_filter`]. Pruning wants one boolean per directory
+/// and no provenance, which is exactly what it gives.
+fn pruner(root: &Utf8Path) -> ignore::overrides::Override {
+    let mut builder = ignore::overrides::OverrideBuilder::new(root.as_std_path());
+    for dir in PRUNED_DIRS {
+        // `!` marks an exclude in `Override`'s own grammar, which is not
+        // the restricted grammar `PathFilter` carries.
+        let _ = builder.add(&format!("!{dir}/**"));
+        let _ = builder.add(&format!("!{dir}"));
+    }
+    builder
+        .build()
+        .unwrap_or_else(|_| ignore::overrides::Override::empty())
+}
+
+/// Walk the repository and yield every file as a `./`-prefixed
+/// repository-relative path in sorted order.
+///
+/// The walk prunes [`PRUNED_DIRS`] and honours the repository's committed
+/// `.gitignore`. It honours no machine-local ignore source: `.git/info/exclude`,
+/// the user's global excludes file, and ignore files above the repository
+/// root are all disabled, because a gate whose answer depends on whose
+/// checkout it runs in is not a gate.
 #[must_use]
 pub fn walk_files(ctx: &GateCtx) -> Vec<Utf8PathBuf> {
     let root = ctx.repo_root.as_std_path();
-    let mut files: Vec<Utf8PathBuf> = walkdir::WalkDir::new(root)
-        .into_iter()
-        .filter_entry(|entry| {
-            !(entry.file_type().is_dir()
-                && entry.depth() > 0
-                && entry
-                    .file_name()
-                    .to_str()
-                    .is_some_and(|name| PRUNED_DIRS.contains(&name)))
-        })
+    let mut files: Vec<Utf8PathBuf> = ignore::WalkBuilder::new(root)
+        .standard_filters(false)
+        .git_ignore(true)
+        .git_exclude(false)
+        .git_global(false)
+        .ignore(false)
+        .parents(false)
+        .require_git(false)
+        .hidden(false)
+        .overrides(pruner(&ctx.repo_root))
+        .build()
         .filter_map(Result::ok)
-        .filter(|entry| entry.file_type().is_file())
+        .filter(|entry| entry.file_type().is_some_and(|kind| kind.is_file()))
         .filter_map(|entry| {
             let relative = entry.path().strip_prefix(root).ok()?.to_str()?;
             Some(Utf8PathBuf::from(format!("./{relative}")))
@@ -600,6 +625,75 @@ pub(crate) mod tests_support {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A repository holding one file at each named path.
+    fn tree(paths: &[(&str, &str)]) -> tempfile::TempDir {
+        let dir = tempfile::tempdir().expect("a scratch directory");
+        for (path, body) in paths {
+            let full = dir.path().join(path);
+            if let Some(parent) = full.parent() {
+                std::fs::create_dir_all(parent).expect("the parent exists");
+            }
+            std::fs::write(&full, body).expect("the file is written");
+        }
+        dir
+    }
+
+    fn walked(dir: &tempfile::TempDir) -> Vec<String> {
+        let root = Utf8PathBuf::from_path_buf(dir.path().to_path_buf())
+            .expect("the scratch path is UTF-8");
+        walk_files(&GateCtx::new(root))
+            .into_iter()
+            .map(|p| p.to_string())
+            .collect()
+    }
+
+    #[test]
+    fn walk_files_skips_a_gitignored_file() {
+        let dir = tree(&[
+            (".gitignore", "generated.md\n"),
+            ("generated.md", "x\n"),
+            ("kept.md", "x\n"),
+        ]);
+        let files = walked(&dir);
+        assert!(files.contains(&"./kept.md".to_string()));
+        assert!(
+            !files.contains(&"./generated.md".to_string()),
+            "a git-ignored file still reached a walking gate: {files:?}"
+        );
+    }
+
+    #[test]
+    fn walk_files_ignores_a_machine_local_exclude_file() {
+        // The hostile case. A machine-local exclude must not hide a governed
+        // file, or one operator's checkout reports a violation another's
+        // does not.
+        let dir = tree(&[
+            (".git/info/exclude", "governed.md\n"),
+            ("governed.md", "x\n"),
+        ]);
+        assert!(
+            walked(&dir).contains(&"./governed.md".to_string()),
+            "a machine-local exclude hid a governed file"
+        );
+    }
+
+    #[test]
+    fn walk_files_still_prunes_the_pruned_dirs() {
+        let dir = tree(&[
+            ("target/debug/artifact", "x\n"),
+            ("node_modules/pkg/index.js", "x\n"),
+            ("src/main.rs", "x\n"),
+        ]);
+        let files = walked(&dir);
+        assert_eq!(files, vec!["./src/main.rs".to_string()]);
+    }
+
+    #[test]
+    fn walk_files_yields_dotted_paths() {
+        let dir = tree(&[(".markdownlint/base.yaml", "x\n")]);
+        assert!(walked(&dir).contains(&"./.markdownlint/base.yaml".to_string()));
+    }
 
     #[test]
     fn registry_covers_every_gate_exactly_once_in_order() {
