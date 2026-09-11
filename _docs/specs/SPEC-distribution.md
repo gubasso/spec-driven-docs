@@ -27,6 +27,7 @@
   - [`distribution:a-declared-location-is-named-by-its-variable` — A declared location is named by its variable](#distributiona-declared-location-is-named-by-its-variable--a-declared-location-is-named-by-its-variable)
   - [`distribution:the-payload-roots-are-declared-once` — The payload roots are declared once](#distributionthe-payload-roots-are-declared-once--the-payload-roots-are-declared-once)
   - [`distribution:a-seeded-rule-runs-no-canon-command` — A seeded rule runs no canon command](#distributiona-seeded-rule-runs-no-canon-command--a-seeded-rule-runs-no-canon-command)
+  - [`distribution:the-declaration-is-seeded-once-and-then-owned` — The declaration is seeded once and then owned](#distributionthe-declaration-is-seeded-once-and-then-owned--the-declaration-is-seeded-once-and-then-owned)
 
 <!--TOC-->
 
@@ -311,3 +312,15 @@ Where a spec is seeded into an instance, the author MUST keep `cargo` and `just`
 - THEN the check fails naming the spec and the command, because the adopter reads an unrunnable verification as work it owes
 
 Verify: `cargo nextest run -E 'binary(canon)'`
+
+### `distribution:the-declaration-is-seeded-once-and-then-owned` — The declaration is seeded once and then owned
+
+`sdd init` MUST write `.spec-driven-docs/config.yaml` in every case, record it among the adopted files, and never overwrite it again. An upgrade MUST carry it forward unchanged and re-render the managed block from it.
+
+#### Scenario: An instance that declares an exclusion is upgraded
+
+- GIVEN an instance whose declaration reserves a path
+- WHEN `sdd upgrade` runs
+- THEN the upgrade neither conflicts on the file nor drops the reservation, because the declaration is adopted rather than managed and the block is rendered rather than hand-edited
+
+Verify: `pre-commit run cargo-test --all-files`

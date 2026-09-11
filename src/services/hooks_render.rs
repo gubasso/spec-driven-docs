@@ -13,6 +13,7 @@
 
 use std::fmt::Write as _;
 
+use crate::domain::instance_config::InstanceConfig;
 use crate::domain::marker;
 use crate::gates::GATES;
 
@@ -32,6 +33,11 @@ pub struct RenderOptions {
     pub entry: String,
     /// The sequence-item indentation of the consumer's `repos:` entries.
     pub indent: String,
+    /// What the project declared about what its gates judge.
+    ///
+    /// The block is rendered from this, so the project never edits the
+    /// block and an upgrade never meets its choice.
+    pub declaration: InstanceConfig,
 }
 
 impl Default for RenderOptions {
@@ -40,6 +46,7 @@ impl Default for RenderOptions {
             docs_root: "_docs".to_string(),
             entry: "sdd".to_string(),
             indent: "  ".to_string(),
+            declaration: InstanceConfig::default(),
         }
     }
 }
@@ -189,8 +196,29 @@ fn render_gates(options: &RenderOptions) -> String {
         // the row judges, and `PathFilter` still applies it; emitting a
         // selector pre-commit never reads would tell a reader of the block
         // something untrue.
+        let declared = options.declaration.for_gate(gate.id);
+        // A project `include` replaces the registry's, and every `exclude`
+        // layer extends. `instance_config` states the algorithm; this only
+        // projects the result.
+        let include: Vec<&str> = declared.filter(|d| !d.include.is_empty()).map_or_else(
+            || gate.include.to_vec(),
+            |declared| declared.include.iter().map(String::as_str).collect(),
+        );
+        let exclude: Vec<&str> = gate
+            .exclude
+            .iter()
+            .copied()
+            .chain(
+                declared
+                    .into_iter()
+                    .flat_map(|d| &d.exclude)
+                    .map(String::as_str),
+            )
+            .chain(options.declaration.reserved.iter().map(String::as_str))
+            .collect();
+
         if !gate.always_run {
-            if let Some(files) = render_patterns(gate.include, &options.docs_root) {
+            if let Some(files) = render_patterns(&include, &options.docs_root) {
                 let _ = writeln!(out, "{field}files: {}", quoted(&files));
             }
         }
@@ -198,7 +226,7 @@ fn render_gates(options: &RenderOptions) -> String {
             let _ = writeln!(out, "{field}types: [{types}]");
         }
         if !gate.always_run {
-            if let Some(exclude) = render_patterns(gate.exclude, &options.docs_root) {
+            if let Some(exclude) = render_patterns(&exclude, &options.docs_root) {
                 let _ = writeln!(out, "{field}exclude: {}", quoted(&exclude));
             }
         }
@@ -208,6 +236,39 @@ fn render_gates(options: &RenderOptions) -> String {
         }
     }
     out
+}
+
+/// The `files:` and `exclude:` a hook entry declares, by hook id.
+///
+/// Read from rendered or hand-maintained YAML alike, so the two can be
+/// compared. A region may carry hooks this renderer never emits — this
+/// repository's own does — so the comparison is per gate rather than over
+/// the whole region.
+#[must_use]
+pub fn selectors(
+    block: &str,
+) -> std::collections::BTreeMap<String, (Option<String>, Option<String>)> {
+    let mut found = std::collections::BTreeMap::new();
+    let mut current: Option<String> = None;
+    for line in block.lines() {
+        let trimmed = line.trim_start();
+        if let Some(id) = trimmed.strip_prefix("- id: ") {
+            current = Some(id.trim().to_string());
+            found.insert(id.trim().to_string(), (None, None));
+            continue;
+        }
+        let Some(id) = current.as_ref() else { continue };
+        if let Some(value) = trimmed.strip_prefix("files: ") {
+            if let Some(entry) = found.get_mut(id) {
+                entry.0 = Some(value.trim().to_string());
+            }
+        } else if let Some(value) = trimmed.strip_prefix("exclude: ") {
+            if let Some(entry) = found.get_mut(id) {
+                entry.1 = Some(value.trim().to_string());
+            }
+        }
+    }
+    found
 }
 
 /// Render the complete managed block an instance's configuration carries:

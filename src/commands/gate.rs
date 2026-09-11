@@ -10,7 +10,8 @@ use camino::Utf8Path;
 use crate::cli::gate::GateArgs;
 use crate::context::AppContext;
 use crate::domain::gate_id::GateId;
-use crate::domain::path_filter::{Decision, Layer, PathFilter, Pattern};
+use crate::domain::instance_config::{self, InstanceConfig};
+use crate::domain::path_filter::{Decision, PathFilter};
 use crate::error::AppError;
 use crate::gates::{GATES, GateCtx, spec};
 use crate::output;
@@ -28,33 +29,35 @@ fn substitute_root(pattern: &str) -> String {
     pattern.replace("{docs_root}", DOCS_ROOT)
 }
 
-/// Build one gate's subject filter from the registry and the flags.
+/// Build one gate's subject filter from every layer.
 ///
-/// The layers are appended in precedence order, earliest first, because the
-/// matcher reports the last matching exclude.
-fn filter_for(id: GateId, include: &[String], exclude: &[String]) -> Result<PathFilter, AppError> {
+/// The registry is the first layer, the project's declaration the second and
+/// the fourth, and the command-line flags the third.
+/// [`instance_config::resolve`] owns the algorithm, so the command line and
+/// the renderer cannot disagree about it.
+fn filter_for(
+    id: GateId,
+    declaration: &InstanceConfig,
+    include: &[String],
+    exclude: &[String],
+) -> Result<PathFilter, AppError> {
     let row = spec(id);
-    let mut includes: Vec<Pattern> = row
-        .include
-        .iter()
-        .map(|glob| Pattern::new(substitute_root(glob), Layer::Registry))
-        .collect();
-    let mut excludes: Vec<Pattern> = row
-        .exclude
-        .iter()
-        .map(|glob| Pattern::new(substitute_root(glob), Layer::Registry))
-        .collect();
-    includes.extend(
-        include
-            .iter()
-            .map(|glob| Pattern::new(glob.clone(), Layer::Flag)),
-    );
-    excludes.extend(
-        exclude
-            .iter()
-            .map(|glob| Pattern::new(glob.clone(), Layer::Flag)),
-    );
-    PathFilter::build(includes, excludes).map_err(|error| AppError::Usage(error.to_string()))
+    let registry_include: Vec<String> = row.include.iter().map(|g| substitute_root(g)).collect();
+    let registry_exclude: Vec<String> = row.exclude.iter().map(|g| substitute_root(g)).collect();
+    instance_config::resolve(
+        &registry_include,
+        &registry_exclude,
+        declaration.for_gate(id),
+        include,
+        exclude,
+        &declaration.reserved,
+    )
+    .map_err(|error| AppError::Usage(error.to_string()))
+}
+
+/// The declaration this invocation resolves against.
+fn declaration() -> Result<InstanceConfig, AppError> {
+    InstanceConfig::read(Utf8Path::new(".")).map_err(|error| AppError::Usage(error.to_string()))
 }
 
 /// Refuse a path that names something outside the repository.
@@ -94,9 +97,10 @@ fn contained(path: &str) -> Result<(), AppError> {
 /// printed rather than folded into the answer.
 fn explain(path: &str) -> Result<(), AppError> {
     contained(path)?;
+    let declaration = declaration()?;
     let subject = Utf8Path::new(path);
     for gate in GATES {
-        let filter = filter_for(gate.id, &[], &[])?;
+        let filter = filter_for(gate.id, &declaration, &[], &[])?;
         let types = gate
             .types
             .map_or_else(String::new, |types| format!("  types: [{types}]"));
@@ -156,7 +160,7 @@ pub fn run(_ctx: &AppContext, args: GateArgs) -> Result<(), AppError> {
     for path in &files {
         contained(path)?;
     }
-    let filter = filter_for(id, &include, &exclude)?;
+    let filter = filter_for(id, &declaration()?, &include, &exclude)?;
     // Filter the passed paths always. Ruff carries `--force-exclude`
     // because the opposite default surprised people under pre-commit, which
     // passes changed files explicitly, and pre-commit is this tool's only

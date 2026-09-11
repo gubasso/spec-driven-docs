@@ -100,6 +100,69 @@ fn reached_through_symlink(target: &Utf8Path, destination: &Utf8Path) -> bool {
 /// required, so no hand edit of the record can shrink what is held —
 /// masquerading as the other layout only changes which files must exist
 /// and hash clean.
+/// The declaration and the managed block must say the same thing.
+///
+/// The block is rendered from the declaration, so a difference means the
+/// project edited the declaration and nothing reached the block. That is a
+/// real disagreement between two artifacts that claim to agree, not drift in
+/// a file the project owns, so it fails and names the command that fixes it.
+///
+/// A declaration that does not parse fails once here rather than once from
+/// every always-run gate.
+fn check_declaration(target: &Utf8Path, manifest: &Manifest, report: &mut VerifyReport) {
+    let declaration = match crate::domain::instance_config::InstanceConfig::read(target) {
+        Ok(declaration) => declaration,
+        Err(error) => {
+            report.fail(format!("FAIL {error}"));
+            return;
+        }
+    };
+
+    let config = target.join(crate::commands::hooks::CONFIG);
+    let Ok(host) = std::fs::read_to_string(&config) else {
+        return;
+    };
+    // Measure from the host stripped of its block, which is what the
+    // installer measures. With the block still in place the first item under
+    // `repos:` is the block's own, and the depth read back differs.
+    let Ok((base, _)) = crate::domain::marker::split_block(&host) else {
+        return;
+    };
+    // The indentation is the host file's, measured the same way the
+    // installer measures it. Rendering with the default would report every
+    // instance whose `repos:` items sit at another depth.
+    let Ok(indent) = crate::domain::marker::splice_indent(&base) else {
+        return;
+    };
+    let rendered = crate::services::hooks_render::render_block(
+        &crate::services::hooks_render::RenderOptions {
+            docs_root: manifest.docs_root.to_string(),
+            indent,
+            declaration,
+            ..crate::services::hooks_render::RenderOptions::default()
+        },
+    );
+    // Compare per gate rather than over the whole region. A region may
+    // carry hooks this renderer never emits, and this repository's own does,
+    // so byte equality would report every such instance as stale.
+    let expected = crate::services::hooks_render::selectors(&rendered);
+    let Some(region) = crate::domain::marker::block_region(&host) else {
+        return;
+    };
+    let found = crate::services::hooks_render::selectors(&region);
+    for (id, wanted) in &expected {
+        let Some(actual) = found.get(id) else {
+            continue;
+        };
+        if actual != wanted {
+            report.fail(format!(
+                "FAIL the wiring for {id} in {} does not match the declaration; run 'sdd hooks --apply'",
+                crate::commands::hooks::CONFIG
+            ));
+        }
+    }
+}
+
 fn check_projection(manifest: &Manifest, report: &mut VerifyReport) {
     if manifest.canon_version != CanonVersion::current() {
         return;
@@ -192,6 +255,8 @@ fn check_projection(manifest: &Manifest, report: &mut VerifyReport) {
 pub fn verify(target: &Utf8Path) -> Result<VerifyReport, AppError> {
     let manifest = read_manifest(target)?;
     let mut report = VerifyReport::default();
+
+    check_declaration(target, &manifest, &mut report);
 
     for entry in &manifest.managed_files {
         let file = target.join(&entry.destination);

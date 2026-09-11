@@ -35,6 +35,7 @@ pub fn run(_ctx: &AppContext, args: InitArgs) -> Result<(), AppError> {
         dry_run: args.dry_run,
         plan_zone,
         docs_scratch,
+        reserve: args.reserve,
     })?;
     for line in &outcome.lines {
         output::line(line);

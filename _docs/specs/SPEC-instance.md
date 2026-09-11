@@ -41,3 +41,27 @@ The project MUST keep `<root>/reference/tracking.yaml` valid against its schema 
 - THEN the gate fails naming the due date and the recovery steps, and the project revalidates the source before advancing the date
 
 Verify: `pre-commit run tracking-registry --all-files`
+
+### `instance:the-project-declares-what-its-gates-judge` — The project declares what its gates judge
+
+The project MAY state, in `.spec-driven-docs/config.yaml`, which paths no delivered gate judges and which filters a named gate takes, and the tool MUST apply that statement to every route a subject path reaches a gate by. A declaration that does not parse, or that names a gate this version does not deliver, MUST fail once and name the key, never fall back to the default.
+
+#### Scenario: Another tool owns a region of a file at the project root
+
+- GIVEN a project that records that path under `reserved:`
+- WHEN any delivered gate runs, whether pre-commit passes the path or the gate walks to it
+- THEN no gate judges the path, and `sdd gate --explain <path>` names `reserved` as the layer that decided
+
+Verify: `pre-commit run cargo-test --all-files`
+
+### `instance:the-managed-block-agrees-with-the-declaration` — The managed block agrees with the declaration
+
+The managed pre-commit block is rendered from the declaration, so the project MUST NOT edit the block, and the per-gate wiring in the block MUST match what the declaration renders. `sdd hooks --apply` is what brings a stale block back into agreement, and it works at the same version.
+
+#### Scenario: The declaration is edited and nothing else is run
+
+- GIVEN a project that adds an exclusion to its declaration
+- WHEN `sdd verify` runs
+- THEN it fails naming the gate whose wiring disagrees and the command that fixes it, because an upgrade returns early at the same version and would never reach the block
+
+Verify: `sdd verify --target .`

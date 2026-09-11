@@ -277,9 +277,12 @@ pub fn upgrade(options: &UpgradeOptions) -> Result<UpgradeOutcome, AppError> {
         profile: installed.profile,
         apply: true,
         dry_run: false,
-        // No flag: the reinstall carries the recorded declarations forward.
+        // No flag: the reinstall carries the recorded declarations forward,
+        // and the project's own declaration file is adopted, so the
+        // reinstall reads it rather than replacing it.
         plan_zone: None,
         docs_scratch: None,
+        reserve: Vec::new(),
     })
     .map_err(|error| {
         AppError::Refused(format!(

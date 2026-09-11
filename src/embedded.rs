@@ -18,6 +18,8 @@ pub static SPECS: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/_docs/specs")
 pub static TEMPLATES: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/templates");
 /// The markdownlint configurations the instance receives managed.
 pub static MARKDOWNLINT: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/.markdownlint");
+/// The files an instance is seeded with once and then owns.
+pub static SEEDS: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/instance/seeds");
 /// Integration snippets a consumer copies into their own files.
 pub static SNIPPETS: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/instance/snippets");
 /// The method chapters and glossary.
@@ -44,6 +46,7 @@ const EMBEDDED_ROOTS: &[(&str, &Dir<'static>)] = &[
     ("_docs/specs", &SPECS),
     ("templates", &TEMPLATES),
     (".markdownlint", &MARKDOWNLINT),
+    ("instance/seeds", &SEEDS),
     ("instance/snippets", &SNIPPETS),
     ("method", &METHOD),
     ("skills", &SKILLS),

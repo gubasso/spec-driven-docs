@@ -34,7 +34,7 @@
     {
       "source": "skills/sdd-setup/SKILL.md",
       "destination": "skills/sdd-setup/SKILL.md",
-      "sha256": "f048a8c0d5bcb51950410be06a2348e6f0bd9228244b8ea5a66dc920637364e8"
+      "sha256": "5fcb752d7b4322c81fa7d257696aa143cfa76f5f0caac3cd751d82a34a8bf645"
     },
     {
       "source": "skills/sdd-write-docs/SKILL.md",
@@ -68,8 +68,8 @@
     {
       "source": "_docs/specs/SPEC-distribution.md",
       "destination": "_docs/specs/SPEC-distribution.md",
-      "sha256": "c84de42946632587d651efa5c02394f2b1ca30126dd994a0d27d1b6ea73ef2a5",
-      "baseline_sha256": "c84de42946632587d651efa5c02394f2b1ca30126dd994a0d27d1b6ea73ef2a5"
+      "sha256": "08674558dfb021ba8ec59691e292176aea404c3910f54da19934c02e1da9f79c",
+      "baseline_sha256": "08674558dfb021ba8ec59691e292176aea404c3910f54da19934c02e1da9f79c"
     },
     {
       "source": "_docs/specs/SPEC-docs-format.md",
@@ -98,8 +98,8 @@
     {
       "source": "_docs/specs/SPEC-instance.md",
       "destination": "_docs/specs/SPEC-instance.md",
-      "sha256": "56e554ed23228d66ea0d8b629b65e3436bfbeb3b6a90fa15972da48e48e9f9d5",
-      "baseline_sha256": "56e554ed23228d66ea0d8b629b65e3436bfbeb3b6a90fa15972da48e48e9f9d5"
+      "sha256": "90db9197f6bedee5a31c02885aa9eefc197f5e375da116a034cc40618193a298",
+      "baseline_sha256": "90db9197f6bedee5a31c02885aa9eefc197f5e375da116a034cc40618193a298"
     },
     {
       "source": "_docs/specs/SPEC-known-issues.md",
@@ -153,7 +153,7 @@
   "integration_blocks": [
     {
       "path": ".pre-commit-config.yaml",
-      "marker_hash": "b700f045ab8ba93f293e02a711373c56c22137cbcbdbccf1885cc3ef3f955fdb"
+      "marker_hash": "2b84333d8c4ad9bd897bc2108130eeaceb06c90107eb7b3eae325036aac50931"
     }
   ]
 }

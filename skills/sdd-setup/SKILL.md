@@ -45,6 +45,21 @@ Ask the two declaration questions below first, in the same plan turn as the prof
 
 The install seeds specs and templates the project owns from then on (adopted). It lands byte-exact configurations and agent skills the canon owns (managed), and splices one marked block into `.pre-commit-config.yaml`. It touches nothing outside its destinations and the markers.
 
+## Declare what the gates judge
+
+`.spec-driven-docs/config.yaml` states which paths no delivered gate judges and which filters a named gate takes. `sdd init` writes it once and never again, so it is the project's from the moment it lands.
+
+- `reserved:` is a list of paths no gate judges. Use it for a region another tool renders or hashes.
+- `gates:` names a gate and gives it `include` or `exclude` globs. A gate not named there takes its registry default.
+
+Four layers compose, highest last: the registry default, the `gates:` entry, a `--include` or `--exclude` flag, then `reserved:`. Every `exclude` layer extends. A `gates:` `include` replaces the registry default rather than adding to it, because an include is a whitelist and extending one could only widen what the gate judges.
+
+Edit the file, then run `sdd hooks --apply`. The managed block is rendered from the declaration, so nothing else reaches it and `sdd upgrade` returns early at the same version. `sdd verify` fails and names the gate whose wiring disagrees.
+
+`sdd init --reserve <PATH>` records a reservation at install time. Pass it once per path. Ask the operator whether another tool owns a region of any file in the repository before running the install, because that is the case the mechanism exists for.
+
+`sdd gate --explain <PATH>` answers which gates judge a path and names the pattern and layer that decided each answer. It is the first thing to run after a surprising result. It reports path eligibility only: pre-commit also applies each row's `types:`, which the command prints rather than folds in.
+
 ## Declare the two locations
 
 Two locations belong to the project rather than to this framework. Ask for each with `AskUserQuestion`, in the plan turn, and pass the answer to `sdd init`. Mark no answer as recommended: each one has its own cost. These two questions are the only place that names a candidate path. Everywhere else the corpus names the variable.

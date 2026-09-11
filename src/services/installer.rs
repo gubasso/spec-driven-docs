@@ -40,6 +40,9 @@ pub struct InitOptions {
     /// The docs scratch to record. `None` keeps whatever is recorded, and
     /// `Some(None)` clears it.
     pub docs_scratch: Option<Option<Utf8PathBuf>>,
+    /// Paths to record under `reserved:` in the instance's declaration. An
+    /// empty list keeps whatever is recorded.
+    pub reserve: Vec<String>,
 }
 
 /// What an installation did.
@@ -225,11 +228,20 @@ fn compute_target_state(target: &Utf8Path, options: &InitOptions) -> Result<Targ
             .ok_or_else(|| anyhow::anyhow!("payload asset missing: {}", projection.source))?;
         let destination = resolve_destination(projection.destination, declaration.docs_root);
         let existing = target.join(&destination);
-        let bytes = if existing.is_file() {
+        let mut bytes = if existing.is_file() {
             std::fs::read(&existing)?
         } else {
             seed.to_vec()
         };
+        // `--reserve` records into the declaration, keeping its comments and
+        // whatever the project already wrote there.
+        if destination == crate::domain::instance_config::CONFIG_PATH && !options.reserve.is_empty()
+        {
+            if let Ok(text) = std::str::from_utf8(&bytes) {
+                bytes = crate::domain::instance_config::with_reserved(text, &options.reserve)
+                    .into_bytes();
+            }
+        }
         adopted_entries.push(AdoptedEntry {
             source: projection.source.into(),
             destination: destination.clone(),
@@ -248,9 +260,21 @@ fn compute_target_state(target: &Utf8Path, options: &InitOptions) -> Result<Targ
     };
     let (base, _) = crate::domain::marker::split_block(&host)?;
     let indent = crate::domain::marker::splice_indent(&base)?;
+    // Render from the declaration this install is writing, not from the one
+    // on disk. With `--reserve` they differ, and a block rendered from the
+    // old one would disagree with the file the same install lands.
+    let declared = files
+        .iter()
+        .find(|(destination, _)| destination == crate::domain::instance_config::CONFIG_PATH)
+        .and_then(|(_, bytes)| std::str::from_utf8(bytes).ok())
+        .map(crate::domain::instance_config::InstanceConfig::parse)
+        .transpose()
+        .map_err(|error| anyhow::anyhow!("{error}"))?
+        .unwrap_or_default();
     let block = render_block(&RenderOptions {
         docs_root: declaration.docs_root.to_string(),
         indent,
+        declaration: declared,
         ..RenderOptions::default()
     });
     let spliced = crate::domain::marker::splice(&base, &block)?;

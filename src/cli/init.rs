@@ -32,6 +32,14 @@ pub struct InitArgs {
     #[arg(long, value_name = "VALUE")]
     pub plan_zone: Option<String>,
 
+    /// A path no delivered gate judges, recorded under `reserved:` in the
+    /// instance's declaration. Repeatable.
+    ///
+    /// Use it for a region another tool owns. Omitted, a recorded value
+    /// stays.
+    #[arg(long, value_name = "PATH")]
+    pub reserve: Vec<String>,
+
     /// Where material that is not a statement yet is kept, as a path that may
     /// leave the repository, or `none` to clear a recorded value. Omitted,
     /// the recorded value stays.

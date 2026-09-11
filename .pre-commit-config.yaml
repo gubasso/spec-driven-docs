@@ -248,7 +248,7 @@ repos:
         name: known issue filename shape
         entry: cargo run -q -- gate ki-filename-shape
         language: system
-        files: '^(_?docs/reference/known-issues|tests/fixtures)/KI-[^/]*\.md$'
+        files: '^(?:_docs/reference/known-issues/KI-[^/]*\.md|tests/fixtures/KI-[^/]*\.md)$'
       - id: ki-filing
         name: known issue filing state
         entry: cargo run -q -- gate ki-filing
