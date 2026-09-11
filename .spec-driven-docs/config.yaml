@@ -49,6 +49,18 @@ gates:
     include:
       - templates/TEMPLATE-comparison.md
 
+  # Every `KI-` token this repository writes outside the documentation root
+  # is a fixture or a worked example, never a live citation. The method
+  # chapters teach the citation form, and the unit and integration tests
+  # build records in temporary directories. This repository keeps no
+  # known-issue zone of its own, so it cites no case. A project that adopts
+  # one narrows this list to the paths whose tokens are fixtures.
+  suppression-names-its-case:
+    exclude:
+      - method/**
+      - src/**
+      - tests/**
+
   # The test fixtures hold records shaped like real ones, and the filename
   # gate judges them so a fixture cannot drift from the shape it stands for.
   ki-filename-shape:

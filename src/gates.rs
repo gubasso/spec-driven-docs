@@ -593,12 +593,14 @@ pub static GATES: &[GateSpec] = &[
     GateSpec {
         id: GateId::SuppressionNamesItsCase,
         name: "suppressions name a known issue",
-        // Judges every source file in the project, because a
-        // suppression can be written in any of them. The known-issue
+        // Judges every file in the project, because a `KI-` citation can be
+        // written in any of them and this gate reads no language. The
+        // documentation root is out: a specification, a chapter, and a
+        // record each write the token while teaching it. The known-issue
         // records it resolves a case against are support.
         include: &[],
         types: None,
-        exclude: &[],
+        exclude: &[r"{docs_root}/**"],
         always_run: true,
         discovers: false,
         cites: suppression_names_its_case::CITES,

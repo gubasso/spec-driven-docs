@@ -2,13 +2,13 @@
 
 // Integration tests: assertion style is the point, so the production
 // restrictions on unwrap/panic and string building do not apply here.
-// sdd: permanent the panic is this suite's failure signal, not control flow
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
     clippy::panic,
     clippy::format_collect,
-    clippy::case_sensitive_file_extension_comparisons
+    clippy::case_sensitive_file_extension_comparisons,
+    reason = "the panic is this suite's failure signal, not control flow"
 )]
 
 mod support;
@@ -413,7 +413,7 @@ fn a_reserved_fixture_is_absent_from_the_suppression_subject_set() {
     // A fixture naming a record that does not exist, and a source file
     // whose suppression names the record that does.
     fixture.write("tests/fixtures/build.rs", "// KI-a-fabricated-case\n");
-    fixture.write("src/real.rs", "// sdd: permanent KI-a-real-case\n");
+    fixture.write("src/real.rs", "// masked for KI-a-real-case\n");
     fixture.write(
         ".spec-driven-docs/config.yaml",
         "reserved:\n  - tests/fixtures/**\ngates: {}\n",
@@ -445,6 +445,60 @@ fn a_reserved_fixture_is_absent_from_the_suppression_subject_set() {
 
     // The records are support, so reserving a subject path does not stop the
     // gate resolving a case against them.
+    fixture
+        .cmd()
+        .args(["gate", "suppression-names-its-case"])
+        .current_dir(fixture.path())
+        .assert()
+        .success();
+}
+
+/// Both outcomes of the citation check, through the real binary.
+///
+/// The gate reads no language, so the fabricated citation below sits in a
+/// file no suffix table ever named. The documentation root is excluded by
+/// the registry row, which is why the record itself is not read as a
+/// citation of its own name.
+///
+/// VERIFIES spec-to-code:a-suppression-names-its-case
+#[test]
+fn a_cited_case_fails_until_its_record_exists() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    fixture.write("scripts/publish", "# masked for KI-a-real-case\n");
+
+    fixture
+        .cmd()
+        .args(["gate", "suppression-names-its-case"])
+        .current_dir(fixture.path())
+        .assert()
+        .code(1)
+        .stdout(predicate::str::contains(
+            "scripts/publish:1: KI-a-real-case resolves to no record",
+        ));
+
+    fixture.write(
+        "_docs/reference/known-issues/KI-a-real-case.md",
+        "---\nupstream: https://example.invalid/i\nstate: open\nfiling: gathering\n---\n# A case\n",
+    );
+    fixture
+        .cmd()
+        .args(["gate", "suppression-names-its-case"])
+        .current_dir(fixture.path())
+        .assert()
+        .success();
+}
+
+/// The deliberate loss, asserted so a later reader sees it was chosen. A
+/// suppression carrying neither a case nor a reason is the judgment of the
+/// linter that owns the language.
+#[test]
+fn a_suppression_carrying_no_case_is_another_tools_business() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    fixture.write("src/lib.rs", "#[allow(dead_code)]\nfn unused() {}\n");
+    fixture.write("app.py", "import os  # noqa: F401\n");
+
     fixture
         .cmd()
         .args(["gate", "suppression-names-its-case"])

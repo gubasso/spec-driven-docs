@@ -56,8 +56,10 @@ fn quoted(value: &str) -> String {
     format!("'{}'", value.replace('\'', "''"))
 }
 
-// sdd: permanent the braces are the wiring template's placeholder, not a formatting argument
-#[allow(clippy::literal_string_with_formatting_args)]
+#[allow(
+    clippy::literal_string_with_formatting_args,
+    reason = "the braces are the wiring template's placeholder, not a formatting argument"
+)]
 fn substitute_root(pattern: &str, docs_root: &str) -> String {
     pattern.replace("{docs_root}", docs_root)
 }

@@ -64,8 +64,10 @@ pub fn run(_ctx: &AppContext, args: &DoctorArgs) -> Result<(), AppError> {
 
 #[cfg(test)]
 mod tests {
-    // sdd: permanent a test panics as its failure signal, not as control flow
-    #![allow(clippy::expect_used)]
+    #![allow(
+        clippy::expect_used,
+        reason = "a test panics as its failure signal, not as control flow"
+    )]
 
     use crate::probes::{ProbeClass, ProbeResult, ProbeStatus};
 

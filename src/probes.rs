@@ -449,8 +449,10 @@ fn accepts_a_write(dir: &Utf8Path) -> std::io::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    // sdd: permanent a test panics as its failure signal, not as control flow
-    #![allow(clippy::unwrap_used)]
+    #![allow(
+        clippy::unwrap_used,
+        reason = "a test panics as its failure signal, not as control flow"
+    )]
 
     use super::*;
 

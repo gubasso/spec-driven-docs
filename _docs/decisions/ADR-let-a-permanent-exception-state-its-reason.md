@@ -16,7 +16,7 @@ Chosen option: `a second rule and a marker, with the form set widened` — a sup
 
 A form counts only in a file the tool that honors it reads. That scoping is what lets a spec, a chapter, and the gate itself name a form without being judged by it, and it needs no split literals or exempt paths.
 
-Enforced by `spec-to-code:a-suppression-names-its-case` and `spec-to-code:a-permanent-exception-states-its-reason`.
+Enforced by `spec-to-code:a-suppression-names-its-case`.
 
 ## Consequences
 
@@ -26,6 +26,4 @@ Enforced by `spec-to-code:a-suppression-names-its-case` and `spec-to-code:a-perm
 
 ## Status
 
-Implemented
-
-Enacted by `src/gates/suppression_names_its_case.rs`.
+Superseded by [ADR-a-delivered-gate-parses-no-foreign-grammar](./ADR-a-delivered-gate-parses-no-foreign-grammar.md)

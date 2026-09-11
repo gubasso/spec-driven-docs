@@ -7,8 +7,12 @@
 
 // Shared by every integration binary; not every binary uses every helper,
 // and helpers unwrap because a broken fixture should abort the test.
-// sdd: permanent a helper no binary calls is dead code by design here
-#![allow(dead_code, clippy::unwrap_used, clippy::unused_self)]
+#![allow(
+    dead_code,
+    clippy::unwrap_used,
+    clippy::unused_self,
+    reason = "a helper no binary calls is dead code by design here"
+)]
 
 use std::path::{Path, PathBuf};
 

@@ -17,7 +17,7 @@ Chosen option: `a reason position the suppressing tool defines, with the marker 
 
 Only a position the tool defines counts. Nearby prose is not a reason, so an unrelated comment closes nothing. A case named inside a tool's reason stays a known issue, and the marker written beside a case is still the conflict it was.
 
-Enforced by `spec-to-code:a-permanent-exception-states-its-reason`, which [ADR-let-a-permanent-exception-state-its-reason](./ADR-let-a-permanent-exception-state-its-reason.md) introduced.
+Enforced by `spec-to-code:a-suppression-names-its-case`, the rule [ADR-let-a-permanent-exception-state-its-reason](./ADR-let-a-permanent-exception-state-its-reason.md) shares.
 
 ## Consequences
 
@@ -27,6 +27,4 @@ Enforced by `spec-to-code:a-permanent-exception-states-its-reason`, which [ADR-l
 
 ## Status
 
-Implemented
-
-Enacted by `src/gates/suppression_names_its_case.rs`.
+Superseded by [ADR-a-delivered-gate-parses-no-foreign-grammar](./ADR-a-delivered-gate-parses-no-foreign-grammar.md)
