@@ -213,16 +213,174 @@ fn the_canon_managed_block_wires_every_registered_gate() {
 
 /// SATISFIES release:a-delivered-gate-reads-what-the-convention-owns
 ///
-/// A `types:` scope alone reaches every matching file in the project, so a row
-/// that pre-commit selects by changed file states which paths it selects.
+/// Every row states the subject paths it judges. The v0.6.5 rule exempted any
+/// row resolving its own scope, which was 19 of the 30, so it constrained 3.
 #[test]
-fn every_file_passed_gate_anchors_its_scope() {
+fn every_gate_declares_what_it_judges() {
+    // A row may judge everything, and two do. What it may not do is leave
+    // the question unanswered, which is what the v0.6.5 rule's third clause
+    // permitted for 19 of the 30 rows.
+    const JUDGES_EVERYTHING: &[&str] = &[
+        "gate-message-cites-a-rule",
+        "no-personal-path",
+        "spec-change-is-typed",
+        "suppression-names-its-case",
+    ];
+
     for gate in spec_driven_docs::gates::GATES {
+        let id = gate.id.to_string();
+        if gate.include.is_empty() {
+            assert!(
+                JUDGES_EVERYTHING.contains(&id.as_str()),
+                "{id} states no include patterns, so it judges every file in the \
+                 project. A row that means that says so in JUDGES_EVERYTHING here \
+                 and in a comment on its row; a row that does not states its scope."
+            );
+            continue;
+        }
+        for pattern in gate.include.iter().chain(gate.exclude) {
+            assert!(
+                !pattern.starts_with('/') && !pattern.starts_with('!'),
+                "{id} states the pattern {pattern}, which the filter grammar refuses"
+            );
+        }
+    }
+}
+
+/// Every route by which a subject path reaches a gate passes through the
+/// filter, so a gate cannot judge a path the project excluded.
+///
+/// The inventory is the proof behind
+/// `release:a-delivered-gate-reads-what-the-convention-owns`. A fourth route
+/// added without a filter is a hole this test names.
+///
+/// SATISFIES release:a-delivered-gate-reads-what-the-convention-owns
+#[test]
+fn every_subject_producer_is_filter_aware() {
+    let gates_rs = std::fs::read_to_string(canon().join("src/gates.rs")).unwrap();
+    assert!(
+        gates_rs.contains("ctx.subjects(files)"),
+        "walk_files stopped filtering its result"
+    );
+
+    let typed = std::fs::read_to_string(canon().join("src/gates/spec_change_is_typed.rs")).unwrap();
+    assert!(
+        typed.contains("ctx.retained("),
+        "spec_change_is_typed resolves its own candidates and stopped filtering them"
+    );
+
+    let command = std::fs::read_to_string(canon().join("src/commands/gate.rs")).unwrap();
+    assert!(
+        command.contains("subjects("),
+        "the command path stopped filtering the paths pre-commit passes"
+    );
+
+    // Every gate that discovers its own subjects passes them through
+    // `retained`, where the discovery is the include and the declaration's
+    // exclusions still bind. This list is the inventory; a gate added to it
+    // without a filtering call is the hole the source-text check cannot see,
+    // which is why `cmd_gate` also asserts the behaviour per gate.
+    for (file, verb) in [
+        ("src/gates/paths.rs", "ctx.retained("),
+        ("src/gates/spec_rule_id_unique.rs", "ctx.retained("),
+        ("src/gates/spec_verify_hooks_exist.rs", "ctx.retained("),
+        ("src/gates/adr_cites_a_live_rule.rs", "ctx.retained("),
+        ("src/gates/adr_word_cap.rs", ".retained("),
+        ("src/gates/instance_manifest.rs", "ctx.retained("),
+        ("src/gates/tracking_registry.rs", ".retained("),
+    ] {
+        let text = std::fs::read_to_string(canon().join(file)).unwrap();
         assert!(
-            gate.always_run || gate.files.is_some(),
-            "{} takes the files pre-commit passes it and declares no files pattern, \
-             so it reads every matching file in the project",
-            gate.id
+            text.contains(verb),
+            "{file} discovers its own subjects and stopped filtering them"
+        );
+    }
+
+    // No gate reaches `walkdir` directly: the one traversal is `walk_files`,
+    // and it filters.
+    let mut unfiltered = Vec::new();
+    for entry in std::fs::read_dir(canon().join("src/gates"))
+        .unwrap()
+        .flatten()
+    {
+        let path = entry.path();
+        if path.extension().is_none_or(|ext| ext != "rs") {
+            continue;
+        }
+        let text = std::fs::read_to_string(&path).unwrap();
+        if text.contains("walkdir::") {
+            unfiltered.push(path.file_name().unwrap().to_string_lossy().to_string());
+        }
+    }
+    assert!(
+        unfiltered.is_empty(),
+        "these gates walk the tree outside walk_files, so their subjects are \
+         unfiltered: {unfiltered:?}"
+    );
+}
+
+/// A row's `discovers` matches the route its implementation takes.
+///
+/// `--explain` reads the field, so a wrong value makes the public
+/// diagnostic contradict the gate it describes.
+///
+/// SATISFIES release:a-delivered-gate-reads-what-the-convention-owns
+#[test]
+fn every_row_declaring_discovery_takes_the_retained_route() {
+    // Every row that declares `discovers` uses the retained route, and no
+    // row that does not. `--explain` reads the field, so a wrong value
+    // makes the diagnostic contradict the gate it describes.
+    let retained_route: &[(&str, &[&str])] = &[
+        (
+            "src/gates/paths.rs",
+            &[
+                "ki-bugzilla-report-width",
+                "ki-checked-date",
+                "ki-mechanism-walkthrough",
+                "ki-report-body",
+                "ki-retire-when",
+                "ki-filing",
+                "ki-state",
+            ],
+        ),
+        (
+            "src/gates/spec_rule_id_unique.rs",
+            &[
+                "spec-rule-id-unique",
+                "spec-size-cap",
+                "spec-verify-hooks-exist",
+            ],
+        ),
+        (
+            "src/gates/adr_cites_a_live_rule.rs",
+            &["adr-cites-a-live-rule"],
+        ),
+        ("src/gates/adr_word_cap.rs", &["adr-word-cap"]),
+        ("src/gates/instance_manifest.rs", &["instance-manifest"]),
+        ("src/gates/tracking_registry.rs", &["tracking-registry"]),
+        (
+            "src/gates/spec_change_is_typed.rs",
+            &["spec-change-is-typed"],
+        ),
+    ];
+    let declared: std::collections::BTreeSet<String> = spec_driven_docs::gates::GATES
+        .iter()
+        .filter(|row| row.discovers)
+        .map(|row| row.id.to_string())
+        .collect();
+    let routed: std::collections::BTreeSet<String> = retained_route
+        .iter()
+        .flat_map(|(_, ids)| ids.iter().map(ToString::to_string))
+        .collect();
+    assert_eq!(
+        declared, routed,
+        "a row's `discovers` disagrees with the route its implementation takes"
+    );
+    for (file, _) in retained_route {
+        let text = std::fs::read_to_string(canon().join(file)).unwrap();
+        assert!(
+            text.contains("retained("),
+            "{file} serves a row declaring `discovers` and stopped using the retained route"
         );
     }
 }

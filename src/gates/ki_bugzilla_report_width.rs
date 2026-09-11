@@ -12,7 +12,7 @@
 
 use crate::domain::finding::Finding;
 use crate::domain::rule_id::RuleId;
-use crate::gates::paths::ki_records;
+use crate::gates::paths::ki_records_judged;
 use crate::gates::{GateCtx, GateResult, Violation, read_text};
 
 /// The rules this gate can cite.
@@ -83,7 +83,7 @@ fn judge(record: &str, text: &str, violations: &mut Vec<Violation>) {
 /// [`crate::gates::GateError::Io`] when a record cannot be read.
 pub fn run(ctx: &GateCtx, args: &[String]) -> GateResult {
     let mut violations = Vec::new();
-    for record in ki_records(ctx, args)? {
+    for record in ki_records_judged(ctx, args)? {
         let text = read_text(ctx, &record)?;
         judge(record.as_str(), &text, &mut violations);
     }

@@ -11,7 +11,7 @@ use std::collections::BTreeSet;
 
 use crate::domain::finding::Finding;
 use crate::domain::rule_id::RuleId;
-use crate::gates::spec_rule_id_unique::spec_files;
+
 use crate::gates::{GateCtx, GateResult, Violation, read_text};
 
 /// The rules this gate can cite.
@@ -46,19 +46,28 @@ fn defines_hook(config: &str, hook: &str) -> bool {
 /// [`crate::gates::GateError::Io`] when a spec or the pre-commit
 /// configuration cannot be read.
 pub fn run(ctx: &GateCtx, _files: &[String]) -> GateResult {
-    let Some(files) = spec_files(ctx) else {
+    // Both layout predicates read the unfiltered set. A project that
+    // reserves every spec still has a layout and still names hooks; it has
+    // asked this gate to judge none of them, which is an answer rather than
+    // a moved layout.
+    let Some(all_specs) = crate::gates::spec_rule_id_unique::spec_files(ctx) else {
         return Ok(vec![Violation::Layout(
             "no specs matched; the layout moved".to_string(),
         )]);
     };
-    let mut hooks: BTreeSet<String> = BTreeSet::new();
-    for file in files {
-        hooks.extend(hook_names_in(&read_text(ctx, &file)?));
+    let mut declared: BTreeSet<String> = BTreeSet::new();
+    for file in &all_specs {
+        declared.extend(hook_names_in(&read_text(ctx, file)?));
     }
-    if hooks.is_empty() {
+    if declared.is_empty() {
         return Ok(vec![Violation::Layout(
             "no spec names a hook; the Verify shape moved".to_string(),
         )]);
+    }
+
+    let mut hooks: BTreeSet<String> = BTreeSet::new();
+    for file in ctx.retained(all_specs) {
+        hooks.extend(hook_names_in(&read_text(ctx, &file)?));
     }
     let config = read_text(ctx, ".pre-commit-config.yaml")?;
     Ok(hooks

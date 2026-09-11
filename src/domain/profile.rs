@@ -151,6 +151,13 @@ pub const CANON_TEMPLATES: &[&str] = &[
 ];
 
 const ADOPTED: &[Projection] = &[
+    // What the project declares about the files its gates judge. Seeded
+    // once and then the project's, which is what adopted means. It is not
+    // under `{docs_root}`: it configures the tool rather than the corpus.
+    proj(
+        "instance/seeds/config.yaml",
+        ".spec-driven-docs/config.yaml",
+    ),
     proj(
         "_docs/specs/SPEC-decision-records.md",
         "{docs_root}/specs/SPEC-decision-records.md",
@@ -289,6 +296,12 @@ mod tests {
             );
         }
         for entry in ADOPTED {
+            // The declaration is the one adopted file outside the corpus: it
+            // configures the tool rather than being documentation, so no
+            // documentation root names it.
+            if entry.destination == ".spec-driven-docs/config.yaml" {
+                continue;
+            }
             assert!(
                 entry.destination.starts_with("{docs_root}/"),
                 "{} is not rooted",

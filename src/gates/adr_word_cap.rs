@@ -44,6 +44,15 @@ pub fn run(ctx: &GateCtx, _files: &[String]) -> GateResult {
         )]);
     }
 
+    // The records are this gate's subjects, so a reserved one leaves the
+    // list before it is read. The layout check above reads the unfiltered
+    // set: a project that reserves every record still has a layout.
+    let records: Vec<String> = ctx
+        .retained(records.iter().map(|name| decisions.join(name)))
+        .iter()
+        .filter_map(|path| path.file_name().map(ToString::to_string))
+        .collect();
+
     let mut violations = Vec::new();
     for name in records {
         let path = decisions.join(name);

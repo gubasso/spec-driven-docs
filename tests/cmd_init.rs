@@ -232,7 +232,7 @@ fn every_registered_gate_is_wired_into_the_block() {
         );
     }
     assert!(
-        config.contains("files: '^docs/decisions/.*\\.md$'"),
+        config.contains("files: '^docs/decisions/[^/]*\\.md$'"),
         "docs_root not substituted"
     );
 }

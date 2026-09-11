@@ -34,7 +34,7 @@
     {
       "source": "skills/sdd-setup/SKILL.md",
       "destination": "skills/sdd-setup/SKILL.md",
-      "sha256": "f048a8c0d5bcb51950410be06a2348e6f0bd9228244b8ea5a66dc920637364e8"
+      "sha256": "5fcb752d7b4322c81fa7d257696aa143cfa76f5f0caac3cd751d82a34a8bf645"
     },
     {
       "source": "skills/sdd-write-docs/SKILL.md",
@@ -68,20 +68,20 @@
     {
       "source": "_docs/specs/SPEC-distribution.md",
       "destination": "_docs/specs/SPEC-distribution.md",
-      "sha256": "c84de42946632587d651efa5c02394f2b1ca30126dd994a0d27d1b6ea73ef2a5",
-      "baseline_sha256": "c84de42946632587d651efa5c02394f2b1ca30126dd994a0d27d1b6ea73ef2a5"
+      "sha256": "08674558dfb021ba8ec59691e292176aea404c3910f54da19934c02e1da9f79c",
+      "baseline_sha256": "08674558dfb021ba8ec59691e292176aea404c3910f54da19934c02e1da9f79c"
     },
     {
       "source": "_docs/specs/SPEC-docs-format.md",
       "destination": "_docs/specs/SPEC-docs-format.md",
-      "sha256": "537f77dc9bedfe132f6bfeace809266c51848fde0c375f71e56759a525aa0c55",
-      "baseline_sha256": "537f77dc9bedfe132f6bfeace809266c51848fde0c375f71e56759a525aa0c55"
+      "sha256": "8aa97f98f069e4208ee77b362a2fb0b70baa29a7ddb704e02f960b923609e22f",
+      "baseline_sha256": "8aa97f98f069e4208ee77b362a2fb0b70baa29a7ddb704e02f960b923609e22f"
     },
     {
       "source": "_docs/specs/SPEC-docs-foundations.md",
       "destination": "_docs/specs/SPEC-docs-foundations.md",
-      "sha256": "226c8903ea4574351adf37f5da2d1093b4f0bd363c566030262656d545d7be79",
-      "baseline_sha256": "226c8903ea4574351adf37f5da2d1093b4f0bd363c566030262656d545d7be79"
+      "sha256": "58b9db7faf8e7d6176f3e1f4a074efca1c6a156dfcac38881f4d7c757cfabcc1",
+      "baseline_sha256": "58b9db7faf8e7d6176f3e1f4a074efca1c6a156dfcac38881f4d7c757cfabcc1"
     },
     {
       "source": "_docs/specs/SPEC-docs-specs.md",
@@ -98,8 +98,8 @@
     {
       "source": "_docs/specs/SPEC-instance.md",
       "destination": "_docs/specs/SPEC-instance.md",
-      "sha256": "56e554ed23228d66ea0d8b629b65e3436bfbeb3b6a90fa15972da48e48e9f9d5",
-      "baseline_sha256": "56e554ed23228d66ea0d8b629b65e3436bfbeb3b6a90fa15972da48e48e9f9d5"
+      "sha256": "90db9197f6bedee5a31c02885aa9eefc197f5e375da116a034cc40618193a298",
+      "baseline_sha256": "90db9197f6bedee5a31c02885aa9eefc197f5e375da116a034cc40618193a298"
     },
     {
       "source": "_docs/specs/SPEC-known-issues.md",
@@ -110,8 +110,8 @@
     {
       "source": "_docs/specs/SPEC-release.md",
       "destination": "_docs/specs/SPEC-release.md",
-      "sha256": "98f96b99a74156803c0772a9069e18ad7850625ce665923db7c50130c3162647",
-      "baseline_sha256": "98f96b99a74156803c0772a9069e18ad7850625ce665923db7c50130c3162647"
+      "sha256": "7e4b0aa43fb2c52c67b6a92eabc051403a94c5371d790601ae57f9a02c744883",
+      "baseline_sha256": "7e4b0aa43fb2c52c67b6a92eabc051403a94c5371d790601ae57f9a02c744883"
     },
     {
       "source": "_docs/specs/SPEC-spec-to-code.md",
@@ -153,7 +153,7 @@
   "integration_blocks": [
     {
       "path": ".pre-commit-config.yaml",
-      "marker_hash": "180efb0a985faa71850cf7db8e7dcba75d28e05294c9d3849e9559785d97d60f"
+      "marker_hash": "ef9473aa39a308dac43542ca0c3a0b2242cbd0b145d447cb16e49edeabd6d59e"
     }
   ]
 }

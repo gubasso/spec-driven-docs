@@ -49,28 +49,109 @@ use thiserror::Error;
 
 use crate::domain::finding::Finding;
 use crate::domain::gate_id::GateId;
+use crate::domain::path_filter::PathFilter;
 use crate::domain::rule_id::RuleId;
 
-/// Where a gate runs: the repository root pre-commit invoked it from.
-#[derive(Debug, Clone)]
+/// Where a gate runs: the repository root pre-commit invoked it from, and
+/// the subject filter that bounds what it judges there.
+///
+/// # Subject paths and support paths
+///
+/// A *subject* path is one whose content the gate judges and which can
+/// appear in a finding. A *support* path is one the gate reads to know what
+/// to judge: the canon manifest, the known-issue records, the docs-root
+/// resolution, the tracking registry. The filter governs subject paths.
+/// [`Self::path`] and [`read_text`] stay open, because a filter that reached
+/// support paths would let a project disable a gate by excluding the file
+/// that configures it.
+///
+/// # Every route a subject path takes
+///
+/// There are three, and each passes through [`Self::subjects`], so a gate
+/// author cannot reach an unfiltered subject list:
+///
+/// 1. The `&[String]` a gate is handed, filtered in `commands::gate`.
+/// 2. [`walk_files`], which filters before it returns.
+/// 3. [`crate::gates::spec_change_is_typed`], which resolves its own
+///    candidate set and filters it explicitly.
+///
+/// `canon::every_subject_producer_is_filter_aware` holds that list.
+#[derive(Debug)]
 pub struct GateCtx {
     /// The repository root; every path a gate reads or reports is relative to it.
     pub repo_root: Utf8PathBuf,
+    /// What this gate may judge. Private, so the only way to a subject list
+    /// is [`Self::subjects`].
+    filter: PathFilter,
 }
 
 impl GateCtx {
-    /// A context rooted at the given repository.
+    /// A context rooted at the given repository, judging everything.
+    ///
+    /// This is the shape every test and every internal caller wants. The
+    /// command path uses [`Self::with_filter`].
     #[must_use]
     pub fn new(repo_root: impl Into<Utf8PathBuf>) -> Self {
         Self {
             repo_root: repo_root.into(),
+            filter: PathFilter::permissive(),
+        }
+    }
+
+    /// A context whose gate judges only what the filter admits.
+    #[must_use]
+    pub fn with_filter(repo_root: impl Into<Utf8PathBuf>, filter: PathFilter) -> Self {
+        Self {
+            repo_root: repo_root.into(),
+            filter,
         }
     }
 
     /// Resolve a repository-relative path for reading.
+    ///
+    /// Deliberately unfiltered: a gate reads its support files through here.
     #[must_use]
     pub fn path(&self, relative: impl AsRef<Utf8Path>) -> Utf8PathBuf {
         self.repo_root.join(relative)
+    }
+
+    /// The form a pattern speaks, for one candidate.
+    ///
+    /// See [`crate::domain::path_filter::project`], which both this and
+    /// `--explain` use, so the two never disagree about which file a path
+    /// names.
+    fn relative(&self, path: &Utf8Path) -> Utf8PathBuf {
+        crate::domain::path_filter::project(path, &self.repo_root)
+    }
+
+    /// The subset of `candidates` this gate judges.
+    ///
+    /// Every subject path pre-commit or an operator hands a gate comes
+    /// through here, and the registry whitelist binds.
+    #[must_use]
+    pub fn subjects<P: AsRef<Utf8Path>>(&self, candidates: impl IntoIterator<Item = P>) -> Vec<P> {
+        candidates
+            .into_iter()
+            .filter(|path| self.filter.judges(&self.relative(path.as_ref())))
+            .collect()
+    }
+
+    /// The subset of `candidates` this gate's exclusions leave.
+    ///
+    /// For a subject set the gate discovered itself. See
+    /// [`PathFilter::retains`].
+    #[must_use]
+    pub fn retained<P: AsRef<Utf8Path>>(&self, candidates: impl IntoIterator<Item = P>) -> Vec<P> {
+        candidates
+            .into_iter()
+            .filter(|path| self.filter.retains(&self.relative(path.as_ref())))
+            .collect()
+    }
+
+    /// The filter itself, for `--explain` and for the renderer.
+    #[must_use]
+    pub const fn filter(&self) -> &PathFilter {
+        &self.filter
     }
 }
 
@@ -142,19 +223,35 @@ pub struct GateSpec {
     pub id: GateId,
     /// The display name pre-commit shows.
     pub name: &'static str,
-    /// The default `files:` pattern, with `{docs_root}` left templated.
+    /// The subject paths this gate judges, as include globs with
+    /// `{docs_root}` left templated.
     ///
-    /// A row that does not set `always_run` carries one, under
-    /// `release:a-delivered-gate-reads-what-the-convention-owns`: a `types:`
-    /// scope alone reaches every matching file in the project, including the
-    /// ones another tool wrote.
-    pub files: Option<&'static str>,
+    /// Every row states them, under
+    /// `release:a-delivered-gate-reads-what-the-convention-owns`. An empty
+    /// list judges everything the excludes leave, and a row that states one
+    /// carries a comment saying why.
+    pub include: &'static [&'static str],
     /// The `types:` scope, when the gate takes one.
+    ///
+    /// Pre-commit applies it in addition to the rendered patterns. `sdd
+    /// gate` does not, which is why `--explain` prints it rather than
+    /// folding it into the answer.
     pub types: Option<&'static str>,
-    /// The default `exclude:` pattern, with `{docs_root}` left templated.
-    pub exclude: Option<&'static str>,
+    /// The subject paths this gate never judges, as exclude globs with
+    /// `{docs_root}` left templated.
+    pub exclude: &'static [&'static str],
     /// Whether the gate runs regardless of which files changed.
     pub always_run: bool,
+    /// Whether the gate resolves its own subject set rather than judging
+    /// the paths it is handed.
+    ///
+    /// For such a gate the discovery is the include, so
+    /// [`GateCtx::retained`] applies and the registry whitelist does not.
+    /// `always_run` is not this: `agents-digest-size` runs always and still
+    /// judges what [`walk_files`] hands it, which the registry include
+    /// narrows. `--explain` reads this field, so a wrong value makes the
+    /// diagnostic contradict the gate.
+    pub discovers: bool,
     /// Every rule the gate can cite in a finding.
     pub cites: &'static [RuleId],
     /// The implementation.
@@ -173,300 +270,348 @@ pub static GATES: &[GateSpec] = &[
     GateSpec {
         id: GateId::AdrCitesALiveRule,
         name: "decision record citations resolve",
-        files: None,
+        include: &[r"{docs_root}/decisions/*.md"],
         types: None,
-        exclude: None,
+        exclude: &[],
         always_run: true,
+        discovers: true,
         cites: adr_cites_a_live_rule::CITES,
         run: adr_cites_a_live_rule::run,
     },
     GateSpec {
         id: GateId::AdrFilenameShape,
         name: "decision record filename shape",
-        files: Some(r"^{docs_root}/decisions/.*\.md$"),
+        include: &[r"{docs_root}/decisions/*.md"],
         types: None,
-        exclude: None,
+        exclude: &[],
         always_run: false,
+        discovers: false,
         cites: adr_filename_shape::CITES,
         run: adr_filename_shape::run,
     },
     GateSpec {
         id: GateId::AdrWordCap,
         name: "decision record word cap",
-        files: None,
+        include: &[r"{docs_root}/decisions/*.md"],
         types: None,
-        exclude: None,
+        exclude: &[],
         always_run: true,
+        discovers: true,
         cites: adr_word_cap::CITES,
         run: adr_word_cap::run,
     },
     GateSpec {
         id: GateId::AgentsDigestSize,
         name: "agent digest size",
-        files: None,
+        include: &[r"**/AGENTS.md"],
         types: None,
-        exclude: None,
+        exclude: &[],
         always_run: true,
+        discovers: false,
         cites: agents_digest_size::CITES,
         run: agents_digest_size::run,
     },
     GateSpec {
         id: GateId::ChapterSizeCap,
         name: "chapter and catalog size",
-        files: None,
+        include: &[r"**/*.md"],
         types: None,
-        exclude: None,
+        exclude: &[],
         always_run: true,
+        discovers: false,
         cites: chapter_size_cap::CITES,
         run: chapter_size_cap::run,
     },
     GateSpec {
         id: GateId::ComparisonDatedTables,
         name: "comparison tables are dated",
-        files: Some(r"(^|/)COMPARISON-[a-z0-9-]+\.md$"),
+        include: &[r"**/COMPARISON-*.md"],
         types: None,
-        exclude: None,
+        exclude: &[],
         always_run: false,
+        discovers: false,
         cites: comparison_dated_tables::CITES,
         run: comparison_dated_tables::run,
     },
     GateSpec {
         id: GateId::ComparisonEscapedPipes,
         name: "comparison table pipes are escaped",
-        files: Some(r"(^|/)COMPARISON-[a-z0-9-]+\.md$"),
+        include: &[r"**/COMPARISON-*.md"],
         types: None,
-        exclude: None,
+        exclude: &[],
         always_run: false,
+        discovers: false,
         cites: comparison_escaped_pipes::CITES,
         run: comparison_escaped_pipes::run,
     },
     GateSpec {
         id: GateId::ComparisonLegend,
         name: "comparison legend",
-        files: Some(r"(^|/)COMPARISON-[a-z0-9-]+\.md$"),
+        include: &[r"**/COMPARISON-*.md"],
         types: None,
-        exclude: None,
+        exclude: &[],
         always_run: false,
+        discovers: false,
         cites: comparison_legend::CITES,
         run: comparison_legend::run,
     },
     GateSpec {
         id: GateId::ComparisonOneReferencePerCell,
         name: "one reference per comparison cell",
-        files: Some(r"(^|/)COMPARISON-[a-z0-9-]+\.md$"),
+        include: &[r"**/COMPARISON-*.md"],
         types: None,
-        exclude: None,
+        exclude: &[],
         always_run: false,
+        discovers: false,
         cites: comparison_one_reference_per_cell::CITES,
         run: comparison_one_reference_per_cell::run,
     },
     GateSpec {
         id: GateId::ComparisonVerdictWord,
         name: "comparison verdict word",
-        files: Some(r"(^|/)COMPARISON-[a-z0-9-]+\.md$"),
+        include: &[r"**/COMPARISON-*.md"],
         types: None,
-        exclude: None,
+        exclude: &[],
         always_run: false,
+        discovers: false,
         cites: comparison_verdict_word::CITES,
         run: comparison_verdict_word::run,
     },
     GateSpec {
         id: GateId::GateMessageCitesARule,
         name: "gate messages cite a rule",
-        files: None,
+        // Judges the registry itself, not a path in the tree: the
+        // subject is every gate row, and the specs it resolves them
+        // against are support.
+        include: &[],
         types: None,
-        exclude: None,
+        exclude: &[],
         always_run: true,
+        discovers: false,
         cites: gate_message_cites_a_rule::CITES,
         run: gate_message_cites_a_rule::run,
     },
     GateSpec {
         id: GateId::InstanceManifest,
         name: "instance manifest",
-        files: None,
+        include: &[r".spec-driven-docs/manifest.json"],
         types: None,
-        exclude: None,
+        exclude: &[],
         always_run: true,
+        discovers: true,
         cites: instance_manifest::CITES,
         run: instance_manifest::run,
     },
     GateSpec {
         id: GateId::KiBugzillaReportWidth,
         name: "Bugzilla report width",
-        files: None,
+        include: &[r"{docs_root}/reference/known-issues/*.md"],
         types: None,
-        exclude: None,
+        exclude: &[],
         always_run: true,
+        discovers: true,
         cites: ki_bugzilla_report_width::CITES,
         run: ki_bugzilla_report_width::run,
     },
     GateSpec {
         id: GateId::KiCheckedDate,
         name: "known issue last-check date",
-        files: None,
+        include: &[r"{docs_root}/reference/known-issues/*.md"],
         types: None,
-        exclude: None,
+        exclude: &[],
         always_run: true,
+        discovers: true,
         cites: ki_checked_date::CITES,
         run: ki_checked_date::run,
     },
     GateSpec {
         id: GateId::KiFilenameShape,
         name: "known issue filename shape",
-        files: Some(r"^{docs_root}/reference/known-issues/.*\.md$"),
+        include: &[r"{docs_root}/reference/known-issues/*.md"],
         types: None,
-        exclude: None,
+        exclude: &[],
         always_run: false,
+        discovers: false,
         cites: ki_filename_shape::CITES,
         run: ki_filename_shape::run,
     },
     GateSpec {
         id: GateId::KiFiling,
         name: "known issue filing state",
-        files: None,
+        include: &[r"{docs_root}/reference/known-issues/*.md"],
         types: None,
-        exclude: None,
+        exclude: &[],
         always_run: true,
+        discovers: true,
         cites: ki_filing::CITES,
         run: ki_filing::run,
     },
     GateSpec {
         id: GateId::KiMechanismWalkthrough,
         name: "known issue mechanism walkthrough",
-        files: None,
+        include: &[r"{docs_root}/reference/known-issues/*.md"],
         types: None,
-        exclude: None,
+        exclude: &[],
         always_run: true,
+        discovers: true,
         cites: ki_mechanism_walkthrough::CITES,
         run: ki_mechanism_walkthrough::run,
     },
     GateSpec {
         id: GateId::KiReportBody,
         name: "known issue report body",
-        files: None,
+        include: &[r"{docs_root}/reference/known-issues/*.md"],
         types: None,
-        exclude: None,
+        exclude: &[],
         always_run: true,
+        discovers: true,
         cites: ki_report_body::CITES,
         run: ki_report_body::run,
     },
     GateSpec {
         id: GateId::KiRetireWhen,
         name: "known issue retirement condition",
-        files: None,
+        include: &[r"{docs_root}/reference/known-issues/*.md"],
         types: None,
-        exclude: None,
+        exclude: &[],
         always_run: true,
+        discovers: true,
         cites: ki_retire_when::CITES,
         run: ki_retire_when::run,
     },
     GateSpec {
         id: GateId::KiState,
         name: "known issue state",
-        files: None,
+        include: &[r"{docs_root}/reference/known-issues/*.md"],
         types: None,
-        exclude: None,
+        exclude: &[],
         always_run: true,
+        discovers: true,
         cites: ki_state::CITES,
         run: ki_state::run,
     },
     GateSpec {
         id: GateId::NoPersonalPath,
         name: "no personal path",
-        files: Some(r"^{docs_root}/.*\.md$"),
+        // Judges the whole project. Whether a string is a real person's
+        // home directory does not depend on which conventions a project
+        // follows, so a false positive is nearly impossible and the value
+        // is entirely in breadth. v0.6.5 anchored this to the documentation
+        // root over two register collisions, which a leak check does not
+        // have: a rendered release block carries no home directory. A
+        // project that needs a path exempt reserves it
+        // (ADR-a-project-declares-what-its-gates-read).
+        include: &[],
         types: Some("text"),
-        exclude: None,
+        exclude: &[],
         always_run: false,
+        discovers: false,
         cites: no_personal_path::CITES,
         run: no_personal_path::run,
     },
     GateSpec {
         id: GateId::NoSelfNarration,
         name: "documents state the present",
-        files: Some(r"^{docs_root}/.*\.md$"),
+        include: &[r"{docs_root}/**/*.md"],
         types: Some("markdown"),
-        exclude: Some("^{docs_root}/decisions/"),
+        exclude: &[r"{docs_root}/decisions/**"],
         always_run: false,
+        discovers: false,
         cites: no_self_narration::CITES,
         run: no_self_narration::run,
     },
     GateSpec {
         id: GateId::ProseStaysUnwrapped,
         name: "prose lines stay unwrapped",
-        files: Some(r"^{docs_root}/.*\.md$"),
+        include: &[r"{docs_root}/**/*.md"],
         types: Some("markdown"),
-        exclude: Some(r"(?:^|/)CHANGELOG\.md$"),
+        exclude: &[r"**/CHANGELOG.md"],
         always_run: false,
+        discovers: false,
         cites: prose_stays_unwrapped::CITES,
         run: prose_stays_unwrapped::run,
     },
     GateSpec {
         id: GateId::SpecChangeIsTyped,
         name: "spec changes are typed",
-        files: None,
+        // Judges whatever the project's declared plan zone holds, and the
+        // zone is the project's own choice of path, so no canon pattern can
+        // name it. The declaration already bounds this gate by naming the
+        // zone; `reserved:` still reaches inside it.
+        include: &[],
         types: None,
-        exclude: None,
+        exclude: &[],
         always_run: true,
+        discovers: true,
         cites: spec_change_is_typed::CITES,
         run: spec_change_is_typed::run,
     },
     GateSpec {
         id: GateId::SpecRequirementParts,
         name: "spec requirement parts",
-        files: Some(r"^{docs_root}/specs/SPEC-.*\.md$"),
+        include: &[r"{docs_root}/specs/SPEC-*.md"],
         types: None,
-        exclude: None,
+        exclude: &[],
         always_run: false,
+        discovers: false,
         cites: spec_requirement_parts::CITES,
         run: spec_requirement_parts::run,
     },
     GateSpec {
         id: GateId::SpecRuleIdUnique,
         name: "spec rule IDs are unique",
-        files: None,
+        include: &[r"{docs_root}/specs/SPEC-*.md"],
         types: None,
-        exclude: None,
+        exclude: &[],
         always_run: true,
+        discovers: true,
         cites: spec_rule_id_unique::CITES,
         run: spec_rule_id_unique::run,
     },
     GateSpec {
         id: GateId::SpecSizeCap,
         name: "spec size cap",
-        files: None,
+        include: &[r"{docs_root}/specs/SPEC-*.md"],
         types: None,
-        exclude: None,
+        exclude: &[],
         always_run: true,
+        discovers: true,
         cites: spec_size_cap::CITES,
         run: spec_size_cap::run,
     },
     GateSpec {
         id: GateId::SpecVerifyHooksExist,
         name: "spec hook references exist",
-        files: None,
+        include: &[r"{docs_root}/specs/SPEC-*.md"],
         types: None,
-        exclude: None,
+        exclude: &[],
         always_run: true,
+        discovers: true,
         cites: spec_verify_hooks_exist::CITES,
         run: spec_verify_hooks_exist::run,
     },
     GateSpec {
         id: GateId::SuppressionNamesItsCase,
         name: "suppressions name a known issue",
-        files: None,
+        // Judges every source file in the project, because a
+        // suppression can be written in any of them. The known-issue
+        // records it resolves a case against are support.
+        include: &[],
         types: None,
-        exclude: None,
+        exclude: &[],
         always_run: true,
+        discovers: false,
         cites: suppression_names_its_case::CITES,
         run: suppression_names_its_case::run,
     },
     GateSpec {
         id: GateId::TrackingRegistry,
         name: "tracking registry is valid and current",
-        files: None,
+        include: &[r"{docs_root}/reference/tracking.yaml"],
         types: None,
-        exclude: None,
+        exclude: &[],
         always_run: true,
+        discovers: true,
         cites: tracking_registry::CITES,
         run: tracking_registry::run,
     },
@@ -522,30 +667,55 @@ pub fn front_matter_values(text: &str, key: &str) -> Vec<String> {
         .collect()
 }
 
-/// Walk the repository, pruning [`PRUNED_DIRS`], and yield every file as a
-/// `./`-prefixed repository-relative path in sorted order.
+/// The traversal pruner: [`PRUNED_DIRS`] as an `ignore` override.
+///
+/// `Override` is the right tool here and the wrong one in
+/// [`crate::domain::path_filter`]. Pruning wants one boolean per directory
+/// and no provenance, which is exactly what it gives.
+fn pruner(root: &Utf8Path) -> ignore::overrides::Override {
+    let mut builder = ignore::overrides::OverrideBuilder::new(root.as_std_path());
+    for dir in PRUNED_DIRS {
+        // `!` marks an exclude in `Override`'s own grammar, which is not
+        // the restricted grammar `PathFilter` carries.
+        let _ = builder.add(&format!("!{dir}/**"));
+        let _ = builder.add(&format!("!{dir}"));
+    }
+    builder
+        .build()
+        .unwrap_or_else(|_| ignore::overrides::Override::empty())
+}
+
+/// Walk the repository and yield every file as a `./`-prefixed
+/// repository-relative path in sorted order.
+///
+/// The walk prunes [`PRUNED_DIRS`] and honours the repository's committed
+/// `.gitignore`. It honours no machine-local ignore source: `.git/info/exclude`,
+/// the user's global excludes file, and ignore files above the repository
+/// root are all disabled, because a gate whose answer depends on whose
+/// checkout it runs in is not a gate.
 #[must_use]
 pub fn walk_files(ctx: &GateCtx) -> Vec<Utf8PathBuf> {
     let root = ctx.repo_root.as_std_path();
-    let mut files: Vec<Utf8PathBuf> = walkdir::WalkDir::new(root)
-        .into_iter()
-        .filter_entry(|entry| {
-            !(entry.file_type().is_dir()
-                && entry.depth() > 0
-                && entry
-                    .file_name()
-                    .to_str()
-                    .is_some_and(|name| PRUNED_DIRS.contains(&name)))
-        })
+    let mut files: Vec<Utf8PathBuf> = ignore::WalkBuilder::new(root)
+        .standard_filters(false)
+        .git_ignore(true)
+        .git_exclude(false)
+        .git_global(false)
+        .ignore(false)
+        .parents(false)
+        .require_git(false)
+        .hidden(false)
+        .overrides(pruner(&ctx.repo_root))
+        .build()
         .filter_map(Result::ok)
-        .filter(|entry| entry.file_type().is_file())
+        .filter(|entry| entry.file_type().is_some_and(|kind| kind.is_file()))
         .filter_map(|entry| {
             let relative = entry.path().strip_prefix(root).ok()?.to_str()?;
             Some(Utf8PathBuf::from(format!("./{relative}")))
         })
         .collect();
     files.sort();
-    files
+    ctx.subjects(files)
 }
 
 #[cfg(test)]
@@ -600,6 +770,75 @@ pub(crate) mod tests_support {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A repository holding one file at each named path.
+    fn tree(paths: &[(&str, &str)]) -> tempfile::TempDir {
+        let dir = tempfile::tempdir().expect("a scratch directory");
+        for (path, body) in paths {
+            let full = dir.path().join(path);
+            if let Some(parent) = full.parent() {
+                std::fs::create_dir_all(parent).expect("the parent exists");
+            }
+            std::fs::write(&full, body).expect("the file is written");
+        }
+        dir
+    }
+
+    fn walked(dir: &tempfile::TempDir) -> Vec<String> {
+        let root = Utf8PathBuf::from_path_buf(dir.path().to_path_buf())
+            .expect("the scratch path is UTF-8");
+        walk_files(&GateCtx::new(root))
+            .into_iter()
+            .map(|p| p.to_string())
+            .collect()
+    }
+
+    #[test]
+    fn walk_files_skips_a_gitignored_file() {
+        let dir = tree(&[
+            (".gitignore", "generated.md\n"),
+            ("generated.md", "x\n"),
+            ("kept.md", "x\n"),
+        ]);
+        let files = walked(&dir);
+        assert!(files.contains(&"./kept.md".to_string()));
+        assert!(
+            !files.contains(&"./generated.md".to_string()),
+            "a git-ignored file still reached a walking gate: {files:?}"
+        );
+    }
+
+    #[test]
+    fn walk_files_ignores_a_machine_local_exclude_file() {
+        // The hostile case. A machine-local exclude must not hide a governed
+        // file, or one operator's checkout reports a violation another's
+        // does not.
+        let dir = tree(&[
+            (".git/info/exclude", "governed.md\n"),
+            ("governed.md", "x\n"),
+        ]);
+        assert!(
+            walked(&dir).contains(&"./governed.md".to_string()),
+            "a machine-local exclude hid a governed file"
+        );
+    }
+
+    #[test]
+    fn walk_files_still_prunes_the_pruned_dirs() {
+        let dir = tree(&[
+            ("target/debug/artifact", "x\n"),
+            ("node_modules/pkg/index.js", "x\n"),
+            ("src/main.rs", "x\n"),
+        ]);
+        let files = walked(&dir);
+        assert_eq!(files, vec!["./src/main.rs".to_string()]);
+    }
+
+    #[test]
+    fn walk_files_yields_dotted_paths() {
+        let dir = tree(&[(".markdownlint/base.yaml", "x\n")]);
+        assert!(walked(&dir).contains(&"./.markdownlint/base.yaml".to_string()));
+    }
 
     #[test]
     fn registry_covers_every_gate_exactly_once_in_order() {

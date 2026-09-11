@@ -9,7 +9,7 @@
 use crate::domain::finding::Finding;
 use crate::domain::rule_id::RuleId;
 use crate::gates::ki_record::{FILINGS, axis};
-use crate::gates::paths::ki_records;
+use crate::gates::paths::ki_records_judged;
 use crate::gates::{GateCtx, GateResult, Violation, front_matter_values, read_text};
 
 /// The rules this gate can cite.
@@ -24,7 +24,7 @@ const RULE: RuleId = RuleId::FiledRecordCarriesItsReport;
 /// [`crate::gates::GateError::Io`] when a record cannot be read.
 pub fn run(ctx: &GateCtx, args: &[String]) -> GateResult {
     let mut violations = Vec::new();
-    for record in ki_records(ctx, args)? {
+    for record in ki_records_judged(ctx, args)? {
         let text = read_text(ctx, &record)?;
         if axis(&text, "filing", &FILINGS).as_deref() != Some("filed") {
             continue;
