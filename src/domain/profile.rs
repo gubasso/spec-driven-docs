@@ -98,8 +98,10 @@ const fn proj(source: &'static str, destination: &'static str) -> Projection {
 
 /// Substitute the profile's documentation root into a destination template.
 #[must_use]
-// sdd: permanent the braces are the destination template's placeholder, not a formatting argument
-#[allow(clippy::literal_string_with_formatting_args)]
+#[allow(
+    clippy::literal_string_with_formatting_args,
+    reason = "the braces are the destination template's placeholder, not a formatting argument"
+)]
 pub fn resolve_destination(destination: &str, docs_root: DocsRoot) -> Utf8PathBuf {
     Utf8PathBuf::from(destination.replace("{docs_root}", docs_root.as_str()))
 }
@@ -122,7 +124,9 @@ pub struct Profile {
 /// No skill appears here. A skill name is what an agent's picker keys on,
 /// so an instance copy and the user-scope copy of one skill are two entries
 /// under one name in every session opened inside that instance. User scope
-/// owns them alone (ADR-give-every-skill-one-owner).
+/// owns them alone.
+///
+/// SATISFIES distribution:a-skill-has-one-owner
 const MANAGED: &[Projection] = &[
     proj(
         ".markdownlint/adr.markdownlint-cli2.jsonc",

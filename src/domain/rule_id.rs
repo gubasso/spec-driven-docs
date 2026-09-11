@@ -127,7 +127,6 @@ rule_ids! {
     CommentCitesTheRule => "spec-to-code:a-comment-cites-the-rule",
     CommentNamesNoRecord => "spec-to-code:a-comment-names-no-record",
     GateMessageCitesTheRule => "spec-to-code:a-gate-message-cites-the-rule",
-    PermanentExceptionStatesItsReason => "spec-to-code:a-permanent-exception-states-its-reason",
     SpecChangeIsTyped => "spec-to-code:a-spec-change-is-typed",
     SpecMayLeadItsCode => "spec-to-code:a-spec-may-lead-its-code",
     SuppressionNamesItsCase => "spec-to-code:a-suppression-names-its-case",

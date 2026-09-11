@@ -10,13 +10,13 @@
 
 // Integration tests: assertion style is the point, so the production
 // restrictions on unwrap/panic and string building do not apply here.
-// sdd: permanent the panic is this suite's failure signal, not control flow
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
     clippy::panic,
     clippy::format_collect,
-    clippy::case_sensitive_file_extension_comparisons
+    clippy::case_sensitive_file_extension_comparisons,
+    reason = "the panic is this suite's failure signal, not control flow"
 )]
 
 use std::path::{Path, PathBuf};
@@ -217,10 +217,10 @@ fn the_canon_managed_block_wires_every_registered_gate() {
 /// row resolving its own scope, which was 19 of the 30, so it constrained 3.
 #[test]
 fn every_gate_declares_what_it_judges() {
-    // A row may judge everything, and two do. What it may not do is leave
-    // the question unanswered, which is what the v0.6.5 rule's third clause
-    // permitted for 19 of the 30 rows.
-    const JUDGES_EVERYTHING: &[&str] = &[
+    // A row with no include judges everything its excludes leave, and four
+    // do. What a row may not do is leave the question unanswered, which is
+    // what the v0.6.5 rule's third clause permitted for 19 of the 30 rows.
+    const JUDGES_WHAT_ITS_EXCLUDES_LEAVE: &[&str] = &[
         "gate-message-cites-a-rule",
         "no-personal-path",
         "spec-change-is-typed",
@@ -229,21 +229,22 @@ fn every_gate_declares_what_it_judges() {
 
     for gate in spec_driven_docs::gates::GATES {
         let id = gate.id.to_string();
-        if gate.include.is_empty() {
-            assert!(
-                JUDGES_EVERYTHING.contains(&id.as_str()),
-                "{id} states no include patterns, so it judges every file in the \
-                 project. A row that means that says so in JUDGES_EVERYTHING here \
-                 and in a comment on its row; a row that does not states its scope."
-            );
-            continue;
-        }
+        // Every declared pattern is held to the filter grammar, on a row
+        // that states an include and on one that states only excludes.
+        // Branching before this check let an empty-include row ship a
+        // pattern nothing validated.
         for pattern in gate.include.iter().chain(gate.exclude) {
             assert!(
                 !pattern.starts_with('/') && !pattern.starts_with('!'),
                 "{id} states the pattern {pattern}, which the filter grammar refuses"
             );
         }
+        assert!(
+            !gate.include.is_empty() || JUDGES_WHAT_ITS_EXCLUDES_LEAVE.contains(&id.as_str()),
+            "{id} states no include patterns, so it judges every file its excludes \
+             leave. A row that means that says so in JUDGES_WHAT_ITS_EXCLUDES_LEAVE \
+             here and in a comment on its row; a row that does not states its scope."
+        );
     }
 }
 

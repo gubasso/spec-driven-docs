@@ -2,8 +2,12 @@
 
 // Integration tests: assertion style is the point, so the production
 // restrictions on unwrap/panic and string building do not apply here.
-// sdd: permanent the panic is this suite's failure signal, not control flow
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "the panic is this suite's failure signal, not control flow"
+)]
 
 mod support;
 

@@ -20,11 +20,11 @@ set -- _docs/specs/SPEC-*.md
 
 ## Heading shapes
 
-`MD043 required-headings` holds the fixed heading lists. It takes one `headings` array, so each shape needs its own config file and hook entry. First remove any mention of `MD043` from the project's `.markdownlint-cli2.jsonc`, including `"MD043": false`: that file merges over the `--config` base, so a mention left there silently disables every shape below while the hooks keep reporting success.
+`MD043 required-headings` holds the fixed heading lists. It takes one `headings` array, so each shape needs its own configuration file and hook entry. First remove every mention of `MD043` from the project's `.markdownlint-cli2.jsonc`, including `"MD043": false`. That file merges over the `--config` base. A mention left there disables every shape below, and the hooks keep reporting success.
 
-Each config is `{"config": {"MD043": {"headings": [...]}}}` with one array. For a spec that array is `["?", "## Purpose", "## Requirements", "+"]`. For a record it is `"?"` followed by the five section headings in order, with no trailing wildcard. Scope the record hook to `ADR-` alone: a template holds the shape inside a fence so it can be copied, and MD043 counts a fenced heading as no heading at all.
+Each configuration is `{"config": {"MD043": {"headings": [...]}}}` with one array. For a spec that array is `["?", "## Purpose", "## Requirements", "+"]`. For a record it is `"?"` followed by the five section headings in order, with no trailing wildcard. Scope the record hook to `ADR-` alone. A template holds the shape inside a fence so an author can copy it, and MD043 counts a fenced heading as no heading at all.
 
-MD043 checks every heading level, so the array covers requirement and scenario headings too. Tokens are `?` for exactly one, `+` for one or more, `*` for zero or more. `+` fails an empty spec. Set `match_case: true`: its default is false, and without it a record headed `## status` passes.
+MD043 checks every heading level, so the array covers requirement and scenario headings too. Tokens are `?` for exactly one, `+` for one or more, `*` for zero or more. `+` fails an empty spec. Set `match_case: true`. Its default is false, and without it a record headed `## status` passes.
 
 ```yaml
 - id: markdownlint-cli2
@@ -71,7 +71,7 @@ Scope the hook to the directory, not the prefix. A `files:` pattern of `^_docs/d
 
 ## Case ids
 
-A suppression names a case or states a permanent reason, and a name is worth nothing if it resolves to no record. This is the coverage grep again: every `KI-` token cited outside the docs root, against the records that exist.
+A suppression over a defect this project does not own names its case. A name that resolves to no record is worth nothing. This is the coverage grep again: every `KI-` token cited outside the docs root, against the records that exist.
 
 ```bash
 rg -o '\bKI-[a-z0-9-]+' --glob '!<root>/**' . | sed 's/.*://' | sort -u > /tmp/cited
@@ -79,7 +79,7 @@ ls <root>/reference/known-issues/ | sed 's/\.md$//' | sort -u > /tmp/recorded
 comm -13 /tmp/recorded /tmp/cited | grep . && exit 1 || exit 0
 ```
 
-The check runs one way only: a cited case with no record is a fabrication and fails. A record no suppression cites is ordinary, because the workaround can live in a config or a dependency pin. Scope each form to the file kind that honors it. A form named in prose or in a string then stays a quotation.
+The check runs one way only: a cited case with no record is a fabrication and fails. A record no suppression cites is ordinary, because the workaround can live in a configuration file or a dependency pin. The scan reads the `KI-` token alone and recognizes no suppression syntax, so a gate delivers no model of another tool's grammar. Whether a suppression that names no case states a reason belongs to the linter that owns the language, where that linter has a rule for it. [09 Spec to Code](./09-spec-to-code.md) names the lints that do and the case where none exists.
 
 Wire it as `always_run`, not behind a `files:` filter. The commit this check exists to catch deletes a record while a suppression still cites it. Pre-commit selects staged files with `--diff-filter=ACMRTUXB`, which omits deletions. As a result, a filter hands the hook an empty list on exactly that commit. The same reasoning binds every gate that compares two sets.
 
@@ -113,7 +113,7 @@ done
 
 ## Statement grammar
 
-A full EARS parser is not worth building. Check the two properties that catch most breaches: a requirement statement carries an RFC 2119 keyword, and where it is conditional it opens with one of the four conditional keywords.
+A full EARS parser is not worth building. Two properties catch most breaches. A requirement statement carries an RFC 2119 keyword, and a conditional statement opens with one of the four conditional keywords.
 
 ```bash
 rg -UIo -r '$1' '^### `[a-z0-9-]+:[a-z0-9-]+`[^\n]*\n\n([^\n]+)' _docs/specs \
@@ -158,7 +158,7 @@ while IFS= read -r f; do
 done
 ```
 
-The chapter loop is what stops a shelf from absorbing a subject by growing. A catalog takes the larger number for the reason [06 Format](./06-format.md) states. It is matched by name because no command can tell an argument from an inventory. The shelf index is in the loop because no numbered pattern matches it. The walk prunes what a project vendors rather than authors, since a cap nobody can satisfy is a cap they switch off. Where a budget lands over an older corpus, the loop skips a list of named paths and fails when a listed path fits or disappears. As a result, the exemption shrinks on its own.
+The chapter loop is what stops a shelf from absorbing a subject by growing. A catalog takes the larger number for the reason [06 Format](./06-format.md) states. It is matched by name because no command can tell an argument from an inventory. The shelf index is in the loop because no numbered pattern matches it. The walk prunes what a project vendors rather than authors, because a cap nobody can satisfy is a cap they switch off. Where a budget lands over an older corpus, the loop skips a list of named paths and fails when a listed path fits or disappears. The exemption then shrinks on its own.
 
 ## Tables of contents
 
@@ -190,24 +190,24 @@ awk '/^```/{ if(!inf){ inf=1; if($0=="```"){ printf "%s:%d: bare opening fence\n
 
 ## Prose checks
 
-One rule matches on prose, and it must strip fences and inline code first: a document stating the rule quotes the words it forbids, and an unstripped match reports the definition as a breach.
+One rule matches on prose, and it must strip fences and inline code first. A document stating the rule quotes the words it forbids. An unstripped match then reports the definition as a breach.
 
 ````bash
 strip() { sed '/^```/,/^```/d' "$1" | sed 's/`[^`]*`//g'; }
 sdd gate no-self-narration "$f"
 ````
 
-The emphasis rule is stated without a gate. See the table below. The wrap rule is the third prose rule: `sdd gate prose-stays-unwrapped` reports the continuation line a hard wrap leaves behind, exempting the blocks that own their line structure. Those blocks are fences, tables, definitions, hard breaks.
+The emphasis rule is stated without a gate. The table below carries it. The wrap rule is the third prose rule. `sdd gate prose-stays-unwrapped` reports the continuation line a hard wrap leaves behind, and it exempts the blocks that own their line structure. Those blocks are fences, tables, definitions, and hard breaks.
 
 ## Personal paths
 
-`sdd gate no-personal-path` reports an absolute path into a home directory: `/home/<name>`, `/Users/<name>`, and the Windows spelling. It judges the whole project. Whether a string is a real person's home directory does not depend on which conventions you follow, so the check has no register to collide with and its value is entirely in breadth. To keep a path out of it, reserve that path in `.spec-driven-docs/config.yaml`.
+`sdd gate no-personal-path` reports an absolute path into a home directory: `/home/<name>`, `/Users/<name>`, and the Windows spelling. It judges the whole project. Whether a string is a real person's home directory does not depend on which conventions you follow. The check therefore has no register to collide with, and its value is entirely in breadth. To keep a path out of it, reserve that path in `.spec-driven-docs/config.yaml`.
 
-This is the one prose check that does not strip code first. A fenced command carrying a real home directory is the leak, not a quotation of it. As a result, a document teaching the shape writes a placeholder segment: `<user>`, `$USER`, `~`. Two exemptions are by purpose rather than path: a file whose job is one person's environment (`.env`, `.envrc.local`, and their sample copies), and any file git ignores, which never reaches a hook at all.
+This is the one prose check that does not strip code first. A fenced command carrying a real home directory is the leak, not a quotation of it. As a result, a document teaching the shape writes a placeholder segment: `<user>`, `$USER`, `~`. Two exemptions are by purpose rather than path. The first is a file whose job is one person's environment: `.env`, `.envrc.local`, and their sample copies. The second is any file git ignores, which never reaches a hook at all.
 
 ## Typed clauses
 
-`sdd gate spec-change-is-typed` reads the plan zone the project declared, so the wiring carries no path. What it judges is a clause line: a line that names an owning spec by path, in inline code. A plan zone holds whatever the planning tool writes there, and a narrative sentence using one of the three words is not a citation.
+`sdd gate spec-change-is-typed` reads the plan zone the project declared, so the wiring carries no path. What it judges is a clause line: a line that names an owning spec by path, in inline code. A plan zone holds whatever the planning tool writes there. A narrative sentence using one of the three words is not a citation.
 
 ```yaml
 - id: spec-change-is-typed
@@ -222,7 +222,7 @@ The gate takes the path `SDD_PLAN_ZONE` names, else the recorded zone where the 
 
 ## Comment citations
 
-Two checks, and the second is the one that matters. Scope both to the code, excluding the docs root: a chapter stating either rule necessarily writes the strings it forbids.
+Two checks, and the second is the one that matters. Scope both to the code and exclude the docs root. A chapter stating either rule writes the strings it forbids.
 
 ```bash
 rg -n --glob '!<root>/**' -e '^[[:space:]]*(#|//|--|\*)[[:space:]].*\bADR-' . \
@@ -295,5 +295,6 @@ These rules are real and no command decides them. A reviewer does.
 | A pointer carries only what orients the reader              | requires knowing what the target owns     |
 | An operational document carries every part of its shape     | requires knowing which shape it is        |
 | A destructive step shows its dry run and its loss           | requires knowing the tool's forms         |
+| A suppression naming no case states its reason              | the language's own linter owns the syntax |
 
 [99 Checklist](./99-checklist.md) is where these are asked at review time.

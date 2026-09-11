@@ -33,8 +33,10 @@ pub fn run(ctx: &GateCtx, _files: &[String]) -> GateResult {
     let mut defined: BTreeSet<String> = BTreeSet::new();
     for entry in entries.filter_map(Result::ok) {
         let name = entry.file_name();
-        // sdd: permanent the corpus convention is lowercase, and `.MD` is not a spec
-        #[allow(clippy::case_sensitive_file_extension_comparisons)]
+        #[allow(
+            clippy::case_sensitive_file_extension_comparisons,
+            reason = "the corpus convention is lowercase, and `.MD` is not a spec"
+        )]
         if !name.ends_with(".md") {
             continue;
         }

@@ -12,7 +12,6 @@
   - [`spec-to-code:a-gate-message-cites-the-rule` — A gate message cites the rule it enforces](#spec-to-codea-gate-message-cites-the-rule--a-gate-message-cites-the-rule-it-enforces)
   - [`spec-to-code:a-comment-names-no-record` — A comment names no decision record](#spec-to-codea-comment-names-no-record--a-comment-names-no-decision-record)
   - [`spec-to-code:a-suppression-names-its-case` — A suppression names its known-issue case](#spec-to-codea-suppression-names-its-case--a-suppression-names-its-known-issue-case)
-  - [`spec-to-code:a-permanent-exception-states-its-reason` — A permanent exception states its reason](#spec-to-codea-permanent-exception-states-its-reason--a-permanent-exception-states-its-reason)
 
 <!--TOC-->
 
@@ -112,32 +111,14 @@ Verify: `rg -n "^[[:space:]]*(#|//).*\bADR-[a-z0-9]" . --type-not md && exit 1 |
 
 ### `spec-to-code:a-suppression-names-its-case` — A suppression names its known-issue case
 
-Where a suppression masks a defect outside this repository, the author MUST name the `KI-<slug>` case at the suppression.
+Where a `KI-<slug>` case is cited outside the documentation root, the author MUST make that case resolve to a known-issue record.
 
-#### Scenario: A suppression names a case that no record defines
+The citation is the subject, not the suppression that carries it. This convention defines the `KI-` token and owns the records it resolves against. It defines no suppression syntax, so no gate here reads one. A suppression that names no case states its reason where its own linter reads one. `09-spec-to-code.md` names the lints that enforce that reason, and the case where a language has none.
+
+#### Scenario: A record is deleted while a suppression still cites it
 
 - GIVEN an expected failure whose reason is `KI-vendor-drops-the-body`
-- WHEN no record under known-issues carries that name
-- THEN the suppression fails, because a mask nobody can look up never gets removed
-
-Verify: `pre-commit run suppression-names-its-case --all-files`
-
-### `spec-to-code:a-permanent-exception-states-its-reason` — A permanent exception states its reason
-
-Where a suppression masks no external defect, the author MUST state its reason at the suppression and MUST NOT name a case. The reason counts in either of two positions. Where the tool that honors the form defines a reason position, the reason written there counts. Where the tool defines none, the reason MUST carry the `sdd: permanent` marker.
-
-Only a position the tool defines counts. Prose near a suppression carries no reason, so a comment above one satisfies this rule only through the marker. The reason reaches no further than the suppression that carries it, and whitespace states nothing.
-
-#### Scenario: A permanent exception is given a case anyway
-
-- GIVEN a suppression over a construct this project chose deliberately and keeps
-- WHEN the author writes a record for it to satisfy the case rule
-- THEN that record carries a retirement condition nobody can meet, which is the mask the case rule exists to prevent
-
-#### Scenario: A generated artifact states its reason in its own idiom
-
-- GIVEN a workflow another project generates, carrying `# zizmor: ignore[dangerous-triggers] <reason>`
-- WHEN this repository must not edit those bytes
-- THEN the suppression passes on the tool's own reason, because requiring the marker there would couple this repository to that generator
+- WHEN a commit deletes the record of that name
+- THEN the citation fails, because a mask nobody can look up never gets removed
 
 Verify: `pre-commit run suppression-names-its-case --all-files`

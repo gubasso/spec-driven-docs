@@ -1,6 +1,6 @@
 # 09 — Spec to Code
 
-A spec can exist before the code it binds. This chapter owns the seam between the two: how a requirement written first becomes work, how the work declares what it changed, and how coverage is derived rather than stored. It states the contract any planning tool can satisfy. It names none.
+A spec can exist before the code it binds. This chapter owns the seam between the two. It covers how a requirement written first becomes work, how the work declares what it changed, and how coverage is derived rather than stored. It states the contract any planning tool can satisfy, and it names none.
 
 ## A failing verification is an unimplemented rule
 
@@ -21,11 +21,11 @@ A stored status (`status: implemented`, a checkbox, a phase column) is a second 
 
 ## Precedence is phase-dependent
 
-[00 Model](./00-model.md) owns precedence and states both directions. The marker that selects the direction lives here: a unit of work is in flight for a rule while an open entry document cites that rule's ID. While it is, the spec states the agreement and divergent code is the defect. When no work cites the rule, the code is the observed truth and a divergent spec is the defect.
+[00 Model](./00-model.md) owns precedence and states both directions. The marker that selects the direction lives here. A unit of work is in flight for a rule while an open entry document cites that rule's ID. While it is, the spec states the agreement and divergent code is the defect. When no work cites the rule, the code is the observed truth and a divergent spec is the defect.
 
 ## The entry document enacts rules by ID
 
-[05 Agent Context](./05-agent-context.md) gives each unit of work one entry document that names its sources by path. When the work changes agreed behavior, path-level naming is not enough: the entry document also names the rules, so enactment is greppable.
+[05 Agent Context](./05-agent-context.md) gives each unit of work one entry document that names its sources by path. When the work changes agreed behavior, path-level naming is not enough. The entry document also names the rules, so enactment is greppable.
 
 - An entry document that changes agreed behavior MUST cite the affected rule IDs.
 - An entry document citing a spec change MUST type it as `ADDED`, `MODIFIED`, or `REMOVED`.
@@ -37,7 +37,7 @@ The three types are the three operations of [07 Lifecycle](./07-lifecycle.md), s
 - `_docs/specs/SPEC-auth.md` — MODIFIED `auth:refresh-requires-reauth`
 ```
 
-The clause grammar is fixed so a command can check the shape: the type in capitals, then the rule ID in inline code, matching `[a-z0-9-]+:[a-z0-9-]+`. A typed clause whose ID token is malformed is a gate failure. Whether a story that changed a spec declared the clause at all is a review question, because no command can see the omission.
+The clause grammar is fixed so a command can check the shape. It takes the type in capitals, then the rule ID in inline code. The ID matches `[a-z0-9-]+:[a-z0-9-]+`. A typed clause whose ID token is malformed is a gate failure. Whether a story that changed a spec declared the clause at all stays a review question, because no command can see the omission.
 
 ## A comment cites the rule, never the record
 
@@ -71,9 +71,9 @@ The invariant a comment can hold has a second form: a live defect in a system th
 
 - A suppression over a defect this project does not own MUST name its case id at the suppression.
 - A suppression over a defect this project does not own MUST carry the condition under which it is removed.
-- A suppression that masks no external defect MUST state its reason at the suppression and MUST NOT name a case.
+- A suppression that masks no external defect MUST state its reason where its own tool reads one.
 
-The rule reaches every tool, not only the test runner. A formatter range, a linter disable comment, and a dependency pinned back one version are the same act with the same failure mode: the hazard is that a suppression with no exit becomes permanent by default.
+The rule reaches every tool, not only the test runner. A formatter range, a linter disable comment, and a dependency pinned back one version are the same act with the same failure mode. A suppression with no exit becomes permanent by default.
 
 ```python
 @pytest.mark.xfail(reason="KI-upstream-500-on-replayed-webhook", strict=True)
@@ -81,31 +81,26 @@ def test_webhook_replay_is_idempotent():
     ...
 ```
 
-Prefer the strict form. A non-strict expected failure keeps passing after the upstream fix lands. As a result, the suppression outlives the bug it was written for and nobody learns the case can close. A strict one turns the suite red the moment the fix arrives, which is the signal that closes it.
+Prefer the strict form. A non-strict expected failure keeps passing after the upstream fix lands. The suppression then outlives the bug it was written for, and nobody learns the case can close. A strict one turns the suite red the moment the fix arrives, which is the signal that closes it.
 
-Some suppressions have no exit. A lint disabled over a construct this project chose and keeps masks nothing external. No record can carry a condition anyone meets. Writing one anyway produces the unremovable mask the case rule exists to prevent. That suppression states its reason instead. The two forms are exclusive: a suppression names a case or states a permanent reason, never both.
+Some suppressions have no exit. A lint disabled over a construct this project chose and keeps masks nothing external. No record can carry a condition anyone meets. Writing one anyway produces the unremovable mask the case rule exists to prevent. That suppression states its reason instead, in the position its own tool defines.
 
-The reason goes where the tool that honors the suppression already reads one. Most modern linters define that position, and the idiom differs per tool.
+No gate of this framework reads that reason. Where the language's own linter has a rule for it, turn that rule on.
 
 ```text
-zizmor    # zizmor: ignore[dangerous-triggers] <reason>
-ESLint    // eslint-disable-next-line no-eval -- <reason>
-Rust      #[expect(dead_code, reason = "<reason>")]
-pytest    @pytest.mark.skip(reason="<reason>")
-unittest  @unittest.skip("<reason>")
+Rust        clippy::allow_attributes_without_reason
+JavaScript  eslint-comments/require-description
 ```
 
-The reason belongs to the suppression that carries it, and reaches no further than the construct it sits in. A second attribute on the line states its own reason, never its neighbour's.
+Not every toolchain ships one. Ruff has no rule that requires a description on a `noqa` directive, and `RUF100` reports an obsolete directive rather than an undescribed one. Where the language offers nothing, the reason stays a review obligation.
 
-Where the tool defines no reason position, as `noqa` and `shellcheck disable=` do not, the reason carries the `sdd: permanent <reason>` marker, on the suppression line or in the comment above it. Writing the reason in the tool's own idiom keeps a generated file another project owns readable by both: it satisfies this rule without one byte of this convention inside it.
+A gate this framework delivers parses no grammar somebody else defines. What it reads is the `KI-` token this convention owns, and it fails where that token resolves to no record. [08 Gates](./08-gates.md) holds the check and carries this expectation in its unenforced table.
 
-Only the position the tool defines counts. A comment that merely sits near a suppression states no reason, because accepting nearby prose would let an unrelated sentence close the rule.
-
-A test that must not hide the bug at all keeps failing, with the case id in a comment beside it. The case id is the record's filename, so it resolves the same way a rule ID does. The reason string needs no restated summary, because the record it names holds the symptom, the workaround, and the retire condition. The case, its states, and its retirement belong to [07 Lifecycle](./07-lifecycle.md).
+A test that must not hide the bug at all keeps failing, with the case id in a comment beside it. The case id is the record's filename, so it resolves the same way a rule ID does. The reason string needs no restated summary. The record it names holds the symptom, the workaround, and the retire condition. The case, its states, and its retirement belong to [07 Lifecycle](./07-lifecycle.md).
 
 ## Coverage is a grep
 
-The rule ID is one string in four record sets: the spec defines it, a decision record argues for it, an entry document enacts it, and a comment marks the code that satisfies it. Traceability is therefore derived on demand, in both directions, from the records that already exist.
+The rule ID is one string in four record sets. The spec defines it, a decision record argues for it, an entry document enacts it, and a comment marks the code that satisfies it. Traceability is therefore derived on demand, in both directions, from the records that already exist.
 
 ```bash
 rg -o '^### `([a-z0-9-]+:[a-z0-9-]+)`' -r '$1' _docs/specs | sort -u > /tmp/agreed
@@ -128,19 +123,19 @@ What that prints is a rule ID cited in code that no spec defines: a fabricated c
 
 - A project MUST NOT maintain a stored coverage artifact.
 
-A traceability matrix, a rules-to-stories index, or a backlog file restates what the greps derive. Each is the filesystem-index shape [00 Model](./00-model.md) forbids: a copy kept because the records exist, drifting on the next change to either side.
+A traceability matrix, a rules-to-stories index, or a backlog file restates what the greps derive. Each is the filesystem-index shape [00 Model](./00-model.md) forbids. It is a copy kept because the records exist, and it drifts on the next change to either side.
 
 ## What the planning tool owes
 
-This framework does not name a planning tool. Any tool serves whose work record is readable by the greps in this chapter and satisfies the contract the rules above already state: one entry document per unit of work, sources named by path, and spec changes cited by typed rule ID. The inverse dependency is also bounded: the specs never name the tool, so replacing it edits the plan zone and nothing under `specs/` or `decisions/`.
+This framework does not name a planning tool. Any tool serves whose work record is readable by the greps in this chapter. It must also satisfy the contract the rules above already state: one entry document per unit of work, sources named by path, and spec changes cited by typed rule ID. The inverse dependency is bounded too. The specs never name the tool, so replacing it edits the plan zone and nothing under `specs/` or `decisions/`.
 
-The zone's path is a declared value too. The project declares it once and the instance records it, `SDD_PLAN_ZONE` overrides that record, and no spec, chapter, or gate carries the path itself. A tool whose records live outside the checkout is served the same way as one whose records sit beside the specs.
+The zone's path is a declared value too. The project declares it once and the instance records it. `SDD_PLAN_ZONE` overrides that record, and no spec, chapter, or gate carries the path itself. A tool whose records live outside the checkout is served the same way as one whose records sit beside the specs.
 
 ## Unenforced
 
-Two rules in this chapter no command can decide: that a unit of work which changed a spec declared the typed clause at all, and that the cited type matches the diff. A gate checks every declared clause and cannot see an omitted or mistyped one. The reviewer compares the spec diff against the entry document.
+Two rules in this chapter no command can decide. The first is that a unit of work which changed a spec declared the typed clause at all. The second is that the cited type matches the diff. A gate checks every declared clause and cannot see an omitted or mistyped one. The reviewer compares the spec diff against the entry document.
 
-A third condition is unenforced by the project's own choice rather than by kind. Only a plan zone the project declared tracked is gated. A project that keeps its entry documents untracked, or reaches them through `SDD_PLAN_ZONE`, has a zone no clone carries. The gate declines it, and a reviewer holds the clause shape instead. [08 Gates](./08-gates.md) carries all three in the unenforced list.
+A third condition is unenforced by the project's own choice rather than by kind. Only a plan zone the project declared tracked is gated. A project that keeps its entry documents untracked has a zone no clone carries, and so does one that reaches them through `SDD_PLAN_ZONE`. The gate declines it, and a reviewer holds the clause shape instead. [08 Gates](./08-gates.md) carries all three in the unenforced list.
 
 ## Sources
 

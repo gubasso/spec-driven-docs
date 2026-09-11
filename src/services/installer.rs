@@ -200,8 +200,10 @@ struct TargetState {
     lines: Vec<String>,
 }
 
-// sdd: permanent computing the target state is one ordered pass the installer replays
-#[allow(clippy::too_many_lines)]
+#[allow(
+    clippy::too_many_lines,
+    reason = "computing the target state is one ordered pass the installer replays"
+)]
 fn compute_target_state(target: &Utf8Path, options: &InitOptions) -> Result<TargetState, AppError> {
     let profile = options.profile;
     let declaration = profile.profile();

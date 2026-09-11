@@ -19,8 +19,10 @@ pub fn snippet() -> &'static str {
 /// The complete marked block for the given documentation root, newline-
 /// terminated.
 #[must_use]
-// sdd: permanent the braces are the block template's placeholder, not a formatting argument
-#[allow(clippy::literal_string_with_formatting_args)]
+#[allow(
+    clippy::literal_string_with_formatting_args,
+    reason = "the braces are the block template's placeholder, not a formatting argument"
+)]
 pub fn render_block(docs_root: &str) -> String {
     let body = snippet().replace("{docs_root}", docs_root);
     let body = body.trim_end_matches('\n');
