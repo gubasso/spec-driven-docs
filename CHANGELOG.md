@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.5](https://github.com/gubasso/spec-driven-docs/compare/v0.6.4...v0.6.5) - 2026-09-11
+
+### Added
+
+- *(gates)* Read a shebang when a file has no filename suffix ([#73](https://github.com/gubasso/spec-driven-docs/pull/73))
+- *(gates)* Hold every delivered gate to the paths this convention owns ([#72](https://github.com/gubasso/spec-driven-docs/pull/72))
+
 ## [0.6.4](https://github.com/gubasso/spec-driven-docs/compare/v0.6.3...v0.6.4) - 2026-09-10
 
 ### Added
