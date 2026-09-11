@@ -500,7 +500,7 @@ pub static GATES: &[GateSpec] = &[
         // root over two register collisions, which a leak check does not
         // have: a rendered release block carries no home directory. A
         // project that needs a path exempt reserves it
-        // (ADR-a-project-declares-what-its-gates-read).
+        // under `instance:the-project-declares-what-its-gates-judge`.
         include: &[],
         types: Some("text"),
         exclude: &[],

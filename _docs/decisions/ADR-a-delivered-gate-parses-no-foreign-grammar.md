@@ -4,9 +4,9 @@
 
 `suppression-names-its-case` cited two rules with different subjects. One resolved a `KI-` token this convention defines. The other judged whether a suppression stated a reason where the suppressing tool reads one. The second cost the parser: 1938 lines for one gate, against 7007 for the whole gate tree, modelling 20 suppression forms, 15 filename suffixes, 7 reason positions, and a per-language lexer.
 
-The table had no end. It grew in v0.5.1, v0.6.4, and v0.6.5, and the module documentation still named three surfaces the scan could not reach. The half that cost nothing never fired here: this repository keeps no known-issue record.
+The table had no end. It grew in v0.5.1, v0.6.4, and v0.6.5, and three surfaces stayed out of reach. The half that cost nothing never fired here: this repository keeps no known-issue record.
 
-Each language enforces the reason rule better, in its own toolchain. clippy ships `allow_attributes_without_reason`, ESLint has `eslint-comments/require-description`, and Ruff has `RUF100`.
+A language that enforces the reason rule does it better. clippy ships `allow_attributes_without_reason` and ESLint has `eslint-comments/require-description`. Ruff ships no equivalent, so a Python reason stays a review obligation.
 
 ## Considered Options
 

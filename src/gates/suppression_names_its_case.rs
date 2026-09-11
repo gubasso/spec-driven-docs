@@ -8,12 +8,12 @@
 //! exists to catch.
 //!
 //! The gate judges no suppression syntax. Whether a suppression states a
-//! reason belongs to the linter that honors it: clippy has
-//! `clippy::allow_attributes_without_reason`, `ESLint` has
-//! `eslint-comments/require-description`, and Ruff has `RUF100`. A delivered
-//! gate parses no grammar this convention does not define, so no table of
-//! comment openers, filename suffixes, or per-tool reason positions lives
-//! here.
+//! reason belongs to the linter that honors it, where that linter has a rule
+//! for it: clippy has `clippy::allow_attributes_without_reason` and `ESLint`
+//! has `eslint-comments/require-description`. Where it has none, as Ruff
+//! does not, the reason is a review obligation. A delivered gate parses no
+//! grammar this convention does not define, so no table of comment openers,
+//! filename suffixes, or per-tool reason positions lives here.
 //!
 //! SATISFIES spec-to-code:a-suppression-names-its-case
 //!
@@ -90,11 +90,10 @@ fn citations(ctx: &GateCtx) -> Result<Vec<Citation>, GateError> {
         if looks_binary(&bytes) {
             continue;
         }
-        // A file this process cannot decode holds no citation a reader could
-        // follow, so it is skipped rather than raised.
-        let Ok(text) = String::from_utf8(bytes) else {
-            continue;
-        };
+        // Decoded loosely, because the token is ASCII and a single stray
+        // byte elsewhere in the file must not hide it. Rejecting the whole
+        // file there would narrow a scan this rule states unconditionally.
+        let text = String::from_utf8_lossy(&bytes);
         let name = file.as_str().trim_start_matches("./").to_string();
         for (index, line) in text.lines().enumerate() {
             found.extend(cited_cases(line).map(|case| Citation {
@@ -276,5 +275,16 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("blob.bin"), b"KI-gone\0\0\0").unwrap();
         assert!(run_in(&dir).is_empty());
+    }
+
+    /// One Latin-1 byte elsewhere in a text file must not hide an ASCII
+    /// citation. The scan is unconditional, and only a binary file is out.
+    #[test]
+    fn a_citation_survives_a_byte_this_process_cannot_decode() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("notes.txt"), b"\xe9\n// KI-gone\n").unwrap();
+        let out = run_in(&dir);
+        assert_eq!(out.len(), 1, "{out:?}");
+        assert!(out[0].contains("notes.txt:2"));
     }
 }

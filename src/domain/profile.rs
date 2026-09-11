@@ -124,7 +124,9 @@ pub struct Profile {
 /// No skill appears here. A skill name is what an agent's picker keys on,
 /// so an instance copy and the user-scope copy of one skill are two entries
 /// under one name in every session opened inside that instance. User scope
-/// owns them alone (ADR-give-every-skill-one-owner).
+/// owns them alone.
+///
+/// SATISFIES distribution:a-skill-has-one-owner
 const MANAGED: &[Projection] = &[
     proj(
         ".markdownlint/adr.markdownlint-cli2.jsonc",

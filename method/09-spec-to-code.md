@@ -37,7 +37,7 @@ The three types are the three operations of [07 Lifecycle](./07-lifecycle.md), s
 - `_docs/specs/SPEC-auth.md` — MODIFIED `auth:refresh-requires-reauth`
 ```
 
-The clause grammar is fixed so a command can check the shape. It takes the type in capitals, then the rule ID in inline code, matching `[a-z0-9-]+:[a-z0-9-]+`. A typed clause whose ID token is malformed is a gate failure. Whether a story that changed a spec declared the clause at all stays a review question, because no command can see the omission.
+The clause grammar is fixed so a command can check the shape. It takes the type in capitals, then the rule ID in inline code. The ID matches `[a-z0-9-]+:[a-z0-9-]+`. A typed clause whose ID token is malformed is a gate failure. Whether a story that changed a spec declared the clause at all stays a review question, because no command can see the omission.
 
 ## A comment cites the rule, never the record
 
@@ -90,10 +90,11 @@ The language's own linter enforces that reason, and no gate of this framework re
 ```text
 Rust        clippy::allow_attributes_without_reason
 JavaScript  eslint-comments/require-description
-Python      RUF100
 ```
 
-A gate this framework delivers parses no grammar somebody else defines. What it reads is the `KI-` token this convention owns, and it fails where that token resolves to no record. [08 Gates](./08-gates.md) holds the check and lists the reason rule as unenforced.
+Not every toolchain ships one. Ruff has no rule that requires a description on a `noqa` directive, and `RUF100` reports an obsolete directive rather than an undescribed one. Where the language offers nothing, the reason stays a review obligation.
+
+A gate this framework delivers parses no grammar somebody else defines. What it reads is the `KI-` token this convention owns, and it fails where that token resolves to no record. [08 Gates](./08-gates.md) holds the check and carries this expectation in its unenforced table.
 
 A test that must not hide the bug at all keeps failing, with the case id in a comment beside it. The case id is the record's filename, so it resolves the same way a rule ID does. The reason string needs no restated summary. The record it names holds the symptom, the workaround, and the retire condition. The case, its states, and its retirement belong to [07 Lifecycle](./07-lifecycle.md).
 
