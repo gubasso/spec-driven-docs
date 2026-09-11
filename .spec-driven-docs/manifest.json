@@ -74,14 +74,14 @@
     {
       "source": "_docs/specs/SPEC-docs-format.md",
       "destination": "_docs/specs/SPEC-docs-format.md",
-      "sha256": "a927488d3d2995433f19607c095dc30a858b8dcb9732ca7ef39e98be1c055d76",
-      "baseline_sha256": "a927488d3d2995433f19607c095dc30a858b8dcb9732ca7ef39e98be1c055d76"
+      "sha256": "537f77dc9bedfe132f6bfeace809266c51848fde0c375f71e56759a525aa0c55",
+      "baseline_sha256": "537f77dc9bedfe132f6bfeace809266c51848fde0c375f71e56759a525aa0c55"
     },
     {
       "source": "_docs/specs/SPEC-docs-foundations.md",
       "destination": "_docs/specs/SPEC-docs-foundations.md",
-      "sha256": "3e6abb5726d76f929bbbd08ef53e44a1d79568e944bb9f75ad18aa6f705337db",
-      "baseline_sha256": "3e6abb5726d76f929bbbd08ef53e44a1d79568e944bb9f75ad18aa6f705337db"
+      "sha256": "226c8903ea4574351adf37f5da2d1093b4f0bd363c566030262656d545d7be79",
+      "baseline_sha256": "226c8903ea4574351adf37f5da2d1093b4f0bd363c566030262656d545d7be79"
     },
     {
       "source": "_docs/specs/SPEC-docs-specs.md",
@@ -110,8 +110,8 @@
     {
       "source": "_docs/specs/SPEC-release.md",
       "destination": "_docs/specs/SPEC-release.md",
-      "sha256": "043f37d89f2c6519a5b34daef69f245dc2bc63df39792ae433a3b33dd6c4983d",
-      "baseline_sha256": "043f37d89f2c6519a5b34daef69f245dc2bc63df39792ae433a3b33dd6c4983d"
+      "sha256": "98f96b99a74156803c0772a9069e18ad7850625ce665923db7c50130c3162647",
+      "baseline_sha256": "98f96b99a74156803c0772a9069e18ad7850625ce665923db7c50130c3162647"
     },
     {
       "source": "_docs/specs/SPEC-spec-to-code.md",
@@ -153,7 +153,7 @@
   "integration_blocks": [
     {
       "path": ".pre-commit-config.yaml",
-      "marker_hash": "67d386b5066e476ac9f6b5717236af1c802fe5b35c7474851a9d09732afe04f8"
+      "marker_hash": "180efb0a985faa71850cf7db8e7dcba75d28e05294c9d3849e9559785d97d60f"
     }
   ]
 }

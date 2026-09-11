@@ -159,8 +159,8 @@ mod tests {
     }
 
     /// A POSIX home directory belonging to someone, assembled rather than
-    /// written. This gate scans every text file including its own source,
-    /// and it strips no code, so a literal here would be a real finding.
+    /// written. This gate strips no code before it matches, so a literal
+    /// here would be a real finding wherever this file reaches the gate.
     fn home(user: &str) -> String {
         format!("/home/{user}")
     }

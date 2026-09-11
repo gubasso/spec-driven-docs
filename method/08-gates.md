@@ -201,7 +201,7 @@ The emphasis rule is stated without a gate. See the table below. The wrap rule i
 
 ## Personal paths
 
-`sdd gate no-personal-path` reports an absolute path into a home directory (`/home/<name>`, `/Users/<name>`, and the Windows spelling) in any file the commit carries.
+`sdd gate no-personal-path` reports an absolute path into a home directory: `/home/<name>`, `/Users/<name>`, and the Windows spelling. The delivered hook passes it the markdown under the documentation root. To reach a file outside that root, name the file on the command line or wire a hook of your own.
 
 This is the one prose check that does not strip code first. A fenced command carrying a real home directory is the leak, not a quotation of it. As a result, a document teaching the shape writes a placeholder segment: `<user>`, `$USER`, `~`. Two exemptions are by purpose rather than path: a file whose job is one person's environment (`.env`, `.envrc.local`, and their sample copies), and any file git ignores, which never reaches a hook at all.
 

@@ -17,7 +17,7 @@
 
 ## Purpose
 
-The artifact model this project's documentation follows, its precedence order, and where each artifact goes. Covers which artifact owns a fact, what wins when two disagree, and how artifacts are named and placed. It also covers what a document must not carry out of the machine it was written on. The shape of a spec and the shape of a record are covered by their own specs.
+The artifact model this project's documentation follows, its precedence order, and where each artifact goes. It covers which artifact owns a fact, what wins when two disagree, and how artifacts are named and placed. It also covers what a document must not carry out of the machine it was written on. Their own specs cover the shape of a spec and the shape of a record.
 
 ## Requirements
 
@@ -48,6 +48,8 @@ Verify: reviewer confirms no record was edited to match a later spec
 ### `docs-foundations:a-document-carries-no-personal-path` — A document carries no path into a person's home
 
 The author MUST use `~/`, `$HOME/`, or a bracketed placeholder for home-directory paths, except in a file dedicated to one person's environment.
+
+The rule binds an author writing any document. The gate that checks it reads the documentation root alone, because a file outside that root belongs to the project or to another tool.
 
 #### Scenario: A walkthrough is written from the author's own terminal
 
