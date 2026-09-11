@@ -833,4 +833,8 @@ fn explain_does_not_overclaim_for_a_fixed_subject_gate() {
         stdout.contains("`not discovered` means outside the gate's own set"),
         "the answer does not say what `not discovered` means:\n{stdout}"
     );
+    assert!(
+        stdout.contains("others read one fixed location and never will"),
+        "the answer claims every discovering gate can be redirected:\n{stdout}"
+    );
 }
