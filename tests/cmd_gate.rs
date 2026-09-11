@@ -452,3 +452,87 @@ fn a_reserved_fixture_is_absent_from_the_suppression_subject_set() {
         .assert()
         .success();
 }
+
+/// Every gate that finds its own subjects by reading a directory honours the
+/// declaration too.
+///
+/// The source-text inventory in `tests/canon.rs` cannot see a
+/// `read_dir_utf8` route, and four gates took one. This asserts the
+/// behaviour instead of the shape of the code.
+///
+/// SATISFIES instance:the-project-declares-what-its-gates-judge
+#[test]
+fn a_reserved_path_leaves_the_subject_set_of_a_self_discovering_gate() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+
+    // A spec far past the size cap, a decision record past the word cap, and
+    // a known-issue record with no state. Each is found by its gate reading
+    // a directory, not by a path anyone passes.
+    fixture.write(
+        "_docs/specs/SPEC-oversized.md",
+        &format!(
+            "# SPEC oversized\n\n{}",
+            "A line about a rule.\n".repeat(400)
+        ),
+    );
+    fixture.write(
+        "_docs/decisions/ADR-a-long-record.md",
+        &format!("# A long record\n\n{}", "word ".repeat(600)),
+    );
+    fixture.write(
+        "_docs/reference/known-issues/KI-a-shapeless-case.md",
+        "# no front matter at all\n",
+    );
+
+    let cases = [
+        ("spec-size-cap", "_docs/specs/SPEC-oversized.md"),
+        ("adr-word-cap", "_docs/decisions/ADR-a-long-record.md"),
+        (
+            "ki-state",
+            "_docs/reference/known-issues/KI-a-shapeless-case.md",
+        ),
+    ];
+
+    for (gate, path) in cases {
+        fixture.write(".spec-driven-docs/config.yaml", "reserved: []\ngates: {}\n");
+        fixture
+            .cmd()
+            .args(["gate", gate])
+            .current_dir(fixture.path())
+            .assert()
+            .code(1);
+
+        fixture.write(
+            ".spec-driven-docs/config.yaml",
+            &format!("reserved:\n  - '{path}'\ngates: {{}}\n"),
+        );
+        fixture
+            .cmd()
+            .args(["gate", gate])
+            .current_dir(fixture.path())
+            .assert()
+            .success();
+    }
+}
+
+/// A `codebase` instance keeps its records under `docs/`, so a filter built
+/// against a fixed `_docs` would drop every path pre-commit passes and the
+/// gate would silently judge nothing.
+#[test]
+fn a_filename_selected_gate_judges_under_the_recorded_docs_root() {
+    let fixture = Fixture::new();
+    fixture.install("codebase");
+    fixture.write("docs/decisions/ADR-bad name.md", "# Record\n");
+
+    fixture
+        .cmd()
+        .args([
+            "gate",
+            "adr-filename-shape",
+            "docs/decisions/ADR-bad name.md",
+        ])
+        .current_dir(fixture.path())
+        .assert()
+        .code(1);
+}

@@ -16,6 +16,18 @@ pub const CITES: &[RuleId] = &[RuleId::RuleIdIsUniqueAndSlugged];
 
 /// List the spec documents under the documentation root, or `None` when the
 /// layout has moved.
+/// The specs this gate judges, filtered.
+///
+/// [`spec_files`] stays unfiltered because the same files are support for
+/// `adr-cites-a-live-rule` and `gate-message-cites-a-rule`, which resolve a
+/// rule id against them rather than judging their contents.
+pub(crate) fn spec_files_judged(ctx: &GateCtx) -> Option<Vec<camino::Utf8PathBuf>> {
+    // `None` means the layout moved, which is read from the unfiltered set.
+    // A project that reserves every spec has a layout and judges none of
+    // it, which is a different answer and not a failure.
+    Some(ctx.subjects(spec_files(ctx)?))
+}
+
 pub(crate) fn spec_files(ctx: &GateCtx) -> Option<Vec<camino::Utf8PathBuf>> {
     let specs = docs_root(ctx).join("specs");
     let mut names: Vec<String> = ctx
@@ -43,7 +55,7 @@ pub(crate) fn spec_files(ctx: &GateCtx) -> Option<Vec<camino::Utf8PathBuf>> {
 ///
 /// [`crate::gates::GateError::Io`] when a spec cannot be read.
 pub fn run(ctx: &GateCtx, _files: &[String]) -> GateResult {
-    let Some(files) = spec_files(ctx) else {
+    let Some(files) = spec_files_judged(ctx) else {
         return Ok(vec![Violation::Layout(
             "no specs matched; the layout moved".to_string(),
         )]);

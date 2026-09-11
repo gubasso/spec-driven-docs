@@ -192,6 +192,29 @@ fn discovered(ctx: &GateCtx, root: &Utf8Path) -> bool {
 /// # Errors
 ///
 /// [`crate::gates::GateError::Io`] when a present root cannot be listed.
+/// The records this gate judges, filtered.
+///
+/// [`ki_records`] stays unfiltered because the same records are support for
+/// `suppression-names-its-case`, which resolves a case id against them
+/// rather than judging their contents. A gate that judges a record's own
+/// text calls this one.
+///
+/// # Errors
+///
+/// See [`ki_records`].
+pub fn ki_records_judged(ctx: &GateCtx, args: &[String]) -> Result<Vec<Utf8PathBuf>, GateError> {
+    Ok(ctx.subjects(ki_records(ctx, args)?))
+}
+
+/// Every known-issue record the instance carries, unfiltered.
+///
+/// Unfiltered because the same records are support for
+/// `suppression-names-its-case`. A gate judging a record's own text calls
+/// [`ki_records_judged`].
+///
+/// # Errors
+///
+/// [`GateError::Io`] naming the root that could not be read.
 pub fn ki_records(ctx: &GateCtx, args: &[String]) -> Result<Vec<Utf8PathBuf>, GateError> {
     let mut records = Vec::new();
     for root in ki_record_roots(ctx, args) {

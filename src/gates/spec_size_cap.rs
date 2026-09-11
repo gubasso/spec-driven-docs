@@ -9,7 +9,7 @@
 
 use crate::domain::finding::Finding;
 use crate::domain::rule_id::RuleId;
-use crate::gates::spec_rule_id_unique::spec_files;
+use crate::gates::spec_rule_id_unique::spec_files_judged;
 use crate::gates::{GateCtx, GateResult, Violation, read_text};
 
 /// The rules this gate can cite.
@@ -24,7 +24,7 @@ const MARKER: &str = "<!--TOC-->";
 ///
 /// [`crate::gates::GateError::Io`] when a spec cannot be read.
 pub fn run(ctx: &GateCtx, _files: &[String]) -> GateResult {
-    let Some(files) = spec_files(ctx) else {
+    let Some(files) = spec_files_judged(ctx) else {
         return Ok(vec![Violation::Layout(
             "no specs matched; the layout moved".to_string(),
         )]);

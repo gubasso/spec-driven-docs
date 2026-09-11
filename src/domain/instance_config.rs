@@ -99,6 +99,11 @@ impl InstanceConfig {
                 return Err(ConfigError::UnknownGate(key.clone()));
             }
         }
+        // Compile every pattern here, at the one boundary, rather than
+        // where a gate runs. A malformed pattern that reached `render_block`
+        // would be written into the managed block and blessed by `verify`,
+        // then fail separately from every gate that ran.
+        parsed.check_patterns()?;
         Ok(parsed)
     }
 
@@ -118,6 +123,23 @@ impl InstanceConfig {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
             Err(error) => Err(ConfigError::Shape(error.to_string())),
         }
+    }
+
+    /// Compile every declared pattern, so a bad one fails once and here.
+    ///
+    /// # Errors
+    ///
+    /// [`ConfigError::Pattern`] naming the pattern the grammar refuses.
+    fn check_patterns(&self) -> Result<(), ConfigError> {
+        let every = self.reserved.iter().chain(
+            self.gates
+                .values()
+                .flat_map(|filters| filters.include.iter().chain(&filters.exclude)),
+        );
+        for glob in every {
+            PathFilter::build(Vec::new(), vec![Pattern::new(glob.clone(), Layer::Project)])?;
+        }
+        Ok(())
     }
 
     /// This gate's declared filters, if the project named it.
@@ -201,6 +223,17 @@ pub fn resolve(
     Ok(PathFilter::build(includes, excludes)?)
 }
 
+/// One glob as a YAML scalar that reads back as itself.
+///
+/// A glob and YAML disagree about several leading characters: `*` opens an
+/// alias, `[` and `{` open a flow collection, and `#` opens a comment. The
+/// filter grammar accepts `**/generated.md`, so writing it bare would
+/// produce a file the next read refuses. Single quotes make every glob a
+/// scalar, with an apostrophe doubled.
+fn quoted(glob: &str) -> String {
+    format!("'{}'", glob.replace('\'', "''"))
+}
+
 /// Record reserved paths in a declaration, keeping every comment.
 ///
 /// The file is hand-edited and its comments carry the whole explanation of
@@ -224,8 +257,8 @@ pub fn with_reserved(text: &str, paths: &[String]) -> String {
 
     let entries: String = existing
         .iter()
-        .map(|path| format!("  - {path}\n"))
-        .chain(added.iter().map(|path| format!("  - {path}\n")))
+        .map(|path| format!("  - {}\n", quoted(path)))
+        .chain(added.iter().map(|path| format!("  - {}\n", quoted(path))))
         .collect();
 
     let mut out = String::new();
@@ -395,7 +428,10 @@ mod tests {
             "a comment was lost:\n{out}"
         );
         assert!(out.contains("# per gate"), "a comment was lost:\n{out}");
-        assert!(out.contains("  - AGENTS.md"), "the path is missing:\n{out}");
+        assert!(
+            out.contains("  - 'AGENTS.md'"),
+            "the path is missing:\n{out}"
+        );
         assert_eq!(
             InstanceConfig::parse(&out).expect("still parses").reserved,
             vec!["AGENTS.md".to_string()]
@@ -404,8 +440,35 @@ mod tests {
 
     #[test]
     fn reserving_a_recorded_path_changes_nothing() {
-        let text = "reserved:\n  - AGENTS.md\ngates: {}\n";
+        let text = "reserved:\n  - 'AGENTS.md'\ngates: {}\n";
         assert_eq!(with_reserved(text, &["AGENTS.md".to_string()]), text);
+    }
+
+    #[test]
+    fn a_glob_is_written_as_a_yaml_scalar_that_reads_back() {
+        // `*`, `[`, `{`, and `#` all open something in YAML, and the filter
+        // grammar accepts globs starting with the first three.
+        for glob in ["**/generated.md", "[ab]/x.md", "{a,b}/x.md", "it's/x.md"] {
+            let out = with_reserved("reserved: []\ngates: {}\n", &[glob.to_string()]);
+            assert_eq!(
+                InstanceConfig::parse(&out)
+                    .unwrap_or_else(|e| panic!("{glob} did not read back: {e}"))
+                    .reserved,
+                vec![glob.to_string()],
+                "for {glob}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_refused_pattern_fails_at_the_declaration_boundary() {
+        // Not where a gate runs, and not after the managed block carries it.
+        let error = InstanceConfig::parse("reserved:\n  - '!negated'\ngates: {}\n")
+            .expect_err("a negation is refused at parse");
+        assert!(matches!(error, ConfigError::Pattern(_)));
+        assert!(
+            InstanceConfig::parse("gates:\n  no-personal-path:\n    exclude: ['a[']\n").is_err()
+        );
     }
 
     #[test]

@@ -26,6 +26,11 @@ pub fn run(ctx: &GateCtx, _files: &[String]) -> GateResult {
             detail,
         ))]
     };
+    // The manifest is this gate's subject here, not support: it judges the
+    // file's own shape.
+    if ctx.subjects([MANIFEST_PATH]).is_empty() {
+        return Ok(vec![]);
+    }
     let Ok(text) = std::fs::read_to_string(ctx.path(MANIFEST_PATH)) else {
         return Ok(violation("invalid manifest shape"));
     };

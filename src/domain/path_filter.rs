@@ -26,10 +26,13 @@
 //!
 //! A pattern is a [`globset`] glob built with `literal_separator(true)`, so
 //! `*` does not cross a `/` and `**` is the only way to descend. A pattern
-//! that is absolute, holds a `..` component, or opens with `!` or `#` is
-//! refused. Those three are `gitignore` control syntax that this grammar
-//! does not carry, and accepting them as literals would silently mean
-//! something other than what the author wrote.
+//! that is absolute, holds a `..` component, opens with `!` or `#`, or
+//! carries a backslash is refused. The first three are `gitignore` control
+//! syntax this grammar does not carry, and accepting them as literals would
+//! silently mean something other than what the author wrote. The backslash
+//! escapes a metacharacter in `globset` on Unix, and the pre-commit
+//! projection cannot reproduce that faithfully, so a pattern using it would
+//! break the superset contract the renderer states.
 //!
 //! # Why not `ignore::overrides`
 //!
@@ -127,6 +130,12 @@ pub enum PathFilterError {
     /// The pattern climbs out of the repository.
     #[error("pattern `{0}` holds a `..` component: no pattern reaches outside the repository")]
     Escape(String),
+    /// The pattern escapes a metacharacter, which the pre-commit projection
+    /// cannot reproduce.
+    #[error(
+        "pattern `{0}` carries a backslash, which this grammar does not carry: a path holding a literal glob character cannot be named here"
+    )]
+    Escaped(String),
     /// `globset` could not compile it.
     #[error("pattern `{glob}` is not a valid glob: {message}")]
     Malformed {
@@ -253,6 +262,13 @@ fn validate(glob: &str) -> Result<globset::Glob, PathFilterError> {
     if glob.split('/').any(|component| component == "..") {
         return Err(PathFilterError::Escape(glob.to_string()));
     }
+    // `globset` reads a backslash as an escape on Unix, and the pre-commit
+    // projection renders it as a literal followed by a wildcard. Accepting
+    // it would let the matcher judge a path the rendered selection drops,
+    // which is the one direction the superset contract forbids.
+    if glob.contains('\\') {
+        return Err(PathFilterError::Escaped(glob.to_string()));
+    }
     GlobBuilder::new(glob)
         .literal_separator(true)
         .build()
@@ -378,6 +394,7 @@ mod tests {
             ("#a comment", "ControlPrefix"),
             ("/etc/passwd", "Absolute"),
             ("../outside/**", "Escape"),
+            (r"docs/file\*.md", "Escaped"),
         ] {
             let error = PathFilter::build(Vec::new(), vec![Pattern::new(glob, Layer::Project)])
                 .expect_err("the grammar refuses it");
@@ -385,6 +402,7 @@ mod tests {
                 PathFilterError::ControlPrefix { .. } => "ControlPrefix",
                 PathFilterError::Absolute(_) => "Absolute",
                 PathFilterError::Escape(_) => "Escape",
+                PathFilterError::Escaped(_) => "Escaped",
                 PathFilterError::Malformed { .. } => "Malformed",
             };
             assert_eq!(kind, expected, "for {glob}");

@@ -18,15 +18,19 @@ use crate::output;
 
 /// The documentation root patterns are templated against.
 ///
-/// The declaration phase resolves this from the instance manifest. Until
-/// then the profile default stands, which is what every current caller
-/// renders with.
-const DOCS_ROOT: &str = "_docs";
+/// It comes from the instance's own record, because the two profiles use
+/// different roots. Templating against a fixed `_docs` would build patterns
+/// no path in a `codebase` instance matches, and every filename-selected
+/// gate there would silently judge nothing.
+fn docs_root() -> String {
+    crate::services::verifier::read_manifest(Utf8Path::new("."))
+        .map_or_else(|_| "_docs".to_string(), |m| m.docs_root.to_string())
+}
 
 // sdd: permanent the braces are the wiring template's placeholder, not a formatting argument
 #[allow(clippy::literal_string_with_formatting_args)]
-fn substitute_root(pattern: &str) -> String {
-    pattern.replace("{docs_root}", DOCS_ROOT)
+fn substitute_root(pattern: &str, docs_root: &str) -> String {
+    pattern.replace("{docs_root}", docs_root)
 }
 
 /// Build one gate's subject filter from every layer.
@@ -38,12 +42,21 @@ fn substitute_root(pattern: &str) -> String {
 fn filter_for(
     id: GateId,
     declaration: &InstanceConfig,
+    docs_root: &str,
     include: &[String],
     exclude: &[String],
 ) -> Result<PathFilter, AppError> {
     let row = spec(id);
-    let registry_include: Vec<String> = row.include.iter().map(|g| substitute_root(g)).collect();
-    let registry_exclude: Vec<String> = row.exclude.iter().map(|g| substitute_root(g)).collect();
+    let registry_include: Vec<String> = row
+        .include
+        .iter()
+        .map(|g| substitute_root(g, docs_root))
+        .collect();
+    let registry_exclude: Vec<String> = row
+        .exclude
+        .iter()
+        .map(|g| substitute_root(g, docs_root))
+        .collect();
     instance_config::resolve(
         &registry_include,
         &registry_exclude,
@@ -99,9 +112,10 @@ fn contained(path: &str) -> Result<(), AppError> {
 fn explain(path: &str) -> Result<(), AppError> {
     contained(path)?;
     let declaration = declaration()?;
+    let docs_root = docs_root();
     let subject = Utf8Path::new(path);
     for gate in GATES {
-        let filter = filter_for(gate.id, &declaration, &[], &[])?;
+        let filter = filter_for(gate.id, &declaration, &docs_root, &[], &[])?;
         let types = gate
             .types
             .map_or_else(String::new, |types| format!("  types: [{types}]"));
@@ -161,7 +175,7 @@ pub fn run(_ctx: &AppContext, args: GateArgs) -> Result<(), AppError> {
     for path in &files {
         contained(path)?;
     }
-    let filter = filter_for(id, &declaration()?, &include, &exclude)?;
+    let filter = filter_for(id, &declaration()?, &docs_root(), &include, &exclude)?;
     // Filter the passed paths always. Ruff carries `--force-exclude`
     // because the opposite default surprised people under pre-commit, which
     // passes changed files explicitly, and pre-commit is this tool's only

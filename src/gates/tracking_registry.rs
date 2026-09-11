@@ -35,6 +35,14 @@ pub fn run(ctx: &GateCtx, _files: &[String]) -> GateResult {
     if !registry.is_file() {
         return Ok(vec![]);
     }
+    // The registry is this gate's subject, so a project that reserves it
+    // gets no findings from it.
+    if ctx
+        .subjects([root.join("reference/tracking.yaml")])
+        .is_empty()
+    {
+        return Ok(vec![]);
+    }
     let report = evaluate(&ctx.repo_root, &root, today_utc()).map_err(|source| {
         crate::gates::GateError::io(root.join("reference/tracking.yaml"), source)
     })?;
