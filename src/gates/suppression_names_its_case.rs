@@ -18,12 +18,11 @@
 //! SATISFIES spec-to-code:a-suppression-names-its-case
 //!
 //! What counts as a citation is one token: `KI-` followed by a lowercase
-//! slug, opening and closing on a word boundary. A token that runs on past
-//! the slug, such as `KI-vendorXYZ`, names no case id under
-//! `known-issues:case-id-is-a-slug`, so the gate reports nothing for it and
-//! does not resolve it as the shorter name either. A citation misspelled
-//! that way is invisible here, and the filename gate holds the records
-//! themselves to the same shape.
+//! slug, opening and closing on a word boundary. A case id is a lowercase
+//! slug, so a token that runs on past one, such as `KI-vendorXYZ`, names no
+//! case. The gate reports nothing for it and does not resolve it as the
+//! shorter name either. A citation misspelled that way is invisible here,
+//! and the filename gate holds the records themselves to the same shape.
 //!
 //! The scan reads every file the walk yields and needs no knowledge of the
 //! language it is reading. The registry row excludes the documentation root,
@@ -73,9 +72,8 @@ fn cited_cases(line: &str) -> impl Iterator<Item = String> + '_ {
                 .take_while(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == '-')
                 .collect();
             // The slug closes on a boundary too. A case id is a lowercase
-            // slug under `known-issues:case-id-is-a-slug`, so
-            // `KI-vendor-quirkXYZ` is not a case id and this yields nothing
-            // for it, rather than letting it resolve as the shorter
+            // slug, so `KI-vendor-quirkXYZ` is not one, and this yields
+            // nothing for it rather than letting it resolve as the shorter
             // `KI-vendor-quirk`.
             let closes = rest[slug.len()..]
                 .chars()
