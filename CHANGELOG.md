@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.6](https://github.com/gubasso/spec-driven-docs/compare/v0.6.5...v0.6.6) - 2026-09-11
+
+### Added
+
+- *(gates)* Let the project declare the paths its gates judge ([#76](https://github.com/gubasso/spec-driven-docs/pull/76))
+
 ## [0.6.5](https://github.com/gubasso/spec-driven-docs/compare/v0.6.4...v0.6.5) - 2026-09-11
 
 ### Added
