@@ -48,7 +48,7 @@
 //! prunes the traversal in [`crate::gates::walk_files`], where no provenance
 //! is wanted.
 
-use camino::Utf8Path;
+use camino::{Utf8Path, Utf8PathBuf};
 use globset::{GlobBuilder, GlobSet, GlobSetBuilder};
 
 /// Where a pattern came from. `--explain` prints it, so a reader can tell a
@@ -268,6 +268,39 @@ impl PathFilter {
             .iter()
             .any(|index| declared.contains(index))
     }
+}
+
+/// An absolute path inside the repository, as the relative name a pattern
+/// speaks.
+///
+/// The projection is lexical on the path and resolves nothing. Only the
+/// root is canonicalized, so a checkout reached through a link still
+/// matches. Resolving the path instead would rewrite a symlink to its
+/// target, and a reservation written against the link's own name would
+/// stop binding the moment the same file was named absolutely.
+///
+/// A path outside the root is returned unchanged: it is not a file any
+/// repository-relative pattern can name.
+#[must_use]
+pub fn project(path: &Utf8Path, repo_root: &Utf8Path) -> Utf8PathBuf {
+    if path.is_relative() {
+        return path.to_path_buf();
+    }
+    let Ok(root) = std::fs::canonicalize(repo_root) else {
+        return path.to_path_buf();
+    };
+    let Ok(root) = Utf8PathBuf::from_path_buf(root) else {
+        return path.to_path_buf();
+    };
+    // Drop `.` components. A `..` component never reaches here: the command
+    // refuses one, and no gate builds one.
+    let lexical: Utf8PathBuf = path
+        .components()
+        .filter(|part| part.as_str() != ".")
+        .collect();
+    lexical
+        .strip_prefix(&root)
+        .map_or_else(|_| path.to_path_buf(), Utf8Path::to_path_buf)
 }
 
 /// Strip the `./` prefix `walk_files` produces, so one path form reaches

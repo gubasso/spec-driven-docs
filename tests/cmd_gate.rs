@@ -665,3 +665,73 @@ fn a_project_include_narrows_a_self_discovering_gate() {
         .assert()
         .success();
 }
+
+/// A reservation is written against a name, so it binds that name however
+/// it is spelled. Resolving the path instead would rewrite a link to its
+/// target and let the absolute spelling walk past.
+#[test]
+fn a_reserved_symlink_stays_reserved_under_its_absolute_name() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    fixture.write("real.md", "Nothing here.\n");
+    std::os::unix::fs::symlink("real.md", fixture.path().join("alias.md")).unwrap();
+    fixture.write(
+        ".spec-driven-docs/config.yaml",
+        "reserved:\n  - 'alias.md'\ngates: {}\n",
+    );
+
+    for spelling in [
+        "alias.md".to_string(),
+        fixture
+            .path()
+            .join("alias.md")
+            .to_str()
+            .unwrap()
+            .to_string(),
+    ] {
+        let assert = fixture
+            .cmd()
+            .args(["gate", "--explain", &spelling])
+            .current_dir(fixture.path())
+            .assert()
+            .success();
+        let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+        assert!(
+            stdout.contains("(reserved)"),
+            "the reservation did not bind {spelling}:\n{stdout}"
+        );
+    }
+}
+
+/// `--explain` answers with the rule the gate actually applies. An
+/// always-run gate discovers its own subjects, so the registry include does
+/// not narrow them.
+#[test]
+fn explain_answers_with_the_rule_a_self_discovering_gate_applies() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    fixture.write(
+        "fixtures/KI-a-shapeless-case.md",
+        "# no front matter at all\n",
+    );
+
+    // The gate judges it when pointed at the root.
+    fixture
+        .cmd()
+        .args(["gate", "ki-state", "fixtures"])
+        .current_dir(fixture.path())
+        .assert()
+        .code(1);
+
+    let assert = fixture
+        .cmd()
+        .args(["gate", "--explain", "fixtures/KI-a-shapeless-case.md"])
+        .current_dir(fixture.path())
+        .assert()
+        .success();
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+    assert!(
+        stdout.contains("judges       ki-state"),
+        "explain contradicts what the gate does:\n{stdout}"
+    );
+}

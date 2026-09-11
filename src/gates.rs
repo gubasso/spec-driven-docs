@@ -115,27 +115,13 @@ impl GateCtx {
         self.repo_root.join(relative)
     }
 
-    /// The form a pattern speaks: repository-relative, forward-slashed.
+    /// The form a pattern speaks, for one candidate.
     ///
-    /// An absolute path naming a file inside the repository is the same
-    /// file as its relative name, and a declaration only ever writes the
-    /// relative one. Without this, naming a reserved file by absolute path
-    /// would walk straight past the reservation.
+    /// See [`crate::domain::path_filter::project`], which both this and
+    /// `--explain` use, so the two never disagree about which file a path
+    /// names.
     fn relative(&self, path: &Utf8Path) -> Utf8PathBuf {
-        if path.is_relative() {
-            return path.to_path_buf();
-        }
-        let (Ok(resolved), Ok(root)) = (
-            std::fs::canonicalize(path),
-            std::fs::canonicalize(&self.repo_root),
-        ) else {
-            return path.to_path_buf();
-        };
-        resolved
-            .strip_prefix(&root)
-            .ok()
-            .and_then(|rest| Utf8PathBuf::from_path_buf(rest.to_path_buf()).ok())
-            .unwrap_or_else(|| path.to_path_buf())
+        crate::domain::path_filter::project(path, &self.repo_root)
     }
 
     /// The subset of `candidates` this gate judges.
