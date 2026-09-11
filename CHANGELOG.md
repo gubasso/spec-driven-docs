@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0](https://github.com/gubasso/spec-driven-docs/compare/v0.6.6...v0.7.0) - 2026-09-11
+
+### Added
+
+- *(gates)* [**breaking**] Keep the case check and delete the suppression-syntax model ([#78](https://github.com/gubasso/spec-driven-docs/pull/78))
+
 ## [0.6.6](https://github.com/gubasso/spec-driven-docs/compare/v0.6.5...v0.6.6) - 2026-09-11
 
 ### Added
