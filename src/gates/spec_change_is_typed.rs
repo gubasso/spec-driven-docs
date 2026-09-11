@@ -162,16 +162,35 @@ fn judge(file: &str, text: &str, violations: &mut Vec<Violation>) {
 /// A walk error is raised rather than dropped. A directory the process cannot
 /// read holds clauses this returns none of, and reporting that as an empty
 /// zone would read as a clean review.
-fn documents(root: &Utf8Path) -> Result<Vec<Utf8PathBuf>, GateError> {
+///
+/// This is the second route a subject path takes into a gate, after
+/// [`crate::gates::walk_files`], so the result passes through
+/// [`GateCtx::subjects`]. A zone inside the repository is filtered on its
+/// repository-relative form, which is the form a project's declaration
+/// speaks. A zone outside the repository is not filtered, because no
+/// repository-relative pattern can name it and the project declared the zone
+/// itself.
+fn documents(ctx: &GateCtx, root: &Utf8Path) -> Result<Vec<Utf8PathBuf>, GateError> {
+    // Every filter is off, unlike the repository walk. A plan zone is
+    // whatever the planning tool writes, and it is commonly git-ignored, so
+    // honouring `.gitignore` here would report a populated zone as empty.
+    let mut pruner = ignore::overrides::OverrideBuilder::new(root.as_std_path());
+    let _ = pruner.add("!.git/**");
+    let _ = pruner.add("!.git");
+    let pruner = pruner
+        .build()
+        .unwrap_or_else(|_| ignore::overrides::Override::empty());
+
     let mut files = Vec::new();
-    for entry in walkdir::WalkDir::new(root.as_std_path())
-        .into_iter()
-        .filter_entry(|entry| {
-            !(entry.file_type().is_dir() && entry.depth() > 0 && entry.file_name() == ".git")
-        })
+    for entry in ignore::WalkBuilder::new(root.as_std_path())
+        .standard_filters(false)
+        .hidden(false)
+        .overrides(pruner)
+        .build()
     {
-        let entry = entry.map_err(|source| GateError::io(root, std::io::Error::from(source)))?;
-        if !entry.file_type().is_file() {
+        let entry = entry
+            .map_err(|source| GateError::io(root, std::io::Error::other(source.to_string())))?;
+        if !entry.file_type().is_some_and(|kind| kind.is_file()) {
             continue;
         }
         if let Ok(path) = Utf8PathBuf::from_path_buf(entry.into_path()) {
@@ -179,7 +198,19 @@ fn documents(root: &Utf8Path) -> Result<Vec<Utf8PathBuf>, GateError> {
         }
     }
     files.sort();
-    Ok(files)
+    let relative: Vec<Utf8PathBuf> = files
+        .iter()
+        .filter_map(|path| path.strip_prefix(&ctx.repo_root).ok())
+        .map(Utf8Path::to_path_buf)
+        .collect();
+    if relative.len() != files.len() {
+        return Ok(files);
+    }
+    let kept = ctx.subjects(relative);
+    Ok(kept
+        .into_iter()
+        .map(|path| ctx.repo_root.join(path))
+        .collect())
 }
 
 /// Judge the declared plan zone.
@@ -227,7 +258,7 @@ pub fn run_for(ctx: &GateCtx, target: PlanZoneTarget) -> GateResult {
         ))]);
     }
     let mut violations = Vec::new();
-    for path in documents(&full)? {
+    for path in documents(ctx, &full)? {
         let text = match std::fs::read(&path) {
             Ok(bytes) => bytes,
             Err(source) => return Err(GateError::io(&path, source)),

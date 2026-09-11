@@ -213,18 +213,88 @@ fn the_canon_managed_block_wires_every_registered_gate() {
 
 /// SATISFIES release:a-delivered-gate-reads-what-the-convention-owns
 ///
-/// A `types:` scope alone reaches every matching file in the project, so a row
-/// that pre-commit selects by changed file states which paths it selects.
+/// Every row states the subject paths it judges. The v0.6.5 rule exempted any
+/// row resolving its own scope, which was 19 of the 30, so it constrained 3.
 #[test]
-fn every_file_passed_gate_anchors_its_scope() {
+fn every_gate_declares_what_it_judges() {
+    // A row may judge everything, and two do. What it may not do is leave
+    // the question unanswered, which is what the v0.6.5 rule's third clause
+    // permitted for 19 of the 30 rows.
+    const JUDGES_EVERYTHING: &[&str] = &[
+        "gate-message-cites-a-rule",
+        "spec-change-is-typed",
+        "suppression-names-its-case",
+    ];
+
     for gate in spec_driven_docs::gates::GATES {
-        assert!(
-            gate.always_run || gate.files.is_some(),
-            "{} takes the files pre-commit passes it and declares no files pattern, \
-             so it reads every matching file in the project",
-            gate.id
-        );
+        let id = gate.id.to_string();
+        if gate.include.is_empty() {
+            assert!(
+                JUDGES_EVERYTHING.contains(&id.as_str()),
+                "{id} states no include patterns, so it judges every file in the \
+                 project. A row that means that says so in JUDGES_EVERYTHING here \
+                 and in a comment on its row; a row that does not states its scope."
+            );
+            continue;
+        }
+        for pattern in gate.include.iter().chain(gate.exclude) {
+            assert!(
+                !pattern.starts_with('/') && !pattern.starts_with('!'),
+                "{id} states the pattern {pattern}, which the filter grammar refuses"
+            );
+        }
     }
+}
+
+/// Every route by which a subject path reaches a gate passes through the
+/// filter, so a gate cannot judge a path the project excluded.
+///
+/// The inventory is the proof behind
+/// `release:a-delivered-gate-reads-what-the-convention-owns`. A fourth route
+/// added without a filter is a hole this test names.
+///
+/// SATISFIES release:a-delivered-gate-reads-what-the-convention-owns
+#[test]
+fn every_subject_producer_is_filter_aware() {
+    let gates_rs = std::fs::read_to_string(canon().join("src/gates.rs")).unwrap();
+    assert!(
+        gates_rs.contains("ctx.subjects(files)"),
+        "walk_files stopped filtering its result"
+    );
+
+    let typed = std::fs::read_to_string(canon().join("src/gates/spec_change_is_typed.rs")).unwrap();
+    assert!(
+        typed.contains("ctx.subjects("),
+        "spec_change_is_typed resolves its own candidates and stopped filtering them"
+    );
+
+    let command = std::fs::read_to_string(canon().join("src/commands/gate.rs")).unwrap();
+    assert!(
+        command.contains("subjects("),
+        "the command path stopped filtering the paths pre-commit passes"
+    );
+
+    // No gate reaches `walkdir` directly: the one traversal is `walk_files`,
+    // and it filters.
+    let mut unfiltered = Vec::new();
+    for entry in std::fs::read_dir(canon().join("src/gates"))
+        .unwrap()
+        .flatten()
+    {
+        let path = entry.path();
+        if path.extension().is_none_or(|ext| ext != "rs") {
+            continue;
+        }
+        let text = std::fs::read_to_string(&path).unwrap();
+        if text.contains("walkdir::") {
+            unfiltered.push(path.file_name().unwrap().to_string_lossy().to_string());
+        }
+    }
+    assert!(
+        unfiltered.is_empty(),
+        "these gates walk the tree outside walk_files, so their subjects are \
+         unfiltered: {unfiltered:?}"
+    );
 }
 
 fn walk_markdown(dir: &Path, files: &mut Vec<PathBuf>) {

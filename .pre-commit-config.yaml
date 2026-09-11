@@ -163,22 +163,22 @@ repos:
         name: no personal path
         entry: cargo run -q -- gate no-personal-path
         language: system
-        files: '^_docs/.*\.md$'
+        files: '^_docs/(?:.*/)?[^/]*\.md$'
         types: [text]
       - id: no-self-narration
         name: documents state the present
         entry: cargo run -q -- gate no-self-narration
         language: system
-        files: '^_docs/.*\.md$'
+        files: '^_docs/(?:.*/)?[^/]*\.md$'
         types: [markdown]
-        exclude: '^_docs/decisions/'
+        exclude: '^_docs/decisions/.*$'
       - id: prose-stays-unwrapped
         name: prose lines stay unwrapped
         entry: cargo run -q -- gate prose-stays-unwrapped
         language: system
-        files: '^_docs/.*\.md$'
+        files: '^_docs/(?:.*/)?[^/]*\.md$'
         types: [markdown]
-        exclude: '(?:^|/)CHANGELOG\.md$'
+        exclude: '^(?:.*/)?CHANGELOG\.md$'
       - id: adr-cites-a-live-rule
         name: decision record citations resolve
         entry: cargo run -q -- gate adr-cites-a-live-rule
@@ -189,7 +189,7 @@ repos:
         name: decision record filename shape
         entry: cargo run -q -- gate adr-filename-shape
         language: system
-        files: '^_docs/decisions/.*\.md$'
+        files: '^_docs/decisions/[^/]*\.md$'
       - id: adr-word-cap
         name: decision record word cap
         entry: cargo run -q -- gate adr-word-cap
@@ -218,7 +218,7 @@ repos:
         name: spec requirement parts
         entry: cargo run -q -- gate spec-requirement-parts
         language: system
-        files: '^_docs/specs/SPEC-.*\.md$'
+        files: '^_docs/specs/SPEC-[^/]*\.md$'
       - id: spec-rule-id-unique
         name: spec rule IDs are unique
         entry: cargo run -q -- gate spec-rule-id-unique
@@ -248,7 +248,7 @@ repos:
         name: known issue filename shape
         entry: cargo run -q -- gate ki-filename-shape
         language: system
-        files: '^(_?docs/reference/known-issues|tests/fixtures)/KI-.*\.md$'
+        files: '^(_?docs/reference/known-issues|tests/fixtures)/KI-[^/]*\.md$'
       - id: ki-filing
         name: known issue filing state
         entry: cargo run -q -- gate ki-filing

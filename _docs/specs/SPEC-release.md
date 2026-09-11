@@ -97,13 +97,19 @@ Verify: `pre-commit run cargo-test --all-files`
 
 ### `release:a-delivered-gate-reads-what-the-convention-owns` — A delivered gate reads what the convention owns
 
-A delivered gate MUST select its input under the instance's documentation root, by a filename shape this convention defines, or by resolving its own scope, and MUST NOT select by file type alone.
+A delivered gate MUST declare the subject paths it judges, and MUST NOT judge a path its resolved filter excludes. A subject path is one whose content the gate judges and which can appear in a finding; a support path, which the gate reads to know what to judge, is not filtered.
+
+#### Scenario: A gate walks the whole repository
+
+- GIVEN a gate that resolves its own scope by walking the repository from its root
+- WHEN it reaches a path the project's declaration excludes
+- THEN it judges nothing there, because every route a subject path takes passes through one filter, and a gate has no way to ask for a path the filter dropped
 
 #### Scenario: Another tool renders a file at the project root
 
 - GIVEN a project that installs this convention beside a tool that renders and hashes a file at the project root
-- WHEN a gate selecting by file type alone reads that rendered file and reports a finding
-- THEN neither tool is wrong about the file it owns, and the project owner carries a hand-patched exclusion that the next upgrade re-renders over
+- WHEN the project reserves that path in its declaration
+- THEN no delivered gate judges it, and the managed block is rendered from the declaration rather than hand-patched, so the next upgrade carries the choice rather than re-rendering over it
 
 Verify: `pre-commit run cargo-test --all-files`
 
