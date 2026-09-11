@@ -38,7 +38,7 @@ pub fn run(ctx: &GateCtx, _files: &[String]) -> GateResult {
     // The registry is this gate's subject, so a project that reserves it
     // gets no findings from it.
     if ctx
-        .subjects([root.join("reference/tracking.yaml")])
+        .retained([root.join("reference/tracking.yaml")])
         .is_empty()
     {
         return Ok(vec![]);

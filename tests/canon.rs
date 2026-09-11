@@ -275,6 +275,27 @@ fn every_subject_producer_is_filter_aware() {
         "the command path stopped filtering the paths pre-commit passes"
     );
 
+    // Every gate that discovers its own subjects passes them through
+    // `retained`, where the discovery is the include and the declaration's
+    // exclusions still bind. This list is the inventory; a gate added to it
+    // without a filtering call is the hole the source-text check cannot see,
+    // which is why `cmd_gate` also asserts the behaviour per gate.
+    for (file, verb) in [
+        ("src/gates/paths.rs", "ctx.retained("),
+        ("src/gates/spec_rule_id_unique.rs", "ctx.retained("),
+        ("src/gates/spec_verify_hooks_exist.rs", "ctx.retained("),
+        ("src/gates/adr_cites_a_live_rule.rs", "ctx.retained("),
+        ("src/gates/adr_word_cap.rs", ".retained("),
+        ("src/gates/instance_manifest.rs", "ctx.retained("),
+        ("src/gates/tracking_registry.rs", ".retained("),
+    ] {
+        let text = std::fs::read_to_string(canon().join(file)).unwrap();
+        assert!(
+            text.contains(verb),
+            "{file} discovers its own subjects and stopped filtering them"
+        );
+    }
+
     // No gate reaches `walkdir` directly: the one traversal is `walk_files`,
     // and it filters.
     let mut unfiltered = Vec::new();

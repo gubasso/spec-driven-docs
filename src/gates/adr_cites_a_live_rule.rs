@@ -81,7 +81,7 @@ pub fn run(ctx: &GateCtx, _files: &[String]) -> GateResult {
     }
 
     let mut violations = Vec::new();
-    for file in ctx.subjects(records(ctx)) {
+    for file in ctx.retained(records(ctx)) {
         let text = read_text(ctx, &file)?;
         for line in text.lines() {
             if !line.starts_with("Enforced by ") {

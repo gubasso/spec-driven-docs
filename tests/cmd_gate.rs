@@ -536,3 +536,71 @@ fn a_filename_selected_gate_judges_under_the_recorded_docs_root() {
         .assert()
         .code(1);
 }
+
+/// A positional value is a file to judge or a record root to resolve.
+/// Filtering the root drops it, and the gate then falls back to the default
+/// location and reports nothing about the records it was pointed at.
+#[test]
+fn an_extra_record_root_reaches_the_gate_unfiltered() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    // A record outside the docs root, in a directory the gate's include
+    // pattern does not match.
+    fixture.write(
+        "fixtures/KI-a-shapeless-case.md",
+        "# no front matter at all\n",
+    );
+
+    fixture
+        .cmd()
+        .args(["gate", "ki-state", "fixtures"])
+        .current_dir(fixture.path())
+        .assert()
+        .code(1)
+        .stdout(predicate::str::contains("fixtures/KI-a-shapeless-case.md"));
+}
+
+/// Reserving every spec is an answer, not a moved layout. Both layout
+/// predicates read the unfiltered set.
+#[test]
+fn reserving_every_spec_is_not_a_layout_failure() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    fixture.write(
+        ".spec-driven-docs/config.yaml",
+        "reserved:\n  - '_docs/specs/**'\ngates: {}\n",
+    );
+
+    for gate in [
+        "spec-verify-hooks-exist",
+        "spec-size-cap",
+        "spec-rule-id-unique",
+    ] {
+        fixture
+            .cmd()
+            .args(["gate", gate])
+            .current_dir(fixture.path())
+            .assert()
+            .success();
+    }
+}
+
+/// A nested brace alternation renders as something matching nothing the
+/// matcher judges, so the grammar refuses it rather than break the superset
+/// contract.
+#[test]
+fn a_nested_brace_alternation_is_refused() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    fixture.write(
+        ".spec-driven-docs/config.yaml",
+        "reserved:\n  - '{{a,b},{c,d}}.md'\ngates: {}\n",
+    );
+
+    fixture
+        .cmd()
+        .args(["gate", "ki-state"])
+        .current_dir(fixture.path())
+        .assert()
+        .code(64);
+}

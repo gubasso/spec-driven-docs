@@ -181,10 +181,23 @@ pub fn run(_ctx: &AppContext, args: GateArgs) -> Result<(), AppError> {
     // passes changed files explicitly, and pre-commit is this tool's only
     // caller.
     let gate_ctx = GateCtx::with_filter(".", filter);
-    let judged: Vec<String> = gate_ctx
-        .subjects(files.iter().map(Utf8Path::new))
+    // A positional value is a file to judge or a record root to resolve,
+    // and `src/cli/gate.rs` says so. Filter the files; pass a directory
+    // through untouched, because it is a support root and the records
+    // discovered beneath it are filtered where the gate resolves them.
+    // Filtering the root itself would silently drop it and let the gate
+    // fall back to the default location, reporting nothing.
+    let (roots, subjects): (Vec<String>, Vec<String>) = files
         .into_iter()
-        .map(ToString::to_string)
+        .partition(|path| gate_ctx.path(path).is_dir());
+    let judged: Vec<String> = roots
+        .into_iter()
+        .chain(
+            gate_ctx
+                .subjects(subjects.iter().map(Utf8Path::new))
+                .into_iter()
+                .map(ToString::to_string),
+        )
         .collect();
 
     let violations = (spec(id).run)(&gate_ctx, &judged)?;

@@ -203,7 +203,7 @@ fn discovered(ctx: &GateCtx, root: &Utf8Path) -> bool {
 ///
 /// See [`ki_records`].
 pub fn ki_records_judged(ctx: &GateCtx, args: &[String]) -> Result<Vec<Utf8PathBuf>, GateError> {
-    Ok(ctx.subjects(ki_records(ctx, args)?))
+    Ok(ctx.retained(ki_records(ctx, args)?))
 }
 
 /// Every known-issue record the instance carries, unfiltered.

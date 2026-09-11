@@ -48,7 +48,7 @@ pub fn run(ctx: &GateCtx, _files: &[String]) -> GateResult {
     // list before it is read. The layout check above reads the unfiltered
     // set: a project that reserves every record still has a layout.
     let records: Vec<String> = ctx
-        .subjects(records.iter().map(|name| decisions.join(name)))
+        .retained(records.iter().map(|name| decisions.join(name)))
         .iter()
         .filter_map(|path| path.file_name().map(ToString::to_string))
         .collect();

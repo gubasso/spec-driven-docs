@@ -25,7 +25,7 @@ pub(crate) fn spec_files_judged(ctx: &GateCtx) -> Option<Vec<camino::Utf8PathBuf
     // `None` means the layout moved, which is read from the unfiltered set.
     // A project that reserves every spec has a layout and judges none of
     // it, which is a different answer and not a failure.
-    Some(ctx.subjects(spec_files(ctx)?))
+    Some(ctx.retained(spec_files(ctx)?))
 }
 
 pub(crate) fn spec_files(ctx: &GateCtx) -> Option<Vec<camino::Utf8PathBuf>> {

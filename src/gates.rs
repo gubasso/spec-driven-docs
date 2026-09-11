@@ -126,6 +126,18 @@ impl GateCtx {
             .collect()
     }
 
+    /// The subset of `candidates` this gate's exclusions leave.
+    ///
+    /// For a subject set the gate discovered itself, where the discovery is
+    /// already the include. See [`PathFilter::excluded`].
+    #[must_use]
+    pub fn retained<P: AsRef<Utf8Path>>(&self, candidates: impl IntoIterator<Item = P>) -> Vec<P> {
+        candidates
+            .into_iter()
+            .filter(|path| !self.filter.excluded(path.as_ref()))
+            .collect()
+    }
+
     /// The filter itself, for `--explain` and for the renderer.
     #[must_use]
     pub const fn filter(&self) -> &PathFilter {

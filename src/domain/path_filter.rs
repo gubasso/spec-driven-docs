@@ -32,7 +32,8 @@
 //! silently mean something other than what the author wrote. The backslash
 //! escapes a metacharacter in `globset` on Unix, and the pre-commit
 //! projection cannot reproduce that faithfully, so a pattern using it would
-//! break the superset contract the renderer states.
+//! break the superset contract the renderer states. A nested brace
+//! alternation is refused for the same reason.
 //!
 //! # Why not `ignore::overrides`
 //!
@@ -136,6 +137,12 @@ pub enum PathFilterError {
         "pattern `{0}` carries a backslash, which this grammar does not carry: a path holding a literal glob character cannot be named here"
     )]
     Escaped(String),
+    /// The pattern nests a brace alternation, which the pre-commit
+    /// projection cannot reproduce.
+    #[error(
+        "pattern `{0}` nests a brace alternation, which this grammar does not carry: write the branches flat"
+    )]
+    Nested(String),
     /// `globset` could not compile it.
     #[error("pattern `{glob}` is not a valid glob: {message}")]
     Malformed {
@@ -227,6 +234,19 @@ impl PathFilter {
     pub fn judges(&self, path: &Utf8Path) -> bool {
         matches!(self.decide(path), Decision::Read)
     }
+
+    /// Whether an exclude pattern drops the path, ignoring the includes.
+    ///
+    /// For a subject a gate finds itself, the discovery is the include: the
+    /// gate already resolved which files it is about, and a registry
+    /// whitelist written for the paths pre-commit passes would narrow that
+    /// set a second time. An operator naming an extra record root would
+    /// then get nothing. Exclusions still bind, so a reserved path is
+    /// dropped either way.
+    #[must_use]
+    pub fn excluded(&self, path: &Utf8Path) -> bool {
+        matches!(self.decide(path), Decision::Skipped(_))
+    }
 }
 
 /// Strip the `./` prefix `walk_files` produces, so one path form reaches
@@ -268,6 +288,22 @@ fn validate(glob: &str) -> Result<globset::Glob, PathFilterError> {
     // which is the one direction the superset contract forbids.
     if glob.contains('\\') {
         return Err(PathFilterError::Escaped(glob.to_string()));
+    }
+    // `globset` nests brace alternations and the pre-commit projection does
+    // not, so a nested group would render as something matching nothing the
+    // matcher judges. Refusing it keeps the superset contract true.
+    let mut depth = 0_i32;
+    for ch in glob.chars() {
+        match ch {
+            '{' => {
+                depth += 1;
+                if depth > 1 {
+                    return Err(PathFilterError::Nested(glob.to_string()));
+                }
+            }
+            '}' => depth -= 1,
+            _ => {}
+        }
     }
     GlobBuilder::new(glob)
         .literal_separator(true)
@@ -395,6 +431,7 @@ mod tests {
             ("/etc/passwd", "Absolute"),
             ("../outside/**", "Escape"),
             (r"docs/file\*.md", "Escaped"),
+            ("{{a,b},{c,d}}.md", "Nested"),
         ] {
             let error = PathFilter::build(Vec::new(), vec![Pattern::new(glob, Layer::Project)])
                 .expect_err("the grammar refuses it");
@@ -403,6 +440,7 @@ mod tests {
                 PathFilterError::Absolute(_) => "Absolute",
                 PathFilterError::Escape(_) => "Escape",
                 PathFilterError::Escaped(_) => "Escaped",
+                PathFilterError::Nested(_) => "Nested",
                 PathFilterError::Malformed { .. } => "Malformed",
             };
             assert_eq!(kind, expected, "for {glob}");
