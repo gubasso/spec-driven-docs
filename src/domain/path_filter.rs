@@ -235,17 +235,38 @@ impl PathFilter {
         matches!(self.decide(path), Decision::Read)
     }
 
-    /// Whether an exclude pattern drops the path, ignoring the includes.
+    /// Whether this filter keeps a subject the gate discovered itself.
     ///
-    /// For a subject a gate finds itself, the discovery is the include: the
-    /// gate already resolved which files it is about, and a registry
-    /// whitelist written for the paths pre-commit passes would narrow that
-    /// set a second time. An operator naming an extra record root would
-    /// then get nothing. Exclusions still bind, so a reserved path is
-    /// dropped either way.
+    /// The gate already resolved which files it is about, so the
+    /// [`Layer::Registry`] include — a whitelist written for the paths
+    /// pre-commit passes — would narrow that set a second time, and an
+    /// operator naming an extra record root would get nothing. That layer
+    /// alone is ignored here.
+    ///
+    /// Every other layer binds. An exclusion drops the path, and a
+    /// [`Layer::Project`] or [`Layer::Flag`] include is a whitelist the
+    /// project or the operator wrote against this gate knowingly, so a
+    /// discovered path matching none of them is not kept.
     #[must_use]
-    pub fn excluded(&self, path: &Utf8Path) -> bool {
-        matches!(self.decide(path), Decision::Skipped(_))
+    pub fn retains(&self, path: &Utf8Path) -> bool {
+        let candidate = normalize(path);
+        if !self.exclude.matches(&candidate).is_empty() {
+            return false;
+        }
+        let declared: Vec<usize> = self
+            .include_patterns
+            .iter()
+            .enumerate()
+            .filter(|(_, pattern)| pattern.layer != Layer::Registry)
+            .map(|(index, _)| index)
+            .collect();
+        if declared.is_empty() {
+            return true;
+        }
+        self.include
+            .matches(&candidate)
+            .iter()
+            .any(|index| declared.contains(index))
     }
 }
 
@@ -486,6 +507,42 @@ mod tests {
     fn the_walk_path_form_is_normalized() {
         let f = filter(&["src/**"], &[]);
         assert_eq!(decide(&f, "./src/main.rs"), Decision::Read);
+    }
+
+    #[test]
+    fn retains_ignores_the_registry_include_and_honours_a_project_one() {
+        // A gate that discovered its own subjects is not narrowed again by
+        // the registry whitelist.
+        let registry_only = PathFilter::build(
+            vec![Pattern::new("_docs/**/*.md", Layer::Registry)],
+            Vec::new(),
+        )
+        .expect("compiles");
+        assert!(registry_only.retains(Utf8Path::new("fixtures/KI-a.md")));
+        assert!(!registry_only.judges(Utf8Path::new("fixtures/KI-a.md")));
+
+        // A project wrote its own whitelist against this gate, knowingly.
+        let declared = PathFilter::build(
+            vec![
+                Pattern::new("_docs/**/*.md", Layer::Registry),
+                Pattern::new("_docs/specs/SPEC-a.md", Layer::Project),
+            ],
+            Vec::new(),
+        )
+        .expect("compiles");
+        assert!(declared.retains(Utf8Path::new("_docs/specs/SPEC-a.md")));
+        assert!(!declared.retains(Utf8Path::new("_docs/specs/SPEC-b.md")));
+    }
+
+    #[test]
+    fn retains_still_drops_an_excluded_path() {
+        let filter = PathFilter::build(
+            Vec::new(),
+            vec![Pattern::new("_docs/private.md", Layer::Reserved)],
+        )
+        .expect("compiles");
+        assert!(!filter.retains(Utf8Path::new("_docs/private.md")));
+        assert!(filter.retains(Utf8Path::new("_docs/public.md")));
     }
 
     #[test]

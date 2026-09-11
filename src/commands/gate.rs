@@ -103,6 +103,25 @@ fn contained(path: &str) -> Result<(), AppError> {
     Ok(())
 }
 
+/// An absolute name for a file inside the repository, as its relative name.
+///
+/// A declaration writes the relative form, so an absolute argument would
+/// otherwise walk past a reservation.
+fn relative_to_repo(path: &str) -> camino::Utf8PathBuf {
+    let candidate = Utf8Path::new(path);
+    if candidate.is_relative() {
+        return candidate.to_path_buf();
+    }
+    let (Ok(resolved), Ok(root)) = (std::fs::canonicalize(path), std::fs::canonicalize(".")) else {
+        return candidate.to_path_buf();
+    };
+    resolved
+        .strip_prefix(&root)
+        .ok()
+        .and_then(|rest| camino::Utf8PathBuf::from_path_buf(rest.to_path_buf()).ok())
+        .unwrap_or_else(|| candidate.to_path_buf())
+}
+
 /// Report which gates judge one path, and what decided each answer.
 ///
 /// This answers path-declaration eligibility. It is not a prediction of what
@@ -113,7 +132,10 @@ fn explain(path: &str) -> Result<(), AppError> {
     contained(path)?;
     let declaration = declaration()?;
     let docs_root = docs_root();
-    let subject = Utf8Path::new(path);
+    // Decide on the form a pattern speaks. `GateCtx` does this for the run
+    // path; this one answers without a context.
+    let relative = relative_to_repo(path);
+    let subject = relative.as_path();
     for gate in GATES {
         let filter = filter_for(gate.id, &declaration, &docs_root, &[], &[])?;
         let types = gate

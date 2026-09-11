@@ -115,26 +115,50 @@ impl GateCtx {
         self.repo_root.join(relative)
     }
 
+    /// The form a pattern speaks: repository-relative, forward-slashed.
+    ///
+    /// An absolute path naming a file inside the repository is the same
+    /// file as its relative name, and a declaration only ever writes the
+    /// relative one. Without this, naming a reserved file by absolute path
+    /// would walk straight past the reservation.
+    fn relative(&self, path: &Utf8Path) -> Utf8PathBuf {
+        if path.is_relative() {
+            return path.to_path_buf();
+        }
+        let (Ok(resolved), Ok(root)) = (
+            std::fs::canonicalize(path),
+            std::fs::canonicalize(&self.repo_root),
+        ) else {
+            return path.to_path_buf();
+        };
+        resolved
+            .strip_prefix(&root)
+            .ok()
+            .and_then(|rest| Utf8PathBuf::from_path_buf(rest.to_path_buf()).ok())
+            .unwrap_or_else(|| path.to_path_buf())
+    }
+
     /// The subset of `candidates` this gate judges.
     ///
-    /// Every subject path a gate sees comes through here.
+    /// Every subject path pre-commit or an operator hands a gate comes
+    /// through here, and the registry whitelist binds.
     #[must_use]
     pub fn subjects<P: AsRef<Utf8Path>>(&self, candidates: impl IntoIterator<Item = P>) -> Vec<P> {
         candidates
             .into_iter()
-            .filter(|path| self.filter.judges(path.as_ref()))
+            .filter(|path| self.filter.judges(&self.relative(path.as_ref())))
             .collect()
     }
 
     /// The subset of `candidates` this gate's exclusions leave.
     ///
-    /// For a subject set the gate discovered itself, where the discovery is
-    /// already the include. See [`PathFilter::excluded`].
+    /// For a subject set the gate discovered itself. See
+    /// [`PathFilter::retains`].
     #[must_use]
     pub fn retained<P: AsRef<Utf8Path>>(&self, candidates: impl IntoIterator<Item = P>) -> Vec<P> {
         candidates
             .into_iter()
-            .filter(|path| !self.filter.excluded(path.as_ref()))
+            .filter(|path| self.filter.retains(&self.relative(path.as_ref())))
             .collect()
     }
 

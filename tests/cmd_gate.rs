@@ -604,3 +604,64 @@ fn a_nested_brace_alternation_is_refused() {
         .assert()
         .code(64);
 }
+
+/// An absolute name for a file inside the repository is the same file, and
+/// a declaration only ever writes the relative one.
+#[test]
+fn a_reserved_path_stays_reserved_under_its_absolute_name() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    fixture.write("_docs/private.md", "Nothing here.\n");
+    fixture.write(
+        ".spec-driven-docs/config.yaml",
+        "reserved:\n  - '_docs/private.md'\ngates: {}\n",
+    );
+    let absolute = fixture.path().join("_docs/private.md");
+
+    let assert = fixture
+        .cmd()
+        .args(["gate", "--explain", absolute.to_str().unwrap()])
+        .current_dir(fixture.path())
+        .assert()
+        .success();
+    let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
+    assert!(
+        stdout.contains("(reserved)"),
+        "the absolute name walked past the reservation:\n{stdout}"
+    );
+}
+
+/// A project's own include is a whitelist it wrote against this gate
+/// knowingly, so it binds even where the gate discovered the set itself.
+#[test]
+fn a_project_include_narrows_a_self_discovering_gate() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    fixture.write(
+        "_docs/specs/SPEC-oversized.md",
+        &format!(
+            "# SPEC oversized\n\n{}",
+            "A line about a rule.\n".repeat(400)
+        ),
+    );
+
+    // Undeclared, the gate discovers and reports it.
+    fixture
+        .cmd()
+        .args(["gate", "spec-size-cap"])
+        .current_dir(fixture.path())
+        .assert()
+        .code(1);
+
+    // Narrowed to another spec, it does not.
+    fixture.write(
+        ".spec-driven-docs/config.yaml",
+        "reserved: []\ngates:\n  spec-size-cap:\n    include:\n      - '_docs/specs/SPEC-instance.md'\n",
+    );
+    fixture
+        .cmd()
+        .args(["gate", "spec-size-cap"])
+        .current_dir(fixture.path())
+        .assert()
+        .success();
+}
