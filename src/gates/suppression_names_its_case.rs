@@ -27,11 +27,20 @@
 //! vendored trees are skipped, and the known-issues directory is exempt,
 //! because a record may discuss suppressions.
 //!
-//! Three surfaces stay outside this scan: an extensionless shell script, a
-//! block comment holding a suppression, and the `[lints]` table of a
-//! manifest.
+//! A file with no filename suffix takes its form family from its shebang, so
+//! a script such as `scripts/publish` is judged as the language its
+//! interpreter names. A shebang that hides its command behind an escape in an
+//! `env -S` string names no language here, and that file keeps the name it
+//! has.
+//!
+//! Three surfaces stay outside this scan: a file with no suffix and no
+//! shebang, such as the `justfile` this repository carries, whose recipes run
+//! under a shell and can hold a suppression no line declares; a block comment
+//! holding a suppression; and the `[lints]` table of a manifest.
 
 use std::collections::BTreeSet;
+
+use camino::Utf8Path;
 
 use crate::domain::finding::Finding;
 use crate::domain::rule_id::RuleId;
@@ -167,6 +176,87 @@ fn comment_opener(file: &str) -> Option<&'static str> {
         .iter()
         .find(|(suffixes, _)| suffixes.iter().any(|suffix| file.ends_with(suffix)))
         .map(|(_, opener)| *opener)
+}
+
+/// The name the form families are looked up by.
+///
+/// A file with no suffix states its language in its shebang, so the lookup
+/// borrows the suffix that interpreter implies. The real path stays the one a
+/// finding prints.
+fn kind_name(name: &str, first: &str) -> String {
+    // The basename comes from the path API, so the separator this platform
+    // writes is the one that splits it. A dot in a directory is not a suffix
+    // on the file.
+    let stem = Utf8Path::new(name).file_name().unwrap_or(name);
+    if stem.contains('.') {
+        return name.to_string();
+    }
+    let Some(rest) = first.strip_prefix("#!") else {
+        return name.to_string();
+    };
+    match interpreter(rest) {
+        Some("sh" | "bash" | "dash" | "ksh" | "zsh") => format!("{name}.sh"),
+        Some("python" | "python3") => format!("{name}.py"),
+        _ => name.to_string(),
+    }
+}
+
+/// The interpreter a shebang names, without its directory.
+///
+/// The kernel reads the first word as the interpreter and passes everything
+/// after it as one argument, so an optional argument is never the interpreter
+/// and `#!/bin/sh -e` is a shell script. `env` is the one exception: it runs
+/// the first of its own operands that is neither an option, an option's own
+/// argument, nor an assignment, so `#!/usr/bin/env -S python3 -X dev` is a
+/// Python script.
+///
+/// `env -S` reads quotes when it splits, and this scan reads a quoted run and
+/// nothing else of that grammar. An escape inside such a string is read as
+/// the letters that spell it, so a command hidden behind one keeps the name
+/// its file already has and stays outside the scan.
+///
+/// The operands are read whether or not `-S` is present. Linux passes the
+/// whole tail to `env` as one argument and Darwin splits it, so a multiword
+/// line runs on one platform and not the other. Reading it either way names
+/// the language the author wrote, and naming it is what puts the file inside
+/// the scan. The other reading would leave a real script on a real platform
+/// unjudged, which is the gap this scan exists to close.
+fn interpreter(rest: &str) -> Option<&str> {
+    /// Every `env` option that takes its argument as a separate word. `-S`
+    /// is not one: it splits the rest of the line, and `env` reads options
+    /// again inside what it split, so the command still follows it.
+    const TAKES_A_WORD: &[&str] = &["-u", "--unset", "-C", "--chdir", "-a", "--argv0"];
+    fn basename(word: &str) -> &str {
+        word.rsplit('/').next().unwrap_or(word)
+    }
+    /// Consume one option's argument, which is a quoted run where it opens
+    /// with a quote. Without this, the tail of `-C "/tmp dir"` reads as the
+    /// command.
+    fn take_argument<'a>(words: &mut impl Iterator<Item = &'a str>) {
+        let Some(word) = words.next() else { return };
+        let Some(quote) = word.chars().next().filter(|c| *c == '"' || *c == '\'') else {
+            return;
+        };
+        if word.len() > 1 && word.ends_with(quote) {
+            return;
+        }
+        words
+            .take_while(|word| !word.ends_with(quote))
+            .for_each(drop);
+    }
+    let mut words = rest.split_whitespace();
+    let first = basename(words.next()?);
+    if first != "env" {
+        return Some(first);
+    }
+    while let Some(word) = words.next() {
+        if TAKES_A_WORD.contains(&word) {
+            take_argument(&mut words);
+        } else if !word.starts_with('-') && !word.contains('=') {
+            return Some(basename(word.trim_matches(['"', '\''])));
+        }
+    }
+    None
 }
 
 /// Where the line's own comment opens, outside every quoted span.
@@ -771,6 +861,9 @@ enum Disposition {
 /// One suppression, with the lines a reader can read its reason from.
 struct Site {
     file: String,
+    /// The name the file's own syntax is read by, which differs from `file`
+    /// only where a shebang supplies the suffix the name lacks.
+    kind: String,
     number: usize,
     line: String,
     annotation: Vec<String>,
@@ -801,7 +894,7 @@ impl Site {
             .iter()
             .map(String::as_str)
             .collect();
-        native_reason(&self.file, self.form.channel, self.form.token, &region)
+        native_reason(&self.kind, self.form.channel, self.form.token, &region)
             .filter(|reason| !reason.trim().is_empty())
     }
 
@@ -912,7 +1005,11 @@ fn sites(ctx: &GateCtx) -> Result<Vec<Site>, GateError> {
         } else {
             Vec::new()
         };
-        let live = live_from(&name, &lines);
+        // A file with no suffix names its language in its shebang, and the
+        // lookup reads that name. The real path stays in `Site.file`, so a
+        // finding prints a path a reader can open.
+        let kind = kind_name(&name, lines.first().copied().unwrap_or_default());
+        let live = live_from(&kind, &lines);
         for (index, line) in lines.iter().enumerate() {
             if matches!(
                 kinds.get(index),
@@ -921,14 +1018,15 @@ fn sites(ctx: &GateCtx) -> Result<Vec<Site>, GateError> {
                 continue;
             }
             let Some(offset) = live[index] else { continue };
-            let Some((found, form)) = suppression_at(&name, &line[offset..]) else {
+            let Some((found, form)) = suppression_at(&kind, &line[offset..]) else {
                 continue;
             };
             let start = offset + found;
             if !is_closing(line) {
-                let (annotation, region_from) = annotation(&name, &lines, index, start);
+                let (annotation, region_from) = annotation(&kind, &lines, index, start);
                 sites.push(Site {
                     file: name.clone(),
+                    kind: kind.clone(),
                     number: index + 1,
                     line: (*line).to_string(),
                     annotation,
@@ -1688,6 +1786,144 @@ mod tests {
     fn closing_markers_are_not_suppressions() {
         let text = "<!-- dprint-ignore-end -->\n<!-- markdownlint-enable -->\n";
         assert!(run_on("local.md", text).is_empty());
+    }
+
+    /// A script with no suffix states its language in its shebang, so the
+    /// forms that language carries are live in it.
+    #[test]
+    fn a_shebang_makes_a_suffixless_script_readable() {
+        let out = run_on("publish", "#!/bin/bash\n# shellcheck disable=SC2086\n");
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[0], "FAIL spec-to-code:a-suppression-names-its-case");
+        assert!(out[1].contains("publish:2"));
+    }
+
+    #[test]
+    fn a_suffixless_script_takes_the_marker_and_the_case() {
+        for text in [
+            "#!/bin/bash\n# shellcheck disable=SC2086  # sdd: permanent the word split is wanted\n",
+            "#!/bin/bash\n# shellcheck disable=SC2086  # KI-vendor-quirk\n",
+        ] {
+            assert!(run_on("publish", text).is_empty(), "{text}");
+        }
+    }
+
+    /// The lookup name is not the reporting path, so a finding names the file
+    /// a reader can open.
+    #[test]
+    fn a_finding_names_the_real_path_and_not_the_borrowed_suffix() {
+        let out = run_on("publish", "#!/bin/bash\n# shellcheck disable=SC2086\n");
+        assert!(out[1].contains("./publish:2"), "{}", out[1]);
+        assert!(!out[1].contains("publish.sh"), "{}", out[1]);
+    }
+
+    #[test]
+    fn an_env_shebang_reads_the_same_as_a_direct_one() {
+        let out = run_on(
+            "publish",
+            "#!/usr/bin/env bash\n# shellcheck disable=SC2086\n",
+        );
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[0], "FAIL spec-to-code:a-suppression-names-its-case");
+    }
+
+    /// The remaining gap, stated as behavior: a file with no suffix and no
+    /// shebang names no language, so no form is live in it.
+    #[test]
+    fn a_file_without_a_suffix_and_without_a_shebang_is_skipped() {
+        assert!(run_on("justfile", "check:\n    # shellcheck disable=SC2086\n").is_empty());
+    }
+
+    /// The interpreter list is closed, so a language this gate carries no
+    /// family for stays outside the scan.
+    #[test]
+    fn an_unlisted_interpreter_names_no_family() {
+        assert!(run_on("run", "#!/usr/bin/perl\n# noqa: E501\n").is_empty());
+    }
+
+    #[test]
+    fn a_suffix_still_decides_where_the_file_has_one() {
+        assert!(run_on("notes.txt", "# shellcheck disable=SC2086\n").is_empty());
+    }
+
+    /// The kernel passes everything after the interpreter as one argument, so
+    /// an optional argument is not the interpreter.
+    #[test]
+    fn an_optional_argument_is_not_the_interpreter() {
+        let out = run_on("publish", "#!/bin/bash -e\n# shellcheck disable=SC2086\n");
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[0], "FAIL spec-to-code:a-suppression-names-its-case");
+        assert!(run_on("run", "#!/usr/bin/perl bash\n# noqa: E501\n").is_empty());
+    }
+
+    /// `env` runs the first of its operands that is neither an option nor an
+    /// assignment, so the script's own language is still the one read.
+    #[test]
+    fn an_env_shebang_reads_past_its_options_and_assignments() {
+        for text in [
+            "#!/usr/bin/env -S bash -e\n# shellcheck disable=SC2086\n",
+            "#!/usr/bin/env -S LC_ALL=C bash\n# shellcheck disable=SC2086\n",
+            "#!/usr/bin/env -S -u FOO bash\n# shellcheck disable=SC2086\n",
+            "#!/usr/bin/env --unset FOO bash\n# shellcheck disable=SC2086\n",
+        ] {
+            let out = run_on("publish", text);
+            assert_eq!(out.len(), 2, "{text}");
+            assert_eq!(out[0], "FAIL spec-to-code:a-suppression-names-its-case");
+        }
+    }
+
+    /// An option's own argument is not the command, so a name that resembles
+    /// an interpreter does not become one.
+    #[test]
+    fn an_env_option_argument_is_not_the_command() {
+        assert_eq!(
+            kind_name("publish", "#!/usr/bin/env -u python3 bash"),
+            "publish.sh"
+        );
+        assert_eq!(
+            kind_name("publish", "#!/usr/bin/env -C /tmp python3"),
+            "publish.py"
+        );
+    }
+
+    /// `env -S` reads quotes when it splits, so an argument carrying a space
+    /// is one argument and its tail is not the command.
+    #[test]
+    fn a_quoted_env_option_argument_is_one_argument() {
+        assert_eq!(
+            kind_name("publish", "#!/usr/bin/env -S -C \"/tmp dir\" bash"),
+            "publish.sh"
+        );
+        assert_eq!(
+            kind_name("publish", "#!/usr/bin/env -S -C '/tmp/dir' python3"),
+            "publish.py"
+        );
+    }
+
+    /// The dot is tested on the basename, so a dot in a directory name is not
+    /// a suffix on the file.
+    #[test]
+    fn a_dot_in_a_directory_is_not_a_suffix() {
+        assert_eq!(kind_name("scripts.d/publish", "cmd\n"), "scripts.d/publish");
+        assert_eq!(
+            kind_name("scripts.d/publish", "#!/bin/sh"),
+            "scripts.d/publish.sh"
+        );
+        assert_eq!(
+            kind_name("scripts/publish.sh", "#!/usr/bin/env python3"),
+            "scripts/publish.sh"
+        );
+    }
+
+    /// The separator is the one this platform writes, so a Windows path
+    /// splits where Windows splits it.
+    #[cfg(windows)]
+    #[test]
+    fn a_windows_separator_still_bounds_the_basename() {
+        assert_eq!(
+            kind_name("scripts.d\\publish", "#!/bin/sh"),
+            "scripts.d\\publish.sh"
+        );
     }
 
     #[test]
