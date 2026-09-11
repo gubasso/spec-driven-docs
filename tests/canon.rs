@@ -211,6 +211,22 @@ fn the_canon_managed_block_wires_every_registered_gate() {
     }
 }
 
+/// SATISFIES release:a-delivered-gate-reads-what-the-convention-owns
+///
+/// A `types:` scope alone reaches every matching file in the project, so a row
+/// that pre-commit selects by changed file states which paths it selects.
+#[test]
+fn every_file_passed_gate_anchors_its_scope() {
+    for gate in spec_driven_docs::gates::GATES {
+        assert!(
+            gate.always_run || gate.files.is_some(),
+            "{} takes the files pre-commit passes it and declares no files pattern, \
+             so it reads every matching file in the project",
+            gate.id
+        );
+    }
+}
+
 fn walk_markdown(dir: &Path, files: &mut Vec<PathBuf>) {
     for entry in std::fs::read_dir(dir).unwrap().filter_map(Result::ok) {
         let path = entry.path();

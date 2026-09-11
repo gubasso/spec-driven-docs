@@ -10,6 +10,7 @@
   - [`release:license-declares-both-halves` — The license declares both halves](#releaselicense-declares-both-halves--the-license-declares-both-halves)
   - [`release:the-delivered-gate-set-is-declared-once` — The delivered gate set is declared once](#releasethe-delivered-gate-set-is-declared-once--the-delivered-gate-set-is-declared-once)
   - [`release:a-canon-gate-is-not-delivered` — A canon gate is not delivered](#releasea-canon-gate-is-not-delivered--a-canon-gate-is-not-delivered)
+  - [`release:a-delivered-gate-reads-what-the-convention-owns` — A delivered gate reads what the convention owns](#releasea-delivered-gate-reads-what-the-convention-owns--a-delivered-gate-reads-what-the-convention-owns)
   - [`release:the-canon-record-describes-its-tree` — The canon record describes its tree](#releasethe-canon-record-describes-its-tree--the-canon-record-describes-its-tree)
   - [`release:the-rk-pin-has-two-facts-and-one-mover` — The rk pin has two facts and one mover](#releasethe-rk-pin-has-two-facts-and-one-mover--the-rk-pin-has-two-facts-and-one-mover)
   - [`release:third-party-notices-travel-with-the-payload` — Third-party notices travel with the payload](#releasethird-party-notices-travel-with-the-payload--third-party-notices-travel-with-the-payload)
@@ -18,7 +19,7 @@
 
 ## Purpose
 
-Rules governing how this repository cuts a release: which artifact states the version, how a tag derives from it, what a release carries, and how the license splits. No instance adopts this spec. Every rule here is verified by a cargo test that never ships, so an instance holding these rules holds rules it cannot run.
+Rules governing how this repository cuts a release. They cover which artifact states the version, how a tag derives from it, what a release carries, what a delivered gate reaches, and how the license splits. No instance adopts this spec. A cargo test that never ships verifies every rule here, so an instance holding these rules holds rules it cannot run.
 
 ## Requirements
 
@@ -91,6 +92,18 @@ A check of an invariant only this repository has MUST stay a canon-side test rat
 - GIVEN a check holding the crate version against the instance manifest of the canon
 - WHEN it is delivered to a knowledge base that cuts no release
 - THEN the instance is gated on a process it does not run, so the boundary is asserted rather than assumed
+
+Verify: `pre-commit run cargo-test --all-files`
+
+### `release:a-delivered-gate-reads-what-the-convention-owns` — A delivered gate reads what the convention owns
+
+A delivered gate MUST select its input under the instance's documentation root, by a filename shape this convention defines, or by resolving its own scope, and MUST NOT select by file type alone.
+
+#### Scenario: Another tool renders a file at the project root
+
+- GIVEN a project that installs this convention beside a tool that renders and hashes a file at the project root
+- WHEN a gate selecting by file type alone reads that rendered file and reports a finding
+- THEN neither tool is wrong about the file it owns, and the project owner carries a hand-patched exclusion that the next upgrade re-renders over
 
 Verify: `pre-commit run cargo-test --all-files`
 

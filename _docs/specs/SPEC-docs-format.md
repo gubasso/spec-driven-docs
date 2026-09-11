@@ -1,5 +1,19 @@
 # Documentation Format Specification
 
+<!--TOC-->
+
+- [Purpose](#purpose)
+- [Requirements](#requirements)
+  - [`docs-format:chapter-stays-within-200-lines` — A chapter stays within 200 lines](#docs-formatchapter-stays-within-200-lines--a-chapter-stays-within-200-lines)
+  - [`docs-format:author-instructions-stay-within-budget` — Author instructions stay within budget](#docs-formatauthor-instructions-stay-within-budget--author-instructions-stay-within-budget)
+  - [`docs-format:every-budget-carries-a-gate` — Every count-shaped budget carries a gate](#docs-formatevery-budget-carries-a-gate--every-count-shaped-budget-carries-a-gate)
+  - [`docs-format:document-uses-structural-markdown-only` — A document uses structural markdown only](#docs-formatdocument-uses-structural-markdown-only--a-document-uses-structural-markdown-only)
+  - [`docs-format:document-states-the-present` — A document states the present](#docs-formatdocument-states-the-present--a-document-states-the-present)
+  - [`docs-format:fence-declares-a-language` — Every fence declares a language](#docs-formatfence-declares-a-language--every-fence-declares-a-language)
+  - [`docs-format:prose-stays-unwrapped` — Prose stays unwrapped](#docs-formatprose-stays-unwrapped--prose-stays-unwrapped)
+
+<!--TOC-->
+
 ## Purpose
 
 Rules governing the markdown every document in this project is written in, and the size budgets. Those budgets keep documents inside the range where retrieval stays reliable.
@@ -62,6 +76,8 @@ Verify: reviewer confirms the change introduces no bold or italic text
 
 The author MUST NOT record what a document used to say, what it replaces, or why something is absent.
 
+The gate reads the markdown under the documentation root, and it skips the decision records there. A record states the reasoning of one moment and is the only document class that carries history.
+
 #### Scenario: A rule is removed
 
 - GIVEN a rule the project drops
@@ -87,6 +103,8 @@ Verify: `pre-commit run markdownlint-cli2 --all-files`
 The author MUST keep each paragraph, list item, and blockquote paragraph on one source line. Only fenced code, tables, and explicit hard breaks span more than one line.
 
 A generated `CHANGELOG.md` is exempt: the rule binds the author, and a release tool writes that file at its own wrap width.
+
+The gate reads the markdown under the documentation root. Prose the project keeps elsewhere belongs to the project, so the rule binds its author and no delivered gate judges it.
 
 #### Scenario: A paragraph is hard-wrapped at a column width
 

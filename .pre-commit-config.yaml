@@ -163,17 +163,20 @@ repos:
         name: no personal path
         entry: cargo run -q -- gate no-personal-path
         language: system
+        files: '^_docs/.*\.md$'
         types: [text]
       - id: no-self-narration
         name: documents state the present
         entry: cargo run -q -- gate no-self-narration
         language: system
+        files: '^_docs/.*\.md$'
         types: [markdown]
         exclude: '^_docs/decisions/'
       - id: prose-stays-unwrapped
         name: prose lines stay unwrapped
         entry: cargo run -q -- gate prose-stays-unwrapped
         language: system
+        files: '^_docs/.*\.md$'
         types: [markdown]
         exclude: '(?:^|/)CHANGELOG\.md$'
       - id: adr-cites-a-live-rule

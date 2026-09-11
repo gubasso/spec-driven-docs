@@ -143,6 +143,11 @@ pub struct GateSpec {
     /// The display name pre-commit shows.
     pub name: &'static str,
     /// The default `files:` pattern, with `{docs_root}` left templated.
+    ///
+    /// A row that does not set `always_run` carries one, under
+    /// `release:a-delivered-gate-reads-what-the-convention-owns`: a `types:`
+    /// scope alone reaches every matching file in the project, including the
+    /// ones another tool wrote.
     pub files: Option<&'static str>,
     /// The `types:` scope, when the gate takes one.
     pub types: Option<&'static str>,
@@ -368,7 +373,7 @@ pub static GATES: &[GateSpec] = &[
     GateSpec {
         id: GateId::NoPersonalPath,
         name: "no personal path",
-        files: None,
+        files: Some(r"^{docs_root}/.*\.md$"),
         types: Some("text"),
         exclude: None,
         always_run: false,
@@ -378,7 +383,7 @@ pub static GATES: &[GateSpec] = &[
     GateSpec {
         id: GateId::NoSelfNarration,
         name: "documents state the present",
-        files: None,
+        files: Some(r"^{docs_root}/.*\.md$"),
         types: Some("markdown"),
         exclude: Some("^{docs_root}/decisions/"),
         always_run: false,
@@ -388,7 +393,7 @@ pub static GATES: &[GateSpec] = &[
     GateSpec {
         id: GateId::ProseStaysUnwrapped,
         name: "prose lines stay unwrapped",
-        files: None,
+        files: Some(r"^{docs_root}/.*\.md$"),
         types: Some("markdown"),
         exclude: Some(r"(?:^|/)CHANGELOG\.md$"),
         always_run: false,
