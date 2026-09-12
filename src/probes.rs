@@ -12,8 +12,22 @@ use camino::{Utf8Path, Utf8PathBuf};
 use serde::Serialize;
 
 use crate::domain::ownership::Sha256;
+use crate::domain::paths::{AgentId, UserEnv};
 use crate::domain::skill_record::{RECORD_PATH, SkillRecord};
-use crate::services::skill_installer::{AGENTS_ROOT, CLAUDE_ROOT, SHARED_ROOT, home};
+use crate::services::skill_installer::{SHARED_ROOT, home};
+
+/// Every agent skill root under this home, resolved through the table.
+///
+/// The table is the one place that knows a variable moved a root, so a
+/// probe that joined the defaults instead would report a directory the
+/// install never writes.
+fn agent_roots() -> Vec<Utf8PathBuf> {
+    UserEnv::from_process()
+        .agent_roots(&[AgentId::Claude, AgentId::Agents])
+        .into_iter()
+        .map(|entry| entry.path)
+        .collect()
+}
 
 /// How a failure weighs at the doctor level.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -152,7 +166,7 @@ fn state_root() -> ProbeResult {
             "export HOME",
         );
     };
-    let root = home.join(".local/state/spec-driven-docs");
+    let root = home.join(crate::domain::paths::STATE_ROOT);
     let probe = root.join(format!(".probe-{}", std::process::id()));
     let written = std::fs::create_dir_all(&root).and_then(|()| std::fs::write(&probe, b"probe"));
     let _ = std::fs::remove_file(&probe);
@@ -187,8 +201,9 @@ fn skill_roots() -> ProbeResult {
         );
     };
     let mut refused = Vec::new();
-    for root in [CLAUDE_ROOT, AGENTS_ROOT, SHARED_ROOT] {
-        let root = home.join(root);
+    let mut roots = agent_roots();
+    roots.push(home.join(SHARED_ROOT));
+    for root in roots {
         let Some(existing) = nearest_existing(&root) else {
             refused.push(format!("no ancestor of {root} exists"));
             continue;
@@ -295,8 +310,7 @@ fn skill_payload() -> ProbeResult {
     };
     let record = SkillRecord::load(&home.join(RECORD_PATH));
     let mut planned = Vec::new();
-    for root in [CLAUDE_ROOT, AGENTS_ROOT] {
-        let root = home.join(root);
+    for root in agent_roots() {
         // An absent agent root is a choice, not a defect: `--agent` selects
         // one family and leaves the other's root untouched.
         if !root.is_dir() {

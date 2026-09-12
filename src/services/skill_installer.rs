@@ -16,24 +16,14 @@ use std::collections::{BTreeMap, BTreeSet};
 use camino::{Utf8Path, Utf8PathBuf};
 
 use crate::domain::ownership::Sha256;
+use crate::domain::paths::HOME_VAR;
 use crate::domain::skill_record::SkillRecord;
 use crate::error::AppError;
 
-/// The root holding what the skills share, relative to the home directory.
-///
-/// Home-relative rather than `XDG_STATE_HOME`-relative for the reason the
-/// record states: the skills naming these artifacts live under
-/// `$HOME/.agents` and `$HOME/.claude`, which no XDG variable moves, and a
-/// shared file reachable under a different home than the skills reading it
-/// would be worse than no shared file at all.
-pub const SHARED_ROOT: &str = ".local/state/spec-driven-docs/skills/shared";
-
-/// The skill root Claude Code reads, relative to the home directory.
-pub const CLAUDE_ROOT: &str = ".claude/skills";
-
-/// The skill root Codex, Gemini CLI, and Copilot read, relative to the home
-/// directory.
-pub const AGENTS_ROOT: &str = ".agents/skills";
+// The roots are declared in `domain::paths` and reach their callers from
+// here, so that what a destination is stays one statement and what an
+// install does with it stays another.
+pub use crate::domain::paths::{AGENTS_ROOT, CLAUDE_ROOT, SHARED_ROOT};
 
 /// The invoking user's home directory.
 ///
@@ -41,11 +31,9 @@ pub const AGENTS_ROOT: &str = ".agents/skills";
 ///
 /// [`AppError::Usage`] when `HOME` is unset or empty.
 pub fn home() -> Result<Utf8PathBuf, AppError> {
-    std::env::var("HOME")
-        .ok()
-        .filter(|home| !home.is_empty())
-        .map(Utf8PathBuf::from)
-        .ok_or_else(|| AppError::Usage("HOME is not set".to_string()))
+    crate::domain::paths::UserEnv::from_process()
+        .home
+        .ok_or_else(|| AppError::Usage(format!("{HOME_VAR} is not set")))
 }
 
 /// One planned write: where, and which bytes.
@@ -433,11 +421,11 @@ mod tests {
     /// The layout a home directory implies, selecting both agent roots.
     fn home(dir: &tempfile::TempDir) -> Layout {
         let home = root(dir);
-        let roots = vec![home.join(".agents/skills"), home.join(".claude/skills")];
+        let roots = vec![home.join(AGENTS_ROOT), home.join(CLAUDE_ROOT)];
         Layout {
             roots: roots.clone(),
             every_root: roots,
-            shared: home.join(".local/state/spec-driven-docs/skills/shared"),
+            shared: home.join(SHARED_ROOT),
             record: home.join(crate::domain::skill_record::RECORD_PATH),
         }
     }

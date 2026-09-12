@@ -5,35 +5,39 @@
 //! only resolves the home directory, the chosen roots, and the user-scope
 //! record that sits beside them.
 
-use camino::{Utf8Path, Utf8PathBuf};
+use camino::Utf8PathBuf;
 
 use crate::cli::skill::{Agent, SkillArgs, SkillCommand};
 use crate::context::AppContext;
+use crate::domain::paths::{AgentId, UserEnv};
 use crate::domain::skill_record::RECORD_PATH;
 use crate::error::AppError;
 use crate::output;
-use crate::services::skill_installer::{self, AGENTS_ROOT, CLAUDE_ROOT, Layout, SHARED_ROOT, home};
+use crate::services::skill_installer::{self, Layout, SHARED_ROOT, home};
 
 /// The roots one run touches, and the record that vouches for them.
 fn layout(agent: Agent) -> Result<Layout, AppError> {
     let home = home()?;
+    let env = UserEnv::from_process();
     Ok(Layout {
-        roots: roots(&home, agent),
-        every_root: roots(&home, Agent::All),
+        roots: roots(&env, agent),
+        every_root: roots(&env, Agent::All),
         shared: home.join(SHARED_ROOT),
         record: home.join(RECORD_PATH),
     })
 }
 
-fn roots(home: &Utf8Path, agent: Agent) -> Vec<Utf8PathBuf> {
-    let mut roots = Vec::new();
-    if matches!(agent, Agent::Codex | Agent::All) {
-        roots.push(home.join(AGENTS_ROOT));
-    }
-    if matches!(agent, Agent::Claude | Agent::All) {
-        roots.push(home.join(CLAUDE_ROOT));
-    }
-    roots
+/// The selected roots, resolved through the table and deduplicated there.
+fn roots(env: &UserEnv, agent: Agent) -> Vec<Utf8PathBuf> {
+    let selected: &[AgentId] = match agent {
+        Agent::Claude => &[AgentId::Claude],
+        Agent::Agents => &[AgentId::Agents],
+        Agent::All => &[AgentId::Claude, AgentId::Agents],
+    };
+    env.agent_roots(selected)
+        .into_iter()
+        .map(|entry| entry.path)
+        .collect()
 }
 
 /// List, print, install, or uninstall the embedded skills.

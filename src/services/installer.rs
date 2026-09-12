@@ -18,6 +18,7 @@ use crate::domain::manifest::{
     validate_plan_zone_path,
 };
 use crate::domain::ownership::{AdoptedEntry, IntegrationBlock, ManagedEntry, Sha256};
+use crate::domain::paths::{AGENTS_DIGEST_PATH, HOOKS_CONFIG_PATH};
 use crate::domain::profile::{ProfileId, resolve_destination};
 use crate::domain::version::CanonVersion;
 use crate::error::AppError;
@@ -282,7 +283,7 @@ fn compute_target_state(target: &Utf8Path, options: &InitOptions) -> Result<Targ
         files.push((destination, bytes));
     }
 
-    let config_path = target.join(".pre-commit-config.yaml");
+    let config_path = target.join(HOOKS_CONFIG_PATH);
     let host = if config_path.is_file() {
         std::fs::read_to_string(&config_path)?
     } else {
@@ -311,21 +312,18 @@ fn compute_target_state(target: &Utf8Path, options: &InitOptions) -> Result<Targ
     let spliced = crate::domain::marker::splice(&base, &block)?;
     let marker_hash = crate::domain::marker::block_hash(&spliced)
         .ok_or_else(|| anyhow::anyhow!("the rendered block lost its markers"))?;
-    lines.push(".pre-commit-config.yaml".to_string());
-    files.push((
-        Utf8PathBuf::from(".pre-commit-config.yaml"),
-        spliced.into_bytes(),
-    ));
+    lines.push(HOOKS_CONFIG_PATH.to_string());
+    files.push((Utf8PathBuf::from(HOOKS_CONFIG_PATH), spliced.into_bytes()));
 
     let mut integration_blocks = vec![IntegrationBlock {
-        path: ".pre-commit-config.yaml".into(),
+        path: HOOKS_CONFIG_PATH.into(),
         marker_hash,
     }];
 
     // The root AGENTS.md documentation block routes authors to the context they
     // load before editing. A symlinked host is refused before it is read, so a
     // link cannot redirect the read outside the target.
-    let agents_relative = Utf8Path::new("AGENTS.md");
+    let agents_relative = Utf8Path::new(AGENTS_DIGEST_PATH);
     if target.join(agents_relative).is_symlink() {
         return Err(AppError::Refused(
             "AGENTS.md is a symlink; refusing to write the documentation block through it"
@@ -362,10 +360,10 @@ fn compute_target_state(target: &Utf8Path, options: &InitOptions) -> Result<Targ
             "note: AGENTS.md carries an unmarked '## Documentation' section; the managed block was appended and the old section left in place — remove it by hand".to_string(),
         );
     }
-    lines.push("AGENTS.md".to_string());
+    lines.push(AGENTS_DIGEST_PATH.to_string());
     files.push((agents_relative.to_path_buf(), agents.into_bytes()));
     integration_blocks.push(IntegrationBlock {
-        path: "AGENTS.md".into(),
+        path: AGENTS_DIGEST_PATH.into(),
         marker_hash: agents_hash,
     });
 

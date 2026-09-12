@@ -23,7 +23,15 @@ pub enum ProfileId {
     KnowledgeBase,
 }
 
+/// Every profile, in declaration order.
+pub const EVERY_PROFILE: [ProfileId; 2] = [ProfileId::Codebase, ProfileId::KnowledgeBase];
+
 impl ProfileId {
+    /// Every profile, in declaration order.
+    pub fn every() -> impl Iterator<Item = Self> {
+        EVERY_PROFILE.into_iter()
+    }
+
     /// The profile's declaration.
     #[must_use]
     pub const fn profile(self) -> &'static Profile {

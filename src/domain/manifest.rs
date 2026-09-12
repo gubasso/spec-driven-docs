@@ -18,15 +18,10 @@ use crate::domain::version::CanonVersion;
 pub const SCHEMA_VERSION: u32 = 3;
 /// Where the canon is published.
 pub const CANON_SOURCE: &str = "https://github.com/gubasso/spec-driven-docs";
-/// The instance directory, relative to the instance root.
-pub const INSTANCE_DIR: &str = ".spec-driven-docs";
-/// The manifest path, relative to the instance root.
-pub const MANIFEST_PATH: &str = ".spec-driven-docs/manifest.json";
-
-/// The environment variable that names the plan zone.
-pub const PLAN_ZONE_VAR: &str = "SDD_PLAN_ZONE";
-/// The environment variable that names the docs scratch.
-pub const DOCS_SCRATCH_VAR: &str = "SDD_DOCS_SCRATCH";
+// Every control path this tool names is declared in `domain::paths`, and
+// reaches its callers from here so that the names they already import stay
+// where they were.
+pub use crate::domain::paths::{DOCS_SCRATCH_VAR, INSTANCE_DIR, MANIFEST_PATH, PLAN_ZONE_VAR};
 
 /// Where the project's planning tool writes its entry documents.
 ///

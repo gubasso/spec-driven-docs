@@ -18,6 +18,13 @@ use std::path::{Path, PathBuf};
 
 use assert_cmd::Command;
 
+/// Every variable that relocates a user-scope root.
+///
+/// A developer's shell sets these, and a fixture that inherited one would
+/// send an install into the developer's own agent directory rather than
+/// into the scratch home. A test that means one of them sets it back.
+pub const RELOCATING_VARS: [&str; 3] = ["CLAUDE_CONFIG_DIR", "XDG_STATE_HOME", "XDG_CACHE_HOME"];
+
 /// One scratch target repository.
 pub struct Fixture {
     dir: tempfile::TempDir,
@@ -50,6 +57,9 @@ impl Fixture {
         // records. Removed here, a test says what it means.
         cmd.env_remove("SDD_PLAN_ZONE");
         cmd.env_remove("SDD_DOCS_SCRATCH");
+        for name in RELOCATING_VARS {
+            cmd.env_remove(name);
+        }
         cmd
     }
 
@@ -122,6 +132,9 @@ impl Home {
         let mut cmd = Command::cargo_bin("sdd").unwrap();
         cmd.env_remove("RUST_LOG");
         cmd.env("HOME", self.dir.path());
+        for name in RELOCATING_VARS {
+            cmd.env_remove(name);
+        }
         cmd
     }
 

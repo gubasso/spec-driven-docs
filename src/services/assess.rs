@@ -281,7 +281,7 @@ fn walk(target: &Utf8Path, scratch: &Utf8Path) -> Result<Walked, AppError> {
         !(e.depth() > 0
             && e.file_type().is_dir()
             && (PRUNED_DIRS.contains(&name.as_ref())
-                || name == ".spec-driven-docs"
+                || name == crate::domain::paths::INSTANCE_DIR
                 || e.path()
                     .to_str()
                     .is_some_and(|path| normalized(Utf8Path::new(path)) == scratch_path)))

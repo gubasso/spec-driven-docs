@@ -11,6 +11,7 @@ use camino::Utf8Path;
 use crate::adapters::fs::sha256_file;
 use crate::domain::manifest::{CANON_SOURCE, MANIFEST_PATH, Manifest, SCHEMA_VERSION};
 use crate::domain::ownership::{AdoptedEntry, IntegrationBlock, ManagedEntry};
+use crate::domain::paths::HOOKS_CONFIG_PATH;
 use crate::domain::profile::{DocsRoot, ProfileId};
 use crate::domain::version::CanonVersion;
 use crate::error::AppError;
@@ -134,7 +135,7 @@ pub fn regenerate(root: &Utf8Path) -> Result<String, AppError> {
         });
     }
 
-    let config = std::fs::read_to_string(root.join(".pre-commit-config.yaml"))?;
+    let config = std::fs::read_to_string(root.join(HOOKS_CONFIG_PATH))?;
     let marker_hash = crate::domain::marker::block_hash(&config).ok_or_else(|| {
         AppError::Refused("no managed block in .pre-commit-config.yaml".to_string())
     })?;
@@ -165,7 +166,7 @@ pub fn regenerate(root: &Utf8Path) -> Result<String, AppError> {
         managed_files: managed,
         adopted_files: adopted,
         integration_blocks: vec![IntegrationBlock {
-            path: ".pre-commit-config.yaml".into(),
+            path: HOOKS_CONFIG_PATH.into(),
             marker_hash,
         }],
     };

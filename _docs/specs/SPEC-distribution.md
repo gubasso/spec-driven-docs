@@ -279,13 +279,13 @@ Verify: `cargo nextest run -E 'binary(canon)'`
 
 ### `distribution:a-declared-location-is-named-by-its-variable` — A declared location is named by its variable
 
-The author MUST keep the retired name of a declared location out of the authored corpus. A candidate path for one MUST appear only in the question a skill asks the operator.
+The author MUST keep the retired name of a declared location out of the authored corpus. A path the binary reports MUST be named by the report rather than restated, so no skill and no chapter spells one.
 
 #### Scenario: A chapter reintroduces the docs scratch's old fixed path
 
-- GIVEN a chapter edited to name the retired directory, or the candidate path a skill offers
+- GIVEN a chapter edited to name the retired directory, or a skill edited to spell a path the status report carries
 - WHEN the canon test suite runs
-- THEN the check fails naming the file and the term, because a corpus that fixes the location has taken the declaration back
+- THEN the check fails naming the file and the path, because a corpus that fixes the location has taken the declaration back
 
 Verify: `cargo nextest run -E 'binary(canon)'`
 

@@ -24,13 +24,7 @@ use crate::domain::ownership::Sha256;
 /// The record schema this binary reads and writes.
 pub const SCHEMA_VERSION: u32 = 1;
 
-/// Where the record sits, relative to the home directory.
-///
-/// Home-relative rather than `XDG_STATE_HOME`-relative on purpose: the
-/// destinations it describes are `$HOME/.agents` and `$HOME/.claude`, which
-/// no XDG variable moves. A record reachable under a different home than the
-/// roots it speaks for would be worse than no record at all.
-pub const RECORD_PATH: &str = ".local/state/spec-driven-docs/skills.json";
+pub use crate::domain::paths::SKILL_RECEIPT_PATH as RECORD_PATH;
 
 /// The digests this tool last wrote to user-scope skill destinations.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

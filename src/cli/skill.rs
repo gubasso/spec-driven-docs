@@ -69,14 +69,19 @@ pub struct UninstallArgs {
 }
 
 /// Which skill directory family to install into.
+///
+/// The values name the root rather than one host that reads it. `sdd status
+/// --json` reports where each one resolves, including the variable that
+/// moved it, so no help text here has to spell a path.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 #[value(rename_all = "kebab-case")]
 pub enum Agent {
-    /// `.claude/skills` — read by Claude Code.
+    /// The root Claude Code reads.
     Claude,
-    /// `.agents/skills` — read by Codex, Gemini CLI, and Copilot.
-    Codex,
-    /// Both directories.
+    /// The shared root every other agent reads. `codex` is its old name.
+    #[value(alias = "codex")]
+    Agents,
+    /// Both roots.
     All,
 }
 

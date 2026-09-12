@@ -53,7 +53,7 @@ struct Installed {
 /// The marker pair a host file's managed region uses.
 fn markers_for(path: &str) -> (&'static str, &'static str) {
     use crate::domain::marker::{AGENTS_BEGIN, AGENTS_END, BEGIN, END};
-    if path == ".pre-commit-config.yaml" {
+    if path == crate::domain::paths::HOOKS_CONFIG_PATH {
         (BEGIN, END)
     } else {
         (AGENTS_BEGIN, AGENTS_END)
@@ -107,8 +107,7 @@ fn read_installed(target: &Utf8Path) -> Result<Installed, AppError> {
     }
 }
 
-/// The only roots an upgrade may remove dropped managed files from.
-const PRUNABLE: &[&str] = &[".spec-driven-docs/", ".claude/skills/", ".agents/skills/"];
+use crate::domain::paths::PRUNABLE_ROOTS as PRUNABLE;
 
 /// Remove the directory a pruned file leaves empty, never the prunable root.
 ///

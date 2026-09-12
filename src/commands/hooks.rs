@@ -26,11 +26,7 @@ use crate::error::AppError;
 use crate::output;
 use crate::services::hooks_render::{RenderOptions, render_block};
 
-/// Where a pre-commit configuration lives in a target.
-pub const CONFIG: &str = ".pre-commit-config.yaml";
-
-/// Where the documentation block lives in a target.
-pub const AGENTS: &str = "AGENTS.md";
+pub use crate::domain::paths::{AGENTS_DIGEST_PATH as AGENTS, HOOKS_CONFIG_PATH as CONFIG};
 
 /// Update the manifest's record of one managed region.
 ///

@@ -34,9 +34,17 @@ sdd skill install
 sdd skill install --apply
 ```
 
-`sdd skill install` writes into `~/.claude/skills`, which Claude Code reads, and `~/.agents/skills`, which Codex, Gemini CLI, and Copilot read. It previews by default and refuses a destination whose bytes it cannot account for unless `--force` is given. It accounts for two things: the payload it carries, and `~/.local/state/spec-driven-docs/skills.json`, which records the digest each successful apply wrote. A copy an older release left is replaced without asking. A file you edited refuses. An apply that fails partway restores every destination, so the two roots never end up on different versions of one skill. User-scope files are never recorded in an instance manifest, and no verification reads that state file.
+`sdd skill install` writes into `~/.claude/skills`, which Claude Code reads, and `~/.agents/skills`, which Codex, OpenCode, and Pi each document that they read. `CLAUDE_CONFIG_DIR` relocates the first root and leaves the second where it is. It previews by default and refuses a destination whose bytes it cannot account for unless `--force` is given. It accounts for two things: the payload it carries, and `~/.local/state/spec-driven-docs/skills.json`, which records the digest each successful apply wrote. A copy an older release left is replaced without asking. A file you edited refuses. An apply that fails partway restores every destination, so the two roots never end up on different versions of one skill. User-scope files are never recorded in an instance manifest, and no verification reads that state file.
 
 Both verbs also sweep: a destination the record vouches for that the current payload no longer carries is removed along with the directory it empties. As a result, a skill the canon renamed leaves nothing for an agent to keep offering. `sdd skill uninstall` reverses the install, also previewing by default. It removes each skill's `SKILL.md` and its directory when empty. As a result, any file you added alongside survives, as does any leftover you edited yourself.
+
+## Report
+
+```bash
+sdd status --target /path/to/your-project --json
+```
+
+The object declares the schema `sdd.status/2`, and its `paths` section is where every path the tool names comes from. `paths.user` carries the roots under the invoking user's home, each with the variable that moved it. `paths.active` is the landed instance, or `null` where there is none. `paths.candidates` carries one destination set per profile, and `paths.proposals` carries what the target offers for the two locations the project owns. Every entry states its source, so a recorded answer and a derived one never read alike. Read a path from here rather than writing it down: a skill, a runbook, or a chapter that spells one is a copy that drifts at the first rename.
 
 ## Verify
 

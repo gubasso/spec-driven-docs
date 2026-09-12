@@ -14,6 +14,7 @@ use camino::Utf8Path;
 use crate::domain::debt::{LEGACY_DEBT_PATH, Measurement, Presence};
 use crate::domain::finding::Finding;
 use crate::domain::gate_id::GateId;
+use crate::domain::paths::AGENTS_DIGEST_PATH;
 use crate::domain::rule_id::RuleId;
 use crate::gates::budget;
 use crate::gates::{GateCtx, GateError, GateResult, Violation, line_count, read_text, walk_files};
@@ -41,7 +42,7 @@ fn is_chapter(file: &Utf8Path) -> bool {
     let Some(name) = file.file_name() else {
         return false;
     };
-    if name == "AGENTS.md" {
+    if name == AGENTS_DIGEST_PATH {
         return false;
     }
     if name == "glossary.md" || name == "README.md" {

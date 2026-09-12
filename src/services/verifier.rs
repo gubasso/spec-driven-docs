@@ -13,6 +13,7 @@ use crate::adapters::fs::{DestinationRefusal, check_destination, sha256_file};
 use crate::domain::gate_id::GateId;
 use crate::domain::manifest::{MANIFEST_PATH, Manifest, ManifestParseError};
 use crate::domain::marker;
+use crate::domain::paths::{AGENTS_DIGEST_PATH, HOOKS_CONFIG_PATH};
 use crate::domain::version::CanonVersion;
 use crate::error::AppError;
 
@@ -256,9 +257,9 @@ fn check_projection(manifest: &Manifest, report: &mut VerifyReport) {
     // own layout carries the pre-commit block by hand; its root AGENTS.md is
     // release-kit-owned and outside this projection.
     let required: &[&str] = if self_layout {
-        &[".pre-commit-config.yaml"]
+        &[HOOKS_CONFIG_PATH]
     } else {
-        &[".pre-commit-config.yaml", "AGENTS.md"]
+        &[HOOKS_CONFIG_PATH, AGENTS_DIGEST_PATH]
     };
     for path in required {
         if !manifest
@@ -381,7 +382,7 @@ fn check_debt(target: &Utf8Path, report: &mut VerifyReport) {
 
 /// The marker pair a host file's managed region uses.
 fn markers_for(path: &str) -> (&'static str, &'static str) {
-    if path == ".pre-commit-config.yaml" {
+    if path == HOOKS_CONFIG_PATH {
         (marker::BEGIN, marker::END)
     } else {
         (marker::AGENTS_BEGIN, marker::AGENTS_END)
@@ -418,7 +419,7 @@ fn check_integration(
         }
         match marker::block_hash_with(&host, begin, end) {
             Some(present) if present == block.marker_hash => {
-                if path == ".pre-commit-config.yaml"
+                if path == HOOKS_CONFIG_PATH
                     && let Some(region) = marker::block_region_with(&host, begin, end)
                 {
                     check_block_entries(&region, report);

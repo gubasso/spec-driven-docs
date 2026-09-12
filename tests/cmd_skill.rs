@@ -545,3 +545,81 @@ fn uninstall_on_an_empty_home_is_a_no_op() {
         .success();
     assert_eq!(digest, home.tree_digest());
 }
+
+#[test]
+fn the_agents_value_installs_the_agents_root_and_codex_is_its_alias() {
+    for value in ["agents", "codex"] {
+        let home = Home::new();
+        home.cmd()
+            .args(["skill", "install", "--agent", value, "--apply"])
+            .assert()
+            .success();
+        assert!(
+            home.path()
+                .join(".agents/skills/sdd-setup/SKILL.md")
+                .is_file(),
+            "--agent {value} did not land the shared root"
+        );
+        assert!(!home.path().join(".claude").exists());
+    }
+}
+
+#[test]
+fn claude_config_dir_relocates_the_claude_root_and_nothing_else() {
+    let home = Home::new();
+    let elsewhere = tempfile::tempdir().unwrap();
+    home.cmd()
+        .env("CLAUDE_CONFIG_DIR", elsewhere.path())
+        .args(["skill", "install", "--apply"])
+        .assert()
+        .success();
+    assert!(
+        elsewhere.path().join("skills/sdd-setup/SKILL.md").is_file(),
+        "the relocated Claude root did not receive the package"
+    );
+    assert!(!home.path().join(".claude").exists());
+    assert!(
+        home.path()
+            .join(".agents/skills/sdd-setup/SKILL.md")
+            .is_file(),
+        "the shared root moved with the Claude root"
+    );
+}
+
+#[test]
+fn a_preview_names_the_relocated_claude_root() {
+    let home = Home::new();
+    let elsewhere = tempfile::tempdir().unwrap();
+    home.cmd()
+        .env("CLAUDE_CONFIG_DIR", elsewhere.path())
+        .args(["skill", "install"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            elsewhere
+                .path()
+                .join("skills/sdd-setup/SKILL.md")
+                .to_str()
+                .unwrap(),
+        ));
+}
+
+#[test]
+fn two_selected_roots_that_resolve_to_one_path_are_planned_once() {
+    let home = Home::new();
+    let output = home
+        .cmd()
+        .env("CLAUDE_CONFIG_DIR", home.path().join(".agents"))
+        .args(["skill", "install"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let text = String::from_utf8(output).unwrap();
+    let landed = text
+        .lines()
+        .filter(|line| line.ends_with(".agents/skills/sdd-setup/SKILL.md"))
+        .count();
+    assert_eq!(landed, 1, "the collided root was planned twice:\n{text}");
+}

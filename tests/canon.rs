@@ -1201,12 +1201,12 @@ fn a_retired_word_is_matched_as_a_word_rather_than_a_substring() {
 
 /// SATISFIES distribution:a-declared-location-is-named-by-its-variable
 ///
-/// A concrete candidate path has one home: the question a skill asks the
-/// operator. Everywhere else the corpus names the variable, so changing what
-/// is offered never means editing a chapter, a spec, or a template.
+/// A concrete candidate path has one home: the paths section of the status
+/// report, which proposes a directory only where the target already holds
+/// it. Nothing authored spells one, so changing what is offered never means
+/// editing a chapter, a spec, a template, or a skill.
 #[test]
-fn a_concrete_declared_path_appears_only_where_a_skill_offers_it() {
-    let mut offered = 0usize;
+fn a_concrete_declared_path_appears_in_no_authored_prose() {
     for (relative, text) in authored_prose() {
         for (index, line) in text.lines().enumerate() {
             if !line.contains(".docs-scratch") {
@@ -1214,17 +1214,14 @@ fn a_concrete_declared_path_appears_only_where_a_skill_offers_it() {
             }
             // `.gitignore` is this repository's own declaration rather than
             // payload prose, so it carries the path it declared.
-            assert!(
-                relative.starts_with("skills/") || relative == ".gitignore",
-                "{relative}:{}: a concrete docs-scratch path outside a skill's question",
+            assert_eq!(
+                relative,
+                ".gitignore",
+                "{relative}:{}: a concrete docs-scratch path outside this repository's own declaration",
                 index + 1
             );
-            if relative.starts_with("skills/") {
-                offered += 1;
-            }
         }
     }
-    assert!(offered > 0, "no skill offers a concrete docs-scratch path");
 }
 
 /// SATISFIES release:the-canon-record-describes-its-tree
@@ -1249,4 +1246,221 @@ fn the_canon_declares_both_of_its_own_locations() {
             .any(|line| line.trim_end_matches('/') == scratch.trim_end_matches('/')),
         ".gitignore does not carry the docs scratch the record declares: {scratch}"
     );
+}
+
+/// Every path the status report carries, spelled as a skill would spell it.
+///
+/// Derived from the report rather than listed here, so a field added to
+/// `Paths` joins the invariant without an edit to this file.
+fn reported_paths() -> std::collections::BTreeSet<String> {
+    use spec_driven_docs::domain::paths::{Paths, UserEnv, candidates, proposals};
+
+    let env = UserEnv {
+        home: Some(camino::Utf8PathBuf::from("~")),
+        ..UserEnv::default()
+    };
+    let report = Paths {
+        user: env.user_paths(),
+        active: None,
+        candidates: candidates(),
+        // Every proposal leaf is held, so every path the report can ever
+        // carry is in the set a skill must not spell.
+        proposals: proposals(&env, |_| true),
+    };
+    let value = serde_json::to_value(&report).unwrap();
+    let mut found = std::collections::BTreeSet::new();
+    collect_paths(&value, &mut found);
+
+    let mut spellings = std::collections::BTreeSet::new();
+    for path in found {
+        // A documentation root is a bare word, and the prose needs the
+        // word. What it may not spell is the directory, which carries its
+        // separator.
+        if path.contains('/') || path.contains('.') {
+            spellings.insert(path.clone());
+        } else {
+            spellings.insert(format!("{path}/"));
+            continue;
+        }
+        // A user-scope path is written either way, so both are held.
+        if let Some(relative) = path.strip_prefix("~/") {
+            spellings.insert(relative.to_string());
+        }
+    }
+    spellings
+}
+
+fn collect_paths(value: &serde_json::Value, out: &mut std::collections::BTreeSet<String>) {
+    match value {
+        serde_json::Value::Object(map) => {
+            for (key, child) in map {
+                if key == "path"
+                    && let Some(text) = child.as_str()
+                {
+                    out.insert(text.to_string());
+                }
+                collect_paths(child, out);
+            }
+        }
+        serde_json::Value::Array(items) => {
+            for item in items {
+                collect_paths(item, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// The two shared gates, named by the one path that resolves from both roots.
+///
+/// This is the single exclusion of the invariant below. Every skill opens by
+/// reading these two files, and the two agent roots make no relative path
+/// reach one file from both, so the skills name them the way that resolves.
+/// The skill-package phase turns them into references relative to each
+/// skill's own root, and this exclusion goes with it.
+fn shared_gate_paths() -> Vec<String> {
+    ["pre-flight-gate.md", "plan-gate.md"]
+        .iter()
+        .map(|artifact| {
+            format!(
+                "~/{}/{artifact}",
+                spec_driven_docs::domain::paths::SHARED_ROOT
+            )
+        })
+        .collect()
+}
+
+/// Every authored skill file, skill by skill and shared file by shared file.
+fn skill_prose() -> Vec<(String, String)> {
+    let mut files = skill_dirs()
+        .into_iter()
+        .map(|(name, text)| (format!("skills/{name}/SKILL.md"), text))
+        .collect::<Vec<_>>();
+    for entry in std::fs::read_dir(canon().join("skill-shared")).unwrap() {
+        let name = entry.unwrap().file_name().to_str().unwrap().to_string();
+        let relative = format!("skill-shared/{name}");
+        let text = read(&relative);
+        files.push((relative, text));
+    }
+    files
+}
+
+/// Drop every fenced block the report itself produces.
+///
+/// A JSON example is the report's own output, so the paths in it are quoted
+/// rather than restated.
+fn without_json_examples(text: &str) -> String {
+    let mut kept = Vec::new();
+    let mut inside = false;
+    for line in text.lines() {
+        if line.starts_with("```") {
+            if inside {
+                inside = false;
+                continue;
+            }
+            inside = line.trim_start_matches('`').trim() == "json";
+            if inside {
+                continue;
+            }
+        }
+        if !inside {
+            kept.push(line);
+        }
+    }
+    kept.join("\n")
+}
+
+/// SATISFIES distribution:a-declared-location-is-named-by-its-variable
+#[test]
+fn no_skill_spells_a_path_the_binary_reports() {
+    let spellings = reported_paths();
+    let excluded = shared_gate_paths();
+    for (relative, text) in skill_prose() {
+        let mut scanned = without_json_examples(&text);
+        for gate in &excluded {
+            scanned = scanned.replace(gate, "");
+        }
+        for spelling in &spellings {
+            assert!(
+                !scanned.contains(spelling.as_str()),
+                "{relative} spells {spelling}; read it from the paths section of 'sdd status --json' instead"
+            );
+        }
+    }
+}
+
+/// Every control path `domain::paths` declares, as a literal.
+fn declared_control_paths() -> std::collections::BTreeSet<String> {
+    let text = read("src/domain/paths.rs");
+    let mut found = std::collections::BTreeSet::new();
+    for line in text.lines() {
+        let Some(rest) = line.strip_prefix("pub const ") else {
+            continue;
+        };
+        let Some((_, value)) = rest.split_once("= \"") else {
+            continue;
+        };
+        let Some((value, _)) = value.split_once('"') else {
+            continue;
+        };
+        // A bare word is a directory name the rest of the tree composes
+        // with, not a path a second module could redeclare.
+        if value.contains('/') || value.contains('.') {
+            found.insert(value.to_string());
+        }
+    }
+    assert!(
+        found.contains(".spec-driven-docs/manifest.json"),
+        "the declaration scan found no control paths; its parse is stale"
+    );
+    found
+}
+
+/// Every production Rust file, with its test module cut off.
+fn production_rust() -> Vec<(String, String)> {
+    let mut files = Vec::new();
+    for entry in walkdir::WalkDir::new(canon().join("src"))
+        .into_iter()
+        .filter_map(Result::ok)
+    {
+        if !entry.file_type().is_file() || entry.path().extension() != Some("rs".as_ref()) {
+            continue;
+        }
+        let relative = entry
+            .path()
+            .strip_prefix(canon())
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string();
+        let text = std::fs::read_to_string(entry.path()).unwrap();
+        let production = text
+            .split_once("#[cfg(test)]")
+            .map_or_else(|| text.clone(), |(before, _)| before.to_string());
+        files.push((relative, production));
+    }
+    files
+}
+
+/// SATISFIES distribution:a-declared-location-is-named-by-its-variable
+#[test]
+fn every_control_path_constant_has_one_declaration() {
+    let declared = declared_control_paths();
+    for (relative, text) in production_rust() {
+        // The projection declares where a release lands each payload file,
+        // which is versioned data rather than a control path. The bundle
+        // phase moves it out of Rust and into the release's own
+        // declaration; until then it is the one file that carries a
+        // destination literal.
+        if relative == "src/domain/paths.rs" || relative == "src/domain/profile.rs" {
+            continue;
+        }
+        for path in &declared {
+            let literal = format!("\"{path}\"");
+            assert!(
+                !text.contains(&literal),
+                "{relative} declares {path} a second time; read it from domain::paths"
+            );
+        }
+    }
 }

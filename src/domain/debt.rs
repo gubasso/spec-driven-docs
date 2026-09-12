@@ -24,10 +24,7 @@ use camino::Utf8Path;
 
 use crate::domain::gate_id::GateId;
 
-/// Where an instance keeps its debt.
-pub const DEBT_PATH: &str = ".spec-driven-docs/debt.yaml";
-/// The flat list of exempt chapters an older instance carries.
-pub const LEGACY_DEBT_PATH: &str = ".spec-driven-docs/chapter-size-debt.txt";
+pub use crate::domain::paths::{DEBT_PATH, LEGACY_DEBT_PATH};
 /// The debt file schema this binary reads and writes.
 pub const SCHEMA_VERSION: u64 = 1;
 

@@ -10,10 +10,21 @@ use camino::{Utf8Path, Utf8PathBuf};
 use serde::Serialize;
 
 use crate::domain::manifest::{DOCS_SCRATCH_VAR, PLAN_ZONE_VAR, PlanZone};
+use crate::domain::paths::{
+    self, ActivePaths, Paths, UserEnv, docs_scratch_location, plan_zone_location, recorded_paths,
+    variable,
+};
 use crate::domain::profile::{DocsRoot, ProfileId};
 use crate::domain::version::CanonVersion;
 use crate::error::AppError;
 use crate::services::verifier;
+
+/// The machine schema this report declares.
+///
+/// Adding a field within schema 2 is additive. Removing one, renaming one,
+/// or changing one's type is the next schema, because a reader that
+/// branched on the old shape cannot tell the two apart otherwise.
+pub const SCHEMA: &str = "sdd.status/2";
 
 /// How an instance's canon version relates to this binary's.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -30,6 +41,8 @@ pub enum Alignment {
 /// One instance's state, as `sdd status` reports it.
 #[derive(Debug, Serialize)]
 pub struct StatusReport {
+    /// The machine schema this object declares.
+    pub schema: &'static str,
     /// Whether the target carries an instance.
     pub instance: bool,
     /// The installed profile.
@@ -59,18 +72,34 @@ pub struct StatusReport {
     pub failures: usize,
     /// Whether verification passes.
     pub ok: Option<bool>,
+    /// Every path this binary can name for this target and this user.
+    ///
+    /// A skill reads this section rather than spelling a path of its own.
+    /// Every entry states what decided it, so a reader can tell a recorded
+    /// answer from a derived one.
+    pub paths: Paths,
 }
 
-/// What a variable carries, or `None` when it is unset or blank.
-fn variable(name: &str) -> Option<String> {
-    std::env::var(name)
-        .ok()
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
+/// What this target offers for the two locations the project owns.
+fn proposals(target: &Utf8Path, env: &UserEnv) -> paths::Proposals {
+    paths::proposals(env, |relative| target.join(relative).is_dir())
 }
 
-fn absent() -> StatusReport {
+/// Every path, with no instance recorded.
+fn derived_paths(target: &Utf8Path, env: &UserEnv) -> Paths {
+    Paths {
+        user: env.user_paths(),
+        active: None,
+        candidates: paths::candidates(),
+        proposals: proposals(target, env),
+    }
+}
+
+fn absent(target: &Utf8Path) -> StatusReport {
+    let env = UserEnv::from_process();
     StatusReport {
+        schema: SCHEMA,
+        paths: derived_paths(target, &env),
         instance: false,
         profile: None,
         docs_root: None,
@@ -98,7 +127,7 @@ fn absent() -> StatusReport {
 pub fn status(target: &Utf8Path) -> Result<StatusReport, AppError> {
     let manifest = match verifier::read_manifest(target) {
         Ok(manifest) => manifest,
-        Err(AppError::ManifestMissing(_)) => return Ok(absent()),
+        Err(AppError::ManifestMissing(_)) => return Ok(absent(target)),
         Err(error) => return Err(error),
     };
     let report = verifier::verify(target)?;
@@ -108,7 +137,17 @@ pub fn status(target: &Utf8Path) -> Result<StatusReport, AppError> {
         std::cmp::Ordering::Less => Alignment::BinaryNewer,
         std::cmp::Ordering::Greater => Alignment::InstanceNewer,
     };
+    let env = UserEnv::from_process();
+    let mut resolved = derived_paths(target, &env);
+    resolved.active = Some(ActivePaths {
+        profile: manifest.profile,
+        destinations: recorded_paths(manifest.docs_root),
+        plan_zone: plan_zone_location(&manifest.plan_zone, &env),
+        docs_scratch: docs_scratch_location(manifest.docs_scratch.as_deref(), &env),
+    });
     Ok(StatusReport {
+        schema: SCHEMA,
+        paths: resolved,
         instance: true,
         profile: Some(manifest.profile),
         docs_root: Some(manifest.docs_root),

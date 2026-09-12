@@ -1,6 +1,6 @@
 ---
 name: sdd-write-docs
-description: Authors documentation governed by spec-driven-docs, covering current specs, immutable decision records, agent digests, comparison documents, known-issue records, and step-by-step guides. Use when writing or editing docs in a repository that carries a .spec-driven-docs/ directory, when a pre-commit documentation gate fails citing a domain:rule ID, or when a task mentions SPEC files, ADRs, EARS requirements, sdd method, sdd spec, or sdd template.
+description: Authors documentation governed by spec-driven-docs, covering current specs, immutable decision records, agent digests, comparison documents, known-issue records, and step-by-step guides. Use when writing or editing docs in a repository that carries a spec-driven-docs instance, when a pre-commit documentation gate fails citing a domain:rule ID, or when a task mentions SPEC files, ADRs, EARS requirements, sdd method, sdd spec, or sdd template.
 license: CC-BY-4.0
 compatibility: Requires the sdd binary on PATH; install with cargo install spec-driven-docs or cargo binstall spec-driven-docs.
 ---
@@ -22,21 +22,21 @@ When the request carries `--no-plan`, skip the plan gate's approval turn only. S
 
 ## Route to the rules
 
-| Need                                | Command                                                    |
-| ----------------------------------- | ---------------------------------------------------------- |
-| List method chapters                | `sdd method --list`                                        |
-| Read a chapter                      | `sdd method <chapter>`                                     |
-| List rule domains                   | `sdd spec --list`                                          |
-| Read the binding rules for a domain | adopted `specs/SPEC-<domain>.md`; else `sdd spec <domain>` |
-| List templates                      | `sdd template --list`                                      |
-| Start a new document                | `sdd template <name>`                                      |
-| List the known-issue cases          | `sdd ki list`                                              |
+| Need                                | Command                                                  |
+| ----------------------------------- | -------------------------------------------------------- |
+| List method chapters                | `sdd method --list`                                      |
+| Read a chapter                      | `sdd method <chapter>`                                   |
+| List rule domains                   | `sdd spec --list`                                        |
+| Read the binding rules for a domain | the adopted `SPEC-<domain>.md`; else `sdd spec <domain>` |
+| List templates                      | `sdd template --list`                                    |
+| Start a new document                | `sdd template <name>`                                    |
+| List the known-issue cases          | `sdd ki list`                                            |
 
 ## Before writing
 
-1. Run `sdd status --target . --json`. Confirm the repository is an instance and note `docs_root`.
+1. Run `sdd status --target . --json`. Confirm the repository is an instance and note `paths.active.destinations.specs`, which is where its adopted specifications sit.
 2. Read `sdd method writing-style` before you author or edit prose.
-3. Load the adopted spec for each domain the change touches, from `specs/` under `docs_root`: `SPEC-docs-format.md` always, `SPEC-docs-foundations.md` for a new document's name and home, `SPEC-docs-specs.md` for SPEC files, `SPEC-decision-records.md` for ADRs, `SPEC-comparison-docs.md` for comparisons, `SPEC-known-issues.md` for known-issue records, `SPEC-guides.md` for step-by-step guides. `sdd spec <domain>` prints the canon baseline where a domain is not adopted.
+3. Load the adopted spec for each domain the change touches, from that directory: `SPEC-docs-format.md` always, `SPEC-docs-foundations.md` for a new document's name and home, `SPEC-docs-specs.md` for SPEC files, `SPEC-decision-records.md` for ADRs, `SPEC-comparison-docs.md` for comparisons, `SPEC-known-issues.md` for known-issue records, `SPEC-guides.md` for step-by-step guides. `sdd spec <domain>` prints the canon baseline where a domain is not adopted.
 4. Start from the matching template: `sdd template spec`, `sdd template adr`, `sdd template comparison`, `sdd template agents-digest`, `sdd template guide`, or `sdd template known-issue`.
 5. Name the new document by a kebab-case slug drawn from its subject, never by a number or its position in a sequence, because a number is an identity two branches can both claim and a slug is not. Where the subject carries a leading number, put the word first: `roadmap-2026.md`, never `2026-roadmap.md`. Where the document has no kind prefix, make sure that its directory has a `README.md` saying what the directory holds and what each document covers, and add the new document to it. No gate holds an unprefixed name: `adr-filename-shape` and `ki-filename-shape` judge the kind-prefixed set alone.
 
@@ -49,7 +49,7 @@ When the request carries `--no-plan`, skip the plan gate's approval turn only. S
 
 ## Gate triage
 
-A failing gate or `sdd verify` message cites a `domain:rule` ID. Read the rule in the adopted `specs/SPEC-<domain>.md` under `docs_root`, or with `sdd spec <domain>` where the instance has not adopted that domain. Then fix the document to satisfy the cited sentence and re-run the failing command. A budget is never widened and a gate is never removed to admit a document.
+A failing gate or `sdd verify` message cites a `domain:rule` ID. Read the rule in the adopted `SPEC-<domain>.md` under `paths.active.destinations.specs`, or with `sdd spec <domain>` where the instance has not adopted that domain. Then fix the document to satisfy the cited sentence and re-run the failing command. A budget is never widened and a gate is never removed to admit a document.
 
 ## Handoff
 

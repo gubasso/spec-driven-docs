@@ -1,8 +1,8 @@
 ---
 name: sdd-setup
-description: Lands and operates a spec-driven-docs instance in a project through the sdd CLI. Use when asked to install or set up spec-driven docs, detect whether a repository has an instance, verify or upgrade an installed instance, splice the documentation section into AGENTS.md, or diagnose sdd verify failures. Triggers include spec-driven-docs, sdd init, sdd status, sdd verify, sdd upgrade, and docs governance instance.
+description: Lands and operates a spec-driven-docs instance in a project through the sdd CLI. Use when asked to install or set up spec-driven docs, detect whether a repository has an instance, verify or upgrade an installed instance, splice the documentation section into the root agent digest, or diagnose sdd verify failures. Triggers include spec-driven-docs, sdd init, sdd status, sdd verify, sdd upgrade, and docs governance instance.
 license: CC-BY-4.0
-compatibility: Requires the sdd binary on PATH; install with cargo install spec-driven-docs or cargo binstall spec-driven-docs. Requires pre-commit, which runs the delivered gates the install wires into .pre-commit-config.yaml.
+compatibility: Requires the sdd binary on PATH; install with cargo install spec-driven-docs or cargo binstall spec-driven-docs. Requires pre-commit, which runs the delivered gates the install wires into the project's hook configuration.
 ---
 
 # sdd-setup
@@ -28,6 +28,8 @@ sdd status --target . --json
 
 `"instance": false` means the repository has no instance. Any other result reports the installed profile, version alignment, and drift counts. `sdd status` exits 0 whether or not an instance exists.
 
+The report's `paths` section is where every path this skill needs comes from, so nothing below spells one. `paths.user` carries the roots under the invoking user's home, each with the variable that moved it. `paths.active` is the landed instance, or `null` where there is none. `paths.candidates` carries one destination set per profile. `paths.proposals` carries what this target offers for the two locations the project owns. Every entry names its source, so a recorded answer and a derived one never read alike.
+
 With no instance, classify before landing: `sdd assess --target . --json` reads the evidence and answers one of three verdicts. Route by it:
 
 - `greenfield`: land an instance, below.
@@ -38,16 +40,16 @@ With no instance, classify before landing: `sdd assess --target . --json` reads 
 
 Ask the three declaration questions below first, in the same plan turn as the profile. Their answers are flags on the one apply, so the sequence writes once.
 
-1. Choose the profile: `codebase` keeps records under `docs/`, and `knowledge-base` keeps them under `_docs/`.
+1. Choose the profile. Present each one with its own `paths.candidates.<profile>.destinations.docs_root`, which is where that profile keeps records.
 2. Preview: `sdd init --target "$PWD" --profile codebase`. A non-empty target defaults to a dry run and lists every destination.
-3. Review the listed paths, then apply, carrying whichever declarations the operator gave: `sdd init --target "$PWD" --profile codebase --apply --plan-zone docs/plan --docs-scratch .docs-scratch --writing-style builtin`.
+3. Review the listed paths, then apply, carrying whichever declarations the operator gave: `sdd init --target "$PWD" --profile codebase --apply --plan-zone <answer> --docs-scratch <answer> --writing-style builtin`.
 4. Confirm: `sdd verify --target "$PWD"` prints `OK spec-driven-docs <version>`.
 
-The install seeds specs and templates the project owns from then on (adopted). It lands byte-exact configurations and agent skills the canon owns (managed), and splices one marked block into `.pre-commit-config.yaml`. It touches nothing outside its destinations and the markers.
+The install seeds specs and templates the project owns from then on (adopted). It lands byte-exact configurations and agent skills the canon owns (managed), and splices one marked block into the hook configuration `paths.active.destinations.hooks_config` names. It touches nothing outside its destinations and the markers.
 
 ## Declare what the gates judge
 
-`.spec-driven-docs/config.yaml` states which paths no delivered gate judges and which filters a named gate takes. `sdd init` writes it once and never again, so it is the project's from the moment it lands.
+The declaration `paths.active.destinations.declaration` names states which paths no delivered gate judges and which filters a named gate takes. `sdd init` writes it once and never again, so it is the project's from the moment it lands.
 
 - `reserved:` is a list of paths no gate judges. Use it for a region another tool renders or hashes.
 - `gates:` names a gate and gives it `include` or `exclude` globs. A gate not named there takes its registry default.
@@ -62,32 +64,34 @@ Edit the file, then run `sdd hooks --apply`. The managed block is rendered from 
 
 ## Carry an inherited corpus
 
-A budget gate fails a document over its cap. A project adopting the convention over documents written before it records each inherited violation in `.spec-driven-docs/debt.yaml`, per gate, per path, per dimension, under `sdd spec budget-debt`. A recorded ceiling is judged instead of the cap and only comes down. Nothing delivers the file, and a project inheriting a corpus records debt rather than raising a budget.
+A budget gate fails a document over its cap. A project adopting the convention over documents written before it records each inherited violation in the debt file `paths.active.destinations.debt` names, per gate, per path, per dimension, under `sdd spec budget-debt`. A recorded ceiling is judged instead of the cap and only comes down. Nothing delivers the file, and a project inheriting a corpus records debt rather than raising a budget.
 
 - `sdd debt baseline` previews every current violation as debt, and `--apply` writes it. It refuses where a debt file exists, because a baseline never widens one.
-- `sdd debt migrate` converts the older flat list at `.spec-driven-docs/chapter-size-debt.txt` and removes it under `--apply`. It preserves every exemption and broadens nothing.
+- `sdd debt migrate` converts the older flat list `paths.active.destinations.legacy_debt` names and removes it under `--apply`. It preserves every exemption and broadens nothing.
 - `sdd debt tighten` lowers each ceiling to its measurement and clears each corrected exception under `--apply`. It never raises a ceiling.
 
 A brownfield landing runs the install, then `sdd debt baseline`, then `sdd debt baseline --apply`, then its first commit. A gate failure naming `sdd debt tighten --apply` means a carried document shrank: run it and commit the file with the change. Where `sdd verify` notes that no local specification defines `budget-debt:a-recorded-dimension-only-shrinks`, the project's specs predate the mechanism, and `sdd policy reconcile` offers the correction: it previews the rule it would add, and `--apply` appends it to the project's copy.
 
 ## Declare the two locations
 
-Two locations belong to the project rather than to this framework. Ask for each with `AskUserQuestion`, in the plan turn, and pass the answer to `sdd init`. Mark no answer as recommended: each one has its own cost. These two questions are the only place that names a candidate path. Everywhere else the corpus names the variable.
+Two locations belong to the project rather than to this framework. Ask for each with `AskUserQuestion`, in the plan turn, and pass the answer to `sdd init`. Mark no answer as recommended: each one has its own cost.
+
+Build both questions from `paths.proposals`. An `observed` choice is a directory this target already carries, so it arrives with its path. An `env` choice reports the variable and whatever it carries here. An `operator` choice is where the operator types a path, and a `none` choice is where the project keeps none. The report proposes a path only where the target holds one, so a question offers a path this repository already uses or no path at all.
 
 The plan zone is where the planning tool writes entry documents. State that the gate reads it and that the project can keep none.
 
-- a repository-relative path, such as `docs/plan`: under version control, so every clone carries it and the gate checks it.
+- a repository-relative directory under version control, so every clone carries it and the gate checks it.
 - `untracked:<PATH>`: inside the repository but not committed, so the gate reports nothing and a reviewer holds the rule.
-- `env`: the records live wherever `SDD_PLAN_ZONE` points, which suits a planning tool that owns a path under the user's home.
+- `env`: the records live wherever the plan-zone variable points, which suits a planning tool that owns a directory under the user's home.
 - `none`: the project keeps no plan zone, and the rule binds nothing.
 
 The docs scratch holds material that is not a statement yet, and it stages a migration. State that it must stay out of version control.
 
-- `.docs-scratch/` at the repository root, with the matching ignore entry.
-- a directory beside the checkout, such as `../<project>.docs-scratch/`, which the repository never sees.
+- a hidden directory at the repository root, with the matching ignore entry.
+- a directory beside the checkout, which the repository never sees.
 - a path the operator types.
 
-Both flags are optional, and an omitted flag keeps what is recorded: a later `sdd init` or `sdd upgrade` that carries no flag changes neither value. `--plan-zone none` and `--docs-scratch none` are how a recorded value is cleared. `sdd status --json` reports both, plus whatever the two variables carry here.
+Both flags are optional, and an omitted flag keeps what is recorded: a later `sdd init` or `sdd upgrade` that carries no flag changes neither value. `--plan-zone none` and `--docs-scratch none` are how a recorded value is cleared. `paths.active.plan_zone` and `paths.active.docs_scratch` report where each one resolved and which variable, if any, decided it.
 
 ## Select the writing source
 
@@ -97,11 +101,11 @@ The writing style is the project's to select, under `sdd spec writing-policy`. A
 - `project:<PATH>`: the project's own document, which the project keeps.
 - `none`: no route and no conversion obligation, so an agent editing the project's documents follows whatever its own instructions say.
 
-The selection lives in `.spec-driven-docs/config.yaml` under `writing_style`. To change it later, edit the file and run `sdd hooks --apply`, which rewrites the documentation block in `AGENTS.md` as well as the pre-commit block. Where `sdd verify` notes that no local specification defines `writing-policy:the-project-selects-one-source`, the project's specs predate the selection, and `sdd policy reconcile` offers the same correction.
+The selection lives in the declaration under `writing_style`. To change it later, edit the file and run `sdd hooks --apply`, which rewrites the documentation block in the root agent digest as well as the pre-commit block. Where `sdd verify` notes that no local specification defines `writing-policy:the-project-selects-one-source`, the project's specs predate the selection, and `sdd policy reconcile` offers the same correction.
 
 ## Land the variables
 
-`SDD_PLAN_ZONE` and `SDD_DOCS_SCRATCH` override the recorded values. Neither is required, and the binary writes neither. Land them as a gated step the operator approves first.
+The two variables `paths.active.plan_zone` and `paths.active.docs_scratch` name override the recorded values. Neither is required, and the binary writes neither. Land them as a gated step the operator approves first.
 
 1. Observe, read-only: an `.envrc` at the root, `direnv` on `PATH`, an existing `.env`, and what `.gitignore` already covers.
 2. With direnv present, append the two `export` lines to `.envrc.local`, and add `.envrc.local` to `.gitignore` where it is absent.
@@ -111,7 +115,7 @@ The selection lives in `.spec-driven-docs/config.yaml` under `writing_style`. To
 
 ## Wire agent context
 
-`sdd init` manages this for you. The install writes a marker-delimited documentation block into the root `AGENTS.md` and records it as an integration block. The install creates the file when absent. The block routes an agent to the affected specs and to the selected writing source, `sdd method writing-style` by default, before the agent authors or edits prose. Every byte outside the markers is your own. Do not hand-copy the block: an edit inside the markers is a conflict `sdd upgrade` refuses, and an edit outside them survives.
+`sdd init` manages this for you. The install writes a marker-delimited documentation block into the root agent digest `paths.active.destinations.agents_digest` names and records it as an integration block. The install creates the file when absent. The block routes an agent to the affected specs and to the selected writing source, `sdd method writing-style` by default, before the agent authors or edits prose. Every byte outside the markers is your own. Do not hand-copy the block: an edit inside the markers is a conflict `sdd upgrade` refuses, and an edit outside them survives.
 
 ## Verify
 
@@ -134,11 +138,11 @@ An instance installed before 0.4.14 records manifest schema 2, and this binary r
 
 An adopted seed the canon stops shipping is left in place, because the project owns it from the moment it lands. An upgrade that stops seeding one names it in the release notes. Delete the file once nothing local cites its rules. `SPEC-distribution.md` is the first: it states the installer's obligations, which no project can meet or check, and `SPEC-instance.md` now carries what a project owes its own installation.
 
-`sdd upgrade` prints a `removed managed file no longer owned:` line for each file the new payload no longer declares. It removes the immediate parent of a removed file when that removal empties it, and it walks no further up. After an upgrade that prints those lines, remove every directory under `.spec-driven-docs/` the removals left empty, deepest first. `find .spec-driven-docs -type d -empty -delete` does it, and it removes nothing that still holds a file.
+`sdd upgrade` prints a `removed managed file no longer owned:` line for each file the new payload no longer declares. It removes the immediate parent of a removed file when that removal empties it, and it walks no further up. After an upgrade that prints those lines, remove every empty directory under the instance directory `paths.active.destinations.instance_dir` names, deepest first, and remove nothing that still holds a file.
 
 ## Defaults
 
 - One instance per repository, at the repository root.
 - Prefer `sdd status --json` for machine decisions. Its stdout is one JSON object.
-- Leave managed files alone: everything under `.spec-driven-docs/` belongs to the canon, and `sdd verify` fails on any edit.
-- An instance carries no skill file. The skills live at user scope, where `sdd skill install` puts them. A copy under the repository's `.claude/skills/` or `.agents/skills/` is a leftover from a version before that rule, and `sdd upgrade` removes it.
+- Leave managed files alone: everything under the instance directory belongs to the canon, and `sdd verify` fails on any edit.
+- An instance carries no skill file. The skills live at user scope, in the roots `paths.user.agent_roots` names, where `sdd skill install` puts them. A copy of one of those roots inside the repository is a leftover from a version before that rule, and `sdd upgrade` removes it.

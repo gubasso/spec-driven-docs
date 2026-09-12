@@ -9,6 +9,7 @@
 use crate::domain::debt::Measurement;
 use crate::domain::finding::Finding;
 use crate::domain::gate_id::GateId;
+use crate::domain::paths::AGENTS_DIGEST_PATH;
 use crate::domain::rule_id::RuleId;
 use crate::gates::budget;
 use crate::gates::{GateCtx, GateError, GateResult, Violation, line_count, read_text, walk_files};
@@ -26,10 +27,14 @@ const RULE: RuleId = RuleId::AuthorInstructionsStayWithinBudget;
 pub fn measure(ctx: &GateCtx) -> Result<Vec<Measurement>, GateError> {
     let mut measurements = Vec::new();
     for file in walk_files(ctx) {
-        if file.file_name() != Some("AGENTS.md") {
+        if file.file_name() != Some(AGENTS_DIGEST_PATH) {
             continue;
         }
-        let cap = if file == "./AGENTS.md" { 100 } else { 150 };
+        let cap = if file.as_str() == format!("./{AGENTS_DIGEST_PATH}") {
+            100
+        } else {
+            150
+        };
         let lines = line_count(&read_text(ctx, &file)?);
         measurements.push(Measurement::count(
             GateId::AgentsDigestSize,
@@ -49,8 +54,10 @@ pub fn measure(ctx: &GateCtx) -> Result<Vec<Measurement>, GateError> {
 /// [`GateError::Io`] when a digest cannot be read, and [`GateError::Debt`]
 /// when the debt file cannot be trusted.
 pub fn run(ctx: &GateCtx, _files: &[String]) -> GateResult {
-    if !ctx.path("AGENTS.md").is_file() {
-        return Ok(vec![Violation::Layout("no root AGENTS.md".to_string())]);
+    if !ctx.path(AGENTS_DIGEST_PATH).is_file() {
+        return Ok(vec![Violation::Layout(format!(
+            "no root {AGENTS_DIGEST_PATH}"
+        ))]);
     }
     let debt = budget::read_debt(ctx)?;
     let measurements = measure(ctx)?;
