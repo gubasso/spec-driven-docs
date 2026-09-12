@@ -29,11 +29,11 @@ The `sdd` CLI is the whole interface. Nothing here is tied to a particular edito
 
 ## Conventions and dependencies
 
-The writing convention lives in one project-owned chapter, available offline through `sdd method writing-style`. A fresh `sdd init` routes document authors to that command from the project's `AGENTS.md`. No delivered gate judges prose against the style. The chapter draws its word and sentence register from [SimpleEnglish](https://github.com/AminBlg/SimpleEnglish) and its information architecture from [i-have-adhd](https://github.com/ayghri/i-have-adhd), at the revisions it names.
+The writing convention is the project's to select: this convention's chapter, available offline through `sdd method writing-style`, a document of the project's own, or none. A fresh `sdd init` routes document authors to the selection from the project's `AGENTS.md`. No delivered gate judges prose against the style. The chapter draws its word and sentence register from [SimpleEnglish](https://github.com/AminBlg/SimpleEnglish) and its information architecture from [i-have-adhd](https://github.com/ayghri/i-have-adhd), at the revisions it names.
 
 Every adopted convention and material dependency has one owner and an outward link:
 
-- The writing contract, which states how the style binds and how a project reaches it: [`_docs/specs/SPEC-writing-style.md`](./_docs/specs/SPEC-writing-style.md). The style it routes to is the chapter, served by `sdd method writing-style`.
+- The writing contract, which states how the style binds and how a project reaches it: [`_docs/specs/SPEC-writing-style.md`](./_docs/specs/SPEC-writing-style.md). The selection itself is stated in [`_docs/specs/SPEC-writing-policy.md`](./_docs/specs/SPEC-writing-policy.md), and the chapter it routes to by default is served by `sdd method writing-style`.
 - The full catalog of dependencies and conventions: [reference/dependencies-and-conventions.md](./reference/dependencies-and-conventions.md).
 - The pinned upstream, its license, and the vendored paths: [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md), also printed by `sdd license --third-party`.
 - The freshness registry that detects a moved upstream: `sdd track status` reads it offline, and `sdd track check` compares the pinned revision online.

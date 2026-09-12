@@ -283,6 +283,7 @@ pub fn upgrade(options: &UpgradeOptions) -> Result<UpgradeOutcome, AppError> {
         plan_zone: None,
         docs_scratch: None,
         reserve: Vec::new(),
+        writing_style: None,
     })
     .map_err(|error| {
         AppError::Refused(format!(

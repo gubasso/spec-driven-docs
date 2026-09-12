@@ -215,3 +215,110 @@ fn an_upgrade_over_a_declaring_instance_neither_conflicts_nor_drops_it() {
         "the upgrade dropped the project's declaration"
     );
 }
+
+/// The declaration selects the writing-style route the documentation block
+/// carries, so the verb that brings the pre-commit block back into agreement
+/// brings that block too, and records both hashes.
+///
+/// VERIFIES writing-policy:the-project-selects-one-source
+#[test]
+fn changing_the_selection_and_applying_rewrites_the_route() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    assert!(
+        fixture
+            .read("AGENTS.md")
+            .contains("`sdd method writing-style`.")
+    );
+
+    let declaration = fixture.read(".spec-driven-docs/config.yaml").replace(
+        "writing_style:\n  source: builtin\n  path: null\n",
+        "writing_style:\n  source: project\n  path: docs/STYLE.md\n",
+    );
+    fixture.write(".spec-driven-docs/config.yaml", &declaration);
+
+    // The edit alone leaves the block stale, and both checks say so.
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .code(1)
+        .stdout(predicate::str::contains(
+            "FAIL the documentation block in AGENTS.md does not match the declaration; run 'sdd hooks --apply'",
+        ));
+    fixture
+        .cmd()
+        .args(["hooks", "--target", &fixture.target(), "--check"])
+        .assert()
+        .code(1)
+        .stdout(predicate::str::contains("documentation block"));
+
+    fixture
+        .cmd()
+        .args(["hooks", "--target", &fixture.target(), "--apply"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            "OK rewrote the documentation block",
+        ));
+    let agents = fixture.read("AGENTS.md");
+    assert!(
+        agents.contains("Read the writing style before you author or edit prose: `docs/STYLE.md`.")
+    );
+    assert!(!agents.contains("sdd method writing-style"));
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .success();
+    fixture
+        .cmd()
+        .args(["hooks", "--target", &fixture.target(), "--apply"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("already matches the declaration"));
+
+    // Selecting none removes the route and leaves every other line.
+    let declaration = fixture.read(".spec-driven-docs/config.yaml").replace(
+        "writing_style:\n  source: project\n  path: docs/STYLE.md\n",
+        "writing_style:\n  source: none\n  path: null\n",
+    );
+    fixture.write(".spec-driven-docs/config.yaml", &declaration);
+    fixture
+        .cmd()
+        .args(["hooks", "--target", &fixture.target(), "--apply"])
+        .assert()
+        .success();
+    let agents = fixture.read("AGENTS.md");
+    assert!(!agents.contains("writing style"), "{agents}");
+    assert!(agents.contains("Run `sdd verify` before handoff."));
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .success();
+}
+
+#[test]
+fn a_disagreeing_selection_is_refused_at_the_declaration() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    let declaration = fixture.read(".spec-driven-docs/config.yaml").replace(
+        "writing_style:\n  source: builtin\n  path: null\n",
+        "writing_style:\n  source: project\n  path: null\n",
+    );
+    fixture.write(".spec-driven-docs/config.yaml", &declaration);
+    fixture
+        .cmd()
+        .args(["hooks", "--target", &fixture.target(), "--apply"])
+        .assert()
+        .code(64)
+        .stderr(predicate::str::contains("writing_style"))
+        .stderr(predicate::str::contains("path"));
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .code(1)
+        .stdout(predicate::str::contains("writing_style"));
+}

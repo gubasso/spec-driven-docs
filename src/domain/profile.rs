@@ -171,6 +171,10 @@ const ADOPTED: &[Projection] = &[
         "{docs_root}/specs/SPEC-budget-debt.md",
     ),
     proj(
+        "_docs/specs/SPEC-writing-policy.md",
+        "{docs_root}/specs/SPEC-writing-policy.md",
+    ),
+    proj(
         "_docs/specs/SPEC-decision-records.md",
         "{docs_root}/specs/SPEC-decision-records.md",
     ),

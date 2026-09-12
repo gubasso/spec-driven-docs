@@ -26,3 +26,12 @@ reserved: []
 
 # Per-gate filters. A gate not named here takes its registry default.
 gates: {}
+
+# Where the writing style comes from: `builtin` routes authors to
+# `sdd method writing-style`, `project` routes them to the document
+# `path` names, and `none` installs no route and imposes no conversion
+# obligation. Edit it, then run `sdd hooks --apply`, which rewrites the
+# documentation block in AGENTS.md as well as the pre-commit block.
+writing_style:
+  source: builtin
+  path: null

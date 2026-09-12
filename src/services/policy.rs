@@ -76,6 +76,12 @@ fn active(target: &Utf8Path, sentinel: &Sentinel) -> bool {
         RuleId::RecordedDimensionOnlyShrinks => {
             Debt::read(target).is_ok_and(|debt| !debt.is_empty())
         }
+        RuleId::ProjectSelectsOneSource => {
+            crate::domain::instance_config::InstanceConfig::read(target).is_ok_and(|declaration| {
+                declaration.writing_style.source
+                    != crate::domain::instance_config::WritingSource::Builtin
+            })
+        }
         _ => false,
     }
 }

@@ -569,3 +569,56 @@ fn an_instance_carrying_only_the_legacy_list_stays_green_with_a_note() {
         .success()
         .stdout(predicate::str::contains("sdd debt migrate --apply"));
 }
+
+#[test]
+fn the_writing_policy_specification_seeds_into_an_existing_instance() {
+    let spec = "_docs/specs/SPEC-writing-policy.md";
+    let fixture = behind_without(spec);
+    fixture
+        .cmd()
+        .args(["upgrade", "--target", &fixture.target()])
+        .assert()
+        .success();
+    assert!(
+        fixture
+            .read(spec)
+            .contains("writing-policy:the-project-selects-one-source")
+    );
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .success();
+}
+
+/// A declaration written before the key existed reads as `builtin`, so an
+/// upgraded instance keeps the route it had.
+#[test]
+fn a_declaration_without_the_writing_style_key_upgrades_as_builtin() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    fixture.write(".spec-driven-docs/config.yaml", "reserved: []\ngates: {}\n");
+    let manifest = fixture
+        .read(".spec-driven-docs/manifest.json")
+        .replace(env!("CARGO_PKG_VERSION"), "0.7.0");
+    fixture.write(".spec-driven-docs/manifest.json", &manifest);
+    fixture
+        .cmd()
+        .args(["upgrade", "--target", &fixture.target()])
+        .assert()
+        .success();
+    assert!(
+        fixture
+            .read("AGENTS.md")
+            .contains("`sdd method writing-style`.")
+    );
+    assert_eq!(
+        fixture.read(".spec-driven-docs/config.yaml"),
+        "reserved: []\ngates: {}\n"
+    );
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .success();
+}

@@ -118,6 +118,29 @@ fn check_declaration(target: &Utf8Path, manifest: &Manifest, report: &mut Verify
         }
     };
 
+    // The documentation block carries the writing-style route the
+    // declaration selects, so a stale route is the same disagreement as a
+    // stale hook filter, and the same command repairs it.
+    let agents = target.join(crate::commands::hooks::AGENTS);
+    if let Ok(host) = std::fs::read_to_string(&agents)
+        && let Some(region) = crate::domain::marker::block_region_with(
+            &host,
+            crate::domain::marker::AGENTS_BEGIN,
+            crate::domain::marker::AGENTS_END,
+        )
+    {
+        let expected = crate::services::agents_render::render_block(
+            manifest.docs_root.as_str(),
+            &declaration.writing_style,
+        );
+        if region != expected {
+            report.fail(format!(
+                "FAIL the documentation block in {} does not match the declaration; run 'sdd hooks --apply'",
+                crate::commands::hooks::AGENTS
+            ));
+        }
+    }
+
     let config = target.join(crate::commands::hooks::CONFIG);
     let Ok(host) = std::fs::read_to_string(&config) else {
         return;

@@ -43,6 +43,9 @@ pub struct InitOptions {
     /// Paths to record under `reserved:` in the instance's declaration. An
     /// empty list keeps whatever is recorded.
     pub reserve: Vec<String>,
+    /// The writing-style selection to record in the declaration. `None`
+    /// keeps whatever is recorded.
+    pub writing_style: Option<crate::domain::instance_config::WritingStyle>,
 }
 
 /// What an installation did.
@@ -255,14 +258,19 @@ fn compute_target_state(target: &Utf8Path, options: &InitOptions) -> Result<Targ
         } else {
             seed.to_vec()
         };
-        // `--reserve` records into the declaration, keeping its comments and
-        // whatever the project already wrote there.
-        if destination == crate::domain::instance_config::CONFIG_PATH && !options.reserve.is_empty()
+        // `--reserve` and `--writing-style` record into the declaration,
+        // keeping its comments and whatever the project already wrote there.
+        if destination == crate::domain::instance_config::CONFIG_PATH
+            && let Ok(text) = std::str::from_utf8(&bytes)
         {
-            if let Ok(text) = std::str::from_utf8(&bytes) {
-                bytes = crate::domain::instance_config::with_reserved(text, &options.reserve)
-                    .into_bytes();
+            let mut text = text.to_string();
+            if !options.reserve.is_empty() {
+                text = crate::domain::instance_config::with_reserved(&text, &options.reserve);
             }
+            if let Some(selection) = &options.writing_style {
+                text = crate::domain::instance_config::with_writing_style(&text, selection);
+            }
+            bytes = text.into_bytes();
         }
         adopted_entries.push(AdoptedEntry {
             source: projection.source.into(),
@@ -293,6 +301,7 @@ fn compute_target_state(target: &Utf8Path, options: &InitOptions) -> Result<Targ
         .transpose()
         .map_err(|error| anyhow::anyhow!("{error}"))?
         .unwrap_or_default();
+    let writing_style = declared.writing_style.clone();
     let block = render_block(&RenderOptions {
         docs_root: declaration.docs_root.to_string(),
         indent,
@@ -328,8 +337,10 @@ fn compute_target_state(target: &Utf8Path, options: &InitOptions) -> Result<Targ
     } else {
         String::new()
     };
-    let agents_block =
-        crate::services::agents_render::render_block(&declaration.docs_root.to_string());
+    let agents_block = crate::services::agents_render::render_block(
+        &declaration.docs_root.to_string(),
+        &writing_style,
+    );
     let agents = crate::domain::marker::place_agents_block(&agents_host, &agents_block)?;
     let agents_hash = crate::domain::marker::block_hash_with(
         &agents,

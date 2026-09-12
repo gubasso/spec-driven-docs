@@ -29,6 +29,16 @@
 //! wants. Every `exclude` layer extends, and `reserved` is last, so nothing
 //! reopens it. No layer can reopen an exclusion at all, because the grammar
 //! carries no negation: `crate::domain::path_filter` refuses a leading `!`.
+//!
+//! # The writing style is the project's to select
+//!
+//! `writing_style` states where the writing convention comes from: this
+//! convention's chapter, a document of the project's own, or none. The
+//! managed documentation block routes authors to the selection, and `none`
+//! installs no route and imposes no conversion obligation. The combination
+//! is validated, not just the field: `project` without a `path` names
+//! nothing, and a `path` beside another source is a value nothing reads,
+//! which is a value that drifts.
 
 use std::collections::BTreeMap;
 
@@ -53,6 +63,120 @@ pub struct GateFilters {
     pub exclude: Vec<String>,
 }
 
+/// Where a project's writing style comes from.
+#[derive(Debug, Default, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum WritingSource {
+    /// This convention's chapter, served by `sdd method writing-style`.
+    #[default]
+    Builtin,
+    /// A document of the project's own, named by `path`.
+    Project,
+    /// No route and no conversion obligation.
+    None,
+}
+
+/// The writing-style selection as written.
+#[derive(Debug, Default, Clone, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct WritingStyle {
+    /// Which source.
+    #[serde(default)]
+    pub source: WritingSource,
+    /// The project's own document, relative to the repository root, where
+    /// the source is `project`.
+    #[serde(default)]
+    pub path: Option<String>,
+}
+
+impl WritingStyle {
+    /// Read the `--writing-style` argument: `builtin`, `none`, or
+    /// `project:<path>`.
+    ///
+    /// # Errors
+    ///
+    /// [`ConfigError::WritingStyle`] for any other form, or a path the
+    /// selection refuses.
+    pub fn parse_flag(value: &str) -> Result<Self, ConfigError> {
+        let selection = match value.trim() {
+            "builtin" => Self::default(),
+            "none" => Self {
+                source: WritingSource::None,
+                path: None,
+            },
+            other => match other.strip_prefix("project:") {
+                Some(path) => Self {
+                    source: WritingSource::Project,
+                    path: Some(path.trim().to_string()),
+                },
+                None => {
+                    return Err(ConfigError::WritingStyle(format!(
+                        "`{other}` is not a selection; write `builtin`, `none`, or `project:<path>`"
+                    )));
+                }
+            },
+        };
+        selection.check()?;
+        Ok(selection)
+    }
+
+    /// Hold the combination, not just each field.
+    fn check(&self) -> Result<(), ConfigError> {
+        match (self.source, self.path.as_deref()) {
+            (WritingSource::Project, None | Some("")) => Err(ConfigError::WritingStyle(
+                "`source: project` names no `path`".to_string(),
+            )),
+            (WritingSource::Builtin | WritingSource::None, Some(path)) if !path.is_empty() => {
+                Err(ConfigError::WritingStyle(format!(
+                    "`path: {path}` is set and the source is not `project`, so nothing reads it"
+                )))
+            }
+            (WritingSource::Project, Some(path)) => {
+                let candidate = Utf8Path::new(path);
+                if candidate.is_absolute() {
+                    return Err(ConfigError::WritingStyle(format!(
+                        "`path: {path}` is absolute; name the document relative to the repository"
+                    )));
+                }
+                if candidate.components().any(|part| part.as_str() == "..") {
+                    return Err(ConfigError::WritingStyle(format!(
+                        "`path: {path}` leaves the repository"
+                    )));
+                }
+                Ok(())
+            }
+            _ => Ok(()),
+        }
+    }
+
+    /// The document authors are routed to, relative to the repository, or
+    /// `None` where the selection installs no route.
+    #[must_use]
+    pub fn route(&self) -> Option<String> {
+        match self.source {
+            WritingSource::Builtin => Some("`sdd method writing-style`".to_string()),
+            WritingSource::Project => self.path.as_ref().map(|path| format!("`{path}`")),
+            WritingSource::None => None,
+        }
+    }
+
+    /// The selection as the declaration file spells it.
+    #[must_use]
+    pub fn render(&self) -> String {
+        let source = match self.source {
+            WritingSource::Builtin => "builtin",
+            WritingSource::Project => "project",
+            WritingSource::None => "none",
+        };
+        let path = self
+            .path
+            .as_deref()
+            .filter(|path| !path.is_empty())
+            .map_or_else(|| "null".to_string(), quoted);
+        format!("writing_style:\n  source: {source}\n  path: {path}\n")
+    }
+}
+
 /// The declaration as written.
 #[derive(Debug, Default, Clone, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -64,6 +188,10 @@ pub struct InstanceConfig {
     /// registry default.
     #[serde(default)]
     pub gates: BTreeMap<String, GateFilters>,
+    /// Where the writing style comes from. Absent, the convention's own
+    /// chapter.
+    #[serde(default)]
+    pub writing_style: WritingStyle,
 }
 
 /// A declaration that does not parse, or that names something no gate has.
@@ -80,6 +208,9 @@ pub enum ConfigError {
     /// A pattern the filter grammar refuses.
     #[error("{CONFIG_PATH}: {0}")]
     Pattern(#[from] PathFilterError),
+    /// A writing-style selection whose fields do not agree.
+    #[error("{CONFIG_PATH}: writing_style: {0}")]
+    WritingStyle(String),
 }
 
 impl InstanceConfig {
@@ -104,6 +235,7 @@ impl InstanceConfig {
         // would be written into the managed block and blessed by `verify`,
         // then fail separately from every gate that ran.
         parsed.check_patterns()?;
+        parsed.writing_style.check()?;
         Ok(parsed)
     }
 
@@ -232,6 +364,45 @@ pub fn resolve(
 /// scalar, with an apostrophe doubled.
 fn quoted(glob: &str) -> String {
     format!("'{}'", glob.replace('\'', "''"))
+}
+
+/// Record a writing-style selection in a declaration, keeping every comment.
+///
+/// The `writing_style:` key and its indented children are replaced as a
+/// block; a declaration written before the key existed gets it appended.
+#[must_use]
+pub fn with_writing_style(text: &str, selection: &WritingStyle) -> String {
+    let block = selection.render();
+    let mut out = String::new();
+    let mut wrote = false;
+    let mut skipping = false;
+    for line in text.lines() {
+        if skipping {
+            if line.starts_with(' ') || line.starts_with('\t') {
+                continue;
+            }
+            skipping = false;
+        }
+        if !wrote && line.starts_with("writing_style:") {
+            out.push_str(&block);
+            wrote = true;
+            skipping = true;
+            continue;
+        }
+        out.push_str(line);
+        out.push('\n');
+    }
+    if !wrote {
+        if !out.is_empty() && !out.ends_with("\n\n") {
+            out.push('\n');
+        }
+        out.push_str("# Where the writing style comes from: `builtin` routes authors to\n");
+        out.push_str("# `sdd method writing-style`, `project` routes them to the document\n");
+        out.push_str("# `path` names, and `none` installs no route and imposes no conversion\n");
+        out.push_str("# obligation.\n");
+        out.push_str(&block);
+    }
+    out
 }
 
 /// Record reserved paths in a declaration, keeping every comment.
@@ -479,6 +650,74 @@ mod tests {
             InstanceConfig::parse(&out).expect("parses").reserved,
             vec!["AGENTS.md".to_string(), "vendor/**".to_string()]
         );
+    }
+
+    #[test]
+    fn an_absent_key_is_builtin() {
+        assert_eq!(
+            config("reserved: []\ngates: {}\n").writing_style,
+            WritingStyle::default()
+        );
+        assert_eq!(
+            config("writing_style:\n  source: builtin\n  path: null\n")
+                .writing_style
+                .route(),
+            Some("`sdd method writing-style`".to_string())
+        );
+    }
+
+    #[test]
+    fn project_without_a_path_is_an_error_naming_the_key() {
+        let error = InstanceConfig::parse("writing_style:\n  source: project\n")
+            .expect_err("a project source needs a path");
+        assert!(matches!(error, ConfigError::WritingStyle(_)));
+        assert!(error.to_string().contains("writing_style"), "{error}");
+        assert!(error.to_string().contains("path"), "{error}");
+    }
+
+    #[test]
+    fn a_path_without_the_project_source_is_an_error() {
+        for source in ["builtin", "none"] {
+            let error = InstanceConfig::parse(&format!(
+                "writing_style:\n  source: {source}\n  path: docs/style.md\n"
+            ))
+            .expect_err("a path nothing reads is refused");
+            assert!(error.to_string().contains("nothing reads it"), "{error}");
+        }
+    }
+
+    #[test]
+    fn a_writing_style_path_leaving_the_repository_is_refused() {
+        for path in ["/etc/style.md", "../style.md", "docs/../../style.md"] {
+            assert!(
+                WritingStyle::parse_flag(&format!("project:{path}")).is_err(),
+                "{path} was accepted"
+            );
+        }
+        assert_eq!(
+            WritingStyle::parse_flag("project:docs/STYLE.md")
+                .unwrap()
+                .route(),
+            Some("`docs/STYLE.md`".to_string())
+        );
+        assert_eq!(WritingStyle::parse_flag("none").unwrap().route(), None);
+        assert!(WritingStyle::parse_flag("house").is_err());
+    }
+
+    #[test]
+    fn a_selection_is_written_into_the_declaration_and_reads_back() {
+        let seed = "reserved: []\n\n# how to write\nwriting_style:\n  source: builtin\n  path: null\n\ngates: {}\n";
+        let selection = WritingStyle::parse_flag("project:docs/STYLE.md").unwrap();
+        let out = with_writing_style(seed, &selection);
+        assert!(out.contains("# how to write"), "a comment was lost:\n{out}");
+        assert!(out.contains("gates: {}"), "a later key was lost:\n{out}");
+        assert_eq!(config(&out).writing_style, selection);
+
+        // A declaration written before the key existed gets it appended.
+        let older = "reserved: []\ngates: {}\n";
+        let out = with_writing_style(older, &WritingStyle::parse_flag("none").unwrap());
+        assert_eq!(config(&out).writing_style.source, WritingSource::None);
+        assert!(config(&out).reserved.is_empty());
     }
 
     #[test]

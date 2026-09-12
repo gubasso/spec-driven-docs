@@ -34,7 +34,7 @@
     {
       "source": "skills/sdd-setup/SKILL.md",
       "destination": "skills/sdd-setup/SKILL.md",
-      "sha256": "787d945e67f88cfb6b72be990fa77d2d4b59a59bf9a137af321d096c6b79e254"
+      "sha256": "415cd7f2c9ff27dbbf0127d7063fbce2dd3fca5bdc745907db1f5545cb2b3eee"
     },
     {
       "source": "skills/sdd-write-docs/SKILL.md",
@@ -104,8 +104,8 @@
     {
       "source": "_docs/specs/SPEC-instance.md",
       "destination": "_docs/specs/SPEC-instance.md",
-      "sha256": "90db9197f6bedee5a31c02885aa9eefc197f5e375da116a034cc40618193a298",
-      "baseline_sha256": "90db9197f6bedee5a31c02885aa9eefc197f5e375da116a034cc40618193a298"
+      "sha256": "f86aa3d3d48dc2028b5baf18bb45f1a7bf5ce0300bbfef39b4d0431919b6aeb9",
+      "baseline_sha256": "f86aa3d3d48dc2028b5baf18bb45f1a7bf5ce0300bbfef39b4d0431919b6aeb9"
     },
     {
       "source": "_docs/specs/SPEC-known-issues.md",
@@ -132,10 +132,16 @@
       "baseline_sha256": "1d06d5913a17c9ff071463e99f869ee5da5ef2488da5b9967c14fe689f3ed9ca"
     },
     {
+      "source": "_docs/specs/SPEC-writing-policy.md",
+      "destination": "_docs/specs/SPEC-writing-policy.md",
+      "sha256": "e48af91d103a6a680191f30c6e0e43c7d3610edb4d4ba4ee6a783509670865bf",
+      "baseline_sha256": "e48af91d103a6a680191f30c6e0e43c7d3610edb4d4ba4ee6a783509670865bf"
+    },
+    {
       "source": "_docs/specs/SPEC-writing-style.md",
       "destination": "_docs/specs/SPEC-writing-style.md",
-      "sha256": "72f36ffb29d6df4d798e73f075d54e4ca9ef9f950b77fbc4a74691f3d25564d8",
-      "baseline_sha256": "72f36ffb29d6df4d798e73f075d54e4ca9ef9f950b77fbc4a74691f3d25564d8"
+      "sha256": "1d5555c5ba405294e2e7bac79f7b5796520e11a63a25ef15975abe14faa4e4a1",
+      "baseline_sha256": "1d5555c5ba405294e2e7bac79f7b5796520e11a63a25ef15975abe14faa4e4a1"
     },
     {
       "source": "_docs/decisions/TEMPLATE-adr.md",

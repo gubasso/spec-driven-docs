@@ -67,3 +67,9 @@ gates:
     include:
       - _docs/reference/known-issues/KI-*.md
       - tests/fixtures/KI-*.md
+
+# Where the writing style comes from. This repository authors the builtin
+# chapter, so it routes to itself.
+writing_style:
+  source: builtin
+  path: null

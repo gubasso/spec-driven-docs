@@ -31,12 +31,20 @@ pub struct Sentinel {
 }
 
 /// Every sentinel this binary knows.
-pub const SENTINELS: &[Sentinel] = &[Sentinel {
-    rule: RuleId::RecordedDimensionOnlyShrinks,
-    source: "_docs/specs/SPEC-budget-debt.md",
-    destination: "{docs_root}/specs/SPEC-budget-debt.md",
-    declares: ".spec-driven-docs/debt.yaml records budget debt",
-}];
+pub const SENTINELS: &[Sentinel] = &[
+    Sentinel {
+        rule: RuleId::RecordedDimensionOnlyShrinks,
+        source: "_docs/specs/SPEC-budget-debt.md",
+        destination: "{docs_root}/specs/SPEC-budget-debt.md",
+        declares: ".spec-driven-docs/debt.yaml records budget debt",
+    },
+    Sentinel {
+        rule: RuleId::ProjectSelectsOneSource,
+        source: "_docs/specs/SPEC-writing-policy.md",
+        destination: "{docs_root}/specs/SPEC-writing-policy.md",
+        declares: ".spec-driven-docs/config.yaml selects a writing style other than builtin",
+    },
+];
 
 /// The sentinel a rule is, if it is one.
 #[must_use]

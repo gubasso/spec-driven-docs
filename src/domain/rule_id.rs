@@ -146,6 +146,8 @@ rule_ids! {
     SourcesNameTheRevisionRead => "writing-style:sources-name-the-revision-read",
     DocumentationBlockRoutesToTheStyle => "writing-style:the-documentation-block-routes-to-the-style",
     StyleLivesInOneDocument => "writing-style:the-style-lives-in-one-document",
+    NoneImposesNoObligation => "writing-policy:none-imposes-no-obligation",
+    ProjectSelectsOneSource => "writing-policy:the-project-selects-one-source",
 }
 
 impl fmt::Display for RuleId {
