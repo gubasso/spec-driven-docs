@@ -24,4 +24,4 @@ Enforced by `distribution:a-landing-classifies-its-target-first` and `distributi
 
 ## Status
 
-Implemented; `src/services/assess.rs` and `method/12-migration.md` enact it.
+Implemented; `src/services/assess.rs` and `method/migration.md` enact it.

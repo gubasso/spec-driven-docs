@@ -79,6 +79,7 @@ rule_ids! {
     FenceDeclaresALanguage => "docs-format:fence-declares-a-language",
     ProseStaysUnwrapped => "docs-format:prose-stays-unwrapped",
     DocumentCarriesNoPersonalPath => "docs-foundations:a-document-carries-no-personal-path",
+    DocumentDirectoryExplainsItself => "docs-foundations:a-document-directory-explains-itself",
     DocumentOwnsWhatItGoverns => "docs-foundations:a-document-owns-what-it-governs",
     KindPrefixCarriesASlug => "docs-foundations:a-kind-prefix-carries-a-slug",
     ArtifactFilenamesCarryAKindPrefix => "docs-foundations:artifact-filenames-carry-a-kind-prefix",

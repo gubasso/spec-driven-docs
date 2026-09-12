@@ -363,7 +363,7 @@ mod tests {
             "README.md",
             "AGENTS.md",
             "method/AGENTS.md",
-            "method/08-gates.md",
+            "method/gates.md",
             "CHANGELOG.md",
             "_docs/specs/SPEC-release.md",
             "_docs/decisions/ADR-a-choice.md",

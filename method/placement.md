@@ -1,4 +1,4 @@
-# 01 — Placement
+# Placement
 
 Every durable fact has one home, decided by the reader need it serves. This chapter names the homes, gives the decision procedure that reaches exactly one of them, and places the docs root itself.
 
@@ -34,7 +34,7 @@ Create a zone when it has real content. An empty zone is a promise the project h
 
 The plan zone's exact path is declared by the project. The instance records it, and `SDD_PLAN_ZONE` overrides the record where it is set. The zone can sit under the docs root, elsewhere in the repository, or outside the repository, because the planning tool owns the record. This framework fixes the zone's existence and reader question, never its path.
 
-Specifications and decisions are the two zones this shelf owns. [02 Specs](./02-specs.md) and [04 Decisions](./04-decisions.md) hold their rules. The other four are ordinary reader-need zones and need no chapter of their own.
+Specifications and decisions are the two zones this shelf owns. [Specs](./specs.md) and [Decisions](./decisions.md) hold their rules. The other four are ordinary reader-need zones and need no chapter of their own.
 
 ## Placement procedure
 
@@ -84,7 +84,7 @@ Two reasons, and the second is the one that decides it.
 
 A path-keyed spec rots on every reorganization. Moving a spec along with a directory refactor is exactly the chore that gets dropped. The survivor is a spec governing a path that no longer exists. A domain key survives the refactor because it names what the rules are about, not where the files sit.
 
-Scoping by location also fails at the load step. An agent editing one directory has no way to know which other directories hold rules that bind it. Centralization plus a small always-loaded author-instructions file is what makes the whole rule set reachable from one place. See [05 Agent Context](./05-agent-context.md).
+Scoping by location also fails at the load step. An agent editing one directory has no way to know which other directories hold rules that bind it. Centralization plus a small always-loaded author-instructions file is what makes the whole rule set reachable from one place. See [Agent Context](./agent-context.md).
 
 ## Domains
 
@@ -108,17 +108,17 @@ A file whose kind this framework fixes carries that kind as an uppercase prefix.
 | Spec companion   | `SPEC-<domain>/`     | `<root>/specs/`                  |
 
 - A file whose kind this framework fixes MUST carry that kind as an uppercase prefix.
-- A prefixed filename MUST carry the slug that identifies it, and no counter.
+- A managed document MUST be named by a slug drawn from its subject, and no counter or position in a sequence. A directory of documents with no kind prefix MUST carry a `README.md` saying what it holds.
 
 The prefix is uppercase because the discriminator must win over the slug when a reader scans a column of filenames. It is the first thing read and the only part that repeats.
 
 The rule that generates the table: prefix a file when its shape is fixed and gated. A project that gates a fifth shape adds a fifth prefix by the same test.
 
-A known-issue case is prefixed because it is the one kind cited from outside the docs root. A suppression in the source names its case, and the prefix is what makes that citation resolvable by a grep over a single directory. [07 Lifecycle](./07-lifecycle.md) owns the record's contents.
+A known-issue case is prefixed because it is the one kind cited from outside the docs root. A suppression in the source names its case, and the prefix is what makes that citation resolvable by a grep over a single directory. [Lifecycle](./lifecycle.md) owns the record's contents.
 
 Guides, reference pages, and explanation pages take no prefix. Their zone directory already names their reader need, and a prefix on every file makes the discriminator meaningless by making it universal.
 
-A prefix is not part of an identifier. A spec's domain is `auth`, not `SPEC-auth`, so a rule ID reads `auth:token-expiry-is-bounded`. See [03 Rules](./03-rules.md).
+A prefix is not part of an identifier. A spec's domain is `auth`, not `SPEC-auth`, so a rule ID reads `auth:token-expiry-is-bounded`. See [Rules](./rules.md).
 
 ## Operational material is zone-first
 
@@ -128,11 +128,11 @@ Runbooks, setup procedures, diagnostics, and incident write-ups are ordinary doc
 
 The docs scratch holds material that is not a statement yet. The project declares where it is, `SDD_DOCS_SCRATCH` overrides that, and it is kept out of version control.
 
-[07 Lifecycle](./07-lifecycle.md) owns what can live there and how it leaves.
+[Lifecycle](./lifecycle.md) owns what can live there and how it leaves.
 
 A reader must be able to tell whether a document is project state from its path alone, without opening it. That is why a filename warning like `draft-final.md` inside the docs root does not substitute for the path.
 
-Forward-looking is not the same as provisional. A ranked plan with declared scope is binding and belongs in the plan zone under version control, however early it is. The test is not whether the document is finished but whether the project is working under it. [07 Lifecycle](./07-lifecycle.md) owns the promotion procedure.
+Forward-looking is not the same as provisional. A ranked plan with declared scope is binding and belongs in the plan zone under version control, however early it is. The test is not whether the document is finished but whether the project is working under it. [Lifecycle](./lifecycle.md) owns the promotion procedure.
 
 ## A project's documents stand on their own
 
@@ -152,7 +152,7 @@ Two exemptions, both by purpose. A file whose whole job is one person's environm
 ## Boundary tests
 
 - A document that answers two reader questions is two documents.
-- A rule with no verification is either not a rule or not yet finished. See [03 Rules](./03-rules.md).
+- A rule with no verification is either not a rule or not yet finished. See [Rules](./rules.md).
 - If a document needs an edit every time a file is added, it indexes the filesystem.
 
 ## Sources

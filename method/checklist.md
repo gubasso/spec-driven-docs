@@ -1,10 +1,10 @@
-# 99 — Checklist
+# Checklist
 
 The pre-merge gate for a documentation change. Every box is answerable yes or no from the diff or from a command. This file is derived: it restates rules in test form and owns none of them. If a box and its owning chapter disagree, the chapter wins.
 
 ## Model
 
-Owner: [00 Model](./00-model.md).
+Owner: [Model](./model.md).
 
 - [ ] Every durable fact touched by the change has exactly one owner, and the reviewer can name it.
 - [ ] No document restates a fact another document owns. Non-owners link instead.
@@ -15,18 +15,18 @@ Owner: [00 Model](./00-model.md).
 
 ## Placement
 
-Owner: [01 Placement](./01-placement.md).
+Owner: [Placement](./placement.md).
 
 - [ ] The docs root matches the product: `docs/` for a codebase, `_docs/` for a content tree, and no product content sits under it.
 - [ ] Each document has one primary reader need and lives in the matching zone.
 - [ ] Every spec is at `<root>/specs/SPEC-<domain>.md` and none is co-located with what it governs.
 - [ ] Every file whose kind this framework fixes carries its uppercase prefix: `SPEC-`, `ADR-`, `KI-`, or `TEMPLATE-`. Guides, reference, and explanation pages carry none.
-- [ ] No prefixed filename carries a counter. The slug is the identifier.
+- [ ] No document name carries a counter or a position in a sequence. The slug is the identifier, and a directory of unprefixed documents has a `README.md` explaining it.
 - [ ] No exploratory material entered the docs root.
 
 ## Specs
 
-Owner: [02 Specs](./02-specs.md).
+Owner: [Specs](./specs.md).
 
 - [ ] The spec uses `## Purpose` then `## Requirements`, and introduces no section outside the shape.
 - [ ] Requirements are ordered with the most consequential first.
@@ -40,7 +40,7 @@ Owner: [02 Specs](./02-specs.md).
 
 ## Rules
 
-Owner: [03 Rules](./03-rules.md).
+Owner: [Rules](./rules.md).
 
 - [ ] Every requirement is one `###`<id>`— <title>` heading with a statement, a scenario, and a `Verify:` line.
 - [ ] Every statement is one sentence in one of the five patterns, with an RFC 2119 keyword.
@@ -52,7 +52,7 @@ Owner: [03 Rules](./03-rules.md).
 
 ## Decisions
 
-Owner: [04 Decisions](./04-decisions.md).
+Owner: [Decisions](./decisions.md).
 
 - [ ] The choice cleared the threshold: cross-cutting, expensive to reverse, constraining, or rejecting a plausible alternative.
 - [ ] The filename is `ADR-<slug>.md` and carries no digit.
@@ -64,7 +64,7 @@ Owner: [04 Decisions](./04-decisions.md).
 
 ## Agent context
 
-Owner: [05 Agent Context](./05-agent-context.md).
+Owner: [Agent Context](./agent-context.md).
 
 - [ ] The always-loaded files are within budget: 100 lines at the root, 150 in a subtree.
 - [ ] Subtree-local rules live in the subtree, and the root file points rather than imports.
@@ -73,7 +73,7 @@ Owner: [05 Agent Context](./05-agent-context.md).
 
 ## Format
 
-Owner: [06 Format](./06-format.md).
+Owner: [Format](./format.md).
 
 - [ ] No bold or italic text anywhere in the change.
 - [ ] Every fenced block declares a language.
@@ -90,7 +90,7 @@ Owner: [06 Format](./06-format.md).
 
 ## Lifecycle
 
-Owner: [07 Lifecycle](./07-lifecycle.md).
+Owner: [Lifecycle](./lifecycle.md).
 
 - [ ] A behavior change in this diff updated the owning spec in the same change.
 - [ ] The change states what was added, modified, or removed, and does not restate what it left alone.
@@ -104,7 +104,7 @@ Owner: [07 Lifecycle](./07-lifecycle.md).
 
 ## Spec to code
 
-Owner: [09 Spec to Code](./09-spec-to-code.md).
+Owner: [Spec to Code](./spec-to-code.md).
 
 - [ ] A spec change in this diff is cited in the enacting entry document as a typed clause: `ADDED`, `MODIFIED`, or `REMOVED`, then the rule ID in inline code.
 - [ ] No requirement carries a stored status marker, and no stored coverage artifact was added.
@@ -117,7 +117,7 @@ Owner: [09 Spec to Code](./09-spec-to-code.md).
 
 ## Procedures
 
-Owner: [10 Procedures](./10-procedures.md).
+Owner: [Procedures](./procedures.md).
 
 - [ ] Every step is one action in the imperative, with at most one sentence after its command.
 - [ ] An outcome no command prints is a verification step rather than a sentence describing it.
@@ -132,7 +132,7 @@ Owner: [10 Procedures](./10-procedures.md).
 
 ## Operational documents
 
-Owner: [11 Operational](./11-operational.md).
+Owner: [Operational](./operational.md).
 
 - [ ] Each operational document carries every part of its shape, and the runbook states the condition under which the reader stops and reverts.
 - [ ] Every destructive step shows its dry-run or inspection form as its own prior step, and states what cannot be recovered before the command.
@@ -142,7 +142,7 @@ Owner: [11 Operational](./11-operational.md).
 
 ## Gates
 
-Owner: [08 Gates](./08-gates.md).
+Owner: [Gates](./gates.md).
 
 - [ ] A rule added by this change is checked by a hook, or listed as unenforced.
 - [ ] The hooks pass on the changed files.

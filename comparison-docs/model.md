@@ -44,5 +44,5 @@ The subject anchors the reader's eye at the left edge where scanning starts. Hol
 ## What this genre is not
 
 - A capability list for one project. That is reference material. It needs no columns.
-- A migration guide. That is a procedure, and [10 Procedures](../method/10-procedures.md) owns its shape.
+- A migration guide. That is a procedure, and [Procedures](../method/procedures.md) owns its shape.
 - An argument. A document that argues belongs beside the matrix, not inside it, so a reader can check the observations without reading the case built on them.

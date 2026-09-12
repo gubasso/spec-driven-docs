@@ -21,7 +21,7 @@ Rules governing the seam between a spec and the work that implements it. Covers 
 
 The plan zone is a declared value rather than a path this specification fixes. That is because the planning tool owns the record, and this framework names no planning tool. A project declares the zone at install, and the instance manifest records it. The `SDD_PLAN_ZONE` environment variable overrides the recorded value. No project edits a line of this file, and every command here is layout-independent.
 
-Where the recorded kind is `untracked` or `env` and the variable is unset, the gate below reports nothing. The zone is absent on a fresh clone. A reviewer holds the rule there, and `08-gates.md` carries the case.
+Where the recorded kind is `untracked` or `env` and the variable is unset, the gate below reports nothing. The zone is absent on a fresh clone. A reviewer holds the rule there, and `gates.md` carries the case.
 
 ## Requirements
 
@@ -113,7 +113,7 @@ Verify: `rg -n "^[[:space:]]*(#|//).*\bADR-[a-z0-9]" . --type-not md && exit 1 |
 
 Where a `KI-<slug>` case is cited outside the documentation root, the author MUST make that case resolve to a known-issue record.
 
-The citation is the subject, not the suppression that carries it. This convention defines the `KI-` token and owns the records it resolves against. It defines no suppression syntax, so no gate here reads one. A suppression that names no case states its reason where its own linter reads one. `09-spec-to-code.md` names the lints that enforce that reason, and the case where a language has none.
+The citation is the subject, not the suppression that carries it. This convention defines the `KI-` token and owns the records it resolves against. It defines no suppression syntax, so no gate here reads one. A suppression that names no case states its reason where its own linter reads one. `spec-to-code.md` names the lints that enforce that reason, and the case where a language has none.
 
 #### Scenario: A record is deleted while a suppression still cites it
 

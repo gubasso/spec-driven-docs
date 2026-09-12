@@ -1,4 +1,4 @@
-# 09 — Spec to Code
+# Spec to Code
 
 A spec can exist before the code it binds. This chapter owns the seam between the two. It covers how a requirement written first becomes work, how the work declares what it changed, and how coverage is derived rather than stored. It states the contract any planning tool can satisfy, and it names none.
 
@@ -21,16 +21,16 @@ A stored status (`status: implemented`, a checkbox, a phase column) is a second 
 
 ## Precedence is phase-dependent
 
-[00 Model](./00-model.md) owns precedence and states both directions. The marker that selects the direction lives here. A unit of work is in flight for a rule while an open entry document cites that rule's ID. While it is, the spec states the agreement and divergent code is the defect. When no work cites the rule, the code is the observed truth and a divergent spec is the defect.
+[Model](./model.md) owns precedence and states both directions. The marker that selects the direction lives here. A unit of work is in flight for a rule while an open entry document cites that rule's ID. While it is, the spec states the agreement and divergent code is the defect. When no work cites the rule, the code is the observed truth and a divergent spec is the defect.
 
 ## The entry document enacts rules by ID
 
-[05 Agent Context](./05-agent-context.md) gives each unit of work one entry document that names its sources by path. When the work changes agreed behavior, path-level naming is not enough. The entry document also names the rules, so enactment is greppable.
+[Agent Context](./agent-context.md) gives each unit of work one entry document that names its sources by path. When the work changes agreed behavior, path-level naming is not enough. The entry document also names the rules, so enactment is greppable.
 
 - An entry document that changes agreed behavior MUST cite the affected rule IDs.
 - An entry document citing a spec change MUST type it as `ADDED`, `MODIFIED`, or `REMOVED`.
 
-The three types are the three operations of [07 Lifecycle](./07-lifecycle.md), stated from the work's side. One clause per affected rule, on the line that names the owning spec:
+The three types are the three operations of [Lifecycle](./lifecycle.md), stated from the work's side. One clause per affected rule, on the line that names the owning spec:
 
 ```markdown
 - `_docs/specs/SPEC-auth.md` — ADDED `auth:token-expiry-is-bounded`
@@ -94,9 +94,9 @@ JavaScript  eslint-comments/require-description
 
 Not every toolchain ships one. Ruff has no rule that requires a description on a `noqa` directive, and `RUF100` reports an obsolete directive rather than an undescribed one. Where the language offers nothing, the reason stays a review obligation.
 
-A gate this framework delivers parses no grammar somebody else defines. What it reads is the `KI-` token this convention owns, and it fails where that token resolves to no record. [08 Gates](./08-gates.md) holds the check and carries this expectation in its unenforced table.
+A gate this framework delivers parses no grammar somebody else defines. What it reads is the `KI-` token this convention owns, and it fails where that token resolves to no record. [Gates](./gates.md) holds the check and carries this expectation in its unenforced table.
 
-A test that must not hide the bug at all keeps failing, with the case id in a comment beside it. The case id is the record's filename, so it resolves the same way a rule ID does. The reason string needs no restated summary. The record it names holds the symptom, the workaround, and the retire condition. The case, its states, and its retirement belong to [07 Lifecycle](./07-lifecycle.md).
+A test that must not hide the bug at all keeps failing, with the case id in a comment beside it. The case id is the record's filename, so it resolves the same way a rule ID does. The reason string needs no restated summary. The record it names holds the symptom, the workaround, and the retire condition. The case, its states, and its retirement belong to [Lifecycle](./lifecycle.md).
 
 ## Coverage is a grep
 
@@ -123,7 +123,7 @@ What that prints is a rule ID cited in code that no spec defines: a fabricated c
 
 - A project MUST NOT maintain a stored coverage artifact.
 
-A traceability matrix, a rules-to-stories index, or a backlog file restates what the greps derive. Each is the filesystem-index shape [00 Model](./00-model.md) forbids. It is a copy kept because the records exist, and it drifts on the next change to either side.
+A traceability matrix, a rules-to-stories index, or a backlog file restates what the greps derive. Each is the filesystem-index shape [Model](./model.md) forbids. It is a copy kept because the records exist, and it drifts on the next change to either side.
 
 ## What the planning tool owes
 
@@ -135,7 +135,7 @@ The zone's path is a declared value too. The project declares it once and the in
 
 Two rules in this chapter no command can decide. The first is that a unit of work which changed a spec declared the typed clause at all. The second is that the cited type matches the diff. A gate checks every declared clause and cannot see an omitted or mistyped one. The reviewer compares the spec diff against the entry document.
 
-A third condition is unenforced by the project's own choice rather than by kind. Only a plan zone the project declared tracked is gated. A project that keeps its entry documents untracked has a zone no clone carries, and so does one that reaches them through `SDD_PLAN_ZONE`. The gate declines it, and a reviewer holds the clause shape instead. [08 Gates](./08-gates.md) carries all three in the unenforced list.
+A third condition is unenforced by the project's own choice rather than by kind. Only a plan zone the project declared tracked is gated. A project that keeps its entry documents untracked has a zone no clone carries, and so does one that reaches them through `SDD_PLAN_ZONE`. The gate declines it, and a reviewer holds the clause shape instead. [Gates](./gates.md) carries all three in the unenforced list.
 
 ## Sources
 

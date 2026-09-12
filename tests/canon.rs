@@ -400,6 +400,140 @@ fn walk_markdown(dir: &Path, files: &mut Vec<PathBuf>) {
     }
 }
 
+/// The documentation subtrees this repository authors. A numbered document
+/// in any of them is the merge collision the naming rule exists to prevent.
+const DOCUMENT_SUBTREES: &[&str] = &[
+    "method",
+    "comparison-docs",
+    "templates",
+    "reference",
+    "_docs",
+    "instance",
+    "skills",
+    "skill-shared",
+];
+
+/// SATISFIES docs-foundations:a-kind-prefix-carries-a-slug
+///
+/// The chapter shelves are canon subtrees no instance edits, so this is a
+/// canon check and not a delivered gate.
+#[test]
+fn no_authored_document_carries_an_ordinal_prefix() {
+    let mut markdown = Vec::new();
+    for subtree in DOCUMENT_SUBTREES {
+        walk_markdown(&canon().join(subtree), &mut markdown);
+    }
+    assert!(
+        !markdown.is_empty(),
+        "the document subtrees hold no Markdown"
+    );
+    for path in markdown {
+        let name = path.file_name().unwrap().to_string_lossy();
+        // A digit run followed by a hyphen at the front of the slug, after
+        // any uppercase kind prefix, is the allocated form. A digit inside a
+        // slug, as in `2fa-setup.md`, names a subject and passes.
+        let slug = match name.split_once('-') {
+            Some((prefix, rest))
+                if !prefix.is_empty() && prefix.bytes().all(|b| b.is_ascii_uppercase()) =>
+            {
+                rest
+            }
+            _ => name.as_ref(),
+        };
+        let bytes = slug.as_bytes();
+        let digits = bytes.iter().take_while(|b| b.is_ascii_digit()).count();
+        let numbered = digits > 0 && bytes.get(digits) == Some(&b'-');
+        assert!(
+            !numbered,
+            "{}: a document is named by a slug, not by a number; the reading order belongs in the directory's README.md",
+            path.strip_prefix(canon()).unwrap().display()
+        );
+    }
+}
+
+/// SATISFIES docs-foundations:a-document-directory-explains-itself
+///
+/// The file exists and nothing more. Reading inside it would make the prose
+/// a contract, which defeats the reason the rule asks for prose.
+#[test]
+fn every_directory_of_slug_named_documents_has_a_readme() {
+    for directory in [
+        "method",
+        "comparison-docs",
+        "reference/prior-art",
+        "reference/tracker-markup",
+    ] {
+        assert!(
+            canon().join(directory).join("README.md").is_file(),
+            "{directory}/ holds slug-named documents and no README.md explains them"
+        );
+    }
+}
+
+/// The RFC 2119 spellings `method/rules.md` declines to declare. Each is a
+/// synonym of a declared keyword, and `ADR-declare-one-spelling-per-requirement-level`
+/// states why a synonym costs a reader a decision.
+const RETIRED_KEYWORDS: &[&str] = &["SHALL", "REQUIRED", "RECOMMENDED", "OPTIONAL"];
+
+/// Files quoting another project's terms, which keep their own words.
+const QUOTED_TERMS: &[&str] = &[
+    "THIRD_PARTY_NOTICES.md",
+    "LICENSE",
+    "LICENSE-MIT",
+    "LICENSE-CC-BY-4.0",
+];
+
+/// Whether `line` carries `word` as a whole uppercase word.
+fn names_uppercase_word(line: &str, word: &str) -> bool {
+    line.match_indices(word).any(|(at, _)| {
+        let before = line[..at].chars().next_back();
+        let after = line[at + word.len()..].chars().next();
+        !before.is_some_and(|c| c.is_ascii_alphanumeric() || c == '_')
+            && !after.is_some_and(|c| c.is_ascii_alphanumeric() || c == '_')
+    })
+}
+
+/// SATISFIES docs-specs:statement-uses-an-ears-pattern
+///
+/// The chapter declares the set, the gate snippets and the spec's `Verify:`
+/// commands run it, and this holds the authored tree to the declaration so
+/// the three copies cannot drift apart in silence.
+#[test]
+fn no_authored_document_uses_a_retired_keyword() {
+    let mut markdown = Vec::new();
+    for subtree in DOCUMENT_SUBTREES {
+        walk_markdown(&canon().join(subtree), &mut markdown);
+    }
+    for root_file in ["README.md", "AGENTS.md"] {
+        markdown.push(canon().join(root_file));
+    }
+    for path in markdown {
+        let relative = path.strip_prefix(canon()).unwrap().display().to_string();
+        if QUOTED_TERMS.contains(&path.file_name().unwrap().to_str().unwrap()) {
+            continue;
+        }
+        let text = std::fs::read_to_string(&path).unwrap();
+        for (index, line) in text.lines().enumerate() {
+            for word in RETIRED_KEYWORDS {
+                assert!(
+                    !names_uppercase_word(line, word),
+                    "{relative}:{}: '{word}' is a synonym of a declared keyword; method/rules.md declares one spelling per level",
+                    index + 1
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn a_retired_keyword_is_matched_as_an_uppercase_word() {
+    assert!(names_uppercase_word("The author SHALL cite it.", "SHALL"));
+    assert!(names_uppercase_word("(SHALL)", "SHALL"));
+    assert!(!names_uppercase_word("the author shall cite it", "SHALL"));
+    assert!(!names_uppercase_word("MARSHALL", "SHALL"));
+    assert!(!names_uppercase_word("OPTIONAL_FLAG", "OPTIONAL"));
+}
+
 /// SATISFIES spec-to-code:a-gate-message-cites-the-rule
 #[test]
 fn every_spec_defined_rule_cited_by_the_registry_resolves() {

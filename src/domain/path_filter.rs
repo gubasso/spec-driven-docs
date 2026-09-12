@@ -471,7 +471,7 @@ mod tests {
             &["_docs/scratch/**", "method/draft.md"],
         );
         assert_eq!(decide(&f, "README.md"), Decision::Read);
-        assert_eq!(decide(&f, "method/08-gates.md"), Decision::Read);
+        assert_eq!(decide(&f, "method/gates.md"), Decision::Read);
         assert_eq!(decide(&f, "_docs/specs/SPEC-a.md"), Decision::Read);
         assert!(matches!(
             decide(&f, "_docs/scratch/note.md"),

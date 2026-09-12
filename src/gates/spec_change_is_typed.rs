@@ -4,7 +4,7 @@
 //! its own.
 //!
 //! What it judges is a clause line: a line that names an owning spec by path,
-//! in inline code, which is the shape `09-spec-to-code.md` fixes. On such a
+//! in inline code, which is the shape `spec-to-code.md` fixes. On such a
 //! line every `ADDED`, `MODIFIED`, or `REMOVED` token must be followed by a
 //! space and the rule ID in inline code. Judging is per occurrence rather
 //! than per line, so a line carrying one good clause and one malformed clause
@@ -22,7 +22,7 @@
 //! and a recorded path that is not repository-relative. The variable is held
 //! to no such shape: reaching records outside the checkout is what it is for.
 //! Where the project declared no zone a command may read, the gate reports
-//! nothing and `08-gates.md` carries the case as unenforced.
+//! nothing and `gates.md` carries the case as unenforced.
 
 use camino::{Utf8Path, Utf8PathBuf};
 
@@ -518,7 +518,7 @@ mod tests {
     }
 
     /// A record declaring a gated zone it cannot resolve fails rather than
-    /// skipping, which is the state `07-lifecycle.md` forbids.
+    /// skipping, which is the state `lifecycle.md` forbids.
     #[test]
     fn a_broken_declaration_is_a_layout_violation() {
         let dir = repository("plan", BAD);

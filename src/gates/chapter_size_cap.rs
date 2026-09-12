@@ -26,12 +26,10 @@ const CHAPTER_ZONES: &[&str] = &["./method", "./comparison-docs"];
 
 fn cap_for(file: &Utf8Path) -> usize {
     if file.file_name().is_some_and(|name| {
-        name.ends_with("-gates.md")
-            || name.ends_with("-checklist.md")
-            || matches!(
-                name,
-                "gates.md" | "checklist.md" | "glossary.md" | "README.md" | "SOURCES.md"
-            )
+        matches!(
+            name,
+            "gates.md" | "checklist.md" | "glossary.md" | "README.md" | "SOURCES.md"
+        )
     }) {
         300
     } else {
@@ -186,8 +184,6 @@ mod tests {
         write(&dir, "method/gates.md", &"line\n".repeat(300));
         write(&dir, "method/checklist.md", &"line\n".repeat(300));
         write(&dir, "method/glossary.md", &"line\n".repeat(300));
-        write(&dir, "method/08-gates.md", &"line\n".repeat(300));
-        write(&dir, "method/08-checklist.md", &"line\n".repeat(300));
         write(&dir, "comparison-docs/SOURCES.md", &"line\n".repeat(300));
         assert!(run_in(&dir).is_empty());
 
@@ -195,8 +191,6 @@ mod tests {
             "README.md",
             "comparison-docs/SOURCES.md",
             "instance/README.md",
-            "method/08-checklist.md",
-            "method/08-gates.md",
             "method/README.md",
             "method/checklist.md",
             "method/gates.md",
@@ -204,7 +198,7 @@ mod tests {
         ] {
             write(&dir, path, &"line\n".repeat(301));
         }
-        assert_eq!(run_in(&dir).len(), 9);
+        assert_eq!(run_in(&dir).len(), 7);
     }
 
     #[test]

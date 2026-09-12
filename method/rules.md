@@ -1,4 +1,4 @@
-# 03 — Rules
+# Rules
 
 A rule is the smallest unit this framework names, cites, and checks. It is one ``### `<spec-slug>:<rule-slug>` — <title>`` block inside a spec, never a file of its own. This chapter owns the block: its grammar, its identifier, and the command that proves it.
 
@@ -28,7 +28,7 @@ Verify: `find _docs/decisions -name 'ADR-*' | rg '[0-9]' && exit 1 || exit 0`
 | Scenario  | one case that distinguishes compliance from breach |
 | Verify    | the command that decides it                        |
 
-A rule is not a file. Splitting a domain across dozens of files costs a read apiece and defeats the one-level-deep rule in [05 Agent Context](./05-agent-context.md). A fifteen-rule spec is one read.
+A rule is not a file. Splitting a domain across dozens of files costs a read apiece and defeats the one-level-deep rule in [Agent Context](./agent-context.md). A fifteen-rule spec is one read.
 
 ## Grammar
 
@@ -58,7 +58,9 @@ Naming a subject that can act is the rule that catches most bad requirements. "T
 
 ## Keywords
 
-Use MUST, MUST NOT, REQUIRED, SHALL, SHALL NOT, SHOULD, SHOULD NOT, MAY, in capitals, as RFC 2119 and RFC 8174 define them. Capitalization is what makes them normative and greppable. The same words in lowercase are ordinary prose.
+Use MUST, MUST NOT, SHOULD, SHOULD NOT, and MAY, in capitals, as RFC 2119 and RFC 8174 define them. Capitalization is what makes them normative and greppable. The same words in lowercase are ordinary prose.
+
+RFC 2119 defines eleven keywords for three levels. This project declares one spelling for each level, because a reader who meets two spellings has to decide whether the author meant a difference.
 
 Prefer MUST and MUST NOT. A rule stated as SHOULD is a rule nobody is accountable for, and a spec whose every rule is a SHOULD is a style guide.
 
@@ -149,7 +151,7 @@ Three is the cap because a marker is for a question that changes scope, reads se
 
 The command is the rule's teeth. It appears three times over: in the spec, in the hook, and in the failure message. The spec lets a reader run it, the hook gates a commit, and the failure message lets a breach name its own rule.
 
-When a rule genuinely cannot be checked by a command, the `Verify:` line names the human procedure instead. In that case, [08 Gates](./08-gates.md) records it as unenforced. An unenforced rule declared as such is honest. An unenforced rule presented as binding is the reason readers stop believing specs.
+When a rule genuinely cannot be checked by a command, the `Verify:` line names the human procedure instead. In that case, [Gates](./gates.md) records it as unenforced. An unenforced rule declared as such is honest. An unenforced rule presented as binding is the reason readers stop believing specs.
 
 ```text
 checkable  Verify: `find _docs/decisions -name 'ADR-*' | rg '[0-9]' && exit 1 || exit 0`
