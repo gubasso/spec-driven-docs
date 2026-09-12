@@ -23,7 +23,7 @@ The fixed word is what makes the column greppable. A reviewer counting how many 
 - A verdict MUST pair its symbol with its word.
 - A verdict MUST NOT be a bare symbol.
 
-A symbol alone fails four readers. A screen reader announces the Unicode name assigned by the consortium, so `✅` reads as "white heavy check mark" and never as "yes". Markdown gives no way to override that name. A monochrome or e-ink reader loses the green-red distinction, and so does anyone with a red-green color vision deficiency. A terminal or diff without emoji fonts renders a box. The Google style guide states the general rule directly: do not present new information in a table through symbols alone.
+A symbol alone fails four readers. The only name `✅` carries comes from the character data rather than from the author, so no name a screen reader can reach says "yes". The CLDR short name is "check mark button". Markdown gives no way to override that name. A monochrome or e-ink reader loses the green-red distinction, and so does anyone with a red-green color vision deficiency. A terminal or diff without emoji fonts renders a box. The Google style guide states the general rule directly: do not present new information in a table through symbols alone.
 
 The word costs four characters and removes all four failures. The symbol earns its place by making the column scannable at a glance, which is the whole reason the genre uses a table.
 
@@ -51,5 +51,6 @@ An empty cell means one of four different things, and the reader cannot tell whi
 ## Sources
 
 - Google developer documentation style guide, on not conveying information by symbol alone: <https://developers.google.com/style/tables>
-- W3C technique H86, on text alternatives for emoji and symbols: <https://www.w3.org/WAI/WCAG20/Techniques/html/H86>
+- W3C technique H86, on an emoji's predefined name not matching what the author means: <https://www.w3.org/WAI/WCAG22/Techniques/html/H86>
+- Unicode emoji chart, on "check mark button" being the CLDR short name for `✅`: <https://unicode.org/emoji/charts/full-emoji-list.html>
 - Playwright and Astral `ty`, two published feature tables that pair the symbol with a word: <https://playwright.dev/docs/test-global-setup-teardown> and <https://docs.astral.sh/ty/features/language-server/>
