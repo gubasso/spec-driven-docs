@@ -14,6 +14,8 @@
 //! - [`gates`] — the delivered gate implementations and their registry.
 //! - [`services`] — install, verify, upgrade, and hook-rendering orchestration.
 //! - [`adapters`] — filesystem I/O at the edges.
+//! - [`transaction`] — the lock, staging, and journal a recoverable
+//!   multi-file write runs through.
 //! - [`cli`] / [`commands`] — clap parse shapes and their handlers.
 //! - [`error`] — [`error::AppError`] and the exit-code matrix.
 
@@ -30,3 +32,4 @@ pub mod output;
 pub mod payload_roots;
 pub mod probes;
 pub mod services;
+pub mod transaction;

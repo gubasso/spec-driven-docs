@@ -19,7 +19,6 @@ use spec_driven_docs::domain::skill_record::SkillRecord;
 use support::Home;
 
 const RECORD: &str = ".local/state/spec-driven-docs/skills.json";
-const SHARED_ROOT: &str = ".local/state/spec-driven-docs/skills/shared";
 
 /// Write an executable stub that exits with `code`.
 fn stub(home: &Home, name: &str, code: u8) -> String {
@@ -182,7 +181,7 @@ fn the_payload_probe_tells_a_stale_skill_from_an_edited_one() {
     );
 }
 
-/// The gate probe answers for the shared artifacts alone: a home whose
+/// The gate probe answers for each package's references alone: a home whose
 /// skills are installed but whose gates are gone is exactly the failure it
 /// exists to name.
 #[test]
@@ -194,7 +193,7 @@ fn the_gate_probe_names_a_home_whose_skills_cannot_read_their_gate() {
         .success();
     assert_eq!(probe(&report(&home), "skill-gate")["status"], "ok");
 
-    std::fs::remove_dir_all(home.path().join(SHARED_ROOT)).unwrap();
+    std::fs::remove_dir_all(home.path().join(".claude/skills/sdd-setup/references")).unwrap();
     let after = report(&home);
     assert_eq!(probe(&after, "skill-gate")["status"], "failed");
     assert!(
@@ -208,35 +207,32 @@ fn the_gate_probe_names_a_home_whose_skills_cannot_read_their_gate() {
         probe(&after, "skill-gate")["remediation"],
         "sdd skill install --apply"
     );
-    assert_eq!(
-        probe(&after, "skill-payload")["status"],
-        "ok",
-        "the skills are installed; only their gate is missing"
-    );
 }
 
-/// A symlinked shared-root chain is a layout the installer refuses, so the
-/// gate probe must not report it ready.
+/// A file the sweep left under the retired shared root is the operator's,
+/// and the probe names it rather than deleting it.
 #[test]
-fn the_gate_probe_refuses_a_symlinked_shared_root() {
+fn the_gate_probe_names_an_unvouched_leftover_at_the_retired_shared_root() {
     let home = Home::new();
     home.cmd()
         .args(["skill", "install", "--apply"])
         .assert()
         .success();
-    let state_dir = home.path().join(".local/state/spec-driven-docs");
-    let elsewhere = home.path().join("elsewhere");
-    std::fs::rename(state_dir.join("skills"), &elsewhere).unwrap();
-    std::os::unix::fs::symlink(&elsewhere, state_dir.join("skills")).unwrap();
+    let leftover = home
+        .path()
+        .join(".local/state/spec-driven-docs/skills/shared/plan-gate.md");
+    std::fs::create_dir_all(leftover.parent().unwrap()).unwrap();
+    std::fs::write(&leftover, "mine\n").unwrap();
     let after = report(&home);
     assert_eq!(probe(&after, "skill-gate")["status"], "failed");
     assert!(
         probe(&after, "skill-gate")["message"]
             .as_str()
             .unwrap()
-            .contains("symlink"),
-        "the message names the symlink"
+            .contains("retired shared root"),
+        "the message names the retired root"
     );
+    assert!(leftover.is_file(), "the probe removed the leftover");
 }
 
 /// An absence beside an edit the record cannot vouch for takes the force

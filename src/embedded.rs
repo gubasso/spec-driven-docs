@@ -72,12 +72,33 @@ pub fn skill(name: &str) -> Option<&'static str> {
         .and_then(include_dir::File::contents_utf8)
 }
 
+/// Every file of one installed skill package, as `(path relative to the
+/// package root, bytes)`, sorted by path.
+///
+/// A package is the unit the Agent Skills format and every documented host
+/// resolve against: one directory holding `SKILL.md` and supporting files
+/// beside it. The shared artifacts are authored once under `skill-shared/`
+/// and materialized here into every package, so a fix lands in one file and
+/// reaches every root the installer writes.
+#[must_use]
+pub fn skill_package(name: &str) -> Option<Vec<(String, &'static [u8])>> {
+    use crate::domain::paths::{SKILL_FILE, SKILL_REFERENCES_DIR};
+
+    let manual = SKILLS.get_file(format!("{name}/{SKILL_FILE}"))?;
+    let mut files = vec![(SKILL_FILE.to_string(), manual.contents())];
+    for (path, bytes) in shared_artifacts() {
+        files.push((format!("{SKILL_REFERENCES_DIR}/{path}"), bytes));
+    }
+    files.sort_by(|left, right| left.0.cmp(&right.0));
+    Some(files)
+}
+
 /// Every artifact the skills share, as `(path under the root, bytes)`,
 /// sorted by path.
 ///
-/// These land once, outside the agent skill roots, because every skill names
-/// the same absolute path for them. A copy per skill would be one file to
-/// correct per agent root per skill; one copy is one.
+/// This is the authored view. What lands is [`skill_package`], which copies
+/// each of these into every package as a reference relative to the skill's
+/// own root.
 #[must_use]
 pub fn shared_artifacts() -> Vec<(String, &'static [u8])> {
     fn walk(dir: &Dir<'static>, out: &mut Vec<(String, &'static [u8])>) {

@@ -12,9 +12,11 @@ use camino::{Utf8Path, Utf8PathBuf};
 use serde::Serialize;
 
 use crate::domain::ownership::Sha256;
-use crate::domain::paths::{AgentId, UserEnv};
-use crate::domain::skill_record::{RECORD_PATH, SkillRecord};
-use crate::services::skill_installer::{SHARED_ROOT, home};
+use crate::domain::paths::{
+    AgentId, LEGACY_SHARED_ROOT, SKILL_FILE, SKILL_RECEIPT_FILE, SKILL_REFERENCES_DIR, UserEnv,
+};
+use crate::domain::skill_record::SkillRecord;
+use crate::services::skill_installer::home;
 
 /// Every agent skill root under this home, resolved through the table.
 ///
@@ -27,6 +29,45 @@ fn agent_roots() -> Vec<Utf8PathBuf> {
         .into_iter()
         .map(|entry| entry.path)
         .collect()
+}
+
+/// The state root this host resolves.
+fn resolved_state_root() -> Option<Utf8PathBuf> {
+    UserEnv::from_process().state_root().map(|entry| entry.path)
+}
+
+/// The receipt, read from the resolved path or the home-relative one.
+fn receipt() -> SkillRecord {
+    let env = UserEnv::from_process();
+    let Some(state) = env.state_root() else {
+        return SkillRecord::new();
+    };
+    let legacy = env
+        .legacy_state_root()
+        .map_or_else(|| state.path.clone(), |root| root.join(SKILL_RECEIPT_FILE));
+    SkillRecord::load_with_fallback(&state.path.join(SKILL_RECEIPT_FILE), &legacy)
+}
+
+/// Every installed package file this binary carries, under every agent root
+/// that exists.
+fn installed_packages() -> Vec<(Utf8PathBuf, &'static [u8])> {
+    let mut planned = Vec::new();
+    for root in agent_roots() {
+        // An absent agent root is a choice, not a defect: `--agent` selects
+        // one family and leaves the other's root untouched.
+        if !root.is_dir() {
+            continue;
+        }
+        for name in crate::embedded::skill_names() {
+            let Some(package) = crate::embedded::skill_package(name) else {
+                continue;
+            };
+            for (relative, bytes) in package {
+                planned.push((root.join(name).join(relative), bytes));
+            }
+        }
+    }
+    planned
 }
 
 /// How a failure weighs at the doctor level.
@@ -154,11 +195,11 @@ fn tool(
     }
 }
 
-/// The state root accepts writes; the skill record and the shared artifacts
+/// The state root accepts writes; the receipt, the lock, and the journal
 /// live under it.
 fn state_root() -> ProbeResult {
     let id = "state-root";
-    let Ok(home) = home() else {
+    let Some(root) = resolved_state_root() else {
         return ProbeResult::failed(
             id,
             ProbeClass::Hard,
@@ -166,7 +207,6 @@ fn state_root() -> ProbeResult {
             "export HOME",
         );
     };
-    let root = home.join(crate::domain::paths::STATE_ROOT);
     let probe = root.join(format!(".probe-{}", std::process::id()));
     let written = std::fs::create_dir_all(&root).and_then(|()| std::fs::write(&probe, b"probe"));
     let _ = std::fs::remove_file(&probe);
@@ -182,7 +222,7 @@ fn state_root() -> ProbeResult {
 }
 
 /// The destinations `sdd skill install` writes accept writes: the two agent
-/// roots and the shared root, all under the invoking user's home.
+/// roots and the resolved state root.
 ///
 /// A root can exist and still refuse, which is what a read-only bind of an
 /// agent directory produces, so what is tested is the nearest existing
@@ -202,7 +242,7 @@ fn skill_roots() -> ProbeResult {
     };
     let mut refused = Vec::new();
     let mut roots = agent_roots();
-    roots.push(home.join(SHARED_ROOT));
+    roots.extend(resolved_state_root());
     for root in roots {
         let Some(existing) = nearest_existing(&root) else {
             refused.push(format!("no ancestor of {root} exists"));
@@ -228,40 +268,48 @@ fn skill_roots() -> ProbeResult {
     }
 }
 
-/// The artifacts every skill shares are installed, and are this binary's.
+/// Every installed package carries the two gates it is told to read first.
 ///
-/// This is the probe that answers the one failure a shared home produces.
-/// The agent roots and the shared root are separate directories, so a
-/// container, a sandbox, or a sync that carries one and not the other
-/// leaves every skill resolvable by name and unable to read the gates it is
-/// told to read first. A skill that cannot read them runs neither its
-/// pre-flight nor its plan phase, which is the whole reason they are files
-/// rather than prose.
+/// This is the probe that answers the one failure a shared home produces. A
+/// container, a sandbox, or a sync that carries a `SKILL.md` without the
+/// `references/` beside it leaves the skill resolvable by name and unable
+/// to read the gates its first section names. A skill that cannot read them
+/// runs neither its pre-flight nor its plan phase, which is the whole
+/// reason they are files rather than prose.
 fn skill_gate() -> ProbeResult {
     let id = SKILL_PROBES[1];
     let Ok(home) = home() else {
         return ProbeResult::failed(
             id,
             ProbeClass::Soft,
-            "HOME is not set, so the shared root does not resolve",
+            "HOME is not set, so no skill package resolves",
             "export HOME",
         );
     };
-    if let Some(link) = shared_chain_symlink(&home) {
+    let record = receipt();
+    let references: Vec<(Utf8PathBuf, &'static [u8])> = installed_packages()
+        .into_iter()
+        .filter(|(path, _)| {
+            path.parent()
+                .is_some_and(|parent| parent.file_name() == Some(SKILL_REFERENCES_DIR))
+        })
+        // Only a package that landed is judged: an absent skill is the
+        // payload probe's finding, not this one's.
+        .filter(|(path, _)| {
+            path.parent()
+                .and_then(Utf8Path::parent)
+                .is_some_and(|package| package.join(SKILL_FILE).is_file())
+        })
+        .collect();
+    if references.is_empty() {
         return ProbeResult::failed(
             id,
             ProbeClass::Soft,
-            format!("the shared root is reached through a symlink: {link}"),
-            "remove the symlink; sdd skill install refuses to write through it",
+            format!("no installed skill package under {home} carries its gates"),
+            "sdd skill install --apply",
         );
     }
-    let root = home.join(SHARED_ROOT);
-    let record = SkillRecord::load(&home.join(RECORD_PATH));
-    let planned: Vec<(Utf8PathBuf, &'static [u8])> = crate::embedded::shared_artifacts()
-        .into_iter()
-        .map(|(path, bytes)| (root.join(path), bytes))
-        .collect();
-    let found = judge(planned, &record);
+    let found = judge(references, &record);
     if let Some(first) = found.missing.first() {
         // The remediation still honours what the rest of the set holds: an
         // absence beside an edit the record cannot vouch for needs the
@@ -269,7 +317,7 @@ fn skill_gate() -> ProbeResult {
         return ProbeResult::failed(
             id,
             ProbeClass::Soft,
-            format!("a shared artifact every skill reads before acting is not installed: {first}"),
+            format!("a gate every skill reads before acting is not installed: {first}"),
             reinstall(found.all_recorded),
         );
     }
@@ -278,17 +326,48 @@ fn skill_gate() -> ProbeResult {
             id,
             ProbeClass::Soft,
             format!(
-                "{} shared artifact(s) under {root} are not this binary's",
+                "{} installed gate reference(s) are not this binary's",
                 found.differing.len()
             ),
             reinstall(found.all_recorded),
         );
     }
+    if let Some(leftover) = retired_shared_leftover(&home, &record) {
+        return ProbeResult::failed(
+            id,
+            ProbeClass::Soft,
+            format!("the retired shared root holds a file no receipt vouches for: {leftover}"),
+            format!("read {leftover}, then remove it; every skill now carries its own gates"),
+        );
+    }
     ProbeResult::ok(
         id,
         ProbeClass::Soft,
-        format!("{root} holds this binary's shared artifacts"),
+        format!(
+            "{} installed gate reference(s) are this binary's",
+            found.matching
+        ),
     )
+}
+
+/// A file under the retired shared root that no receipt accounts for.
+///
+/// A sweep takes back what the receipt vouches for. What it leaves is the
+/// operator's, and naming it is the only honest thing a probe can do with a
+/// file this tool refuses to delete.
+fn retired_shared_leftover(home: &Utf8Path, record: &SkillRecord) -> Option<Utf8PathBuf> {
+    let retired = home.join(LEGACY_SHARED_ROOT);
+    let mut found: Vec<Utf8PathBuf> = walkdir::WalkDir::new(retired.as_std_path())
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_type().is_file())
+        .filter_map(|entry| Utf8PathBuf::from_path_buf(entry.into_path()).ok())
+        .filter(|path| {
+            !std::fs::read(path).is_ok_and(|held| record.wrote(path, &Sha256::of(&held)))
+        })
+        .collect();
+    found.sort();
+    found.into_iter().next()
 }
 
 /// The skills installed under this home are the ones this binary carries.
@@ -308,26 +387,8 @@ fn skill_payload() -> ProbeResult {
             "export HOME",
         );
     };
-    let record = SkillRecord::load(&home.join(RECORD_PATH));
-    let mut planned = Vec::new();
-    for root in agent_roots() {
-        // An absent agent root is a choice, not a defect: `--agent` selects
-        // one family and leaves the other's root untouched.
-        if !root.is_dir() {
-            continue;
-        }
-        for name in crate::embedded::skill_names() {
-            let Some(text) = crate::embedded::skill(name) else {
-                return ProbeResult::failed(
-                    id,
-                    ProbeClass::Soft,
-                    "this binary's embedded skills do not read",
-                    "reinstall sdd; the payload it was built from is defective",
-                );
-            };
-            planned.push((root.join(name).join("SKILL.md"), text.as_bytes()));
-        }
-    }
+    let record = receipt();
+    let planned = installed_packages();
     if planned.is_empty() {
         return ProbeResult::failed(
             id,
@@ -344,7 +405,7 @@ fn skill_payload() -> ProbeResult {
             id,
             ProbeClass::Soft,
             format!(
-                "{} of this binary's skills are not installed, the first at {first}",
+                "{} of this binary's package files are not installed, the first at {first}",
                 found.missing.len()
             ),
             reinstall(found.all_recorded),
@@ -355,7 +416,7 @@ fn skill_payload() -> ProbeResult {
             id,
             ProbeClass::Soft,
             format!(
-                "{} installed skill(s) are not this binary's; sdd is {}",
+                "{} installed package file(s) are not this binary's; sdd is {}",
                 found.differing.len(),
                 env!("CARGO_PKG_VERSION")
             ),
@@ -418,26 +479,6 @@ const fn reinstall(all_recorded: bool) -> &'static str {
     } else {
         "sdd skill install --apply --force"
     }
-}
-
-/// A symlink in the tool-owned chain from the state directory down to the
-/// shared root. The installer refuses to write through one, so a probe that
-/// passed it would report a host whose prescribed install cannot run.
-fn shared_chain_symlink(home: &Utf8Path) -> Option<Utf8PathBuf> {
-    let record = home.join(RECORD_PATH);
-    let state_dir = record.parent()?;
-    let shared = home.join(SHARED_ROOT);
-    let mut current = Some(shared.as_path());
-    while let Some(dir) = current {
-        if !dir.starts_with(state_dir) {
-            break;
-        }
-        if dir.is_symlink() {
-            return Some(dir.to_owned());
-        }
-        current = dir.parent();
-    }
-    None
 }
 
 /// The nearest ancestor of `path`, itself included, that exists as a

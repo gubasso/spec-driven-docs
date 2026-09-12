@@ -34,9 +34,15 @@ sdd skill install
 sdd skill install --apply
 ```
 
-`sdd skill install` writes into `~/.claude/skills`, which Claude Code reads, and `~/.agents/skills`, which Codex, OpenCode, and Pi each document that they read. `CLAUDE_CONFIG_DIR` relocates the first root and leaves the second where it is. It previews by default and refuses a destination whose bytes it cannot account for unless `--force` is given. It accounts for two things: the payload it carries, and `~/.local/state/spec-driven-docs/skills.json`, which records the digest each successful apply wrote. A copy an older release left is replaced without asking. A file you edited refuses. An apply that fails partway restores every destination, so the two roots never end up on different versions of one skill. User-scope files are never recorded in an instance manifest, and no verification reads that state file.
+A skill lands as a package: one directory holding `SKILL.md` and every shared artifact under `references/`. Each skill names its gates by a path relative to its own directory, which is what the Agent Skills format resolves a supporting file against.
 
-Both verbs also sweep: a destination the record vouches for that the current payload no longer carries is removed along with the directory it empties. As a result, a skill the canon renamed leaves nothing for an agent to keep offering. `sdd skill uninstall` reverses the install, also previewing by default. It removes each skill's `SKILL.md` and its directory when empty. As a result, any file you added alongside survives, as does any leftover you edited yourself.
+`sdd skill install` writes into `~/.claude/skills`, which Claude Code reads, and `~/.agents/skills`, which Codex, OpenCode, and Pi each document that they read. `CLAUDE_CONFIG_DIR` relocates the first root and leaves the second where it is. It previews by default and refuses a destination whose bytes it cannot account for unless `--force` is given. It accounts for two things: the payload it carries, and the receipt under `$XDG_STATE_HOME/spec-driven-docs`, which records the digest of every file each successful apply wrote. A copy an older release left is replaced without asking. A file you edited refuses.
+
+Every apply runs as one transaction. It holds a lock for its whole run, so a second install refuses at once naming the holder rather than interleaving. It stages each write beside its destination, records what it is about to replace, and rolls back a run the process did not finish before it plans new work. It refuses a destination reached through a symlink, whatever `--force` says. An apply that cannot write the receipt fails and puts every file back, because a landing the tool cannot vouch for is a landing it would later refuse to take back.
+
+Both verbs sweep: a destination the receipt vouches for that the current payload no longer carries is removed along with the directory it empties. A home installed before the packages therefore loses the two files under the retired shared root on its first apply. `sdd skill uninstall` reverses the install, also previewing by default. It removes a file only where its digest is the one the receipt records, and names every file it keeps with the reason. As a result, any file you added alongside survives, as does any file you edited yourself.
+
+User-scope files are never recorded in an instance manifest, and no verification reads the receipt.
 
 ## Report
 

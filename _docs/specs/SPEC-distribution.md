@@ -16,12 +16,12 @@
   - [`distribution:the-doctor-answers-for-the-installed-skills` — The doctor answers for the installed skills](#distributionthe-doctor-answers-for-the-installed-skills--the-doctor-answers-for-the-installed-skills)
   - [`distribution:a-skill-plans-before-it-acts` — A skill plans before it acts](#distributiona-skill-plans-before-it-acts--a-skill-plans-before-it-acts)
   - [`distribution:skill-install-previews-before-writing` — Skill install previews before writing](#distributionskill-install-previews-before-writing--skill-install-previews-before-writing)
-  - [`distribution:a-stale-skill-is-not-a-conflict` — A stale skill is not a conflict](#distributiona-stale-skill-is-not-a-conflict--a-stale-skill-is-not-a-conflict)
   - [`distribution:a-skill-install-restores-on-failure` — A skill install restores on failure](#distributiona-skill-install-restores-on-failure--a-skill-install-restores-on-failure)
   - [`distribution:skill-uninstall-removes-only-what-it-wrote` — Skill uninstall removes only what it wrote](#distributionskill-uninstall-removes-only-what-it-wrote--skill-uninstall-removes-only-what-it-wrote)
   - [`distribution:an-install-sweeps-what-the-payload-dropped` — An install sweeps what the payload dropped](#distributionan-install-sweeps-what-the-payload-dropped--an-install-sweeps-what-the-payload-dropped)
   - [`distribution:user-scope-files-stay-unrecorded` — User-scope files stay unrecorded](#distributionuser-scope-files-stay-unrecorded--user-scope-files-stay-unrecorded)
-  - [`distribution:shared-skill-artifacts-have-one-home` — Shared skill artifacts have one home](#distributionshared-skill-artifacts-have-one-home--shared-skill-artifacts-have-one-home)
+  - [`distribution:a-skill-package-is-self-contained` — A skill package is self-contained](#distributiona-skill-package-is-self-contained--a-skill-package-is-self-contained)
+  - [`distribution:a-user-scope-receipt-is-required-state` — A user-scope receipt is required state](#distributiona-user-scope-receipt-is-required-state--a-user-scope-receipt-is-required-state)
   - [`distribution:the-payload-names-no-planning-tool` — The payload names no planning tool](#distributionthe-payload-names-no-planning-tool--the-payload-names-no-planning-tool)
   - [`distribution:the-payload-names-no-other-project` — The payload names no other project](#distributionthe-payload-names-no-other-project--the-payload-names-no-other-project)
   - [`distribution:a-declared-location-is-named-by-its-variable` — A declared location is named by its variable](#distributiona-declared-location-is-named-by-its-variable--a-declared-location-is-named-by-its-variable)
@@ -147,11 +147,11 @@ Verify: `cargo nextest run -E 'binary(canon)'`
 
 ### `distribution:the-doctor-answers-for-the-installed-skills` — The doctor answers for the installed skills
 
-`sdd doctor` MUST run every cataloged probe and exit 0 whatever they find, and its skill probes MUST pick the remediation by the user-scope record: drift the record vouches for is a stale install corrected by a plain apply. Drift it cannot account for is the user's own, corrected only with `--force`.
+`sdd doctor` MUST run every cataloged probe and exit 0 whatever they find. Its skill probes MUST compare whole packages, file by file, and MUST pick the remediation by the user-scope receipt: drift the receipt vouches for is a stale install corrected by a plain apply. Drift it cannot account for is the user's own, corrected only with `--force`.
 
 #### Scenario: A home holds a skill an older release installed
 
-- GIVEN an agent root holding a `SKILL.md` whose digest the user-scope record vouches for
+- GIVEN an agent root holding a package file whose digest the user-scope receipt vouches for
 - WHEN `sdd doctor --json` runs
 - THEN the `skill-payload` probe fails naming `sdd skill install --apply` without `--force`, and the exit code is 0
 
@@ -159,7 +159,7 @@ Verify: `cargo nextest run -E 'binary(cmd_doctor)'`
 
 ### `distribution:a-skill-plans-before-it-acts` — A skill plans before it acts
 
-Every skill MUST open its body with one section that precedes every other section. That section MUST direct the agent to read the two shared gates in order before the first action of a task: the pre-flight gate first, then the plan gate. It MUST also direct the agent to hold the plan gate's three phases, plan, validate, and execute, for the whole task.
+Every skill MUST open its body with one section that precedes every other section. That section MUST direct the agent to read the two gates in order before the first action of a task, each named by its path inside the skill's own package: the pre-flight gate first, then the plan gate. It MUST also direct the agent to hold the plan gate's three phases, plan, validate, and execute, for the whole task.
 
 #### Scenario: A skill gains a section above the gate
 
@@ -171,7 +171,7 @@ Verify: `cargo nextest run -E 'binary(canon)'`
 
 ### `distribution:skill-install-previews-before-writing` — Skill install previews before writing
 
-When run without `--apply`, `sdd skill install` MUST list every destination and write nothing. When a destination holds bytes neither the payload nor the user-scope record accounts for, an apply MUST refuse atomically, listing every conflict.
+When run without `--apply`, `sdd skill install` MUST list every destination and write nothing. Three references decide each one: bytes matching the payload are current, bytes the receipt vouches for are this tool's and are replaced without `--force`, and every other byte is the user's. An apply MUST refuse atomically on the last kind, listing every conflict.
 
 #### Scenario: A home directory already carries an edited skill
 
@@ -181,21 +181,9 @@ When run without `--apply`, `sdd skill install` MUST list every destination and 
 
 Verify: `cargo nextest run -E 'binary(cmd_skill)'`
 
-### `distribution:a-stale-skill-is-not-a-conflict` — A stale skill is not a conflict
-
-Where a user-scope destination holds the bytes a previous apply recorded writing there, `sdd skill install --apply` MUST replace it without `--force`.
-
-#### Scenario: A release edits a skill the user never touched
-
-- GIVEN a home directory whose installed skills came from an older release
-- WHEN a newer `sdd skill install --apply` runs
-- THEN every destination is rewritten and none is reported as a conflict, because bytes this tool wrote are not the user's work
-
-Verify: `cargo nextest run -E 'binary(cmd_skill)'`
-
 ### `distribution:a-skill-install-restores-on-failure` — A skill install restores on failure
 
-Where an apply fails partway, `sdd skill install` MUST restore every destination it backed up and name the path that failed.
+An apply of `sdd skill install` or `sdd skill uninstall` MUST hold the user-scope lock for its whole run and MUST refuse at once, naming the holder, where another process holds it. It MUST write a journal before its first replacement, MUST restore every destination it backed up where it fails partway, and MUST roll back a run the process did not finish before it plans new work. It MUST refuse a destination reached through a link, whatever `--force` says, and MUST re-check that immediately before each write. Recovery after the process is killed is guaranteed at every one of those boundaries. Recovery after power loss rests on the persistence order and on the platform's sync semantics, and is claimed no further.
 
 #### Scenario: The second skill root cannot be written
 
@@ -207,19 +195,19 @@ Verify: `cargo nextest run -E 'binary(cmd_skill)'`
 
 ### `distribution:skill-uninstall-removes-only-what-it-wrote` — Skill uninstall removes only what it wrote
 
-When run without `--apply`, `sdd skill uninstall` MUST list every removal and delete nothing. When applied, it MUST remove each embedded skill's `SKILL.md`, every other destination the record vouches for, and a directory left holding nothing else. It MUST leave every file it did not write.
+When run without `--apply`, `sdd skill uninstall` MUST list every removal and delete nothing. When applied, it MUST remove a file only where its current digest equals the one the receipt records, and MUST name every file it keeps with the reason. It MUST remove a package directory only once nothing else is left in it.
 
-#### Scenario: A skill directory carries a user's own note
+#### Scenario: The operator edited an installed skill
 
-- GIVEN an installed `~/.claude/skills/sdd-setup/` holding `SKILL.md` and a hand-written `notes.md`
+- GIVEN an installed skill package whose `SKILL.md` the operator has since rewritten
 - WHEN `sdd skill uninstall --apply` runs
-- THEN `SKILL.md` is removed, `notes.md` and its directory remain, and the kept directory is named in the output
+- THEN the edited file stays and is named as kept, because the receipt vouches for bytes and these are not those bytes
 
 Verify: `cargo nextest run -E 'binary(cmd_skill)'`
 
 ### `distribution:an-install-sweeps-what-the-payload-dropped` — An install sweeps what the payload dropped
 
-Where the user-scope record vouches for a destination the current payload no longer carries, `sdd skill install --apply` and `sdd skill uninstall --apply` MUST remove it and the directory it empties. Both MUST leave a destination the record cannot vouch for alone.
+Where the user-scope receipt vouches for a destination the current payload no longer carries, `sdd skill install --apply` and `sdd skill uninstall --apply` MUST remove it and the directory it empties. Both MUST leave a destination the receipt cannot vouch for alone, and the doctor MUST name what they left.
 
 #### Scenario: A release renames a skill
 
@@ -241,15 +229,27 @@ Files `sdd skill install` writes outside an instance MUST NOT appear in any inst
 
 Verify: `cargo nextest run -E 'binary(cmd_skill)'`
 
-### `distribution:shared-skill-artifacts-have-one-home` — Shared skill artifacts have one home
+### `distribution:a-skill-package-is-self-contained` — A skill package is self-contained
 
-The distribution MUST install every artifact the skills share exactly once, at the state root the user-scope record lives in, whichever agent an install selects. An uninstall MUST retain those artifacts while any agent root still holds an installed skill.
+Every installed skill MUST be one directory holding `SKILL.md` and every shared artifact under `references/`, materialized by the installer from the one authored source. Every skill MUST name a shared artifact by a path relative to its own root, and no skill may name one outside its own directory.
 
-#### Scenario: One agent family's skills are uninstalled
+#### Scenario: A skill is installed under one agent root
 
-- GIVEN both agent roots holding installed skills and the shared artifacts landed
-- WHEN `sdd skill uninstall --agent codex --apply` runs
-- THEN the shared artifacts remain, because the other root's skills still name them. Only the uninstall that takes the last skills takes the artifacts along
+- GIVEN an agent root and a completed `sdd skill install --apply`
+- WHEN the installed package is read
+- THEN it holds `SKILL.md` and a `references/` directory carrying both gates, so the skill resolves them the way the format resolves a supporting file
+
+Verify: `cargo nextest run -E 'binary(cmd_skill)'`
+
+### `distribution:a-user-scope-receipt-is-required-state` — A user-scope receipt is required state
+
+An apply that cannot write the user-scope receipt MUST fail and MUST roll back every file it wrote. A receipt that vouches for nothing MUST be removed rather than left empty.
+
+#### Scenario: The receipt cannot be replaced
+
+- GIVEN an apply that has already replaced every package file
+- WHEN the receipt cannot be written
+- THEN the apply fails and every destination goes back, because a landing this tool cannot vouch for is a landing it would later refuse to take back
 
 Verify: `cargo nextest run -E 'binary(cmd_skill)'`
 

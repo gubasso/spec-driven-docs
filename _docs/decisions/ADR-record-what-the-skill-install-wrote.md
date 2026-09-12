@@ -17,17 +17,17 @@ Chosen option: `record what a successful apply wrote`. `$HOME/.local/state/spec-
 
 The record is state, not a manifest. No verification reads it, and every unreadable shape resolves to an empty record, so a lost one costs only the benefit of the doubt. It is home-relative rather than XDG-relative because the roots it speaks for are `$HOME/.agents` and `$HOME/.claude`, which no XDG variable moves.
 
-The same change makes an apply restore on failure. The write loop crossed two roots with no backup, so a refusal on the second left the first upgraded and two agents on different versions of one skill.
+The same change makes an apply restore on failure. The write loop crossed two roots with no backup, so a refusal on the second left the first upgraded and two agents on different versions.
 
-Enforced by `distribution:a-stale-skill-is-not-a-conflict` and `distribution:a-skill-install-restores-on-failure`.
+Enforced by `distribution:skill-install-previews-before-writing` and `distribution:a-skill-install-restores-on-failure`.
 
 ## Consequences
 
-- Good: `just install` is idempotent across releases, and the refusal is true.
+- Good: `just install` is idempotent across releases, and the refusal is honest.
 - Good: a genuine edit still refuses, because the record vouches for bytes rather than paths.
 - Bad: the tool keeps state outside every instance, which the design had avoided.
-- Bad: a home installed before this change has no record, so its next install still asks for `--force`.
+- Bad: a home installed before this change has no record, so its next install asks for `--force`.
 
 ## Status
 
-Accepted
+Superseded by [ADR-make-the-skill-receipt-required-state](./ADR-make-the-skill-receipt-required-state.md)

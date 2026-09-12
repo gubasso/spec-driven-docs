@@ -25,11 +25,6 @@ pub const HOME_VAR: &str = "HOME";
 /// The variable relocating Claude Code's whole configuration directory.
 pub const CLAUDE_CONFIG_DIR_VAR: &str = "CLAUDE_CONFIG_DIR";
 /// The variable naming the XDG state base directory.
-///
-/// Declared here and unread until the state root takes its XDG form. The
-/// skills name the two shared gates by one absolute path under the state
-/// root, so a state root that moved before the skills stopped spelling it
-/// would separate the gates from their readers.
 pub const XDG_STATE_HOME_VAR: &str = "XDG_STATE_HOME";
 /// The variable naming the XDG cache base directory.
 pub const XDG_CACHE_HOME_VAR: &str = "XDG_CACHE_HOME";
@@ -59,23 +54,40 @@ pub const AGENTS_DIGEST_PATH: &str = "AGENTS.md";
 /// The only roots an upgrade may remove dropped managed files from.
 pub const PRUNABLE_ROOTS: &[&str] = &[".spec-driven-docs/", ".claude/skills/", ".agents/skills/"];
 
-/// The state root, relative to the home directory.
+/// The state root, relative to the home directory, where no variable moves it.
 pub const STATE_ROOT: &str = ".local/state/spec-driven-docs";
 /// The cache root, relative to the home directory, where no variable moves it.
 pub const CACHE_ROOT: &str = ".cache/spec-driven-docs";
 /// The user-scope skill receipt, relative to the state root.
 pub const SKILL_RECEIPT_FILE: &str = "skills.json";
-/// What the skills share, relative to the state root.
-pub const SHARED_DIR: &str = "skills/shared";
+/// The one file every skill package must carry.
+pub const SKILL_FILE: &str = "SKILL.md";
+/// Where a skill package holds what the shared source materialized into it.
+pub const SKILL_REFERENCES_DIR: &str = "references";
+
+/// The user-scope lock, relative to the state root.
+pub const SKILL_LOCK_FILE: &str = "skills.lock";
+/// The user-scope journal, relative to the state root.
+pub const SKILL_JOURNAL_FILE: &str = "skills.journal";
+/// Where a transaction copies what it is about to replace.
+pub const BACKUPS_DIR: &str = "backups";
 /// The plan store, relative to the state root.
 pub const PLAN_STORE_DIR: &str = "plans";
 /// The verified release bundles, relative to the cache root.
 pub const BUNDLE_CACHE_DIR: &str = "bundles";
 
-/// The user-scope skill receipt, relative to the home directory.
-pub const SKILL_RECEIPT_PATH: &str = ".local/state/spec-driven-docs/skills.json";
-/// The root holding what the skills share, relative to the home directory.
-pub const SHARED_ROOT: &str = ".local/state/spec-driven-docs/skills/shared";
+/// The user-scope skill receipt at the home-relative path, read once.
+///
+/// A home installed before the state root followed `XDG_STATE_HOME` holds
+/// its receipt here. The next apply reads it, then writes only the resolved
+/// path.
+pub const LEGACY_SKILL_RECEIPT_PATH: &str = ".local/state/spec-driven-docs/skills.json";
+/// The retired root that once held what every skill shares.
+///
+/// A skill package now carries its own copy under `references/`, so this
+/// root is swept rather than written. A file there the receipt vouches for
+/// is the tool's and goes; anything else is the user's and stays.
+pub const LEGACY_SHARED_ROOT: &str = ".local/state/spec-driven-docs/skills/shared";
 /// The skill root Claude Code reads, relative to the home directory.
 pub const CLAUDE_ROOT: &str = ".claude/skills";
 /// The skill root every other agent reads, relative to the home directory.
@@ -297,8 +309,6 @@ pub struct UserPaths {
     pub cache_root: PathEntry,
     /// The receipt vouching for every user-scope file this tool wrote.
     pub skill_receipt: PathEntry,
-    /// What every skill shares.
-    pub shared_root: PathEntry,
     /// Where computed plans are stored.
     pub plan_store: PathEntry,
     /// Where verified release bundles are cached.
@@ -417,12 +427,25 @@ impl UserEnv {
         }
     }
 
-    /// The state root: home-relative until the skills stop spelling it.
+    /// The state root, through the XDG variable or its default.
     #[must_use]
     pub fn state_root(&self) -> Option<PathEntry> {
+        if let Some(base) = self.xdg_state_home.as_ref() {
+            return Some(PathEntry::from_env(base.join(TOOL_DIR)));
+        }
         self.home
             .as_ref()
             .map(|home| PathEntry::default_at(home.join(STATE_ROOT)))
+    }
+
+    /// The home-relative state root, whatever the variable says.
+    ///
+    /// One fallback read lives here: a receipt written before the state root
+    /// followed `XDG_STATE_HOME`, and the two gate files that release left
+    /// under the retired shared root.
+    #[must_use]
+    pub fn legacy_state_root(&self) -> Option<Utf8PathBuf> {
+        self.home.as_ref().map(|home| home.join(STATE_ROOT))
     }
 
     /// The cache root, through the XDG variable or its default.
@@ -492,10 +515,6 @@ impl UserEnv {
         Some(UserPaths {
             skill_receipt: PathEntry {
                 path: state.path.join(SKILL_RECEIPT_FILE),
-                source: state.source,
-            },
-            shared_root: PathEntry {
-                path: state.path.join(SHARED_DIR),
                 source: state.source,
             },
             plan_store: PathEntry {
@@ -757,10 +776,22 @@ mod tests {
     }
 
     #[test]
-    fn the_state_root_stays_home_relative_until_the_skills_stop_spelling_it() {
+    fn the_state_root_follows_xdg_state_home_and_its_default() {
         assert_eq!(
             env("/h").state_root(),
             Some(PathEntry::default_at("/h/.local/state/spec-driven-docs"))
+        );
+        let moved = UserEnv {
+            xdg_state_home: Some(Utf8PathBuf::from("/s")),
+            ..env("/h")
+        };
+        assert_eq!(
+            moved.state_root(),
+            Some(PathEntry::from_env("/s/spec-driven-docs"))
+        );
+        assert_eq!(
+            moved.legacy_state_root(),
+            Some(Utf8PathBuf::from("/h/.local/state/spec-driven-docs"))
         );
     }
 
@@ -770,10 +801,6 @@ mod tests {
         assert_eq!(
             paths.skill_receipt.path,
             "/h/.local/state/spec-driven-docs/skills.json"
-        );
-        assert_eq!(
-            paths.shared_root.path,
-            "/h/.local/state/spec-driven-docs/skills/shared"
         );
         assert_eq!(
             paths.plan_store.path,
@@ -790,11 +817,7 @@ mod tests {
         let paths = env("/h").user_paths().unwrap();
         assert_eq!(
             paths.skill_receipt.path,
-            Utf8Path::new("/h").join(SKILL_RECEIPT_PATH)
-        );
-        assert_eq!(
-            paths.shared_root.path,
-            Utf8Path::new("/h").join(SHARED_ROOT)
+            Utf8Path::new("/h").join(LEGACY_SKILL_RECEIPT_PATH)
         );
     }
 

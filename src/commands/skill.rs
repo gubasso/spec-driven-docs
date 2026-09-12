@@ -2,28 +2,34 @@
 //!
 //! Lists, prints, installs, and removes the embedded skills. Install and
 //! uninstall semantics live in `services::skill_installer`; this handler
-//! only resolves the home directory, the chosen roots, and the user-scope
-//! record that sits beside them.
+//! only resolves the roots the run touches and the receipt that vouches
+//! for them.
 
 use camino::Utf8PathBuf;
 
 use crate::cli::skill::{Agent, SkillArgs, SkillCommand};
 use crate::context::AppContext;
-use crate::domain::paths::{AgentId, UserEnv};
-use crate::domain::skill_record::RECORD_PATH;
+use crate::domain::paths::{
+    AgentId, LEGACY_SHARED_ROOT, LEGACY_SKILL_RECEIPT_PATH, SKILL_RECEIPT_FILE, UserEnv,
+};
 use crate::error::AppError;
 use crate::output;
-use crate::services::skill_installer::{self, Layout, SHARED_ROOT, home};
+use crate::services::skill_installer::{self, Layout, home};
 
-/// The roots one run touches, and the record that vouches for them.
+/// The roots one run touches, and the receipt that vouches for them.
 fn layout(agent: Agent) -> Result<Layout, AppError> {
     let home = home()?;
     let env = UserEnv::from_process();
+    let state_root = env
+        .state_root()
+        .ok_or_else(|| AppError::Usage("no state root resolves".to_string()))?
+        .path;
     Ok(Layout {
         roots: roots(&env, agent),
-        every_root: roots(&env, Agent::All),
-        shared: home.join(SHARED_ROOT),
-        record: home.join(RECORD_PATH),
+        receipt: state_root.join(SKILL_RECEIPT_FILE),
+        legacy_receipt: home.join(LEGACY_SKILL_RECEIPT_PATH),
+        legacy_shared: home.join(LEGACY_SHARED_ROOT),
+        state_root,
     })
 }
 

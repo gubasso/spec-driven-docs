@@ -2,7 +2,7 @@
 name = "spec-driven-docs"
 version = "0.8.1"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.89"
 description = "Spec-driven documentation: current specs, immutable decision records, and executable gates kept coherent for people and coding agents."
 license = "MIT AND CC-BY-4.0"
 homepage = "https://github.com/gubasso/spec-driven-docs"

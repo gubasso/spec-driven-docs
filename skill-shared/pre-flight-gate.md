@@ -22,4 +22,4 @@ Report what the probes returned, never that the check passed. The findings are i
 
 Where `sdd doctor` itself does not run because there is no `sdd` on PATH, that is the whole finding: state it, name `cargo install spec-driven-docs` or `cargo binstall spec-driven-docs`, and stop. Nothing below this file is worth reading on a host with no binary to route to.
 
-Then read `~/.local/state/spec-driven-docs/skills/shared/plan-gate.md` and hold it for the rest of the task.
+Then read `references/plan-gate.md`, beside this file, and hold it for the rest of the task.

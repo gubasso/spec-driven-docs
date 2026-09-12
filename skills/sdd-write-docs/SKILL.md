@@ -11,10 +11,10 @@ Author documentation by the spec-driven-docs method. The binding rules live in t
 
 ## Before acting
 
-Read two shared files before the first action of a task, in this order, and hold both for the whole task.
+Read two files from this skill's own directory before the first action of a task, in this order, and hold both for the whole task. Each path is relative to the directory this `SKILL.md` sits in.
 
-1. `~/.local/state/spec-driven-docs/skills/shared/pre-flight-gate.md`: run it whatever the request carries. It checks this host with `sdd doctor` and stops the task on what no plan can work around. No flag skips it.
-2. `~/.local/state/spec-driven-docs/skills/shared/plan-gate.md`: it binds three phases: plan and present the plan for approval, validate that plan against every preview and read-only source phase 2 names, then execute it.
+1. `references/pre-flight-gate.md`: run it whatever the request carries. It checks this host with `sdd doctor` and stops the task on what no plan can work around. No flag skips it.
+2. `references/plan-gate.md`: it binds three phases: plan and present the plan for approval, validate that plan against every preview and read-only source phase 2 names, then execute it.
 
 The two gates are why this skill is safe to run unattended: every change below rewrites a documentation zone the instance governs. The pre-flight says whether the host and the installed skills are ones this binary answers for.
 

@@ -673,11 +673,11 @@ fn every_skill_routes_to_the_plan_gate_before_acting() {
         );
         let end = sections.get(1).copied().unwrap_or(body.len());
         let section = body[first..end].join("\n");
-        // Both shared artifacts are named, by the absolute path they install
-        // to: the two agent roots make no relative path reach one file from
-        // both, so the skills name them the one way that resolves.
+        // Both gates are named by the path they carry inside the package,
+        // relative to the skill's own root, which is what every documented
+        // host resolves a supporting file against.
         for artifact in ["pre-flight-gate.md", "plan-gate.md"] {
-            let named = format!("~/.local/state/spec-driven-docs/skills/shared/{artifact}");
+            let named = format!("references/{artifact}");
             assert!(
                 section.contains(&named),
                 "{dir}: the gate section does not name {named}"
@@ -686,9 +686,9 @@ fn every_skill_routes_to_the_plan_gate_before_acting() {
         // The spec binds the order too: the pre-flight is read first,
         // because the plan gate takes its findings as inputs.
         let pre_flight = section
-            .find("shared/pre-flight-gate.md")
+            .find("references/pre-flight-gate.md")
             .unwrap_or_default();
-        let plan = section.find("shared/plan-gate.md").unwrap_or_default();
+        let plan = section.find("references/plan-gate.md").unwrap_or_default();
         assert!(
             pre_flight < plan,
             "{dir}: the gate section names the plan gate before the pre-flight gate"
@@ -1311,25 +1311,6 @@ fn collect_paths(value: &serde_json::Value, out: &mut std::collections::BTreeSet
     }
 }
 
-/// The two shared gates, named by the one path that resolves from both roots.
-///
-/// This is the single exclusion of the invariant below. Every skill opens by
-/// reading these two files, and the two agent roots make no relative path
-/// reach one file from both, so the skills name them the way that resolves.
-/// The skill-package phase turns them into references relative to each
-/// skill's own root, and this exclusion goes with it.
-fn shared_gate_paths() -> Vec<String> {
-    ["pre-flight-gate.md", "plan-gate.md"]
-        .iter()
-        .map(|artifact| {
-            format!(
-                "~/{}/{artifact}",
-                spec_driven_docs::domain::paths::SHARED_ROOT
-            )
-        })
-        .collect()
-}
-
 /// Every authored skill file, skill by skill and shared file by shared file.
 fn skill_prose() -> Vec<(String, String)> {
     let mut files = skill_dirs()
@@ -1374,12 +1355,8 @@ fn without_json_examples(text: &str) -> String {
 #[test]
 fn no_skill_spells_a_path_the_binary_reports() {
     let spellings = reported_paths();
-    let excluded = shared_gate_paths();
     for (relative, text) in skill_prose() {
-        let mut scanned = without_json_examples(&text);
-        for gate in &excluded {
-            scanned = scanned.replace(gate, "");
-        }
+        let scanned = without_json_examples(&text);
         for spelling in &spellings {
             assert!(
                 !scanned.contains(spelling.as_str()),
@@ -1462,5 +1439,43 @@ fn every_control_path_constant_has_one_declaration() {
                 "{relative} declares {path} a second time; read it from domain::paths"
             );
         }
+    }
+}
+
+/// SATISFIES distribution:a-skill-package-is-self-contained
+///
+/// A skill names a supporting file the way the package lands it, relative to
+/// the skill's own root. A shared artifact renamed without its references
+/// fails here rather than at the first agent that cannot open a gate.
+#[test]
+fn every_skill_names_its_gates_relative_to_its_own_root() {
+    use spec_driven_docs::domain::paths::{SKILL_FILE, SKILL_REFERENCES_DIR};
+
+    let package =
+        spec_driven_docs::embedded::skill_package("sdd-setup").expect("sdd-setup is embedded");
+    let references: Vec<String> = package
+        .iter()
+        .map(|(path, _)| path.clone())
+        .filter(|path| path != SKILL_FILE)
+        .collect();
+    assert!(!references.is_empty(), "the package carries no references");
+    for (relative, _) in &package {
+        assert!(
+            relative == SKILL_FILE || relative.starts_with(&format!("{SKILL_REFERENCES_DIR}/")),
+            "{relative} is neither the manual nor a reference"
+        );
+    }
+
+    for (dir, text) in skill_dirs() {
+        for reference in &references {
+            assert!(
+                text.contains(reference.as_str()),
+                "{dir}: does not name {reference}, which its package carries"
+            );
+        }
+        assert!(
+            !text.contains("skills/shared"),
+            "{dir}: still names the retired shared root"
+        );
     }
 }

@@ -84,7 +84,6 @@ fn render_paths(paths: &Paths) {
         entry("state root", &user.state_root);
         entry("cache root", &user.cache_root);
         entry("skill receipt", &user.skill_receipt);
-        entry("shared root", &user.shared_root);
         entry("plan store", &user.plan_store);
         entry("bundle cache", &user.bundle_cache);
         for root in &user.agent_roots {

@@ -2,7 +2,7 @@
 
 Standing instructions for the whole task, not one-time steps. Every spec-driven-docs skill drives operations that write files into a repository or under the user's home. As a result, each one plans, validates that plan against what actually knows, and only then executes.
 
-This gate opens after `~/.local/state/spec-driven-docs/skills/shared/pre-flight-gate.md` has run, and takes its findings as inputs: a failed hard probe is why there is no plan yet, and a failed soft probe is a gated step or a stated gap. That file runs whatever the request carries. This one has a flag.
+This gate opens after `references/pre-flight-gate.md` has run, and takes its findings as inputs: a failed hard probe is why there is no plan yet, and a failed soft probe is a gated step or a stated gap. That file runs whatever the request carries. This one has a flag.
 
 Hold all three phases for the rest of the task, and apply them to every further request in the same session. Without `--no-plan`, phase 3 runs in a later turn than phase 1, after the plan is approved. With the flag, the phases run in order in the current turn.
 
