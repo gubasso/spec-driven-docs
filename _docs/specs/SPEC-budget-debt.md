@@ -36,8 +36,8 @@ A measurement above its ceiling is a regression. A measurement below its ceiling
 #### Scenario: A carried chapter shrinks and then grows back
 
 - GIVEN a chapter recorded at a ceiling of 417 lines
-- WHEN an author cuts it to 380 lines and commits
-- THEN the gate fails naming the tightening, the ceiling becomes 380, and a later edit back to 417 fails as a regression
+- WHEN an author cuts it to 380 lines, commits, and runs `sdd debt tighten --apply` as the failure names
+- THEN the first commit fails naming the tightening, the ceiling becomes 380 under the second, and a later edit back to 417 fails as a regression
 
 Verify: `for h in adr-word-cap agents-digest-size chapter-size-cap spec-size-cap; do sdd gate "$h" || exit 1; done`
 

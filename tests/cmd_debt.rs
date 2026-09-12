@@ -379,3 +379,45 @@ fn a_relative_target_other_than_dot_is_refused() {
         .assert()
         .code(64);
 }
+
+/// The migration reads the list with the gate's own parser. A line the gate
+/// never honoured, because it carries whitespace, becomes no debt.
+#[test]
+fn migrate_never_broadens_a_line_the_gate_did_not_honour() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    fixture.write("method/carried.md", &"line\n".repeat(280));
+    fixture.write(LEGACY, " method/carried.md \n");
+    gate(&fixture, "chapter-size-cap")
+        .code(1)
+        .stdout(predicate::str::contains("./method/carried.md"));
+    debt(&fixture, "migrate", true).success();
+    assert!(
+        !fixture.path().join(DEBT).exists(),
+        "a non-exemption became debt"
+    );
+    gate(&fixture, "chapter-size-cap")
+        .code(1)
+        .stdout(predicate::str::contains("./method/carried.md"));
+}
+
+/// A symlinked instance directory is refused before a byte lands outside
+/// the target.
+#[test]
+fn a_debt_write_never_follows_a_symlinked_instance_directory() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    fixture.write("method/legacy.md", &"line\n".repeat(250));
+    let outside = tempfile::tempdir().unwrap();
+    let instance = fixture.path().join(".spec-driven-docs");
+    let moved = outside.path().join("instance");
+    std::fs::rename(&instance, &moved).unwrap();
+    std::os::unix::fs::symlink(&moved, &instance).unwrap();
+    debt(&fixture, "baseline", true)
+        .code(77)
+        .stderr(predicate::str::contains("symlink"));
+    assert!(
+        !outside.path().join("debt.yaml").exists(),
+        "the write escaped the target"
+    );
+}

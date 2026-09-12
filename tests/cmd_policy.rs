@@ -202,3 +202,53 @@ fn a_relative_target_other_than_dot_is_refused() {
         .assert()
         .code(64);
 }
+
+/// A destination reached through a symlinked documentation root is
+/// refused before any byte lands, and nothing outside the target changes.
+#[test]
+fn apply_never_writes_through_a_symlinked_documentation_root() {
+    let fixture = needing_reconciliation();
+    let outside = tempfile::tempdir().unwrap();
+    let docs = fixture.path().join("_docs");
+    let moved = outside.path().join("docs");
+    std::fs::rename(&docs, &moved).unwrap();
+    std::os::unix::fs::symlink(&moved, &docs).unwrap();
+    let before = support::tree_digest(outside.path());
+    reconcile(&fixture, true)
+        .code(73)
+        .stderr(predicate::str::contains("symlink"));
+    assert_eq!(
+        before,
+        support::tree_digest(outside.path()),
+        "a byte landed outside the target"
+    );
+}
+
+/// A manifest that cannot be written puts every specification back, so the
+/// operator never holds an adopted file the record does not describe.
+#[test]
+fn a_failed_record_update_restores_every_specification() {
+    let fixture = needing_reconciliation();
+    let before_spec = fixture.read(SPEC);
+    let before_manifest = fixture.read(".spec-driven-docs/manifest.json");
+    // The atomic write's scratch path is occupied by a directory, so the
+    // manifest rename fails after the specification has been written.
+    std::fs::create_dir(
+        fixture
+            .path()
+            .join(".spec-driven-docs/manifest.json.sdd-tmp"),
+    )
+    .unwrap();
+    reconcile(&fixture, true)
+        .code(73)
+        .stderr(predicate::str::contains("every file is restored"));
+    assert_eq!(
+        fixture.read(SPEC),
+        before_spec,
+        "the specification was left rewritten"
+    );
+    assert_eq!(
+        fixture.read(".spec-driven-docs/manifest.json"),
+        before_manifest
+    );
+}

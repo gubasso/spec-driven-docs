@@ -90,8 +90,7 @@ fn reconcile(ctx: &AppContext, args: &ReconcileArgs) -> Result<(), AppError> {
             checklist.join(", ")
         )));
     }
-    for plan in &plans {
-        let written = crate::services::policy::apply(&target, plan)?;
+    for written in crate::services::policy::apply_all(&target, &plans)? {
         output::line(format!("OK wrote {written}"));
     }
     Ok(())
@@ -102,8 +101,9 @@ fn reconcile(ctx: &AppContext, args: &ReconcileArgs) -> Result<(), AppError> {
 /// # Errors
 ///
 /// [`AppError::Refused`] when a specification is not in a shape the
-/// command rewrites, or a rewrite would not parse; manifest and I/O errors
-/// when the instance cannot be read.
+/// command rewrites, a destination leaves the target, or a rewrite would
+/// not parse, with the target restored; manifest and I/O errors when the
+/// instance cannot be read.
 pub fn run(ctx: &AppContext, args: PolicyArgs) -> Result<(), AppError> {
     match args.verb {
         PolicyVerb::Reconcile(args) => reconcile(ctx, &args),

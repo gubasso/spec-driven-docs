@@ -85,15 +85,8 @@ fn legacy_entries(
     violations: &mut Vec<Violation>,
 ) -> Result<Vec<String>, GateError> {
     let mut entries = Vec::new();
-    for entry in read_text(ctx, LEGACY_DEBT_PATH)?.lines() {
-        if entry.is_empty() || entry.starts_with('#') {
-            continue;
-        }
-        let file = if entry.starts_with("./") {
-            entry.to_string()
-        } else {
-            format!("./{entry}")
-        };
+    for entry in crate::domain::debt::legacy_list(&read_text(ctx, LEGACY_DEBT_PATH)?) {
+        let file = format!("./{entry}");
         if !ctx.path(&file).is_file() {
             violations.push(Violation::Finding(Finding::on_file(
                 RULE,

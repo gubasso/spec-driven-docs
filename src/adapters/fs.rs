@@ -48,6 +48,44 @@ pub fn write_atomic(path: &Utf8Path, bytes: &[u8]) -> std::io::Result<()> {
     std::fs::rename(&scratch, path)
 }
 
+/// Write a repository-relative destination under a target, refusing a path
+/// that leaves it.
+///
+/// [`check_destination`] runs first, so a symlinked parent directory is
+/// refused before a byte lands, and the write itself is [`write_atomic`].
+///
+/// # Errors
+///
+/// A [`std::io::ErrorKind::PermissionDenied`] error naming the refusal when
+/// the destination cannot be touched, and any I/O error of the write.
+pub fn write_within(
+    target: &Utf8Path,
+    destination: &Utf8Path,
+    bytes: &[u8],
+) -> std::io::Result<()> {
+    check_destination(target, destination).map_err(|refusal| refused(destination, &refusal))?;
+    write_atomic(&target.join(destination), bytes)
+}
+
+/// Remove a repository-relative file under a target, refusing a path that
+/// leaves it.
+///
+/// # Errors
+///
+/// A [`std::io::ErrorKind::PermissionDenied`] error naming the refusal when
+/// the destination cannot be touched, and any I/O error of the removal.
+pub fn remove_within(target: &Utf8Path, destination: &Utf8Path) -> std::io::Result<()> {
+    check_destination(target, destination).map_err(|refusal| refused(destination, &refusal))?;
+    std::fs::remove_file(target.join(destination))
+}
+
+fn refused(destination: &Utf8Path, refusal: &DestinationRefusal) -> std::io::Error {
+    std::io::Error::new(
+        std::io::ErrorKind::PermissionDenied,
+        format!("{destination}: {refusal}"),
+    )
+}
+
 /// Why a destination cannot be touched.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DestinationRefusal {
@@ -57,6 +95,18 @@ pub enum DestinationRefusal {
     FileBlocksDirectory(String),
     /// The destination exists and is not a regular file.
     NotARegularFile,
+}
+
+impl std::fmt::Display for DestinationRefusal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::SymlinkEscape => f.write_str("reached through a symlink that leaves the target"),
+            Self::FileBlocksDirectory(blocked) => {
+                write!(f, "a file blocks a directory the write needs: {blocked}")
+            }
+            Self::NotARegularFile => f.write_str("exists and is not a regular file"),
+        }
+    }
 }
 
 /// Check that touching `destination` under `target` stays inside the target.
@@ -167,6 +217,23 @@ mod tests {
             .map(|entry| entry.file_name().to_string_lossy().to_string())
             .collect();
         assert_eq!(siblings, vec!["debt.yaml".to_string()]);
+    }
+
+    #[test]
+    fn a_write_within_refuses_a_symlinked_parent_before_any_byte_lands() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = root(&dir);
+        let outside = tempfile::tempdir().unwrap();
+        std::os::unix::fs::symlink(outside.path(), target.join("docs").as_std_path()).unwrap();
+        let error = write_within(&target, Utf8Path::new("docs/x.md"), b"x").unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::PermissionDenied);
+        assert!(!outside.path().join("x.md").exists(), "the write escaped");
+        assert!(
+            remove_within(&target, Utf8Path::new("docs/x.md")).is_err(),
+            "the removal followed the symlink"
+        );
+        write_within(&target, Utf8Path::new("inside/x.md"), b"x").unwrap();
+        assert_eq!(std::fs::read(target.join("inside/x.md")).unwrap(), b"x");
     }
 
     #[test]

@@ -15,7 +15,7 @@
 
 use camino::Utf8Path;
 
-use crate::adapters::fs::write_atomic;
+use crate::adapters::fs::{write_atomic, write_within};
 use crate::cli::hooks::HooksArgs;
 use crate::context::AppContext;
 use crate::domain::instance_config::InstanceConfig;
@@ -60,17 +60,40 @@ fn record_block_hash(target: &Utf8Path, path: &str, hash: Option<Sha256>) -> Res
     Ok(())
 }
 
-/// The documentation block `AGENTS.md` should carry for a declaration, and
-/// what it carries now, where the file holds a managed block at all.
+/// What the root `AGENTS.md` holds against what the declaration renders.
+#[derive(Debug)]
+enum Agents {
+    /// The block is present and agrees with the declaration.
+    Current,
+    /// The block is present and disagrees; the host as it would be written.
+    Stale(String),
+    /// The install recorded a block and the host no longer carries one, or
+    /// the host is gone.
+    Missing(&'static str),
+    /// Nothing recorded a block here, and none is owed: this repository's
+    /// own root digest is release-kit-owned and carries none.
+    Unmanaged,
+}
+
+/// Whether the manifest records a documentation block in `AGENTS.md`.
+fn agents_block_recorded(target: &Utf8Path) -> bool {
+    crate::services::verifier::read_manifest(target).is_ok_and(|manifest| {
+        manifest
+            .integration_blocks
+            .iter()
+            .any(|block| block.path.as_str() == AGENTS)
+    })
+}
+
+/// Read the documentation block's state.
 ///
-/// A host with no block is left alone: this repository's own root digest
-/// carries none, and a project that removed the block by hand has made a
-/// choice `sdd verify` reports as a missing integration block already.
-fn agents_rewrite(
+/// A host that cannot be read for a reason other than absence is an error,
+/// never a silent "current".
+fn agents_state(
     target: &Utf8Path,
     docs_root: &str,
     declaration: &InstanceConfig,
-) -> Result<Option<(String, String)>, AppError> {
+) -> Result<Agents, AppError> {
     let path = target.join(AGENTS);
     if path.is_symlink() {
         return Err(AppError::Refused(
@@ -78,15 +101,32 @@ fn agents_rewrite(
                 .to_string(),
         ));
     }
-    let Ok(host) = std::fs::read_to_string(&path) else {
-        return Ok(None);
+    let recorded = agents_block_recorded(target);
+    let host = match std::fs::read_to_string(&path) {
+        Ok(host) => host,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(if recorded {
+                Agents::Missing("the file is absent")
+            } else {
+                Agents::Unmanaged
+            });
+        }
+        Err(error) => return Err(error.into()),
     };
     if marker::block_region_with(&host, marker::AGENTS_BEGIN, marker::AGENTS_END).is_none() {
-        return Ok(None);
+        return Ok(if recorded {
+            Agents::Missing("its managed block is gone")
+        } else {
+            Agents::Unmanaged
+        });
     }
     let block = crate::services::agents_render::render_block(docs_root, &declaration.writing_style);
     let placed = marker::place_agents_block(&host, &block)?;
-    Ok(Some((host, placed)))
+    Ok(if placed == host {
+        Agents::Current
+    } else {
+        Agents::Stale(placed)
+    })
 }
 
 /// Render the delivered gate set, and optionally write it.
@@ -136,10 +176,8 @@ pub fn run(_ctx: &AppContext, args: HooksArgs) -> Result<(), AppError> {
         declaration: declaration.clone(),
     });
     let spliced = marker::splice(&base, &rendered)?;
-    let agents = agents_rewrite(target, &docs_root, &declaration)?;
-    let agents_stale = agents
-        .as_ref()
-        .is_some_and(|(current, placed)| current != placed);
+    let agents = agents_state(target, &docs_root, &declaration)?;
+    let agents_path = target.join(AGENTS);
 
     if args.check {
         let mut count = 0;
@@ -149,12 +187,20 @@ pub fn run(_ctx: &AppContext, args: HooksArgs) -> Result<(), AppError> {
             ));
             count += 1;
         }
-        if agents_stale {
-            output::line(format!(
-                "FAIL the documentation block in {} does not match the declaration; run 'sdd hooks --apply'",
-                target.join(AGENTS)
-            ));
-            count += 1;
+        match &agents {
+            Agents::Stale(..) => {
+                output::line(format!(
+                    "FAIL the documentation block in {agents_path} does not match the declaration; run 'sdd hooks --apply'"
+                ));
+                count += 1;
+            }
+            Agents::Missing(why) => {
+                output::line(format!(
+                    "FAIL the install recorded a documentation block in {agents_path} and {why}; run 'sdd init --apply' to restore it"
+                ));
+                count += 1;
+            }
+            Agents::Current | Agents::Unmanaged => {}
         }
         if count == 0 {
             return Ok(());
@@ -162,28 +208,46 @@ pub fn run(_ctx: &AppContext, args: HooksArgs) -> Result<(), AppError> {
         return Err(AppError::Violations { count });
     }
 
-    if spliced == host && !agents_stale {
+    // A recorded block that is gone is not this verb's to rewrite: the
+    // install owns placing it, and a rewrite here would recreate the block
+    // without knowing what else the operator removed.
+    if let Agents::Missing(why) = &agents {
+        return Err(AppError::Refused(format!(
+            "the install recorded a documentation block in {agents_path} and {why}; run 'sdd init --apply' to restore it"
+        )));
+    }
+    let agents_placed = match agents {
+        Agents::Stale(placed) => Some(placed),
+        Agents::Current | Agents::Unmanaged | Agents::Missing(_) => None,
+    };
+    if spliced == host && agents_placed.is_none() {
         output::line(format!("OK {path} already matches the declaration"));
         return Ok(());
     }
+    // Every write is bounded to the target and atomic, and the manifest
+    // record moves with each region: the block-tamper check reads it, so
+    // a rewrite that left the record behind would report the instance as
+    // tampered the moment it was made correct. A record that cannot be
+    // written puts the region back.
     if spliced != host {
-        // Write through a sibling temporary file and rename, so a failure
-        // leaves the configuration byte-identical rather than half-written.
-        write_atomic(&path, spliced.as_bytes())?;
-        // The manifest records this region's hash, and the block-tamper
-        // check reads it. A rewrite that left the record behind would
-        // report the instance as tampered the moment it was made correct.
-        record_block_hash(target, CONFIG, marker::block_hash(&spliced))?;
+        write_within(target, Utf8Path::new(CONFIG), spliced.as_bytes())?;
+        if let Err(error) = record_block_hash(target, CONFIG, marker::block_hash(&spliced)) {
+            let _ = write_within(target, Utf8Path::new(CONFIG), host.as_bytes());
+            return Err(error);
+        }
         output::line(format!("OK rewrote the managed region in {path}"));
     }
-    if let Some((_, placed)) = agents.filter(|_| agents_stale) {
-        let agents_path = target.join(AGENTS);
-        write_atomic(&agents_path, placed.as_bytes())?;
-        record_block_hash(
+    if let Some(placed) = agents_placed {
+        let previous = std::fs::read(&agents_path)?;
+        write_within(target, Utf8Path::new(AGENTS), placed.as_bytes())?;
+        if let Err(error) = record_block_hash(
             target,
             AGENTS,
             marker::block_hash_with(&placed, marker::AGENTS_BEGIN, marker::AGENTS_END),
-        )?;
+        ) {
+            let _ = write_within(target, Utf8Path::new(AGENTS), &previous);
+            return Err(error);
+        }
         output::line(format!(
             "OK rewrote the documentation block in {agents_path}"
         ));

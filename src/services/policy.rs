@@ -242,22 +242,18 @@ pub fn plan(target: &Utf8Path, docs_root: DocsRoot) -> Result<Vec<Plan>, AppErro
     Ok(plans)
 }
 
-/// Update the manifest's record of one adopted file, or add the record
-/// where the file was absent.
+/// The manifest's JSON with one adopted record updated, or added where the
+/// file was absent.
 ///
 /// A write that left the record behind would report the instance as drifted
 /// the moment it was made correct.
-fn record_adopted(
-    target: &Utf8Path,
+fn with_adopted_record(
+    document: &mut serde_json::Value,
     source: &str,
     destination: &Utf8Path,
     bytes: &[u8],
     baseline: &[u8],
 ) -> Result<(), AppError> {
-    let manifest_path = target.join(crate::domain::manifest::MANIFEST_PATH);
-    let text = std::fs::read_to_string(&manifest_path)?;
-    let mut document: serde_json::Value = serde_json::from_str(&text)
-        .map_err(|error| AppError::ManifestInvalid(error.to_string()))?;
     let digest = Sha256::of(bytes).to_string();
     let Some(entries) = document
         .get_mut("adopted_files")
@@ -279,66 +275,118 @@ fn record_adopted(
             "baseline_sha256": Sha256::of(baseline).to_string(),
         })),
     }
-    let rendered = serde_json::to_string_pretty(&document)
-        .map_err(|error| AppError::ManifestInvalid(error.to_string()))?;
-    write_atomic(&manifest_path, format!("{rendered}\n").as_bytes())?;
     Ok(())
 }
 
-/// Carry out one plan, and report the file it wrote.
+/// Carry out every plan as one transaction, and report the files written.
 ///
-/// The write goes through a sibling temporary file and a rename, and the
-/// result is re-read and re-parsed before the record is updated: a
-/// specification that would not define the sentinel after the change is
-/// not left in place.
+/// Every destination and the manifest are checked to stay inside the
+/// target before a byte lands, every existing file is backed up, each
+/// specification is written atomically and re-read to confirm it defines
+/// its sentinel, and the manifest is written last with every record moved
+/// at once. Any failure restores every path this call touched, so the
+/// operator never holds an adopted file the record does not describe, or
+/// one plan applied and another not.
 ///
 /// # Errors
 ///
-/// [`AppError::Refused`] for a checklist plan or a rewrite that does not
-/// parse back, and I/O errors when the tree cannot be written.
-pub fn apply(target: &Utf8Path, plan: &Plan) -> Result<Utf8PathBuf, AppError> {
-    let sentinel = plan.reconciliation.sentinel;
-    let seed = crate::embedded::asset(sentinel.source)
-        .ok_or_else(|| anyhow::anyhow!("payload asset missing: {}", sentinel.source))?;
-    let (destination, bytes) = match &plan.action {
-        Action::Seed { destination, bytes } => (destination, bytes.clone()),
-        Action::Append {
-            destination,
-            rewritten,
-            ..
-        } => (destination, rewritten.clone().into_bytes()),
-        Action::Checklist { destination, .. } => {
-            return Err(AppError::Refused(format!(
-                "{destination} is not in a shape this command rewrites; add the rule by hand"
-            )));
+/// [`AppError::Refused`] for a checklist plan, a destination that leaves
+/// the target, or a rewrite that does not define its sentinel, and
+/// manifest and I/O errors when the tree cannot be read or written. The
+/// target is restored before any of these returns.
+pub fn apply_all(target: &Utf8Path, plans: &[Plan]) -> Result<Vec<Utf8PathBuf>, AppError> {
+    let manifest_relative = Utf8Path::new(crate::domain::manifest::MANIFEST_PATH);
+    let mut writes: Vec<(Utf8PathBuf, Vec<u8>, &'static Sentinel)> = Vec::new();
+    for plan in plans {
+        let sentinel = plan.reconciliation.sentinel;
+        match &plan.action {
+            Action::Seed { destination, bytes } => {
+                writes.push((destination.clone(), bytes.clone(), sentinel));
+            }
+            Action::Append {
+                destination,
+                rewritten,
+                ..
+            } => writes.push((
+                destination.clone(),
+                rewritten.clone().into_bytes(),
+                sentinel,
+            )),
+            Action::Checklist { destination, .. } => {
+                return Err(AppError::Refused(format!(
+                    "{destination} is not in a shape this command rewrites; add the rule by hand"
+                )));
+            }
+        }
+    }
+    for (destination, _, _) in &writes {
+        crate::adapters::fs::check_destination(target, destination)
+            .map_err(|refusal| AppError::Refused(format!("{destination}: {refusal}")))?;
+    }
+    crate::adapters::fs::check_destination(target, manifest_relative)
+        .map_err(|refusal| AppError::Refused(format!("{manifest_relative}: {refusal}")))?;
+    let manifest_text = std::fs::read_to_string(target.join(manifest_relative))?;
+    let mut document: serde_json::Value = serde_json::from_str(&manifest_text)
+        .map_err(|error| AppError::ManifestInvalid(error.to_string()))?;
+
+    let mut backups: Vec<(Utf8PathBuf, Option<Vec<u8>>)> = Vec::new();
+    let restore = |backups: &[(Utf8PathBuf, Option<Vec<u8>>)]| {
+        for (destination, previous) in backups {
+            let full = target.join(destination);
+            let _ = previous.as_ref().map_or_else(
+                || std::fs::remove_file(&full),
+                |bytes| write_atomic(&full, bytes),
+            );
         }
     };
-    let full = target.join(destination);
-    if full.is_symlink() {
-        return Err(AppError::Refused(format!(
-            "{destination} is a symlink; refusing to write through it"
-        )));
-    }
-    let previous = if full.is_file() {
-        Some(std::fs::read(&full)?)
-    } else {
-        None
-    };
-    write_atomic(&full, &bytes)?;
-    let written = std::fs::read_to_string(&full)?;
-    if !crate::embedded::rule_ids_in(&written).any(|id| id == sentinel.rule.as_str()) {
-        // Put the file back as it was; the record has not moved yet.
-        match previous {
-            Some(bytes) => write_atomic(&full, &bytes)?,
-            None => std::fs::remove_file(&full)?,
+    let mut attempt = |backups: &mut Vec<(Utf8PathBuf, Option<Vec<u8>>)>| -> Result<(), AppError> {
+        for (destination, bytes, sentinel) in &writes {
+            let full = target.join(destination);
+            let previous = if full.is_file() {
+                Some(std::fs::read(&full)?)
+            } else {
+                None
+            };
+            backups.push((destination.clone(), previous));
+            write_atomic(&full, bytes)?;
+            let written = std::fs::read_to_string(&full)?;
+            if !crate::embedded::rule_ids_in(&written).any(|id| id == sentinel.rule.as_str()) {
+                return Err(AppError::Refused(format!(
+                    "{destination} did not define `{}` after the rewrite",
+                    sentinel.rule
+                )));
+            }
+            let seed = crate::embedded::asset(sentinel.source)
+                .ok_or_else(|| anyhow::anyhow!("payload asset missing: {}", sentinel.source))?;
+            with_adopted_record(&mut document, sentinel.source, destination, bytes, seed)?;
         }
-        return Err(AppError::Refused(format!(
-            "{destination} did not define `{}` after the rewrite; the file is unchanged",
-            sentinel.rule
-        )));
+        backups.push((
+            manifest_relative.to_path_buf(),
+            Some(manifest_text.clone().into_bytes()),
+        ));
+        let rendered = serde_json::to_string_pretty(&document)
+            .map_err(|error| AppError::ManifestInvalid(error.to_string()))?;
+        write_atomic(
+            &target.join(manifest_relative),
+            format!("{rendered}\n").as_bytes(),
+        )?;
+        Ok(())
+    };
+    if let Err(error) = attempt(&mut backups) {
+        restore(&backups);
+        return Err(match error {
+            AppError::Refused(reason) => {
+                AppError::Refused(format!("{reason}; every file is restored"))
+            }
+            other => AppError::Refused(format!(
+                "reconciliation aborted and every file is restored: {other}"
+            )),
+        });
     }
-    record_adopted(target, sentinel.source, destination, &bytes, seed)?;
-    Ok(destination.clone())
+    Ok(writes
+        .into_iter()
+        .map(|(destination, _, _)| destination)
+        .collect())
 }
 
 #[cfg(test)]

@@ -168,6 +168,20 @@ impl Measurement {
     }
 }
 
+/// The entries of the legacy chapter list, normalized, in file order.
+///
+/// One parser for the gate and the migration, so the migration can never
+/// convert a line the gate did not honour. The gate never trimmed a line,
+/// so a line with surrounding whitespace named no file and exempted
+/// nothing; it is kept as it was written and matches nothing here either.
+#[must_use]
+pub fn legacy_list(text: &str) -> Vec<String> {
+    text.lines()
+        .filter(|entry| !entry.is_empty() && !entry.starts_with('#'))
+        .map(normalize)
+        .collect()
+}
+
 /// The form a path takes in the file: repository-relative, no `./`.
 #[must_use]
 pub fn normalize(path: &str) -> String {
@@ -940,6 +954,18 @@ mod tests {
             change,
             Change::Removed { reason, .. } if reason == "the gate measures no such path"
         )));
+    }
+
+    #[test]
+    fn the_legacy_list_is_read_as_written_and_never_trimmed() {
+        assert_eq!(
+            legacy_list("# exempt\nmethod/a.md\n./method/b.md\n\n method/c.md \n"),
+            vec![
+                "method/a.md".to_string(),
+                "method/b.md".to_string(),
+                " method/c.md ".to_string()
+            ]
+        );
     }
 
     #[test]

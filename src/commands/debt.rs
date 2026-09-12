@@ -12,7 +12,7 @@
 
 use camino::{Utf8Path, Utf8PathBuf};
 
-use crate::adapters::fs::write_atomic;
+use crate::adapters::fs::{remove_within, write_within};
 use crate::cli::debt::{DebtArgs, DebtVerb, DebtVerbArgs};
 use crate::context::AppContext;
 use crate::domain::debt::{
@@ -70,14 +70,14 @@ fn write_debt(root: &Utf8Path, debt: &Debt) -> Result<(), AppError> {
     let path = root.join(DEBT_PATH);
     if debt.is_empty() {
         if path.is_file() {
-            std::fs::remove_file(&path)?;
+            remove_within(root, Utf8Path::new(DEBT_PATH))?;
             output::line(format!("OK removed {DEBT_PATH}; nothing remains recorded"));
         } else {
             output::line("OK nothing to record; no debt file is needed");
         }
         return Ok(());
     }
-    write_atomic(&path, debt.render().as_bytes())?;
+    write_within(root, Utf8Path::new(DEBT_PATH), debt.render().as_bytes())?;
     output::line(format!("OK wrote {DEBT_PATH}"));
     Ok(())
 }
@@ -103,14 +103,11 @@ fn baseline(root: &Utf8Path, apply: bool) -> Result<(), AppError> {
     write_debt(root, &debt)
 }
 
-/// The legacy list's entries, as bare repository-relative paths.
+/// The legacy list's entries, read by the same parser the gate uses.
 fn legacy_entries(root: &Utf8Path) -> Result<Vec<String>, AppError> {
-    Ok(std::fs::read_to_string(root.join(LEGACY_DEBT_PATH))?
-        .lines()
-        .map(str::trim)
-        .filter(|entry| !entry.is_empty() && !entry.starts_with('#'))
-        .map(crate::domain::debt::normalize)
-        .collect())
+    Ok(crate::domain::debt::legacy_list(&std::fs::read_to_string(
+        root.join(LEGACY_DEBT_PATH),
+    )?))
 }
 
 fn migrate(root: &Utf8Path, apply: bool) -> Result<(), AppError> {
@@ -153,7 +150,7 @@ fn migrate(root: &Utf8Path, apply: bool) -> Result<(), AppError> {
     // has. An interruption between the two leaves both present, which is a
     // failure naming this verb, never a state where neither holds.
     write_debt(root, &debt)?;
-    std::fs::remove_file(root.join(LEGACY_DEBT_PATH))?;
+    remove_within(root, Utf8Path::new(LEGACY_DEBT_PATH))?;
     output::line(format!("OK removed {LEGACY_DEBT_PATH}"));
     Ok(())
 }

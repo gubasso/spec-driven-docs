@@ -322,3 +322,64 @@ fn a_disagreeing_selection_is_refused_at_the_declaration() {
         .code(1)
         .stdout(predicate::str::contains("writing_style"));
 }
+
+/// A recorded documentation block that is gone is never a green check: the
+/// verify counterpart reports the missing block, and this verb agrees
+/// rather than reporting the declaration as satisfied.
+#[test]
+fn a_recorded_block_that_is_gone_fails_the_check_and_refuses_the_apply() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    fixture
+        .cmd()
+        .args(["hooks", "--target", &fixture.target(), "--check"])
+        .assert()
+        .success();
+    fixture.write("AGENTS.md", "# Project\n\nNo block here.\n");
+    fixture
+        .cmd()
+        .args(["hooks", "--target", &fixture.target(), "--check"])
+        .assert()
+        .code(1)
+        .stdout(predicate::str::contains("recorded a documentation block"))
+        .stdout(predicate::str::contains("sdd init --apply"));
+    fixture
+        .cmd()
+        .args(["hooks", "--target", &fixture.target(), "--apply"])
+        .assert()
+        .code(73)
+        .stderr(predicate::str::contains("sdd init --apply"));
+    assert_eq!(fixture.read("AGENTS.md"), "# Project\n\nNo block here.\n");
+
+    std::fs::remove_file(fixture.path().join("AGENTS.md")).unwrap();
+    fixture
+        .cmd()
+        .args(["hooks", "--target", &fixture.target(), "--check"])
+        .assert()
+        .code(1)
+        .stdout(predicate::str::contains("the file is absent"));
+}
+
+/// A target that never recorded a block owes none: the canon's own root
+/// digest is release-kit-owned, and its check stays green.
+#[test]
+fn an_unrecorded_agents_file_is_not_the_verbs_to_judge() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    let mut manifest: serde_json::Value =
+        serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
+    manifest["integration_blocks"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|block| block["path"] != "AGENTS.md");
+    fixture.write(
+        ".spec-driven-docs/manifest.json",
+        &(serde_json::to_string_pretty(&manifest).unwrap() + "\n"),
+    );
+    fixture.write("AGENTS.md", "# Project\n");
+    fixture
+        .cmd()
+        .args(["hooks", "--target", &fixture.target(), "--check"])
+        .assert()
+        .success();
+}

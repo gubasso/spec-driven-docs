@@ -65,8 +65,8 @@ The project MUST enforce every count-shaped budget with a command that fails the
 #### Scenario: A project adopts the convention over an inherited corpus
 
 - GIVEN forty chapters written before the project adopted the budgets
-- WHEN the project lands its instance
-- THEN it records each one under `SPEC-budget-debt.md` at its current size, the budget stays where it is for every new document, and each recorded ceiling can only come down
+- WHEN the project lands its instance and runs `sdd debt baseline --apply` after reading the preview
+- THEN each one is recorded under `SPEC-budget-debt.md` at its current size, the budget stays where it is for every new document, and each recorded ceiling can only come down
 
 Verify: `for h in adr-word-cap agents-digest-size spec-size-cap chapter-size-cap; do grep -q "id: $h$" .pre-commit-config.yaml || exit 1; done`
 
