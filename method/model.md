@@ -1,4 +1,4 @@
-# 00 — Model
+# Model
 
 Three artifacts carry a project's durable knowledge, and each answers exactly one question. This chapter assigns the questions, settles what wins when two artifacts disagree, and states the ownership rule every other chapter applies to one artifact class.
 
@@ -25,13 +25,13 @@ agreed behavior:    spec  >  code  >  ADR
 
 When a spec and a decision record disagree, the spec is right and the record is history. A reader who finds the disagreement MUST NOT edit the record to agree. The record is correct about the past.
 
-When code and a spec disagree, the phase decides which is the defect. While an open unit of work cites the rule's ID, the spec states the agreement and the code is catching up. Otherwise the code is the observed truth and the spec is stale. Fix the wrong one in the same change, and say in the commit which one it was. [09 Spec to Code](./09-spec-to-code.md) owns the marker.
+When code and a spec disagree, the phase decides which is the defect. While an open unit of work cites the rule's ID, the spec states the agreement and the code is catching up. Otherwise the code is the observed truth and the spec is stale. Fix the wrong one in the same change, and say in the commit which one it was. [Spec to Code](./spec-to-code.md) owns the marker.
 
 ## Rules this produces
 
 - An agent resolving a conflict MUST follow the precedence above and MUST cite the artifact it followed.
 
-Two consequences follow from precedence and are owned where they are applied: updating the spec when behavior changes belongs to [07 Lifecycle](./07-lifecycle.md), and leaving a record unrevised belongs to [04 Decisions](./04-decisions.md).
+Two consequences follow from precedence and are owned where they are applied: updating the spec when behavior changes belongs to [Lifecycle](./lifecycle.md), and leaving a record unrevised belongs to [Decisions](./decisions.md).
 
 ## The projection is authored, not derived
 

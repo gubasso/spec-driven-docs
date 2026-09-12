@@ -1,6 +1,6 @@
-# 02 — Specs
+# Specs
 
-A spec states what is true now for one domain, in rules an agent can apply and a command can check. It is the artifact loaded before work starts and the artifact that wins when two documents disagree. This chapter owns the container. [03 Rules](./03-rules.md) owns the requirement blocks inside it.
+A spec states what is true now for one domain, in rules an agent can apply and a command can check. It is the artifact loaded before work starts and the artifact that wins when two documents disagree. This chapter owns the container. [Rules](./rules.md) owns the requirement blocks inside it.
 
 ## Shape
 
@@ -32,7 +32,7 @@ Verify: `<command that exits non-zero on violation>`
 - Every requirement MUST be an `### \`<id>\` — <title>`heading under`## Requirements`.
 - A spec MUST NOT introduce a section outside this shape.
 
-[08 Gates](./08-gates.md) wires the check that holds it.
+[Gates](./gates.md) wires the check that holds it.
 
 ## Purpose
 
@@ -42,7 +42,7 @@ The paragraph exists so a reader loading the wrong spec finds out in one sentenc
 
 ## Requirements
 
-The body is an ordered list of requirement blocks and nothing else. No narrative between them, no rationale, no history of how a rule came to be. A rule that needs an argument has a decision record, and the record names the rule. The spec states the rule and stops. The single exception is the clarification marker, owned by [03 Rules](./03-rules.md).
+The body is an ordered list of requirement blocks and nothing else. No narrative between them, no rationale, no history of how a rule came to be. A rule that needs an argument has a decision record, and the record names the rule. The spec states the rule and stops. The single exception is the clarification marker, owned by [Rules](./rules.md).
 
 Order matters. Put the requirement most likely to be violated first: retrieval accuracy is highest near the start of a document. A rule buried at line 240 is a rule an agent can fail to act on.
 
@@ -67,7 +67,7 @@ When a spec grows past its budget, the usual cause is two domains sharing a file
 
 A file longer than 100 lines can be read in part rather than whole. A partial read starting at the top must still show everything the spec covers. That is what the table of contents buys.
 
-The TOC is excluded from the length because the cap bounds authored content and a generated index is not authored. If the TOC counted toward the length, one added requirement can push a spec over the cap through index growth rather than content growth. [06 Format](./06-format.md) owns the full budget table and the reasoning behind the numbers.
+The TOC is excluded from the length because the cap bounds authored content and a generated index is not authored. If the TOC counted toward the length, one added requirement can push a spec over the cap through index growth rather than content growth. [Format](./format.md) owns the full budget table and the reasoning behind the numbers.
 
 ## Companion artifacts
 
@@ -127,7 +127,7 @@ A domain with exactly one rule still gets a spec. The overhead is four headings.
 ## What a spec is not
 
 - Not a tutorial. A reader learning the subject reads explanation. Someone about to act reads a spec.
-- Not a field list. Exact values belong in reference and exact behavior belongs in code. See [00 Model](./00-model.md).
+- Not a field list. Exact values belong in reference and exact behavior belongs in code. See [Model](./model.md).
 - Not a decision record. A spec states the rule. The record that argued for it names the rule ID.
 - Not a plan. What the project builds next is perishable and lives in the plan zone.
 

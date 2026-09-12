@@ -1,4 +1,4 @@
-# 06 — Format
+# Format
 
 Markdown is the house format. This chapter keeps the constructs that carry structure and drops the inline emphasis that carries decoration. It sets the register every document is written in and owns the size budget the whole framework is measured against.
 
@@ -20,7 +20,7 @@ Markdown is the house format. This chapter keeps the constructs that carry struc
 - A project MUST NOT raise a budget to admit a document that exceeds it.
 - A gate that exempts a file MUST fail once that file no longer needs the exemption.
 
-Six of the budgets are line or word counts and are gated in [08 Gates](./08-gates.md). The other two are not counts: a requirement statement being one sentence, and a reference being one level from the entry document, are reviewer judgment. That chapter declares them unenforced rather than approximating them. A count nobody runs is advice, and a project that publishes these numbers without hooks documents an intention.
+Six of the budgets are line or word counts and are gated in [Gates](./gates.md). The other two are not counts: a requirement statement being one sentence, and a reference being one level from the entry document, are reviewer judgment. That chapter declares them unenforced rather than approximating them. A count nobody runs is advice, and a project that publishes these numbers without hooks documents an intention.
 
 Adopting a budget over a corpus written before it is the case that tempts the raised number. Gate the scope already inside the budget and list the files outside it. As a result, what is uncovered is an enumeration a reader can count rather than a silence. The list must fail the gate once a file it names fits, or it stops shrinking the day it stops being read.
 
@@ -49,9 +49,9 @@ Emphasis was doing three jobs and each has a better home. An identifier becomes 
 
 The rule is zero, not sparingly. A density budget invites a judgment call on every line and loses it slowly, so zero is the only version applied consistently.
 
-It binds authoring and is held by review rather than by a gate. A project adopting it inherits a corpus written before it. The exemption list needed to clear that corpus costs more than the rule is worth: emphasis markers are one to two percent of a corpus, and removing one changes nothing a reader can act on. [08 Gates](./08-gates.md) records it as unenforced, which is the honest form, and [07 Lifecycle](./07-lifecycle.md) owns the choice between the two.
+It binds authoring and is held by review rather than by a gate. A project adopting it inherits a corpus written before it. The exemption list needed to clear that corpus costs more than the rule is worth: emphasis markers are one to two percent of a corpus, and removing one changes nothing a reader can act on. [Gates](./gates.md) records it as unenforced, which is the honest form, and [Lifecycle](./lifecycle.md) owns the choice between the two.
 
-Do not justify this with token savings. The dominant costs are restating a fact another document owns and loading documents the work does not need. [00 Model](./00-model.md) and [05 Agent Context](./05-agent-context.md) fix those.
+Do not justify this with token savings. The dominant costs are restating a fact another document owns and loading documents the work does not need. [Model](./model.md) and [Agent Context](./agent-context.md) fix those.
 
 ## Register
 
@@ -93,7 +93,7 @@ Quote the gist, not the region: the smallest span where the mechanism is visible
 
 Two habits fail the rule. The first is a list of line ranges under a heading like `Code path`. It reads as thorough and hands the reading back to the reader. The second is a fence marked with the source language, which invites a formatter to rewrite quotes, wrapping, and indentation. A quoted span is fenced as `text`, because a reformatted excerpt is no longer the thing that was quoted.
 
-[08 Gates](./08-gates.md) records it as unenforced: whether a span shows the mechanism requires reading the code beside it.
+[Gates](./gates.md) records it as unenforced: whether a span shows the mechanism requires reading the code beside it.
 
 ## One default, not a survey
 

@@ -1,6 +1,6 @@
-# 04 — Decisions
+# Decisions
 
-A decision record states why one option was chosen over others, at the moment of choosing. It is one entry in an append-only log. It is not loaded by default, it is never rewritten, and it never claims to describe the present. This chapter owns the record. [02 Specs](./02-specs.md) owns what binds today.
+A decision record states why one option was chosen over others, at the moment of choosing. It is one entry in an append-only log. It is not loaded by default, it is never rewritten, and it never claims to describe the present. This chapter owns the record. [Specs](./specs.md) owns what binds today.
 
 ## Filenames
 
@@ -26,7 +26,7 @@ The immutability is the part to enforce. A title can be improved at any time. Th
 
 ## Body
 
-Five sections, fixed. [08 Gates](./08-gates.md) wires the check.
+Five sections, fixed. [Gates](./gates.md) wires the check.
 
 ```markdown
 # <Short title naming the choice, not the task>

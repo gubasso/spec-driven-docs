@@ -60,7 +60,7 @@ Descriptive text explains a subject.
 - Use a vertical list for three or more parallel items. Bad: "The record needs a title, status, owner, and date." Good: Put the four fields in a vertical list.
 - State the command before the risk in a warning. Bad: "You can lose data, so take care with `rm -rf`." Good: "`rm -rf` deletes the directory without using the trash."
 
-[`06-format.md`](./06-format.md) owns Markdown mechanics and size budgets. This chapter owns the prose register inside that structure.
+[`format.md`](./format.md) owns Markdown mechanics and size budgets. This chapter owns the prose register inside that structure.
 
 ## What the style is not
 

@@ -46,4 +46,4 @@ Start with one theme. A matrix that covers everything on the day it ships covers
 
 ## House format
 
-This shelf obeys [06 Format](../method/06-format.md). Chapters stay at or below 200 lines, carry no bold or italics, and spend prose only on a decision, a hazard, or a non-obvious constraint.
+This shelf obeys [Format](../method/format.md). Chapters stay at or below 200 lines, carry no bold or italics, and spend prose only on a decision, a hazard, or a non-obvious constraint.

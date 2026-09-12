@@ -1,4 +1,4 @@
-# 08 — Gates
+# Gates
 
 Every rule this framework states is either checked by a hook or declared unenforced. This chapter holds the wiring and the honest list of what no command can decide.
 
@@ -9,7 +9,7 @@ Every rule this framework states is either checked by a hook or declared unenfor
 - Every tool a gate runs beyond POSIX and git MUST be in the project's devshell and in the hook.
 - A new gate MUST be demonstrated failing against an intentional violation before it is trusted.
 
-[03 Rules](./03-rules.md) requires the `Verify:` line. This chapter wires it. A rule presented as binding but never checked teaches readers that specs describe intentions. The devshell rule makes a gate testable: a tool reachable only inside pre-commit cannot be exercised against a violation.
+[Rules](./rules.md) requires the `Verify:` line. This chapter wires it. A rule presented as binding but never checked teaches readers that specs describe intentions. The devshell rule makes a gate testable: a tool reachable only inside pre-commit cannot be exercised against a violation.
 
 A check whose file set is empty exits zero. As a result, a renamed directory or a drifted `files:` pattern turns every gate below into a green light over nothing. Assert the set before checking it.
 
@@ -79,7 +79,7 @@ ls <root>/reference/known-issues/ | sed 's/\.md$//' | sort -u > /tmp/recorded
 comm -13 /tmp/recorded /tmp/cited | grep . && exit 1 || exit 0
 ```
 
-The check runs one way only: a cited case with no record is a fabrication and fails. A record no suppression cites is ordinary, because the workaround can live in a configuration file or a dependency pin. The scan reads the `KI-` token alone and recognizes no suppression syntax, so a gate delivers no model of another tool's grammar. Whether a suppression that names no case states a reason belongs to the linter that owns the language, where that linter has a rule for it. [09 Spec to Code](./09-spec-to-code.md) names the lints that do and the case where none exists.
+The check runs one way only: a cited case with no record is a fabrication and fails. A record no suppression cites is ordinary, because the workaround can live in a configuration file or a dependency pin. The scan reads the `KI-` token alone and recognizes no suppression syntax, so a gate delivers no model of another tool's grammar. Whether a suppression that names no case states a reason belongs to the linter that owns the language, where that linter has a rule for it. [Spec to Code](./spec-to-code.md) names the lints that do and the case where none exists.
 
 Wire it as `always_run`, not behind a `files:` filter. The commit this check exists to catch deletes a record while a suppression still cites it. Pre-commit selects staged files with `--diff-filter=ACMRTUXB`, which omits deletions. As a result, a filter hands the hook an empty list on exactly that commit. The same reasoning binds every gate that compares two sets.
 
@@ -158,7 +158,7 @@ while IFS= read -r f; do
 done
 ```
 
-The chapter loop is what stops a shelf from absorbing a subject by growing. A catalog takes the larger number for the reason [06 Format](./06-format.md) states. It is matched by name because no command can tell an argument from an inventory. The shelf index is in the loop because no numbered pattern matches it. The walk prunes what a project vendors rather than authors, because a cap nobody can satisfy is a cap they switch off. Where a budget lands over an older corpus, the loop skips a list of named paths and fails when a listed path fits or disappears. The exemption then shrinks on its own.
+The chapter loop is what stops a shelf from absorbing a subject by growing. A catalog takes the larger number for the reason [Format](./format.md) states. It is matched by name because no command can tell an argument from an inventory. The shelf index is in the loop because no numbered pattern matches it. The walk prunes what a project vendors rather than authors, because a cap nobody can satisfy is a cap they switch off. Where a budget lands over an older corpus, the loop skips a list of named paths and fails when a listed path fits or disappears. The exemption then shrinks on its own.
 
 ## Tables of contents
 
@@ -239,7 +239,7 @@ The second is the orphan check: a citation resolving to nothing is a fabrication
 
 ## Clarification markers
 
-The cap and the form are one loop. Whether the marker blocks enactment is a set intersection against the enacted list from [09 Spec to Code](./09-spec-to-code.md).
+The cap and the form are one loop. Whether the marker blocks enactment is a set intersection against the enacted list from [Spec to Code](./spec-to-code.md).
 
 ```bash
 for f in <root>/specs/SPEC-*.md; do
@@ -297,4 +297,4 @@ These rules are real and no command decides them. A reviewer does.
 | A destructive step shows its dry run and its loss           | requires knowing the tool's forms         |
 | A suppression naming no case states its reason              | the language's own linter owns the syntax |
 
-[99 Checklist](./99-checklist.md) is where these are asked at review time.
+[Checklist](./checklist.md) is where these are asked at review time.

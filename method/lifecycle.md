@@ -1,4 +1,4 @@
-# 07 — Lifecycle
+# Lifecycle
 
 Documents change, and the changes have to leave the corpus consistent. This chapter owns how a spec changes, how exploratory material becomes durable, and how facts that expire are kept honest.
 
@@ -21,7 +21,7 @@ Remove deletes the requirement outright. No strikethrough, no `deprecated` marke
 
 ## When a change earns a decision record
 
-Add a record when the change clears the threshold in [04 Decisions](./04-decisions.md): cross-cutting, expensive to reverse, constraining, or rejecting a plausible alternative.
+Add a record when the change clears the threshold in [Decisions](./decisions.md): cross-cutting, expensive to reverse, constraining, or rejecting a plausible alternative.
 
 A change that adds an enforceable rule and clears the threshold produces two artifacts in one commit: the requirement in the spec, and the record explaining the choice. The record cites the rule ID.
 
@@ -42,9 +42,9 @@ Three shapes, and the choice is about cost rather than principle.
 | Gate with a shrinking exemption | many breaches, and each one changes what a document means     |
 | State it and hold it by review  | many breaches, and none of them changes what a document means |
 
-The exemption list is the one that goes wrong. It must fail once a path it names no longer needs it, or it stops shrinking the day it stops being read. [06 Format](./06-format.md) owns that rule.
+The exemption list is the one that goes wrong. It must fail once a path it names no longer needs it, or it stops shrinking the day it stops being read. [Format](./format.md) owns that rule.
 
-Clearing breaches is gate work and runs at whatever pace the project chooses, a file at a time or in one pass. What is not available is a fourth shape where a rule is stated, ungated, and not declared unenforced. That is the state readers learn to ignore, and [08 Gates](./08-gates.md) exists to keep a project out of it.
+Clearing breaches is gate work and runs at whatever pace the project chooses, a file at a time or in one pass. What is not available is a fourth shape where a rule is stated, ungated, and not declared unenforced. That is the state readers learn to ignore, and [Gates](./gates.md) exists to keep a project out of it.
 
 ## Drafts
 
@@ -109,7 +109,7 @@ checked: 2026-06-18
 
 - A known-issue record MUST be named `KI-<slug>.md`, and that name is the case id.
 
-The case id is the filename, so a suppression that names `KI-krun-mangles-newlines` resolves to one file by inspection. A counter cannot: whoever trips over an external bug finds it, on whatever branch they are on. Two people allocating the next number is the same collision a decision record avoids the same way ([04 Decisions](./04-decisions.md)).
+The case id is the filename, so a suppression that names `KI-krun-mangles-newlines` resolves to one file by inspection. A counter cannot: whoever trips over an external bug finds it, on whatever branch they are on. Two people allocating the next number is the same collision a decision record avoids the same way ([Decisions](./decisions.md)).
 
 The retire condition is what stops a workaround outliving its bug. Without it the workaround becomes permanent by default, and the next reader assumes it was a design choice.
 
@@ -156,7 +156,7 @@ When the condition is met, remove the workaround and delete the record in the sa
 
 - Where a resolved symptom can recur and be misread, the author MUST leave a diagnostic entry.
 
-That entry is the durable half, and it is the only half. It carries the symptom, the signal that identifies it, and what the signal means. As a result, a reader meeting the symptom again recognizes it in one lookup. [11 Operational](./11-operational.md) owns that shape. An archive of resolved cases is not that: it is kept because the cases existed, and the log already holds them.
+That entry is the durable half, and it is the only half. It carries the symptom, the signal that identifies it, and what the signal means. As a result, a reader meeting the symptom again recognizes it in one lookup. [Operational](./operational.md) owns that shape. An archive of resolved cases is not that: it is kept because the cases existed, and the log already holds them.
 
 ## Sources
 

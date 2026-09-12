@@ -1,6 +1,6 @@
-# 11 — Operational Documents
+# Operational Documents
 
-Operational material is written under pressure: a fix becomes a runbook, a failure becomes a case study, a command someone ran at 3 a.m. becomes a lookup. It lands outside the model unless something states what each one contains. [01 Placement](./01-placement.md) puts each in a zone and [10 Procedures](./10-procedures.md) owns the steps inside one. This chapter owns the contents.
+Operational material is written under pressure: a fix becomes a runbook, a failure becomes a case study, a command someone ran at 3 a.m. becomes a lookup. It lands outside the model unless something states what each one contains. [Placement](./placement.md) puts each in a zone and [Procedures](./procedures.md) owns the steps inside one. This chapter owns the contents.
 
 ## Four shapes
 
@@ -78,7 +78,7 @@ docs/guides/backups/restore-from-object-storage.md
 docs/reference/backups/diagnosing-a-stalled-backup.md
 ```
 
-A `runbooks/` or `case-studies/` directory sorts pages by a category the author invented rather than by what the reader is trying to do. It is also the filesystem-index shape [00 Model](./00-model.md) forbids: a container that exists to hold a label. When a topic's guides become hard to scan, the fix is the zone's index, not a new bucket.
+A `runbooks/` or `case-studies/` directory sorts pages by a category the author invented rather than by what the reader is trying to do. It is also the filesystem-index shape [Model](./model.md) forbids: a container that exists to hold a label. When a topic's guides become hard to scan, the fix is the zone's index, not a new bucket.
 
 ## Anti-patterns
 

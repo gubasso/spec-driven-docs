@@ -1,4 +1,4 @@
-# 10 — Procedures
+# Procedures
 
 A guide is the one zone whose reader is executing rather than reading. This chapter owns that document's body: how large a step is, what closes the page, and what a multi-phase procedure names at each boundary so every carried value has a producer.
 
@@ -12,7 +12,7 @@ A step is one action the reader performs and can confirm.
 - A single-step procedure MUST be a bullet rather than a numbered list.
 - An optional step MUST open with `Optional:`.
 
-The permitted sentence follows the command instead of preceding it, so a reader who does not need it has already moved on. [06 Format](./06-format.md) fixes what that sentence can carry and keeps the command out of it.
+The permitted sentence follows the command instead of preceding it, so a reader who does not need it has already moved on. [Format](./format.md) fixes what that sentence can carry and keeps the command out of it.
 
 ````markdown
 2. Initialize the repository.
@@ -97,7 +97,7 @@ An artifact is anything a phase produces that something later needs: a string, a
 
 `<BUCKET_KEY_ID>`, not `<STEP_3_OUTPUT>`: a step number is wrong the moment a step is inserted. A slot shown as `key_id: 002abc4e91` reads as a value to copy rather than one to replace. A reader working through a recovery at speed will copy it.
 
-Case is the discriminator against the placeholder [06 Format](./06-format.md) already owns. A placeholder is lowercase and stands in for anything project-specific, as `<project>` or `<host>` do. An artifact token is upper-snake and asserts more: that some phase produces this, and that the guide says which. The two meanings cannot share a spelling. As a result, a project already spending upper-snake angle names on something else picks a different delimiter for one of the two.
+Case is the discriminator against the placeholder [Format](./format.md) already owns. A placeholder is lowercase and stands in for anything project-specific, as `<project>` or `<host>` do. An artifact token is upper-snake and asserts more: that some phase produces this, and that the guide says which. The two meanings cannot share a spelling. As a result, a project already spending upper-snake angle names on something else picks a different delimiter for one of the two.
 
 In prose the token is inline code. Inside a fenced block it is written bare.
 
@@ -134,7 +134,7 @@ Outputs of this phase:
 - An outputs block MUST name the artifact and where it is kept, and MUST NOT define it.
 - A phase that carries nothing forward MUST write `Outputs: none` and the reason.
 
-The block is the last element of its section, so a reader skimming to the next heading still passes it. Headings are the link namespace, and a derived list does not earn a target on every phase. The definition stays with whatever owns that fact, per [00 Model](./00-model.md). A block that explains its artifact leaves two places to change. Silence about a phase that produces nothing reads as an omission rather than as an answer.
+The block is the last element of its section, so a reader skimming to the next heading still passes it. Headings are the link namespace, and a derived list does not earn a target on every phase. The definition stays with whatever owns that fact, per [Model](./model.md). A block that explains its artifact leaves two places to change. Silence about a phase that produces nothing reads as an omission rather than as an answer.
 
 ## Where the phase devices apply
 
@@ -150,7 +150,7 @@ The three devices are for that case and no other.
 
 The heading list is the length signal, not the line count. A reader scanning the headings sees the whole procedure without scrolling. Where it no longer fits, the page is carrying more than one task, or it is carrying reference material that belongs to a lookup page.
 
-Split it by the test in [01 Placement](./01-placement.md): what the reader is doing stays in the guide. What they are looking up moves to reference, and why it is so moves to explanation or a decision record.
+Split it by the test in [Placement](./placement.md): what the reader is doing stays in the guide. What they are looking up moves to reference, and why it is so moves to explanation or a decision record.
 
 ## Anti-patterns
 

@@ -1,4 +1,4 @@
-# 05 — Agent Context
+# Agent Context
 
 An agent's context window is the scarcest resource in the project. This chapter decides what is loaded before work starts, what is fetched on demand, and how large the always-loaded files can be.
 
@@ -36,11 +36,11 @@ A project states a rule so the choice is made once. An agent that surfaces a sta
 - An agent MUST NOT ask whether work earns a decision record, a unit of work, or its own commit.
 - An agent reporting what is open MUST report only what is open.
 
-The second follows from the first. [04 Decisions](./04-decisions.md) states the threshold a record must clear, so the question is answered before it is asked.
+The second follows from the first. [Decisions](./decisions.md) states the threshold a record must clear, so the question is answered before it is asked.
 
 The third is about the shape of a report. A list of open items is read to decide what to do next. As a result, an entry that is resolved, decided, or measured clean costs reading time and hides the live ones. A finding that closed during the work belongs in the change that closed it.
 
-The failure is specific to agents. A model with room to spare will re-derive a settled choice, present the derivation as diligence, and ask for confirmation. Each round costs a reply and teaches the reader that a stated rule is provisional. That is the same lesson an ungated rule teaches in [08 Gates](./08-gates.md).
+The failure is specific to agents. A model with room to spare will re-derive a settled choice, present the derivation as diligence, and ask for confirmation. Each round costs a reply and teaches the reader that a stated rule is provisional. That is the same lesson an ungated rule teaches in [Gates](./gates.md).
 
 Where a rule genuinely does not reach the case, ask, and name what the rule says and where it stops. That is a different act from asking whether the rule holds.
 
@@ -65,7 +65,7 @@ A large corpus cannot be loaded, and an agent told to read the docs will either 
 ```
 
 - An entry document MUST name its sources by path, not describe them by topic.
-- An entry document that changes agreed behavior MUST cite the affected rule IDs. See [09 Spec to Code](./09-spec-to-code.md).
+- An entry document that changes agreed behavior MUST cite the affected rule IDs. See [Spec to Code](./spec-to-code.md).
 - An entry document MUST NOT name a decision record.
 
 Where the entry document lives depends on the timescale. For work in flight it is the story or task file. For a domain being maintained it is the spec. Both work for the same reason.

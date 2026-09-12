@@ -1,6 +1,6 @@
-# 12 — Migration
+# Migration
 
-How a project moves from however it documents itself today to this method, without losing a durable fact and without a step nobody can retrace. The subject is the corpus: every place the project has written itself down, converging on one home per fact. Placement of each fact is the question of [01 Placement](./01-placement.md). Retiring a rule-breaching document is the question of [07 Lifecycle](./07-lifecycle.md). This chapter owns the procedure that carries a whole corpus across.
+How a project moves from however it documents itself today to this method, without losing a durable fact and without a step nobody can retrace. The subject is the corpus: every place the project has written itself down, converging on one home per fact. Placement of each fact is the question of [Placement](./placement.md). Retiring a rule-breaching document is the question of [Lifecycle](./lifecycle.md). This chapter owns the procedure that carries a whole corpus across.
 
 ## Classification before anything lands
 
@@ -16,7 +16,7 @@ An installed instance is a fourth state and not a classification: it routes to v
 
 The full sweep is the default scope: every durable fact ends the migration in exactly one home, and the old convention is retired. Narrowing that scope is an explicit decision, stated where the plan is approved.
 
-The plan's body is a migration checklist: one entry per source document, written before the first destination write and kept under version control in the plan zone. A ranked plan with declared scope is binding, however early, per [01 Placement](./01-placement.md). Each entry carries:
+The plan's body is a migration checklist: one entry per source document, written before the first destination write and kept under version control in the plan zone. A ranked plan with declared scope is binding, however early, per [Placement](./placement.md). Each entry carries:
 
 ```markdown
 - [ ] `old-docs/deploy-and-why.md`

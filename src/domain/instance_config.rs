@@ -538,7 +538,7 @@ mod tests {
         )
         .expect("resolves");
         assert_eq!(
-            filter.decide(Utf8Path::new("method/08-gates.md")),
+            filter.decide(Utf8Path::new("method/gates.md")),
             Decision::Read
         );
         assert_eq!(

@@ -80,7 +80,7 @@ pub fn plan_zone_with(ctx: &GateCtx, named: Option<Utf8PathBuf>) -> PlanZoneTarg
     // A tracked kind whose path is missing, empty, or not a string is a
     // broken declaration, never an absent one. Reading it as `Unchecked`
     // would skip a zone the project declared gated, which is the state
-    // `07-lifecycle.md` forbids a gate from reaching.
+    // `lifecycle.md` forbids a gate from reaching.
     recorded
         .get("path")
         .and_then(serde_json::Value::as_str)
