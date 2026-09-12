@@ -38,6 +38,7 @@ When the request carries `--no-plan`, skip the plan gate's approval turn only. S
 2. Read `sdd method writing-style` before you author or edit prose.
 3. Load the adopted spec for each domain the change touches, from `specs/` under `docs_root`: `SPEC-docs-format.md` always, `SPEC-docs-specs.md` for SPEC files, `SPEC-decision-records.md` for ADRs, `SPEC-comparison-docs.md` for comparisons, `SPEC-known-issues.md` for known-issue records, `SPEC-guides.md` for step-by-step guides. `sdd spec <domain>` prints the canon baseline where a domain is not adopted.
 4. Start from the matching template: `sdd template spec`, `sdd template adr`, `sdd template comparison`, `sdd template agents-digest`, `sdd template guide`, or `sdd template known-issue`.
+5. Name the new document by a kebab-case slug drawn from its subject, never by a number or its position in a sequence, because a number is an identity two branches can both claim and a slug is not. Where the document has no kind prefix, make sure that its directory has a `README.md` saying what the directory holds and what each document covers, and add the new document to it. No gate holds an unprefixed name: `adr-filename-shape` and `ki-filename-shape` judge the kind-prefixed set alone.
 
 ## Format defaults
 
