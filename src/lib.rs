@@ -14,6 +14,7 @@
 //! - [`gates`] — the delivered gate implementations and their registry.
 //! - [`services`] — install, verify, upgrade, and hook-rendering orchestration.
 //! - [`adapters`] — filesystem I/O at the edges.
+//! - [`plan`] — the typed document every landing write comes from.
 //! - [`release`] — the bundle and resolver boundary every landing verb
 //!   reads a release through.
 //! - [`transaction`] — the lock, staging, and journal a recoverable
@@ -32,6 +33,7 @@ pub mod gates;
 pub mod logging;
 pub mod output;
 pub mod payload_roots;
+pub mod plan;
 pub mod probes;
 pub mod release;
 pub mod services;

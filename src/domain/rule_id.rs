@@ -30,6 +30,34 @@ macro_rules! rule_ids {
                     $(Self::$variant => $id),+
                 }
             }
+
+            /// The rule one slug pair addresses, where a spec defines it.
+            #[must_use]
+            pub fn parse(id: &str) -> Option<Self> {
+                match id {
+                    $($id => Some(Self::$variant),)+
+                    _ => None,
+                }
+            }
+        }
+
+        impl serde::Serialize for RuleId {
+            fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                serializer.serialize_str(self.as_str())
+            }
+        }
+
+        impl<'de> serde::Deserialize<'de> for RuleId {
+            fn deserialize<D: serde::Deserializer<'de>>(
+                deserializer: D,
+            ) -> Result<Self, D::Error> {
+                let id = <std::borrow::Cow<'_, str> as serde::Deserialize>::deserialize(
+                    deserializer,
+                )?;
+                Self::parse(&id).ok_or_else(|| {
+                    serde::de::Error::custom(format!("no spec defines the rule {id}"))
+                })
+            }
         }
     };
 }
@@ -71,6 +99,16 @@ rule_ids! {
     UpgradeConflictsAreAtomic => "distribution:upgrade-conflicts-are-atomic",
     UserScopeFilesStayUnrecorded => "distribution:user-scope-files-stay-unrecorded",
     UserScopeReceiptIsRequiredState => "distribution:a-user-scope-receipt-is-required-state",
+    PlanWritesNothing => "reconcile:a-plan-writes-nothing",
+    DecisionPrecedesWhatDependsOnIt => "reconcile:a-decision-precedes-what-depends-on-it",
+    FindingIsSomethingTheProgramProved => "reconcile:a-finding-is-something-the-program-proved",
+    WriteIntoAdoptedStateIsAnOperatorAct => "reconcile:a-write-into-adopted-state-is-an-operator-act",
+    IncrementalScopeLeavesNoStructuralFinding => "reconcile:an-incremental-scope-leaves-no-structural-finding",
+    OnePlanIsTheInputToEveryWrite => "reconcile:one-plan-is-the-input-to-every-write",
+    ReadinessIsTheWorstPrecondition => "reconcile:readiness-is-the-worst-precondition",
+    FingerprintCoversWhatTheApplyWouldDo => "reconcile:the-fingerprint-covers-what-the-apply-would-do",
+    PlannerIsDeterministic => "reconcile:the-planner-is-deterministic",
+    TargetDecidesItsClassification => "reconcile:the-target-decides-its-classification",
     ReleaseIsReadThroughOneSeam => "bundle:a-release-is-read-through-one-seam",
     ReleaseDeclaresWhatItLands => "bundle:a-release-declares-what-it-lands",
     ProtocolVersionIsARangeTheEngineDeclares => "bundle:the-protocol-version-is-a-range-the-engine-declares",
