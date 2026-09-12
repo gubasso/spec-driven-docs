@@ -4,7 +4,7 @@ A format for the document that answers whether to use this instead of that. The 
 
 ## Problem
 
-Two failures produce most comparison pages. The first is a matrix built by reading everyone's documentation. It is fast to write, impossible to re-verify, and wrong within a release. It also looks exactly like an honest one. The second is a matrix of bare emoji, which is scannable and unreadable at once. A screen reader announces the symbol by its Unicode name, and the symbol vanishes in monochrome. The symbol also carries no qualification for the middle state where most real answers live.
+Two failures produce most comparison pages. The first is a matrix built by reading everyone's documentation. It is fast to write, impossible to re-verify, and wrong within a release. It also looks exactly like an honest one. The second is a matrix of bare emoji, which is scannable and unreadable at once. The symbol carries a name from the character data rather than the author's verdict, and it vanishes in monochrome. The symbol also carries no qualification for the middle state where most real answers live.
 
 ## Model
 
