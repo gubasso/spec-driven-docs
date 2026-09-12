@@ -14,6 +14,9 @@
   - [`reconcile:a-write-into-adopted-state-is-an-operator-act` — A write into adopted state is an operator act](#reconcilea-write-into-adopted-state-is-an-operator-act--a-write-into-adopted-state-is-an-operator-act)
   - [`reconcile:the-fingerprint-covers-what-the-apply-would-do` — The fingerprint covers what the apply would do](#reconcilethe-fingerprint-covers-what-the-apply-would-do--the-fingerprint-covers-what-the-apply-would-do)
   - [`reconcile:a-plan-writes-nothing` — A plan writes nothing](#reconcilea-plan-writes-nothing--a-plan-writes-nothing)
+  - [`reconcile:a-plan-is-stored-and-applied-by-its-id` — A plan is stored and applied by its id](#reconcilea-plan-is-stored-and-applied-by-its-id--a-plan-is-stored-and-applied-by-its-id)
+  - [`reconcile:an-apply-refuses-a-plan-whose-inputs-moved` — An apply refuses a plan whose inputs moved](#reconcilean-apply-refuses-a-plan-whose-inputs-moved--an-apply-refuses-a-plan-whose-inputs-moved)
+  - [`reconcile:one-writer-holds-a-target` — One writer holds a target](#reconcileone-writer-holds-a-target--one-writer-holds-a-target)
 
 <!--TOC-->
 
@@ -140,5 +143,41 @@ Computing a plan MUST write nothing into the target and MUST reach no network by
 - GIVEN a target and no destination
 - WHEN the plan is computed
 - THEN the target is byte-identical afterwards and no network read happened, because reading what would change must never change it
+
+Verify: `cargo nextest run -E 'binary(cmd_reconcile)'`
+
+### `reconcile:a-plan-is-stored-and-applied-by-its-id` — A plan is stored and applied by its id
+
+A computed plan MUST be stored under its fingerprint, owner-only, outside the target, with every byte it will write. Identical inputs MUST reuse an existing executable plan. An apply MUST read the stored plan rather than recompute its intent, and a terminal result MUST free the fingerprint so identical inputs plan again into a fresh directory.
+
+#### Scenario: One plan is computed twice and applied once
+
+- GIVEN a target planned twice with the same inputs
+- WHEN the second plan is computed
+- THEN it carries the id of the first, because an operator who plans twice must be approving one thing
+
+Verify: `cargo nextest run -E 'binary(cmd_reconcile)'`
+
+### `reconcile:an-apply-refuses-a-plan-whose-inputs-moved` — An apply refuses a plan whose inputs moved
+
+An apply MUST re-observe the target under the exclusive lock, recompute the fingerprint, and refuse on any difference, naming every field and destination that moved in one pass. It MUST proceed on ready alone, MUST name the unresolved decisions where it waits, and MUST name the failed preconditions where it is blocked. Nothing MUST be written before the revalidation passes.
+
+#### Scenario: A managed file changes between the plan and the apply
+
+- GIVEN a stored plan and a destination edited afterwards
+- WHEN the apply runs
+- THEN it refuses naming the destination and the target is byte-identical, because an apply that re-planned silently would do something nobody approved
+
+Verify: `cargo nextest run -E 'binary(cmd_reconcile)'`
+
+### `reconcile:one-writer-holds-a-target` — One writer holds a target
+
+Planning MUST take a shared lock on the target and an apply MUST take it exclusively, for the whole run. A busy target MUST refuse at once with the holder, and no flag MUST bypass it. The target lock and the user-scope skill lock MUST be separate, because the two scopes have different owners.
+
+#### Scenario: Two applies start together
+
+- GIVEN one apply already running against a target
+- WHEN a second starts
+- THEN it refuses naming the holder, because two writers over one repository is the interleaving the lock exists to stop
 
 Verify: `cargo nextest run -E 'binary(cmd_reconcile)'`

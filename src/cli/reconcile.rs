@@ -16,11 +16,41 @@ pub struct ReconcileArgs {
 /// Every verb `sdd reconcile` offers.
 #[derive(Debug, Subcommand)]
 pub enum ReconcileCommand {
-    /// Compute one plan and print it. Writes nothing into the target.
+    /// Compute one plan, store it, and print it.
     Plan(PlanArgs),
+    /// Render one stored plan, or the latest result for its id.
+    Show(ShowArgs),
+    /// Execute one stored plan, or refuse because its inputs moved.
+    Apply(ApplyArgs),
 }
 
-/// Compute one plan and print it.
+/// Render one stored plan, or the latest result for its id.
+#[derive(Debug, clap::Args)]
+pub struct ShowArgs {
+    /// The plan's id, which is its fingerprint.
+    pub plan_id: String,
+
+    /// Print one JSON object instead of text.
+    #[arg(long)]
+    pub json: bool,
+}
+
+/// Execute one stored plan.
+#[derive(Debug, clap::Args)]
+pub struct ApplyArgs {
+    /// The plan's id, which is its fingerprint.
+    pub plan_id: String,
+
+    /// The repository to apply to; absolute, or the working directory.
+    #[arg(long, default_value = ".")]
+    pub target: Utf8PathBuf,
+
+    /// Print one JSON object instead of text.
+    #[arg(long)]
+    pub json: bool,
+}
+
+/// Compute one plan, store it, and print it.
 #[derive(Debug, clap::Args)]
 pub struct PlanArgs {
     /// The repository to plan for; absolute, or the working directory.

@@ -17,6 +17,7 @@
 //! The planner is pure. Observation, resolution, and the clock are inputs,
 //! so the same inputs produce the same plan and the same fingerprint.
 
+pub mod apply;
 pub mod classify;
 pub mod decision;
 pub mod evidence;
@@ -26,6 +27,7 @@ pub mod observe;
 pub mod operation;
 pub mod planner;
 pub mod readiness;
+pub mod store;
 
 use serde::{Deserialize, Serialize};
 

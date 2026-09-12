@@ -589,17 +589,10 @@ fn operations_of(
             .find(|decision| decision.id == id)
             .and_then(|decision| decision.selected.as_deref())
     };
-    if selected(decision::id::DEBT_BASELINE) == Some("record") {
-        let debt = crate::domain::paths::DEBT_PATH;
-        let already = held.contains_key(debt);
-        if !already && let Ok(path) = TargetPath::new(debt) {
-            operations.push(Operation::WriteDebt {
-                path,
-                before: None,
-                after: Sha256::of(b"the recorded inherited violations"),
-            });
-        }
-    }
+    // The debt write waits for the budget findings that give it content:
+    // an operation whose bytes nothing carries is an operation an apply
+    // could not execute, and the plan does not offer one.
+    let _ = selected(decision::id::DEBT_BASELINE);
     operations
 }
 
@@ -611,61 +604,47 @@ fn preconditions_of(
     decisions: &[Decision],
     structural: usize,
 ) -> Vec<Precondition> {
-    let mut preconditions = Vec::new();
-    let mut require = |id: &str, statement: String, requirement, evaluation, resolved_by| {
-        preconditions.push(Precondition {
-            id: id.to_string(),
-            statement,
-            requirement,
-            evaluation,
-            resolved_by,
-            evidence_refs: Vec::new(),
-        });
-    };
+    let mut preconditions: Vec<Precondition> = Vec::new();
+    macro_rules! require {
+        ($id:expr, $statement:expr, $requirement:expr, $evaluation:expr) => {
+            preconditions.push(Precondition {
+                id: ($id).to_string(),
+                statement: $statement,
+                requirement: $requirement,
+                evaluation: $evaluation,
+                resolved_by: None,
+                evidence_refs: Vec::new(),
+            });
+        };
+    }
 
     if let Some(reason) = inputs.observation.invalid.as_ref() {
-        require(
+        require!(
             "record-is-readable",
             "the instance record parses".to_string(),
             Requirement::Required,
             Evaluation::Unsatisfied {
                 reason: reason.clone(),
-            },
-            None,
+            }
         );
     }
 
-    for decision in decisions {
-        let evaluation = decision.selected.as_ref().map_or_else(
-            || Evaluation::Unsatisfied {
-                reason: "the operator has not answered it".to_string(),
-            },
-            |_| Evaluation::Satisfied,
-        );
-        require(
-            &format!("decision:{}", decision.id),
-            decision.question.clone(),
-            Requirement::DecisionRequired,
-            evaluation,
-            Some(decision.id.clone()),
-        );
-    }
+    let waiting = decision_preconditions(decisions);
 
     let edited = edited_managed_files(inputs);
     if !edited.is_empty() {
-        require(
+        require!(
             "managed-files-are-unedited",
             "every managed file still holds what the record says".to_string(),
             Requirement::Required,
             Evaluation::Unsatisfied {
                 reason: edited.join("; "),
-            },
-            None,
+            }
         );
     }
 
     if inputs.baseline.is_none() && inputs.observation.installation.is_some() {
-        require(
+        require!(
             "baseline-is-readable",
             "the recorded release's bundle can be read for baselines".to_string(),
             Requirement::Advisory,
@@ -673,8 +652,7 @@ fn preconditions_of(
                 reason:
                     "the recorded release's bundle was not read, so an adopted baseline cannot move"
                         .to_string(),
-            },
-            None,
+            }
         );
     }
 
@@ -687,7 +665,7 @@ fn preconditions_of(
         .and_then(|decision| decision.selected.as_deref());
     if classification == Classification::Migration && scope == Some("incremental") && structural > 0
     {
-        require(
+        require!(
             "incremental-scope-has-no-structural-finding",
             "an incremental migration leaves no structural finding behind".to_string(),
             Requirement::Required,
@@ -695,20 +673,42 @@ fn preconditions_of(
                 reason: format!(
                     "{structural} structural finding(s) would make two conventions coexist"
                 ),
-            },
-            None,
+            }
         );
     }
 
+    // A landing that wrote every projection and no record would leave a
+    // target the verifier cannot read. Until the planner derives the
+    // record and the two marked regions, a first landing goes through the
+    // verb that does, and the plan says so rather than half-landing.
+    if matches!(
+        classification,
+        Classification::Setup | Classification::Migration
+    ) && !operations
+        .iter()
+        .any(|operation| matches!(operation, Operation::WriteRecord { .. }))
+        && !operations.is_empty()
+    {
+        require!(
+            "the-plan-records-the-instance",
+            "a first landing writes the instance record and both marked regions".to_string(),
+            Requirement::Required,
+            Evaluation::NotObserved {
+                reason: "this engine does not yet derive the record or the marked regions; land with 'sdd init --apply'".to_string(),
+            }
+        );
+    }
+
+    preconditions.extend(waiting);
+
     if let Err(clash) = no_duplicate_destination(operations) {
-        require(
+        require!(
             "no-destination-is-written-twice",
             "each destination is written by at most one operation".to_string(),
             Requirement::Required,
             Evaluation::Unsatisfied {
                 reason: clash.to_string(),
-            },
-            None,
+            }
         );
     }
     preconditions
@@ -731,6 +731,26 @@ fn edited_managed_files(inputs: &Inputs<'_>) -> Vec<String> {
         }
     }
     edited
+}
+
+/// One precondition per decision the operator has not answered.
+fn decision_preconditions(decisions: &[Decision]) -> Vec<Precondition> {
+    decisions
+        .iter()
+        .map(|decision| Precondition {
+            id: format!("decision:{}", decision.id),
+            statement: decision.question.clone(),
+            requirement: Requirement::DecisionRequired,
+            evaluation: decision.selected.as_ref().map_or_else(
+                || Evaluation::Unsatisfied {
+                    reason: "the operator has not answered it".to_string(),
+                },
+                |_| Evaluation::Satisfied,
+            ),
+            resolved_by: Some(decision.id.clone()),
+            evidence_refs: Vec::new(),
+        })
+        .collect()
 }
 
 /// What the apply proves once it has finished.

@@ -295,3 +295,146 @@ fn reconcile_plan_is_offline_by_default() {
         .success()
         .stdout(predicate::str::contains("toward"));
 }
+
+/// VERIFIES reconcile:a-plan-is-stored-and-applied-by-its-id
+#[test]
+fn a_plan_is_stored_under_its_id_and_shown_back() {
+    let fixture = Fixture::new();
+    fixture.install("codebase");
+    let held = plan(&fixture, &[]);
+    let id = held["identity"]["plan_id"].as_str().unwrap();
+    let shown = fixture
+        .cmd()
+        .args(["reconcile", "show", id, "--json"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let shown: serde_json::Value = serde_json::from_slice(&shown).unwrap();
+    assert_eq!(shown["identity"]["plan_id"], id);
+}
+
+#[test]
+fn identical_inputs_reuse_the_fingerprint_plan_id() {
+    let fixture = Fixture::new();
+    fixture.install("codebase");
+    let one = plan(&fixture, &[]);
+    let two = plan(&fixture, &[]);
+    assert_eq!(one["identity"]["plan_id"], two["identity"]["plan_id"]);
+}
+
+#[test]
+fn an_unknown_plan_id_refuses_with_the_next_command() {
+    let fixture = Fixture::new();
+    fixture
+        .cmd()
+        .args(["reconcile", "show", "not-a-plan"])
+        .assert()
+        .code(73)
+        .stderr(predicate::str::contains("sdd reconcile plan"));
+}
+
+/// VERIFIES reconcile:a-plan-is-stored-and-applied-by-its-id
+///
+/// A target that already holds what the plan describes applies to nothing
+/// and says so, and the tree is byte-identical afterwards.
+#[test]
+fn applying_a_current_plan_writes_nothing_and_succeeds() {
+    let fixture = Fixture::new();
+    fixture.install("codebase");
+    let held = plan(&fixture, &[]);
+    let id = held["identity"]["plan_id"].as_str().unwrap().to_string();
+    let before = fixture.tree_digest();
+    let out = fixture
+        .cmd()
+        .args([
+            "reconcile",
+            "apply",
+            &id,
+            "--target",
+            &fixture.target(),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let result: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    assert_eq!(result["schema"], "sdd.result/1");
+    assert_eq!(result["disposition"], "succeeded");
+    assert_eq!(before, fixture.tree_digest(), "the apply wrote");
+}
+
+/// VERIFIES reconcile:an-apply-refuses-a-plan-whose-inputs-moved
+#[test]
+fn apply_refuses_after_a_destination_changes_and_writes_nothing() {
+    let fixture = Fixture::new();
+    fixture.install("codebase");
+    let held = plan(&fixture, &[]);
+    let id = held["identity"]["plan_id"].as_str().unwrap().to_string();
+    fixture.write(
+        ".spec-driven-docs/markdownlint/adr.markdownlint-cli2.jsonc",
+        "{}\n",
+    );
+    let before = fixture.tree_digest();
+    fixture
+        .cmd()
+        .args(["reconcile", "apply", &id, "--target", &fixture.target()])
+        .assert()
+        .code(73)
+        .stderr(predicate::str::contains("no longer describes the target"));
+    assert_eq!(before, fixture.tree_digest(), "the refusal wrote");
+}
+
+/// VERIFIES reconcile:an-apply-refuses-a-plan-whose-inputs-moved
+#[test]
+fn apply_refuses_a_plan_that_waits_on_a_decision() {
+    let fixture = Fixture::new();
+    let held = plan(&fixture, &[]);
+    let id = held["identity"]["plan_id"].as_str().unwrap().to_string();
+    let before = fixture.tree_digest();
+    fixture
+        .cmd()
+        .args(["reconcile", "apply", &id, "--target", &fixture.target()])
+        .assert()
+        .code(73)
+        .stderr(predicate::str::contains("waits on a decision"))
+        .stderr(predicate::str::contains("profile"));
+    assert_eq!(before, fixture.tree_digest());
+}
+
+/// A landing this engine cannot complete is blocked rather than half done.
+#[test]
+fn a_first_landing_is_blocked_until_the_engine_can_record_it() {
+    let fixture = Fixture::new();
+    let held = plan(
+        &fixture,
+        &[
+            "--set",
+            "profile=codebase",
+            "--set",
+            "plan-zone=none",
+            "--set",
+            "docs-scratch=none",
+            "--set",
+            "writing-style=builtin",
+        ],
+    );
+    assert_eq!(held["readiness"], "blocked");
+    let blocked = held["preconditions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|precondition| precondition["id"] == "the-plan-records-the-instance")
+        .expect("the record precondition");
+    assert_eq!(blocked["requirement"], "required");
+    assert!(
+        blocked["evaluation"]["reason"]
+            .as_str()
+            .unwrap()
+            .contains("sdd init --apply"),
+        "{blocked}"
+    );
+}
