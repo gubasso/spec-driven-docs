@@ -336,8 +336,13 @@ fn restore(target: &Utf8Path, backups: &[(Utf8PathBuf, Option<Vec<u8>>)]) -> Vec
         if current.as_ref() == Some(previous) {
             continue;
         }
+        // A removal that fails for any reason other than the file already
+        // being gone is a restoration that did not happen.
         let put_back = previous.as_ref().map_or_else(
-            || std::fs::remove_file(&full).is_ok() || !full.exists(),
+            || match std::fs::remove_file(&full) {
+                Ok(()) => true,
+                Err(error) => error.kind() == std::io::ErrorKind::NotFound,
+            },
             |bytes| write_atomic(&full, bytes).is_ok(),
         );
         if !put_back {
