@@ -63,7 +63,7 @@ Verify: `cargo nextest run -E 'binary(cmd_init)'`
 
 ### `distribution:instances-operate-offline` — Instances operate offline
 
-The installed binary MUST verify and upgrade an instance without a network or canon checkout.
+The installed binary MUST verify and upgrade an instance without a network or canon checkout, reading the release it carries. A verb that reaches the registry MUST be one the operator asked for by naming another release, and `SPEC-bundle.md` states what that read owes.
 
 #### Scenario: The canon repository is unreachable
 

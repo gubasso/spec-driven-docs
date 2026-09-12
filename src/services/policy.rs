@@ -43,7 +43,7 @@ impl Reconciliation {
             "note: {} and no local specification defines `{}`; {} owns it; run 'sdd policy reconcile'",
             self.sentinel.declares,
             self.sentinel.rule,
-            crate::domain::profile::resolve_destination(self.sentinel.destination, docs_root)
+            crate::domain::profile::resolve_destination(&self.sentinel.destination, docs_root)
         )
     }
 }
@@ -201,17 +201,20 @@ pub fn append_to_requirements(text: &str, block: &str) -> Option<String> {
 /// # Errors
 ///
 /// I/O errors when a specification cannot be read.
-pub fn plan(target: &Utf8Path, docs_root: DocsRoot) -> Result<Vec<Plan>, AppError> {
+pub fn plan(
+    target: &Utf8Path,
+    docs_root: DocsRoot,
+    bundle: &dyn crate::release::ReleaseBundle,
+) -> Result<Vec<Plan>, AppError> {
     let mut plans = Vec::new();
     for reconciliation in needed(target, docs_root)? {
         let sentinel = reconciliation.sentinel;
-        let seed = crate::embedded::asset(sentinel.source)
-            .ok_or_else(|| anyhow::anyhow!("payload asset missing: {}", sentinel.source))?;
-        let seed_text = std::str::from_utf8(seed).map_err(anyhow::Error::from)?;
+        let seed = bundle.artifact(&sentinel.source)?;
+        let seed_text = std::str::from_utf8(&seed).map_err(anyhow::Error::from)?;
         let block = rule_block(seed_text, sentinel.rule).ok_or_else(|| {
             anyhow::anyhow!("{} does not define {}", sentinel.source, sentinel.rule)
         })?;
-        let destination = resolve_destination(sentinel.destination, docs_root);
+        let destination = resolve_destination(&sentinel.destination, docs_root);
         let full = target.join(&destination);
         let action = if full.is_file() {
             let text = std::fs::read_to_string(&full)?;
@@ -231,7 +234,7 @@ pub fn plan(target: &Utf8Path, docs_root: DocsRoot) -> Result<Vec<Plan>, AppErro
         } else {
             Action::Seed {
                 destination,
-                bytes: seed.to_vec(),
+                bytes: seed.clone(),
             }
         };
         plans.push(Plan {
@@ -368,7 +371,11 @@ fn restore(target: &Utf8Path, backups: &[(Utf8PathBuf, Option<Vec<u8>>)]) -> Vec
 /// the target, or a rewrite that does not define its sentinel, and
 /// manifest and I/O errors when the tree cannot be read or written. The
 /// target is restored before any of these returns.
-pub fn apply_all(target: &Utf8Path, plans: &[Plan]) -> Result<Vec<Utf8PathBuf>, AppError> {
+pub fn apply_all(
+    target: &Utf8Path,
+    plans: &[Plan],
+    bundle: &dyn crate::release::ReleaseBundle,
+) -> Result<Vec<Utf8PathBuf>, AppError> {
     let manifest_relative = Utf8Path::new(crate::domain::manifest::MANIFEST_PATH);
     let writes = preflight(target, plans)?;
     let manifest_text = std::fs::read_to_string(target.join(manifest_relative))?;
@@ -393,9 +400,8 @@ pub fn apply_all(target: &Utf8Path, plans: &[Plan]) -> Result<Vec<Utf8PathBuf>, 
                     sentinel.rule
                 )));
             }
-            let seed = crate::embedded::asset(sentinel.source)
-                .ok_or_else(|| anyhow::anyhow!("payload asset missing: {}", sentinel.source))?;
-            with_adopted_record(&mut document, sentinel.source, destination, bytes, seed)?;
+            let seed = bundle.artifact(&sentinel.source)?;
+            with_adopted_record(&mut document, &sentinel.source, destination, bytes, &seed)?;
         }
         backups.push((
             manifest_relative.to_path_buf(),

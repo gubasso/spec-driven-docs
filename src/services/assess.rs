@@ -136,8 +136,11 @@ fn docs_scratch(target: &Utf8Path, named: Option<Utf8PathBuf>) -> Utf8PathBuf {
 /// [`AppError::ManifestInvalid`] when an instance manifest exists but
 /// cannot be trusted — a broken instance must not silently classify — and
 /// [`AppError::Io`] for metadata failures and walk errors.
-pub fn assess(target: &Utf8Path) -> Result<AssessReport, AppError> {
-    assess_with(target, crate::gates::paths::docs_scratch_variable())
+pub fn assess(
+    target: &Utf8Path,
+    bundle: &dyn crate::release::ReleaseBundle,
+) -> Result<AssessReport, AppError> {
+    assess_with(target, crate::gates::paths::docs_scratch_variable(), bundle)
 }
 
 /// Assess `target` with the docs-scratch variable's value supplied.
@@ -153,6 +156,7 @@ pub fn assess(target: &Utf8Path) -> Result<AssessReport, AppError> {
 pub fn assess_with(
     target: &Utf8Path,
     named: Option<Utf8PathBuf>,
+    bundle: &dyn crate::release::ReleaseBundle,
 ) -> Result<AssessReport, AppError> {
     // A file target would walk as its own single entry and read as an
     // empty repository; refuse it instead, on proven metadata only. An
@@ -184,7 +188,7 @@ pub fn assess_with(
     let walked = walk(target, &scratch)?;
     let paths = walked.documents;
     let methodology_markers = markers(target, &doc_roots)?;
-    let collisions = collisions(target)?;
+    let collisions = collisions(target, &bundle.declaration()?)?;
     let docs_scratch_present = target.join(&scratch).is_dir();
 
     // A populated documentation root is a corpus whatever format it uses:
@@ -374,13 +378,18 @@ fn markers(target: &Utf8Path, doc_roots: &[String]) -> Result<Vec<String>, AppEr
 }
 
 /// Per profile, the install destinations already present at the target.
-fn collisions(target: &Utf8Path) -> Result<BTreeMap<String, Vec<String>>, AppError> {
+fn collisions(
+    target: &Utf8Path,
+    released: &crate::domain::projection::Declaration,
+) -> Result<BTreeMap<String, Vec<String>>, AppError> {
     let mut collisions = BTreeMap::new();
-    for id in [ProfileId::Codebase, ProfileId::KnowledgeBase] {
-        let profile = id.profile();
+    for id in ProfileId::every() {
+        let Some(profile) = released.profile(id) else {
+            continue;
+        };
         let mut existing = Vec::new();
         for projection in profile.managed.iter().chain(profile.adopted) {
-            let destination = resolve_destination(projection.destination, profile.docs_root);
+            let destination = resolve_destination(&projection.destination, profile.docs_root);
             if entry_present(&target.join(&destination))? {
                 existing.push(destination.to_string());
             }
@@ -426,7 +435,12 @@ mod tests {
         let root = utf8(&dir);
         write(&root, "README.md");
         write(&root, "CHANGELOG.md");
-        let report = assess_with(&root, None).unwrap();
+        let report = assess_with(
+            &root,
+            None,
+            &crate::release::embedded::EmbeddedReleaseBundle::new(),
+        )
+        .unwrap();
         assert_eq!(report.classification, Classification::Greenfield);
         assert_eq!(report.documents.count, 2);
     }
@@ -437,7 +451,12 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let root = utf8(&dir);
         write(&root, "docs/guide.adoc");
-        let report = assess_with(&root, None).unwrap();
+        let report = assess_with(
+            &root,
+            None,
+            &crate::release::embedded::EmbeddedReleaseBundle::new(),
+        )
+        .unwrap();
         assert_eq!(report.classification, Classification::Brownfield);
     }
 
@@ -451,7 +470,12 @@ mod tests {
         std::fs::create_dir_all(root.join("docs")).unwrap();
         std::os::unix::fs::symlink(root.join("elsewhere.md"), root.join("docs/architecture.md"))
             .unwrap();
-        let report = assess_with(&root, None).unwrap();
+        let report = assess_with(
+            &root,
+            None,
+            &crate::release::embedded::EmbeddedReleaseBundle::new(),
+        )
+        .unwrap();
         assert_eq!(report.classification, Classification::Brownfield);
         assert_eq!(report.populated_doc_roots, vec!["docs".to_string()]);
     }
@@ -464,7 +488,12 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let root = utf8(&dir);
         std::os::unix::fs::symlink(root.join("no-such-corpus"), root.join("docs")).unwrap();
-        let report = assess_with(&root, None).unwrap();
+        let report = assess_with(
+            &root,
+            None,
+            &crate::release::embedded::EmbeddedReleaseBundle::new(),
+        )
+        .unwrap();
         assert_eq!(report.doc_roots, vec!["docs".to_string()]);
         assert_eq!(report.populated_doc_roots, vec!["docs".to_string()]);
         assert_eq!(report.classification, Classification::Brownfield);
@@ -477,7 +506,12 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let root = utf8(&dir);
         std::os::unix::fs::symlink(root.join("no-such-config"), root.join("mkdocs.yml")).unwrap();
-        let report = assess_with(&root, None).unwrap();
+        let report = assess_with(
+            &root,
+            None,
+            &crate::release::embedded::EmbeddedReleaseBundle::new(),
+        )
+        .unwrap();
         assert_eq!(report.methodology_markers, vec!["mkdocs.yml".to_string()]);
         assert_eq!(report.classification, Classification::Brownfield);
     }
@@ -494,7 +528,12 @@ mod tests {
             root.join("docs/specs/SPEC-docs-format.md"),
         )
         .unwrap();
-        let report = assess_with(&root, None).unwrap();
+        let report = assess_with(
+            &root,
+            None,
+            &crate::release::embedded::EmbeddedReleaseBundle::new(),
+        )
+        .unwrap();
         assert!(
             report.collisions["codebase"]
                 .iter()
@@ -539,7 +578,12 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let root = utf8(&dir);
         write(&root, "just-a-file.md");
-        let error = assess_with(&root.join("just-a-file.md"), None).unwrap_err();
+        let error = assess_with(
+            &root.join("just-a-file.md"),
+            None,
+            &crate::release::embedded::EmbeddedReleaseBundle::new(),
+        )
+        .unwrap_err();
         assert!(matches!(error, AppError::Usage(_)), "{error}");
     }
 
@@ -552,7 +596,12 @@ mod tests {
         std::fs::create_dir_all(root.join("external-corpus")).unwrap();
         std::fs::write(root.join("external-corpus/guide.txt"), "prose\n").unwrap();
         std::os::unix::fs::symlink(root.join("external-corpus"), root.join("docs")).unwrap();
-        let report = assess_with(&root, None).unwrap();
+        let report = assess_with(
+            &root,
+            None,
+            &crate::release::embedded::EmbeddedReleaseBundle::new(),
+        )
+        .unwrap();
         assert_eq!(report.classification, Classification::Brownfield);
         assert_eq!(report.populated_doc_roots, vec!["docs".to_string()]);
     }
@@ -564,7 +613,12 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let root = utf8(&dir);
         write(&root, "README.architecture.md");
-        let report = assess_with(&root, None).unwrap();
+        let report = assess_with(
+            &root,
+            None,
+            &crate::release::embedded::EmbeddedReleaseBundle::new(),
+        )
+        .unwrap();
         assert_eq!(report.classification, Classification::NeedsDecision);
     }
 
@@ -573,7 +627,12 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let root = utf8(&dir);
         write(&root, "docs/architecture.md");
-        let report = assess_with(&root, None).unwrap();
+        let report = assess_with(
+            &root,
+            None,
+            &crate::release::embedded::EmbeddedReleaseBundle::new(),
+        )
+        .unwrap();
         assert_eq!(report.classification, Classification::Brownfield);
         assert_eq!(report.doc_roots, vec!["docs".to_string()]);
         assert_eq!(
@@ -588,7 +647,12 @@ mod tests {
         let root = utf8(&dir);
         write(&root, "README.md");
         write(&root, "mkdocs.yml");
-        let report = assess_with(&root, None).unwrap();
+        let report = assess_with(
+            &root,
+            None,
+            &crate::release::embedded::EmbeddedReleaseBundle::new(),
+        )
+        .unwrap();
         assert_eq!(report.classification, Classification::Brownfield);
         assert_eq!(report.methodology_markers, vec!["mkdocs.yml".to_string()]);
     }
@@ -598,7 +662,12 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let root = utf8(&dir);
         write(&root, "notes/design.md");
-        let report = assess_with(&root, None).unwrap();
+        let report = assess_with(
+            &root,
+            None,
+            &crate::release::embedded::EmbeddedReleaseBundle::new(),
+        )
+        .unwrap();
         assert_eq!(report.classification, Classification::NeedsDecision);
     }
 
@@ -609,7 +678,12 @@ mod tests {
         write(&root, ".docs-scratch/notes.md");
         write(&root, "target/build.md");
         write(&root, "node_modules/pkg/README.md");
-        let report = assess_with(&root, None).unwrap();
+        let report = assess_with(
+            &root,
+            None,
+            &crate::release::embedded::EmbeddedReleaseBundle::new(),
+        )
+        .unwrap();
         assert_eq!(report.classification, Classification::Greenfield);
         assert_eq!(report.documents.count, 0);
         assert!(report.docs_scratch_present);

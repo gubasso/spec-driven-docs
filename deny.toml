@@ -14,6 +14,12 @@ allow = [
   "Apache-2.0 WITH LLVM-exception",
   "Unicode-3.0",
   "Unlicense",
+  # The TLS stack the release resolver fetches a crate through. Every one
+  # of these is a permissive OSI licence compatible with distributing this
+  # binary under MIT, and none of them reaches the method half.
+  "ISC",
+  "BSD-3-Clause",
+  "CDLA-Permissive-2.0",
 ]
 exceptions = [
   { name = "spec-driven-docs", allow = ["CC-BY-4.0"] },
@@ -25,7 +31,14 @@ deny = [{ name = "openssl-sys" }]
 # tracing-attributes pins syn 2 while clap, serde, and thiserror have moved to
 # syn 3. Both are proc-macro-only, so nothing ships twice; drop this skip once
 # tracing-attributes releases a syn 3 build.
-skip = [{ crate = "syn@2", reason = "tracing-attributes has not moved to syn 3" }]
+skip = [
+  { crate = "syn@2", reason = "tracing-attributes has not moved to syn 3" },
+  # The TLS stack and its random source lag one major behind what the rest
+  # of the tree resolves. Both are transitive and neither is on this
+  # crate's own dependency edge.
+  { crate = "getrandom@0.2", reason = "ring has not moved to getrandom 0.3" },
+  { crate = "windows-sys@0.52", reason = "getrandom 0.2 lags several windows-sys majors" },
+]
 
 [sources]
 unknown-registry = "deny"

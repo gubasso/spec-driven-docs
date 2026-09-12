@@ -1,0 +1,147 @@
+# What this release lands, declared as data.
+#
+# The engine reads this file from whichever release bundle it was asked
+# about, so a plan toward an older release lands exactly that release's
+# set rather than this binary's. It is embedded and never landed into a
+# target: it describes the projection rather than being part of it.
+
+# The protocol version between an engine and a bundle. An engine
+# declares the inclusive range it decodes and carries one decoder per
+# schema in it.
+payload_schema = 1
+
+# The template copies this repository keeps in its own documentation
+# tree. A canon-side copy exists only for a class this repository
+# authors, so this list is shorter than the template projections below.
+canon_templates = [
+  "_docs/decisions/TEMPLATE-adr.md",
+  "_docs/reference/TEMPLATE-agents-digest.md",
+]
+
+# Where each profile keeps the documents the gates read.
+[[profiles]]
+id = "codebase"
+docs_root = "docs"
+
+[[profiles]]
+id = "knowledge-base"
+docs_root = "_docs"
+
+# Byte projections the canon keeps owning. No skill appears here: a
+# skill name is what an agent's picker keys on, so an instance copy and
+# the user-scope copy of one skill would be two entries under one name.
+
+[[managed]]
+source = ".markdownlint/adr.markdownlint-cli2.jsonc"
+destination = ".spec-driven-docs/markdownlint/adr.markdownlint-cli2.jsonc"
+
+[[managed]]
+source = ".markdownlint/spec.markdownlint-cli2.jsonc"
+destination = ".spec-driven-docs/markdownlint/spec.markdownlint-cli2.jsonc"
+
+[[managed]]
+source = ".markdownlint/relative-links.markdownlint-cli2.jsonc"
+destination = ".spec-driven-docs/markdownlint/relative-links.markdownlint-cli2.jsonc"
+
+# Seeds the instance owns from the moment they land. A destination
+# carrying "{docs_root}" is resolved per profile.
+
+[[adopted]]
+source = "instance/seeds/config.yaml"
+destination = ".spec-driven-docs/config.yaml"
+
+[[adopted]]
+source = "_docs/specs/SPEC-budget-debt.md"
+destination = "{docs_root}/specs/SPEC-budget-debt.md"
+
+[[adopted]]
+source = "_docs/specs/SPEC-writing-policy.md"
+destination = "{docs_root}/specs/SPEC-writing-policy.md"
+
+[[adopted]]
+source = "_docs/specs/SPEC-decision-records.md"
+destination = "{docs_root}/specs/SPEC-decision-records.md"
+
+[[adopted]]
+source = "_docs/specs/SPEC-instance.md"
+destination = "{docs_root}/specs/SPEC-instance.md"
+
+[[adopted]]
+source = "_docs/specs/SPEC-docs-format.md"
+destination = "{docs_root}/specs/SPEC-docs-format.md"
+
+[[adopted]]
+source = "_docs/specs/SPEC-docs-foundations.md"
+destination = "{docs_root}/specs/SPEC-docs-foundations.md"
+
+[[adopted]]
+source = "_docs/specs/SPEC-docs-specs.md"
+destination = "{docs_root}/specs/SPEC-docs-specs.md"
+
+[[adopted]]
+source = "_docs/specs/SPEC-comparison-docs.md"
+destination = "{docs_root}/specs/SPEC-comparison-docs.md"
+
+[[adopted]]
+source = "_docs/specs/SPEC-known-issues.md"
+destination = "{docs_root}/specs/SPEC-known-issues.md"
+
+[[adopted]]
+source = "_docs/specs/SPEC-spec-to-code.md"
+destination = "{docs_root}/specs/SPEC-spec-to-code.md"
+
+[[adopted]]
+source = "_docs/specs/SPEC-guides.md"
+destination = "{docs_root}/specs/SPEC-guides.md"
+
+[[adopted]]
+source = "_docs/specs/SPEC-writing-style.md"
+destination = "{docs_root}/specs/SPEC-writing-style.md"
+
+[[adopted]]
+source = "_docs/specs/SPEC-tracking.md"
+destination = "{docs_root}/specs/SPEC-tracking.md"
+
+[[adopted]]
+source = "_docs/specs/SPEC-tracking/tracking.schema.json"
+destination = "{docs_root}/specs/SPEC-tracking/tracking.schema.json"
+
+[[adopted]]
+source = "templates/TEMPLATE-tracking.yaml"
+destination = "{docs_root}/reference/tracking.yaml"
+
+[[adopted]]
+source = "templates/TEMPLATE-spec.md"
+destination = "{docs_root}/specs/TEMPLATE-spec.md"
+
+[[adopted]]
+source = "templates/TEMPLATE-adr.md"
+destination = "{docs_root}/decisions/TEMPLATE-adr.md"
+
+[[adopted]]
+source = "templates/TEMPLATE-agents-digest.md"
+destination = "{docs_root}/reference/TEMPLATE-agents-digest.md"
+
+[[adopted]]
+source = "templates/TEMPLATE-guide.md"
+destination = "{docs_root}/guides/TEMPLATE-guide.md"
+
+[[adopted]]
+source = "templates/TEMPLATE-known-issue.md"
+destination = "{docs_root}/reference/TEMPLATE-known-issue.md"
+
+# One sentinel per feature a project can declare against its own
+# adopted specifications. Presence of the rule ID is what says the
+# instance's specs authorize the declaration.
+
+[[sentinels]]
+rule = "budget-debt:a-recorded-dimension-only-shrinks"
+source = "_docs/specs/SPEC-budget-debt.md"
+destination = "{docs_root}/specs/SPEC-budget-debt.md"
+declares = ".spec-driven-docs/debt.yaml records budget debt"
+
+[[sentinels]]
+rule = "writing-policy:the-project-selects-one-source"
+source = "_docs/specs/SPEC-writing-policy.md"
+destination = "{docs_root}/specs/SPEC-writing-policy.md"
+declares = ".spec-driven-docs/config.yaml selects a writing style other than builtin"

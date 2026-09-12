@@ -22,6 +22,7 @@ use crate::domain::paths::{AGENTS_DIGEST_PATH, HOOKS_CONFIG_PATH};
 use crate::domain::profile::{ProfileId, resolve_destination};
 use crate::domain::version::CanonVersion;
 use crate::error::AppError;
+use crate::release::ReleaseBundle;
 use crate::services::hooks_render::{RenderOptions, render_block};
 use crate::services::verifier;
 
@@ -208,25 +209,33 @@ struct TargetState {
     clippy::too_many_lines,
     reason = "computing the target state is one ordered pass the installer replays"
 )]
-fn compute_target_state(target: &Utf8Path, options: &InitOptions) -> Result<TargetState, AppError> {
+fn compute_target_state(
+    target: &Utf8Path,
+    options: &InitOptions,
+    bundle: &dyn ReleaseBundle,
+) -> Result<TargetState, AppError> {
     let profile = options.profile;
-    let declaration = profile.profile();
+    let released = bundle.declaration()?;
+    let declaration = released.profile(profile).ok_or_else(|| {
+        AppError::Refused(format!(
+            "the release declares no {profile} profile, so it cannot land one"
+        ))
+    })?;
     let mut files: Vec<(Utf8PathBuf, Vec<u8>)> = Vec::new();
     let mut lines = Vec::new();
     let mut managed_entries = Vec::new();
     let mut adopted_entries = Vec::new();
 
     for projection in declaration.managed {
-        let bytes = crate::embedded::asset(projection.source)
-            .ok_or_else(|| anyhow::anyhow!("payload asset missing: {}", projection.source))?;
-        let destination = Utf8PathBuf::from(projection.destination);
+        let bytes = bundle.artifact(&projection.source)?;
+        let destination = Utf8PathBuf::from(&projection.destination);
         managed_entries.push(ManagedEntry {
-            source: projection.source.into(),
+            source: projection.source.clone().into(),
             destination: destination.clone(),
-            sha256: Sha256::of(bytes),
+            sha256: Sha256::of(&bytes),
         });
         lines.push(destination.to_string());
-        files.push((destination, bytes.to_vec()));
+        files.push((destination, bytes));
     }
 
     // What the target already records as adopted. A destination that holds
@@ -244,9 +253,8 @@ fn compute_target_state(target: &Utf8Path, options: &InitOptions) -> Result<Targ
         })
         .unwrap_or_default();
     for projection in declaration.adopted {
-        let seed = crate::embedded::asset(projection.source)
-            .ok_or_else(|| anyhow::anyhow!("payload asset missing: {}", projection.source))?;
-        let destination = resolve_destination(projection.destination, declaration.docs_root);
+        let seed = bundle.artifact(&projection.source)?;
+        let destination = resolve_destination(&projection.destination, declaration.docs_root);
         let existing = target.join(&destination);
         let mut bytes = if existing.is_file() {
             let held = std::fs::read(&existing)?;
@@ -257,7 +265,7 @@ fn compute_target_state(target: &Utf8Path, options: &InitOptions) -> Result<Targ
             }
             held
         } else {
-            seed.to_vec()
+            seed.clone()
         };
         // `--reserve` and `--writing-style` record into the declaration,
         // keeping its comments and whatever the project already wrote there.
@@ -274,10 +282,10 @@ fn compute_target_state(target: &Utf8Path, options: &InitOptions) -> Result<Targ
             bytes = text.into_bytes();
         }
         adopted_entries.push(AdoptedEntry {
-            source: projection.source.into(),
+            source: projection.source.clone().into(),
             destination: destination.clone(),
             sha256: Sha256::of(&bytes),
-            baseline_sha256: Sha256::of(seed),
+            baseline_sha256: Sha256::of(&seed),
         });
         lines.push(destination.to_string());
         files.push((destination, bytes));
@@ -475,7 +483,10 @@ fn apply(target: &Utf8Path, state: &TargetState) -> Result<(), AppError> {
         ));
     }
 
-    match verifier::verify(target) {
+    match verifier::verify(
+        target,
+        &crate::release::embedded::EmbeddedReleaseBundle::new(),
+    ) {
         Ok(report) if report.failures == 0 => Ok(()),
         Ok(report) => {
             let failures: Vec<&str> = report
@@ -502,7 +513,7 @@ fn apply(target: &Utf8Path, state: &TargetState) -> Result<(), AppError> {
 /// [`AppError::Marker`] for a configuration whose markers cannot be trusted,
 /// and [`AppError::Refused`] when the apply could not complete — the target
 /// is restored before that returns.
-pub fn init(options: &InitOptions) -> Result<InitOutcome, AppError> {
+pub fn init(options: &InitOptions, bundle: &dyn ReleaseBundle) -> Result<InitOutcome, AppError> {
     let target = canonical_target(&options.target)?;
     let forced_dry = !options.apply
         && !options.dry_run
@@ -510,7 +521,7 @@ pub fn init(options: &InitOptions) -> Result<InitOutcome, AppError> {
         && !target.join(MANIFEST_PATH).is_file();
     let dry = options.dry_run || forced_dry;
 
-    let state = compute_target_state(&target, options)?;
+    let state = compute_target_state(&target, options, bundle)?;
     let mut lines = state.lines.clone();
 
     if dry {

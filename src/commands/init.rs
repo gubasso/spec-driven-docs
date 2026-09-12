@@ -34,16 +34,19 @@ pub fn run(_ctx: &AppContext, args: InitArgs) -> Result<(), AppError> {
         .map(crate::domain::instance_config::WritingStyle::parse_flag)
         .transpose()
         .map_err(|error| AppError::Usage(format!("--writing-style: {error}")))?;
-    let outcome = init(&InitOptions {
-        target: args.target,
-        profile: args.profile,
-        apply: args.apply,
-        dry_run: args.dry_run,
-        plan_zone,
-        docs_scratch,
-        reserve: args.reserve,
-        writing_style,
-    })?;
+    let outcome = init(
+        &InitOptions {
+            target: args.target,
+            profile: args.profile,
+            apply: args.apply,
+            dry_run: args.dry_run,
+            plan_zone,
+            docs_scratch,
+            reserve: args.reserve,
+            writing_style,
+        },
+        &crate::release::embedded::EmbeddedReleaseBundle::new(),
+    )?;
     for line in &outcome.lines {
         output::line(line);
     }

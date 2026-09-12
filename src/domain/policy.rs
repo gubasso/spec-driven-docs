@@ -14,42 +14,57 @@
 //! every commit in the window between upgrading the binary and running
 //! `sdd upgrade`. The canon suite holds that boundary.
 
+use std::sync::LazyLock;
+
+use crate::domain::projection::SentinelDeclaration;
 use crate::domain::rule_id::RuleId;
 
 /// One sentinel: the rule, and the adopted specification that owns it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Sentinel {
     /// The rule an instance's specifications must define.
     pub rule: RuleId,
-    /// The embedded specification that carries it.
-    pub source: &'static str,
+    /// The payload specification that carries it.
+    pub source: String,
     /// Where an instance holds that specification, with `{docs_root}`
     /// templated.
-    pub destination: &'static str,
+    pub destination: String,
     /// The declaration it authorizes, for the note that names it.
-    pub declares: &'static str,
+    pub declares: String,
 }
 
-/// Every sentinel this binary knows.
-pub const SENTINELS: &[Sentinel] = &[
-    Sentinel {
-        rule: RuleId::RecordedDimensionOnlyShrinks,
-        source: "_docs/specs/SPEC-budget-debt.md",
-        destination: "{docs_root}/specs/SPEC-budget-debt.md",
-        declares: ".spec-driven-docs/debt.yaml records budget debt",
-    },
-    Sentinel {
-        rule: RuleId::ProjectSelectsOneSource,
-        source: "_docs/specs/SPEC-writing-policy.md",
-        destination: "{docs_root}/specs/SPEC-writing-policy.md",
-        declares: ".spec-driven-docs/config.yaml selects a writing style other than builtin",
-    },
-];
+/// Every sentinel this binary's own release declares.
+///
+/// A declared rule this engine does not know is dropped rather than
+/// refused: a release may authorize a feature a later engine renamed, and
+/// a sentinel nothing can look up is a note nobody can act on.
+pub static SENTINELS: LazyLock<Vec<Sentinel>> =
+    LazyLock::new(|| from_declaration(&crate::domain::profile::DECLARATION.sentinels));
+
+/// Read a declaration's sentinels, keeping the ones this engine knows.
+#[must_use]
+pub fn from_declaration(declared: &[SentinelDeclaration]) -> Vec<Sentinel> {
+    declared
+        .iter()
+        .filter_map(|entry| {
+            let rule = RuleId::ALL
+                .iter()
+                .copied()
+                .find(|known| known.as_str() == entry.rule)?;
+            Some(Sentinel {
+                rule,
+                source: entry.source.clone(),
+                destination: entry.destination.clone(),
+                declares: entry.declares.clone(),
+            })
+        })
+        .collect()
+}
 
 /// The sentinel a rule is, if it is one.
 #[must_use]
 pub fn sentinel(rule: RuleId) -> Option<&'static Sentinel> {
-    SENTINELS.iter().find(|s| s.rule == rule)
+    SENTINELS.iter().find(|held| held.rule == rule)
 }
 
 #[cfg(test)]
@@ -58,9 +73,9 @@ mod tests {
 
     #[test]
     fn every_sentinel_is_owned_by_an_embedded_adopted_specification() {
-        for s in SENTINELS {
+        for s in SENTINELS.iter() {
             assert!(
-                crate::embedded::asset(s.source).is_some(),
+                crate::embedded::asset(&s.source).is_some(),
                 "{} is not embedded",
                 s.source
             );
@@ -70,7 +85,7 @@ mod tests {
                 .iter()
                 .any(|p| p.source == s.source && p.destination == s.destination);
             assert!(adopted, "{} is not an adopted projection", s.source);
-            let text = crate::embedded::asset(s.source)
+            let text = crate::embedded::asset(&s.source)
                 .and_then(|bytes| std::str::from_utf8(bytes).ok())
                 .unwrap_or_default();
             assert!(

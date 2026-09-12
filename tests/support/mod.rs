@@ -25,6 +25,13 @@ use assert_cmd::Command;
 /// into the scratch home. A test that means one of them sets it back.
 pub const RELOCATING_VARS: [&str; 3] = ["CLAUDE_CONFIG_DIR", "XDG_STATE_HOME", "XDG_CACHE_HOME"];
 
+/// The suite reaches no registry.
+///
+/// One probe reads the registry's configuration, and a test that reached
+/// the network would be slow where the network is slow and red where it is
+/// absent. A test that means the read sets the variable back.
+pub const OFFLINE: (&str, &str) = ("SDD_OFFLINE", "1");
+
 /// One scratch target repository.
 pub struct Fixture {
     dir: tempfile::TempDir,
@@ -57,6 +64,7 @@ impl Fixture {
         // records. Removed here, a test says what it means.
         cmd.env_remove("SDD_PLAN_ZONE");
         cmd.env_remove("SDD_DOCS_SCRATCH");
+        cmd.env(OFFLINE.0, OFFLINE.1);
         for name in RELOCATING_VARS {
             cmd.env_remove(name);
         }
@@ -132,6 +140,7 @@ impl Home {
         let mut cmd = Command::cargo_bin("sdd").unwrap();
         cmd.env_remove("RUST_LOG");
         cmd.env("HOME", self.dir.path());
+        cmd.env(OFFLINE.0, OFFLINE.1);
         for name in RELOCATING_VARS {
             cmd.env_remove(name);
         }

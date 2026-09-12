@@ -13,7 +13,8 @@ use serde::Serialize;
 
 use crate::domain::ownership::Sha256;
 use crate::domain::paths::{
-    AgentId, LEGACY_SHARED_ROOT, SKILL_FILE, SKILL_RECEIPT_FILE, SKILL_REFERENCES_DIR, UserEnv,
+    AgentId, LEGACY_SHARED_ROOT, OFFLINE_VAR, SKILL_FILE, SKILL_RECEIPT_FILE, SKILL_REFERENCES_DIR,
+    UserEnv,
 };
 use crate::domain::skill_record::SkillRecord;
 use crate::services::skill_installer::home;
@@ -148,6 +149,7 @@ pub fn run_all() -> Vec<ProbeResult> {
         skill_roots(),
         skill_gate(),
         skill_payload(),
+        registry(),
         tool(
             "git",
             "SDD_GIT_BIN",
@@ -191,6 +193,53 @@ fn tool(
             ProbeClass::Soft,
             format!("{default_bin} is not on PATH"),
             format!("install {label}"),
+        ),
+    }
+}
+
+/// The registry the release resolver reads is reachable.
+///
+/// Soft, because a host that cannot fetch is a constraint on a plan rather
+/// than a broken install: every default path reads the embedded release,
+/// and only a plan toward another release needs this. The probe reads the
+/// registry's own configuration, which is the smallest document the
+/// protocol defines, and writes nothing.
+fn registry() -> ProbeResult {
+    let id = "release-registry";
+    let url = format!("{}/config.json", crate::release::crates_io::INDEX_ROOT);
+    // One variable turns the read off, for a host that is deliberately
+    // offline and for every test in this repository's own suite.
+    if crate::domain::paths::variable(OFFLINE_VAR).is_some() {
+        return ProbeResult::ok(
+            id,
+            ProbeClass::Soft,
+            "SDD_OFFLINE is set, so no release beyond the embedded one is planned",
+        );
+    }
+    // A probe's budget is not a fetch's budget: an unreachable registry
+    // must answer this question in seconds, not in the minute a bounded
+    // archive read is allowed.
+    let agent: ureq::Agent = ureq::Agent::config_builder()
+        .timeout_connect(Some(std::time::Duration::from_secs(3)))
+        .timeout_global(Some(std::time::Duration::from_secs(5)))
+        .user_agent(format!("sdd/{}", env!("CARGO_PKG_VERSION")))
+        .build()
+        .into();
+    match agent.get(&url).call() {
+        Ok(response) if response.status().as_u16() == 200 => {
+            ProbeResult::ok(id, ProbeClass::Soft, format!("{url} answers"))
+        }
+        Ok(response) => ProbeResult::failed(
+            id,
+            ProbeClass::Soft,
+            format!("{url} answered {}", response.status().as_u16()),
+            "plan toward the embedded release, or retry when the registry answers",
+        ),
+        Err(source) => ProbeResult::failed(
+            id,
+            ProbeClass::Soft,
+            format!("{url} could not be read: {source}"),
+            "plan toward the embedded release; only a plan toward another release needs the registry",
         ),
     }
 }

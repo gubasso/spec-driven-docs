@@ -14,6 +14,9 @@ use crate::services::self_manifest::regenerate;
 ///
 /// [`AppError::Refused`] outside the canon checkout; I/O errors otherwise.
 pub fn run(ctx: &AppContext) -> Result<(), AppError> {
-    output::line(regenerate(&ctx.cwd)?);
+    output::line(regenerate(
+        &ctx.cwd,
+        &crate::release::embedded::EmbeddedReleaseBundle::new(),
+    )?);
     Ok(())
 }

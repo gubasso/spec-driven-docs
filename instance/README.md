@@ -44,6 +44,16 @@ Both verbs sweep: a destination the receipt vouches for that the current payload
 
 User-scope files are never recorded in an instance manifest, and no verification reads the receipt.
 
+## Read a release
+
+```bash
+sdd payload
+sdd payload --release 0.8.0
+sdd payload --release latest --json
+```
+
+`sdd payload` reports what a release carries: its version, the protocol version between it and this binary, where its facts came from, a digest over its content, and how many artifacts it holds. With no flag it reads the release the binary carries and touches no network. With `--release` it resolves at crates.io, verifies the archive against the registry checksum, and caches it under `$XDG_CACHE_HOME/spec-driven-docs`. `--offline` accepts an exact version already cached and refuses `latest`, because only the index says which release is newest. A release older than the tool can describe reports unavailable with its evidence rather than a guess.
+
 ## Report
 
 ```bash

@@ -153,7 +153,7 @@ fn the_canon_record_hashes_every_file_the_tree_carries() {
         }
     }
 
-    for template in spec_driven_docs::domain::profile::CANON_TEMPLATES {
+    for template in spec_driven_docs::domain::profile::CANON_TEMPLATES.iter() {
         assert!(
             canon().join(template).is_file(),
             "{template} is declared but gone from the tree"
@@ -927,9 +927,13 @@ fn the_embedded_payload_names_no_planning_tool() {
 /// SATISFIES distribution:the-payload-names-no-other-project
 #[test]
 fn the_embedded_payload_names_no_other_project() {
+    // This project's own home is not another project. The owner's account
+    // name is part of that URL, and the payload carries the URL wherever it
+    // has to identify the canon it came from.
+    let own = spec_driven_docs::domain::manifest::CANON_SOURCE.to_lowercase();
     for (relative, text) in payload_files() {
         for (index, line) in text.lines().enumerate() {
-            let lower = line.to_lowercase();
+            let lower = line.to_lowercase().replace(&own, "");
             for project in FOREIGN_PROJECTS {
                 assert!(
                     !lower.contains(project),
@@ -1009,7 +1013,7 @@ fn a_seeded_rule_runs_no_canon_command() {
         .profile()
         .adopted
         .iter()
-        .map(|entry| entry.source)
+        .map(|entry| entry.source.as_str())
         .filter(|source| source.contains("/SPEC-"))
         .collect();
     assert!(!seeds.is_empty(), "the profile seeds no spec");
@@ -1478,4 +1482,148 @@ fn every_skill_names_its_gates_relative_to_its_own_root() {
             "{dir}: still names the retired shared root"
         );
     }
+}
+
+/// SATISFIES bundle:a-release-declares-what-it-lands
+///
+/// The declaration is a snapshot: it replaced constants a compiler held to
+/// their shape, so a test holds it to its shape instead. A row added or
+/// dropped fails here and is reviewed as the projection change it is.
+#[test]
+fn the_declaration_is_the_projection_this_release_lands() {
+    use spec_driven_docs::domain::profile::{DECLARATION, DocsRoot, ProfileId};
+
+    assert_eq!(DECLARATION.payload_schema, 1);
+    assert_eq!(
+        DECLARATION.docs_root(ProfileId::Codebase),
+        Some(DocsRoot::Docs)
+    );
+    assert_eq!(
+        DECLARATION.docs_root(ProfileId::KnowledgeBase),
+        Some(DocsRoot::UnderscoreDocs)
+    );
+    assert_eq!(DECLARATION.managed.len(), 3, "the managed set moved");
+    assert_eq!(DECLARATION.adopted.len(), 21, "the adopted set moved");
+    assert_eq!(DECLARATION.canon_templates.len(), 2);
+    assert_eq!(DECLARATION.sentinels.len(), 2);
+    for entry in &DECLARATION.sentinels {
+        assert!(
+            DECLARATION
+                .adopted
+                .iter()
+                .any(|adopted| adopted.source == entry.source),
+            "the sentinel {} is owned by no adopted projection",
+            entry.rule
+        );
+    }
+}
+
+/// SATISFIES bundle:a-release-declares-what-it-lands
+#[test]
+fn the_declaration_roots_equal_the_payload_roots() {
+    use spec_driven_docs::domain::profile::DECLARATION;
+
+    for entry in DECLARATION.managed.iter().chain(&DECLARATION.adopted) {
+        assert!(
+            PAYLOAD_ROOTS
+                .iter()
+                .any(|root| entry.source.starts_with(&format!("{root}/"))),
+            "{} is projected from outside every declared payload root",
+            entry.source
+        );
+        assert!(
+            canon().join(&entry.source).is_file(),
+            "{} is projected and not on disk",
+            entry.source
+        );
+    }
+}
+
+/// SATISFIES bundle:a-release-is-read-through-one-seam
+///
+/// A landing verb that reached the embedded payload directly could only
+/// describe the release it was compiled with, whatever the seam says.
+#[test]
+fn no_landing_service_names_the_embedded_payload() {
+    const LANDING: &[&str] = &[
+        "src/services/installer.rs",
+        "src/services/upgrader.rs",
+        "src/services/verifier.rs",
+        "src/services/policy.rs",
+        "src/services/assess.rs",
+    ];
+    for relative in LANDING {
+        let text = read(relative);
+        let production = text
+            .split_once("#[cfg(test)]")
+            .map_or_else(|| text.clone(), |(before, _)| before.to_string());
+        assert!(
+            !production.contains("crate::embedded::asset("),
+            "{relative} reads the embedded payload rather than the release bundle"
+        );
+    }
+}
+
+/// SATISFIES bundle:a-release-is-read-through-one-seam
+#[test]
+fn every_landing_verb_takes_a_release_bundle() {
+    const SIGNATURES: &[(&str, &str)] = &[
+        ("src/services/installer.rs", "pub fn init("),
+        ("src/services/upgrader.rs", "pub fn upgrade("),
+        ("src/services/verifier.rs", "pub fn verify("),
+        ("src/services/policy.rs", "pub fn plan("),
+        ("src/services/policy.rs", "pub fn apply_all("),
+        ("src/services/assess.rs", "pub fn assess("),
+        ("src/services/self_manifest.rs", "pub fn regenerate("),
+    ];
+    for (relative, signature) in SIGNATURES {
+        let text = read(relative);
+        let start = text
+            .find(signature)
+            .unwrap_or_else(|| panic!("{relative} no longer declares {signature}"));
+        let end = text[start..]
+            .find(") ->")
+            .unwrap_or_else(|| panic!("{relative}: {signature} has no return type"));
+        let head = &text[start..start + end];
+        assert!(
+            head.contains("ReleaseBundle"),
+            "{relative}: {signature} takes no release bundle"
+        );
+    }
+}
+
+/// SATISFIES bundle:a-pre-schema-release-is-cataloged-or-unavailable
+#[test]
+fn the_published_crate_carries_the_payload_and_the_release_catalog() {
+    let listed = std::process::Command::new(env!("CARGO"))
+        .args(["package", "--list", "--allow-dirty", "--quiet"])
+        .current_dir(canon())
+        .output()
+        .expect("cargo package --list runs");
+    assert!(
+        listed.status.success(),
+        "cargo package --list failed: {}",
+        String::from_utf8_lossy(&listed.stderr)
+    );
+    let files = String::from_utf8_lossy(&listed.stdout);
+    for root in PAYLOAD_ROOTS {
+        assert!(
+            files
+                .lines()
+                .any(|line| line.starts_with(&format!("{root}/"))),
+            "the published crate carries no {root}"
+        );
+    }
+    assert!(
+        files
+            .lines()
+            .any(|line| line == "release-compat/index.toml"),
+        "the published crate carries no release catalog"
+    );
+    assert!(
+        files
+            .lines()
+            .any(|line| line.starts_with("release-compat/legacy/")),
+        "the published crate carries no legacy descriptor"
+    );
 }

@@ -14,6 +14,8 @@
 //! - [`gates`] — the delivered gate implementations and their registry.
 //! - [`services`] — install, verify, upgrade, and hook-rendering orchestration.
 //! - [`adapters`] — filesystem I/O at the edges.
+//! - [`release`] — the bundle and resolver boundary every landing verb
+//!   reads a release through.
 //! - [`transaction`] — the lock, staging, and journal a recoverable
 //!   multi-file write runs through.
 //! - [`cli`] / [`commands`] — clap parse shapes and their handlers.
@@ -31,5 +33,6 @@ pub mod logging;
 pub mod output;
 pub mod payload_roots;
 pub mod probes;
+pub mod release;
 pub mod services;
 pub mod transaction;

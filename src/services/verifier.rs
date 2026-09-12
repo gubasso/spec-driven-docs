@@ -16,6 +16,7 @@ use crate::domain::marker;
 use crate::domain::paths::{AGENTS_DIGEST_PATH, HOOKS_CONFIG_PATH};
 use crate::domain::version::CanonVersion;
 use crate::error::AppError;
+use crate::release::ReleaseBundle;
 
 /// What a verification run reports.
 #[derive(Debug, Default)]
@@ -192,11 +193,17 @@ fn check_declaration(target: &Utf8Path, manifest: &Manifest, report: &mut Verify
     }
 }
 
-fn check_projection(manifest: &Manifest, report: &mut VerifyReport) {
+fn check_projection_against(
+    released: &crate::domain::projection::Declaration,
+    manifest: &Manifest,
+    report: &mut VerifyReport,
+) {
     if manifest.canon_version != CanonVersion::current() {
         return;
     }
-    let declaration = manifest.profile.profile();
+    let Some(declaration) = released.profile(manifest.profile) else {
+        return;
+    };
     let managed: std::collections::BTreeSet<&str> = manifest
         .managed_files
         .iter()
@@ -211,20 +218,20 @@ fn check_projection(manifest: &Manifest, report: &mut VerifyReport) {
     let self_layout = declaration
         .managed
         .iter()
-        .all(|projection| managed.contains(projection.source));
+        .all(|projection| managed.contains(projection.source.as_str()));
 
     let mut expected: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
     let mut missing: Vec<String> = Vec::new();
     if self_layout {
         for projection in declaration.managed {
-            expected.insert(projection.source.to_string());
+            expected.insert(projection.source.clone());
         }
         for file in crate::embedded::SPECS.files() {
             if let Some(name) = file.path().as_os_str().to_str() {
                 expected.insert(format!("_docs/specs/{name}"));
             }
         }
-        for template in crate::domain::profile::CANON_TEMPLATES {
+        for template in crate::domain::profile::CANON_TEMPLATES.iter() {
             expected.insert((*template).to_string());
         }
         for destination in &expected {
@@ -234,13 +241,13 @@ fn check_projection(manifest: &Manifest, report: &mut VerifyReport) {
         }
     } else {
         for projection in declaration.managed {
-            if !managed.contains(projection.destination) {
-                missing.push(projection.destination.to_string());
+            if !managed.contains(projection.destination.as_str()) {
+                missing.push(projection.destination.clone());
             }
         }
         for projection in declaration.adopted {
             let destination = crate::domain::profile::resolve_destination(
-                projection.destination,
+                &projection.destination,
                 manifest.docs_root,
             );
             if !adopted.contains(destination.as_str()) {
@@ -281,8 +288,9 @@ fn check_projection(manifest: &Manifest, report: &mut VerifyReport) {
 /// [`AppError::ManifestMissing`] / [`AppError::ManifestInvalid`] when the
 /// record itself cannot be trusted, and I/O errors when the disk cannot be
 /// read; recorded-versus-disk differences are reported, not raised.
-pub fn verify(target: &Utf8Path) -> Result<VerifyReport, AppError> {
+pub fn verify(target: &Utf8Path, bundle: &dyn ReleaseBundle) -> Result<VerifyReport, AppError> {
     let manifest = read_manifest(target)?;
+    let released = bundle.declaration()?;
     let mut report = VerifyReport::default();
 
     check_declaration(target, &manifest, &mut report);
@@ -330,7 +338,7 @@ pub fn verify(target: &Utf8Path) -> Result<VerifyReport, AppError> {
         }
     }
 
-    check_projection(&manifest, &mut report);
+    check_projection_against(&released, &manifest, &mut report);
     check_integration(target, &manifest, &mut report)?;
     check_specs(target, &manifest, &mut report)?;
     check_debt(target, &mut report);

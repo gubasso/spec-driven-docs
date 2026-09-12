@@ -1,0 +1,140 @@
+# What spec-driven-docs 0.7.2 lands, audited from its published crate.
+#
+# The release predates the projection declaration, so this descriptor
+# supplies the same facts. It was read out of the archive whose
+# checksum the index records, never out of a tag or a recollection.
+
+version = "0.7.2"
+payload_roots = [
+  "_docs/specs",
+  "templates",
+  ".markdownlint",
+  "instance/seeds",
+  "instance/snippets",
+  "method",
+  "skills",
+  "skill-shared",
+]
+
+[projection]
+payload_schema = 1
+canon_templates = [
+  "_docs/decisions/TEMPLATE-adr.md",
+  "_docs/reference/TEMPLATE-agents-digest.md",
+]
+
+[[projection.profiles]]
+id = "codebase"
+docs_root = "docs"
+
+[[projection.profiles]]
+id = "knowledge-base"
+docs_root = "_docs"
+
+[[projection.managed]]
+source = ".markdownlint/adr.markdownlint-cli2.jsonc"
+destination = ".spec-driven-docs/markdownlint/adr.markdownlint-cli2.jsonc"
+
+[[projection.managed]]
+source = ".markdownlint/spec.markdownlint-cli2.jsonc"
+destination = ".spec-driven-docs/markdownlint/spec.markdownlint-cli2.jsonc"
+
+[[projection.managed]]
+source = ".markdownlint/relative-links.markdownlint-cli2.jsonc"
+destination = ".spec-driven-docs/markdownlint/relative-links.markdownlint-cli2.jsonc"
+
+[[projection.adopted]]
+source = "instance/seeds/config.yaml"
+destination = ".spec-driven-docs/config.yaml"
+
+[[projection.adopted]]
+source = "_docs/specs/SPEC-budget-debt.md"
+destination = "{docs_root}/specs/SPEC-budget-debt.md"
+
+[[projection.adopted]]
+source = "_docs/specs/SPEC-writing-policy.md"
+destination = "{docs_root}/specs/SPEC-writing-policy.md"
+
+[[projection.adopted]]
+source = "_docs/specs/SPEC-decision-records.md"
+destination = "{docs_root}/specs/SPEC-decision-records.md"
+
+[[projection.adopted]]
+source = "_docs/specs/SPEC-instance.md"
+destination = "{docs_root}/specs/SPEC-instance.md"
+
+[[projection.adopted]]
+source = "_docs/specs/SPEC-docs-format.md"
+destination = "{docs_root}/specs/SPEC-docs-format.md"
+
+[[projection.adopted]]
+source = "_docs/specs/SPEC-docs-foundations.md"
+destination = "{docs_root}/specs/SPEC-docs-foundations.md"
+
+[[projection.adopted]]
+source = "_docs/specs/SPEC-docs-specs.md"
+destination = "{docs_root}/specs/SPEC-docs-specs.md"
+
+[[projection.adopted]]
+source = "_docs/specs/SPEC-comparison-docs.md"
+destination = "{docs_root}/specs/SPEC-comparison-docs.md"
+
+[[projection.adopted]]
+source = "_docs/specs/SPEC-known-issues.md"
+destination = "{docs_root}/specs/SPEC-known-issues.md"
+
+[[projection.adopted]]
+source = "_docs/specs/SPEC-spec-to-code.md"
+destination = "{docs_root}/specs/SPEC-spec-to-code.md"
+
+[[projection.adopted]]
+source = "_docs/specs/SPEC-guides.md"
+destination = "{docs_root}/specs/SPEC-guides.md"
+
+[[projection.adopted]]
+source = "_docs/specs/SPEC-writing-style.md"
+destination = "{docs_root}/specs/SPEC-writing-style.md"
+
+[[projection.adopted]]
+source = "_docs/specs/SPEC-tracking.md"
+destination = "{docs_root}/specs/SPEC-tracking.md"
+
+[[projection.adopted]]
+source = "_docs/specs/SPEC-tracking/tracking.schema.json"
+destination = "{docs_root}/specs/SPEC-tracking/tracking.schema.json"
+
+[[projection.adopted]]
+source = "templates/TEMPLATE-tracking.yaml"
+destination = "{docs_root}/reference/tracking.yaml"
+
+[[projection.adopted]]
+source = "templates/TEMPLATE-spec.md"
+destination = "{docs_root}/specs/TEMPLATE-spec.md"
+
+[[projection.adopted]]
+source = "templates/TEMPLATE-adr.md"
+destination = "{docs_root}/decisions/TEMPLATE-adr.md"
+
+[[projection.adopted]]
+source = "templates/TEMPLATE-agents-digest.md"
+destination = "{docs_root}/reference/TEMPLATE-agents-digest.md"
+
+[[projection.adopted]]
+source = "templates/TEMPLATE-guide.md"
+destination = "{docs_root}/guides/TEMPLATE-guide.md"
+
+[[projection.adopted]]
+source = "templates/TEMPLATE-known-issue.md"
+destination = "{docs_root}/reference/TEMPLATE-known-issue.md"
+
+[[projection.sentinels]]
+rule = "budget-debt:a-recorded-dimension-only-shrinks"
+source = "_docs/specs/SPEC-budget-debt.md"
+destination = "{docs_root}/specs/SPEC-budget-debt.md"
+declares = ".spec-driven-docs/debt.yaml records budget debt"
+
+[[projection.sentinels]]
+rule = "writing-policy:the-project-selects-one-source"
+source = "_docs/specs/SPEC-writing-policy.md"
+destination = "{docs_root}/specs/SPEC-writing-policy.md"
+declares = ".spec-driven-docs/config.yaml selects a writing style other than builtin"

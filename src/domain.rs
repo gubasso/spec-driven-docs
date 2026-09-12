@@ -18,6 +18,7 @@ pub mod path_filter;
 pub mod paths;
 pub mod policy;
 pub mod profile;
+pub mod projection;
 pub mod rule_id;
 pub mod skill_record;
 pub mod tracking;

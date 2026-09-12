@@ -88,6 +88,7 @@ fn doctor_reports_every_probe_and_exits_0() {
             "skill-roots",
             "skill-gate",
             "skill-payload",
+            "release-registry",
             "git",
             "pre-commit"
         ]
@@ -254,5 +255,23 @@ fn a_missing_skill_beside_an_unvouched_edit_names_force() {
     assert_eq!(
         probe(&after, "skill-payload")["remediation"],
         "sdd skill install --apply --force"
+    );
+}
+
+/// The registry probe is soft and reads nothing where the operator has said
+/// this host is offline.
+#[test]
+fn the_registry_probe_is_quiet_where_the_host_is_declared_offline() {
+    let home = Home::new();
+    let report = report(&home);
+    let probe = probe(&report, "release-registry");
+    assert_eq!(probe["class"], "soft");
+    assert_eq!(probe["status"], "ok");
+    assert!(
+        probe["message"]
+            .as_str()
+            .unwrap()
+            .contains("SDD_OFFLINE is set"),
+        "{probe}"
     );
 }

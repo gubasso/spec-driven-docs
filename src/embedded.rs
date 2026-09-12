@@ -18,10 +18,13 @@ pub static SPECS: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/_docs/specs")
 pub static TEMPLATES: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/templates");
 /// The markdownlint configurations the instance receives managed.
 pub static MARKDOWNLINT: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/.markdownlint");
-/// The files an instance is seeded with once and then owns.
-pub static SEEDS: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/instance/seeds");
-/// Integration snippets a consumer copies into their own files.
-pub static SNIPPETS: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/instance/snippets");
+/// What a release says about itself, plus what it seeds and splices.
+///
+/// One root rather than a root per subdirectory: the projection
+/// declaration sits beside the seeds it describes, and a root per
+/// subdirectory would make the declaration a one-file exception to the
+/// payload inventory.
+pub static INSTANCE: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/instance");
 /// The method chapters and glossary.
 pub static METHOD: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/method");
 /// The cross-agent skills, one `SKILL.md` per directory.
@@ -46,12 +49,20 @@ const EMBEDDED_ROOTS: &[(&str, &Dir<'static>)] = &[
     ("_docs/specs", &SPECS),
     ("templates", &TEMPLATES),
     (".markdownlint", &MARKDOWNLINT),
-    ("instance/seeds", &SEEDS),
-    ("instance/snippets", &SNIPPETS),
+    ("instance", &INSTANCE),
     ("method", &METHOD),
     ("skills", &SKILLS),
     ("skill-shared", &SKILL_SHARED),
 ];
+
+/// Every embedded root paired with the authored path it came from.
+///
+/// The release bundle walks this to build a manifest, so a root added to
+/// the declaration reaches the bundle without a second list.
+#[must_use]
+pub const fn roots() -> &'static [(&'static str, &'static Dir<'static>)] {
+    EMBEDDED_ROOTS
+}
 
 /// Every skill name, sorted; a name is the skill's directory.
 #[must_use]
@@ -191,7 +202,7 @@ mod tests {
             let profile = id.profile();
             for entry in profile.managed.iter().chain(profile.adopted) {
                 assert!(
-                    asset(entry.source).is_some(),
+                    asset(&entry.source).is_some(),
                     "{id}: {} is not embedded",
                     entry.source
                 );

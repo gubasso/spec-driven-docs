@@ -13,6 +13,7 @@ pub mod hooks;
 pub mod init;
 pub mod ki;
 pub mod license;
+pub mod payload;
 pub mod policy;
 pub mod read;
 pub mod skill;
@@ -54,6 +55,8 @@ pub enum Commands {
     Verify(verify::VerifyArgs),
     /// Upgrade an installed instance to this binary's version.
     Upgrade(upgrade::UpgradeArgs),
+    /// Report what a release carries, through the release seam.
+    Payload(payload::PayloadArgs),
     /// Run one delivered gate, or list them all.
     Gate(gate::GateArgs),
     /// Render the delivered gate set as pre-commit hook entries.

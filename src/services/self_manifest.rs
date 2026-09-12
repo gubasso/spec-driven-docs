@@ -66,7 +66,11 @@ fn skill_files(root: &Utf8Path) -> Vec<String> {
 ///
 /// [`AppError::Refused`] outside the canon checkout, and I/O errors when a
 /// recorded file cannot be read or the manifest cannot be written.
-pub fn regenerate(root: &Utf8Path) -> Result<String, AppError> {
+pub fn regenerate(
+    root: &Utf8Path,
+    bundle: &dyn crate::release::ReleaseBundle,
+) -> Result<String, AppError> {
+    let _released = bundle.manifest()?;
     if !is_canon_checkout(root) {
         return Err(AppError::Refused("not the canon checkout".to_string()));
     }
@@ -109,7 +113,7 @@ pub fn regenerate(root: &Utf8Path) -> Result<String, AppError> {
     )]
     let spec = |name: &str| name.starts_with("SPEC-") && name.ends_with(".md");
     let mut adopted_paths = sorted_files(root, "_docs/specs", spec);
-    for template in crate::domain::profile::CANON_TEMPLATES {
+    for template in crate::domain::profile::CANON_TEMPLATES.iter() {
         adopted_paths.push((*template).to_string());
     }
     let mut adopted = Vec::new();

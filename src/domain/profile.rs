@@ -1,16 +1,20 @@
 //! Installation profiles: what a target repository receives.
 //!
 //! A profile declares the documentation root and the payload projection —
-//! which embedded files land managed and which land adopted, and where.
-//! The declarations are code so a profile referencing an asset the payload
-//! does not carry fails a test instead of an install. Copying bytes and
-//! recording hashes is the installer's work.
+//! which payload files land managed and which land adopted, and where.
+//! The declaration is data the release carries, so an engine can read what
+//! any release it can fetch lands rather than only what it was compiled
+//! with. Copying bytes and recording hashes is the installer's work.
 
 use std::fmt;
+use std::sync::LazyLock;
 
 use camino::Utf8PathBuf;
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
+
+pub use crate::domain::projection::Projection;
+use crate::domain::projection::{DECLARATION_PATH, Declaration};
 
 /// The two installable profiles.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, ValueEnum, Serialize, Deserialize)]
@@ -32,9 +36,12 @@ impl ProfileId {
         EVERY_PROFILE.into_iter()
     }
 
-    /// The profile's declaration.
+    /// This binary's own release, as this profile.
+    ///
+    /// A verb that lands another release reads that release's declaration
+    /// instead, through [`crate::domain::projection::Declaration::profile`].
     #[must_use]
-    pub const fn profile(self) -> &'static Profile {
+    pub fn profile(self) -> &'static Profile<'static> {
         match self {
             Self::Codebase => &CODEBASE,
             Self::KnowledgeBase => &KNOWLEDGE_BASE,
@@ -85,25 +92,6 @@ impl fmt::Display for DocsRoot {
     }
 }
 
-/// One payload projection: an embedded source and its instance destination.
-///
-/// An adopted destination may carry a `{docs_root}` placeholder, resolved
-/// per profile by [`resolve_destination`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Projection {
-    /// The embedded payload path.
-    pub source: &'static str,
-    /// The destination, relative to the instance root.
-    pub destination: &'static str,
-}
-
-const fn proj(source: &'static str, destination: &'static str) -> Projection {
-    Projection {
-        source,
-        destination,
-    }
-}
-
 /// Substitute the profile's documentation root into a destination template.
 #[must_use]
 #[allow(
@@ -114,161 +102,57 @@ pub fn resolve_destination(destination: &str, docs_root: DocsRoot) -> Utf8PathBu
     Utf8PathBuf::from(destination.replace("{docs_root}", docs_root.as_str()))
 }
 
-/// What one profile installs.
-#[derive(Debug)]
-pub struct Profile {
-    /// The profile this declaration belongs to.
+/// What one profile installs, as one declaration describes it.
+#[derive(Debug, Clone, Copy)]
+pub struct Profile<'a> {
+    /// The profile this view belongs to.
     pub id: ProfileId,
     /// The documentation root the instance uses.
     pub docs_root: DocsRoot,
     /// Byte projections the canon keeps owning.
-    pub managed: &'static [Projection],
+    pub managed: &'a [Projection],
     /// Seeds the instance owns from the moment they land.
-    pub adopted: &'static [Projection],
+    pub adopted: &'a [Projection],
 }
 
-/// Byte projections every profile installs.
+/// What this binary's own release declares.
 ///
-/// No skill appears here. A skill name is what an agent's picker keys on,
-/// so an instance copy and the user-scope copy of one skill are two entries
-/// under one name in every session opened inside that instance. User scope
-/// owns them alone.
-///
-/// SATISFIES distribution:a-skill-has-one-owner
-const MANAGED: &[Projection] = &[
-    proj(
-        ".markdownlint/adr.markdownlint-cli2.jsonc",
-        ".spec-driven-docs/markdownlint/adr.markdownlint-cli2.jsonc",
-    ),
-    proj(
-        ".markdownlint/spec.markdownlint-cli2.jsonc",
-        ".spec-driven-docs/markdownlint/spec.markdownlint-cli2.jsonc",
-    ),
-    proj(
-        ".markdownlint/relative-links.markdownlint-cli2.jsonc",
-        ".spec-driven-docs/markdownlint/relative-links.markdownlint-cli2.jsonc",
-    ),
-];
+/// The bytes are embedded, so a declaration that does not parse is a defect
+/// in the build rather than a state a command can meet. The canon suite
+/// parses the same file, so the failure lands in the test run.
+#[expect(
+    clippy::expect_used,
+    reason = "the declaration is compiled in; a parse failure is a build defect the canon suite catches first"
+)]
+pub static DECLARATION: LazyLock<Declaration> = LazyLock::new(|| {
+    let bytes = crate::embedded::asset(DECLARATION_PATH)
+        .expect("the payload carries instance/projection.toml");
+    Declaration::parse(bytes).expect("the embedded projection declaration parses")
+});
 
 /// The template copies this repository keeps in its own documentation tree.
-///
-/// A canon-side copy exists only for a class this repository authors, so
-/// this list is shorter than the template projections above: the record
-/// generator writes these and the self-layout check expects them. One
-/// declaration is what stops the two from disagreeing, which is how a
-/// template once reached the tree that neither of them named.
-pub const CANON_TEMPLATES: &[&str] = &[
-    "_docs/decisions/TEMPLATE-adr.md",
-    "_docs/reference/TEMPLATE-agents-digest.md",
-];
+pub static CANON_TEMPLATES: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
+    DECLARATION
+        .canon_templates
+        .iter()
+        .map(String::as_str)
+        .collect()
+});
 
-const ADOPTED: &[Projection] = &[
-    // What the project declares about the files its gates judge. Seeded
-    // once and then the project's, which is what adopted means. It is not
-    // under `{docs_root}`: it configures the tool rather than the corpus.
-    proj(
-        "instance/seeds/config.yaml",
-        ".spec-driven-docs/config.yaml",
-    ),
-    // The specifications that authorize what a project can declare. Each
-    // one is an addition rather than an edit to an existing seed, because
-    // an addition reaches an existing instance on its next upgrade and an
-    // edit to an adopted file never does.
-    proj(
-        "_docs/specs/SPEC-budget-debt.md",
-        "{docs_root}/specs/SPEC-budget-debt.md",
-    ),
-    proj(
-        "_docs/specs/SPEC-writing-policy.md",
-        "{docs_root}/specs/SPEC-writing-policy.md",
-    ),
-    proj(
-        "_docs/specs/SPEC-decision-records.md",
-        "{docs_root}/specs/SPEC-decision-records.md",
-    ),
-    proj(
-        "_docs/specs/SPEC-instance.md",
-        "{docs_root}/specs/SPEC-instance.md",
-    ),
-    proj(
-        "_docs/specs/SPEC-docs-format.md",
-        "{docs_root}/specs/SPEC-docs-format.md",
-    ),
-    proj(
-        "_docs/specs/SPEC-docs-foundations.md",
-        "{docs_root}/specs/SPEC-docs-foundations.md",
-    ),
-    proj(
-        "_docs/specs/SPEC-docs-specs.md",
-        "{docs_root}/specs/SPEC-docs-specs.md",
-    ),
-    proj(
-        "_docs/specs/SPEC-comparison-docs.md",
-        "{docs_root}/specs/SPEC-comparison-docs.md",
-    ),
-    proj(
-        "_docs/specs/SPEC-known-issues.md",
-        "{docs_root}/specs/SPEC-known-issues.md",
-    ),
-    proj(
-        "_docs/specs/SPEC-spec-to-code.md",
-        "{docs_root}/specs/SPEC-spec-to-code.md",
-    ),
-    proj(
-        "_docs/specs/SPEC-guides.md",
-        "{docs_root}/specs/SPEC-guides.md",
-    ),
-    proj(
-        "_docs/specs/SPEC-writing-style.md",
-        "{docs_root}/specs/SPEC-writing-style.md",
-    ),
-    proj(
-        "_docs/specs/SPEC-tracking.md",
-        "{docs_root}/specs/SPEC-tracking.md",
-    ),
-    proj(
-        "_docs/specs/SPEC-tracking/tracking.schema.json",
-        "{docs_root}/specs/SPEC-tracking/tracking.schema.json",
-    ),
-    proj(
-        "templates/TEMPLATE-tracking.yaml",
-        "{docs_root}/reference/tracking.yaml",
-    ),
-    proj(
-        "templates/TEMPLATE-spec.md",
-        "{docs_root}/specs/TEMPLATE-spec.md",
-    ),
-    proj(
-        "templates/TEMPLATE-adr.md",
-        "{docs_root}/decisions/TEMPLATE-adr.md",
-    ),
-    proj(
-        "templates/TEMPLATE-agents-digest.md",
-        "{docs_root}/reference/TEMPLATE-agents-digest.md",
-    ),
-    proj(
-        "templates/TEMPLATE-guide.md",
-        "{docs_root}/guides/TEMPLATE-guide.md",
-    ),
-    proj(
-        "templates/TEMPLATE-known-issue.md",
-        "{docs_root}/reference/TEMPLATE-known-issue.md",
-    ),
-];
+static CODEBASE: LazyLock<Profile<'static>> = LazyLock::new(|| profile_of(ProfileId::Codebase));
+static KNOWLEDGE_BASE: LazyLock<Profile<'static>> =
+    LazyLock::new(|| profile_of(ProfileId::KnowledgeBase));
 
-static CODEBASE: Profile = Profile {
-    id: ProfileId::Codebase,
-    docs_root: DocsRoot::Docs,
-    managed: MANAGED,
-    adopted: ADOPTED,
-};
-
-static KNOWLEDGE_BASE: Profile = Profile {
-    id: ProfileId::KnowledgeBase,
-    docs_root: DocsRoot::UnderscoreDocs,
-    managed: MANAGED,
-    adopted: ADOPTED,
-};
+/// One profile of this binary's own release.
+#[expect(
+    clippy::expect_used,
+    reason = "a profile the declaration omits is the same build defect as a declaration that does not parse"
+)]
+fn profile_of(id: ProfileId) -> Profile<'static> {
+    DECLARATION
+        .profile(id)
+        .expect("the embedded declaration offers every profile")
+}
 
 #[cfg(test)]
 mod tests {
@@ -312,18 +196,19 @@ mod tests {
 
     #[test]
     fn destination_templates_only_use_the_placeholder_in_adopted_paths() {
-        for entry in MANAGED {
+        let profile = ProfileId::KnowledgeBase.profile();
+        for entry in profile.managed {
             assert!(
                 !entry.destination.contains('{'),
                 "{} is templated",
                 entry.destination
             );
         }
-        for entry in ADOPTED {
+        for entry in profile.adopted {
             // The declaration is the one adopted file outside the corpus: it
             // configures the tool rather than being documentation, so no
             // documentation root names it.
-            if entry.destination == ".spec-driven-docs/config.yaml" {
+            if entry.destination == crate::domain::paths::CONFIG_PATH {
                 continue;
             }
             assert!(
@@ -332,5 +217,10 @@ mod tests {
                 entry.destination
             );
         }
+    }
+
+    #[test]
+    fn the_canon_templates_come_from_the_declaration() {
+        assert_eq!(*CANON_TEMPLATES, DECLARATION.canon_templates);
     }
 }

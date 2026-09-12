@@ -28,6 +28,8 @@ pub const CLAUDE_CONFIG_DIR_VAR: &str = "CLAUDE_CONFIG_DIR";
 pub const XDG_STATE_HOME_VAR: &str = "XDG_STATE_HOME";
 /// The variable naming the XDG cache base directory.
 pub const XDG_CACHE_HOME_VAR: &str = "XDG_CACHE_HOME";
+/// The variable that tells this tool to reach no network.
+pub const OFFLINE_VAR: &str = "SDD_OFFLINE";
 /// The variable that names the plan zone.
 pub const PLAN_ZONE_VAR: &str = "SDD_PLAN_ZONE";
 /// The variable that names the docs scratch.

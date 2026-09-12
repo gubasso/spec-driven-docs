@@ -24,10 +24,13 @@ pub fn run(ctx: &AppContext, args: UpgradeArgs) -> Result<(), AppError> {
     } else {
         return Err(AppError::Usage("target must be absolute or .".to_string()));
     };
-    let outcome = upgrade(&UpgradeOptions {
-        target,
-        dry_run: args.dry_run,
-    })?;
+    let outcome = upgrade(
+        &UpgradeOptions {
+            target,
+            dry_run: args.dry_run,
+        },
+        &crate::release::embedded::EmbeddedReleaseBundle::new(),
+    )?;
     for line in &outcome.lines {
         output::line(line);
     }

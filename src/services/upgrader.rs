@@ -192,7 +192,10 @@ fn prune(
 /// remain unfinished, [`AppError::Refused`] when the binary is older than
 /// the instance or the reinstall refuses, and manifest errors when the
 /// record cannot be read.
-pub fn upgrade(options: &UpgradeOptions) -> Result<UpgradeOutcome, AppError> {
+pub fn upgrade(
+    options: &UpgradeOptions,
+    bundle: &dyn crate::release::ReleaseBundle,
+) -> Result<UpgradeOutcome, AppError> {
     if !options.target.is_absolute() {
         return Err(AppError::Usage("target must be absolute".to_string()));
     }
@@ -271,19 +274,22 @@ pub fn upgrade(options: &UpgradeOptions) -> Result<UpgradeOutcome, AppError> {
         return Ok(outcome);
     }
 
-    let reinstalled = init(&InitOptions {
-        target: target.clone(),
-        profile: installed.profile,
-        apply: true,
-        dry_run: false,
-        // No flag: the reinstall carries the recorded declarations forward,
-        // and the project's own declaration file is adopted, so the
-        // reinstall reads it rather than replacing it.
-        plan_zone: None,
-        docs_scratch: None,
-        reserve: Vec::new(),
-        writing_style: None,
-    })
+    let reinstalled = init(
+        &InitOptions {
+            target: target.clone(),
+            profile: installed.profile,
+            apply: true,
+            dry_run: false,
+            // No flag: the reinstall carries the recorded declarations forward,
+            // and the project's own declaration file is adopted, so the
+            // reinstall reads it rather than replacing it.
+            plan_zone: None,
+            docs_scratch: None,
+            reserve: Vec::new(),
+            writing_style: None,
+        },
+        bundle,
+    )
     .map_err(|error| {
         AppError::Refused(format!(
             "upgrade aborted during reinstall from {old} to {new}: {error}"
