@@ -34,6 +34,8 @@ Verify: `pre-commit run adr-cites-a-live-rule --all-files`
 
 The author MUST NOT edit a decision record to describe a later design.
 
+Repairing a path the record names, where the file moved and the record's claim did not change, is not a revision.
+
 #### Scenario: A rule the record established is later narrowed
 
 - GIVEN a merged record establishing a rule

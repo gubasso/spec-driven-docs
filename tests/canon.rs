@@ -400,6 +400,67 @@ fn walk_markdown(dir: &Path, files: &mut Vec<PathBuf>) {
     }
 }
 
+/// The documentation subtrees this repository authors. A numbered document
+/// in any of them is the merge collision the naming rule exists to prevent.
+const DOCUMENT_SUBTREES: &[&str] = &[
+    "method",
+    "comparison-docs",
+    "templates",
+    "reference",
+    "_docs",
+    "instance",
+    "skills",
+    "skill-shared",
+];
+
+/// SATISFIES docs-foundations:a-kind-prefix-carries-a-slug
+///
+/// The chapter shelves are canon subtrees no instance edits, so this is a
+/// canon check and not a delivered gate.
+#[test]
+fn no_authored_document_carries_an_ordinal_prefix() {
+    let mut markdown = Vec::new();
+    for subtree in DOCUMENT_SUBTREES {
+        walk_markdown(&canon().join(subtree), &mut markdown);
+    }
+    assert!(
+        !markdown.is_empty(),
+        "the document subtrees hold no Markdown"
+    );
+    for path in markdown {
+        let name = path.file_name().unwrap().to_string_lossy();
+        let bytes = name.as_bytes();
+        let numbered = bytes.len() > 3
+            && bytes[0].is_ascii_digit()
+            && bytes[1].is_ascii_digit()
+            && bytes[2] == b'-';
+        assert!(
+            !numbered,
+            "{}: a document is named by a slug, not by a number; the reading order belongs in the directory's README.md",
+            path.strip_prefix(canon()).unwrap().display()
+        );
+    }
+}
+
+/// SATISFIES docs-foundations:a-document-directory-explains-itself
+///
+/// The file exists and nothing more. Reading inside it would make the prose
+/// a contract, which defeats the reason the rule asks for prose.
+#[test]
+fn every_directory_of_slug_named_documents_has_a_readme() {
+    for directory in [
+        "method",
+        "comparison-docs",
+        "reference/prior-art",
+        "reference/tracker-markup",
+    ] {
+        assert!(
+            canon().join(directory).join("README.md").is_file(),
+            "{directory}/ holds slug-named documents and no README.md explains them"
+        );
+    }
+}
+
 /// SATISFIES spec-to-code:a-gate-message-cites-the-rule
 #[test]
 fn every_spec_defined_rule_cited_by_the_registry_resolves() {
