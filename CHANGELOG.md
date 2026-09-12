@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1](https://github.com/gubasso/spec-driven-docs/compare/v0.7.0...v0.7.1) - 2026-09-12
+
+### Other
+
+- *(changelog)* Give v0.7.0 the upgrade note a breaking release carries ([#80](https://github.com/gubasso/spec-driven-docs/pull/80))
+
 ## [0.7.0](https://github.com/gubasso/spec-driven-docs/compare/v0.6.6...v0.7.0) - 2026-09-11
 
 This version removes `spec-to-code:a-permanent-exception-states-its-reason` and the model of other tools' suppression syntax that enforced it. An instance that upgrades has work to do in the same change:
