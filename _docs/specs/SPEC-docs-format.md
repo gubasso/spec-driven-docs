@@ -28,6 +28,8 @@ A chapter is a markdown document directly inside `method/` or `comparison-docs/`
 
 A catalog chapter takes a 300-line cap instead. The catalog names are `gates.md`, `checklist.md`, `glossary.md`, `README.md`, and `SOURCES.md`.
 
+A ceiling the project records for an inherited chapter under `SPEC-budget-debt.md` is judged instead of the cap, and it only comes down.
+
 #### Scenario: A chapter acquires a second subject
 
 - GIVEN a chapter approaching the cap
@@ -39,6 +41,8 @@ Verify: `pre-commit run chapter-size-cap --all-files`
 ### `docs-format:author-instructions-stay-within-budget` — Author instructions stay within budget
 
 The author MUST keep the root author-instructions file at or below 100 lines and a subtree one at or below 150.
+
+A ceiling the project records for an inherited file under `SPEC-budget-debt.md` is judged instead of the budget, and it only comes down.
 
 #### Scenario: A root file accumulates a subtree's rules
 
@@ -57,6 +61,12 @@ The project MUST enforce every count-shaped budget with a command that fails the
 - GIVEN a chapter that will not fit in 200 lines
 - WHEN an author reaches for the cap rather than the content
 - THEN the chapter splits, because a gate that admits it admits the next one too
+
+#### Scenario: A project adopts the convention over an inherited corpus
+
+- GIVEN forty chapters written before the project adopted the budgets
+- WHEN the project lands its instance
+- THEN it records each one under `SPEC-budget-debt.md` at its current size, the budget stays where it is for every new document, and each recorded ceiling can only come down
 
 Verify: `for h in adr-word-cap agents-digest-size spec-size-cap chapter-size-cap; do grep -q "id: $h$" .pre-commit-config.yaml || exit 1; done`
 

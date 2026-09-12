@@ -289,3 +289,40 @@ fn forging_the_self_manifest_layout_does_not_shrink_the_held_set() {
             "FAIL manifest omits a declared projection",
         ));
 }
+
+/// A project overruling a specification it owns is exercising ownership:
+/// the disagreement is reported, and nothing fails.
+#[test]
+fn debt_without_the_sentinel_is_a_note_and_the_gates_stay_green() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    fixture.write("method/legacy.md", &"line\n".repeat(250));
+    fixture
+        .cmd()
+        .args(["debt", "baseline", "--target", &fixture.target(), "--apply"])
+        .assert()
+        .success();
+    // The project's own copy of the specification predates the sentinel.
+    let spec = "_docs/specs/SPEC-budget-debt.md";
+    let older = fixture.read(spec).replace(
+        "budget-debt:a-recorded-dimension-only-shrinks",
+        "budget-debt:an-older-sentence",
+    );
+    fixture.write(spec, &older);
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            "note: .spec-driven-docs/debt.yaml records budget debt and no local specification defines `budget-debt:a-recorded-dimension-only-shrinks`",
+        ))
+        .stdout(predicate::str::contains("_docs/specs/SPEC-budget-debt.md owns it"))
+        .stdout(predicate::str::contains("add the rule to the project's copy"));
+    fixture
+        .cmd()
+        .args(["gate", "chapter-size-cap"])
+        .current_dir(fixture.path())
+        .assert()
+        .success();
+}

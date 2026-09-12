@@ -35,6 +35,8 @@ macro_rules! rule_ids {
 }
 
 rule_ids! {
+    RecordedDimensionOnlyShrinks => "budget-debt:a-recorded-dimension-only-shrinks",
+    DebtIsCreatedByAnExplicitAct => "budget-debt:debt-is-created-by-an-explicit-act",
     CellCarriesOneReference => "comparison-docs:a-cell-carries-one-reference",
     ComparisonCarriesALegend => "comparison-docs:a-comparison-carries-a-legend",
     VerdictCarriesItsWord => "comparison-docs:a-verdict-carries-its-word",

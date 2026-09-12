@@ -1,23 +1,27 @@
-//! Gate: a chapter stays within its line cap, and the debt list shrinks by
-//! itself.
+//! Gate: a chapter stays within its line cap, or within the ceiling its
+//! project recorded for it.
 //!
 //! Chapters get 200 lines; catalogs — gates, checklists, glossaries, READMEs
-//! — get 300. A debt entry exempts one oversize file, and expires the moment
-//! the file fits or disappears, so the list can only shrink. Vendored trees
-//! are pruned. Which caps exist is the format spec's business; this gate
-//! only counts.
+//! — get 300. A recorded ceiling in `.spec-driven-docs/debt.yaml` is judged
+//! instead of the cap and only comes down. The older flat list at
+//! `.spec-driven-docs/chapter-size-debt.txt` is still honoured with its skip
+//! semantics until `sdd debt migrate --apply` converts it; both files
+//! present is a failure rather than a precedence. Vendored trees are pruned.
+//! Which caps exist is the format spec's business; this gate only counts.
 
 use camino::Utf8Path;
 
+use crate::domain::debt::{LEGACY_DEBT_PATH, Measurement, Presence};
 use crate::domain::finding::Finding;
+use crate::domain::gate_id::GateId;
 use crate::domain::rule_id::RuleId;
-use crate::gates::{GateCtx, GateResult, Violation, line_count, read_text, walk_files};
+use crate::gates::budget;
+use crate::gates::{GateCtx, GateError, GateResult, Violation, line_count, read_text, walk_files};
 
 /// The rules this gate can cite.
 pub const CITES: &[RuleId] = &[RuleId::ChapterStaysWithinLineCap];
 
 const RULE: RuleId = RuleId::ChapterStaysWithinLineCap;
-const DEBT: &str = ".spec-driven-docs/chapter-size-debt.txt";
 const CHAPTER_ZONES: &[&str] = &["./method", "./comparison-docs"];
 
 fn cap_for(file: &Utf8Path) -> usize {
@@ -51,60 +55,95 @@ fn is_chapter(file: &Utf8Path) -> bool {
             .is_some_and(|parent| CHAPTER_ZONES.contains(&parent.as_str()))
 }
 
-/// Judge every chapter and catalog, honoring the debt list.
+/// Measure every chapter and catalog: one `lines` count per file.
 ///
 /// # Errors
 ///
-/// [`crate::gates::GateError::Io`] when a matched file cannot be read.
-pub fn run(ctx: &GateCtx, _files: &[String]) -> GateResult {
-    let mut violations = Vec::new();
-    let mut debt_entries: Vec<String> = Vec::new();
-
-    if ctx.path(DEBT).is_file() {
-        for entry in read_text(ctx, DEBT)?.lines() {
-            if entry.is_empty() || entry.starts_with('#') {
-                continue;
-            }
-            let file = if entry.starts_with("./") {
-                entry.to_string()
-            } else {
-                format!("./{entry}")
-            };
-            if !ctx.path(&file).is_file() {
-                violations.push(Violation::Finding(Finding::on_file(
-                    RULE,
-                    format!("delist {file}"),
-                    "deleted",
-                )));
-                continue;
-            }
-            if line_count(&read_text(ctx, Utf8Path::new(&file))?) <= cap_for(Utf8Path::new(&file)) {
-                violations.push(Violation::Finding(Finding::on_file(
-                    RULE,
-                    format!("delist {file}"),
-                    "now fits",
-                )));
-            }
-            debt_entries.push(file);
-        }
-    }
-
+/// [`GateError::Io`] when a matched file cannot be read.
+pub fn measure(ctx: &GateCtx) -> Result<Vec<Measurement>, GateError> {
+    let mut measurements = Vec::new();
     for file in walk_files(ctx) {
         if !is_chapter(&file) {
             continue;
         }
-        let as_listed = file.as_str();
-        let bare = as_listed.trim_start_matches("./");
-        if debt_entries
-            .iter()
-            .any(|entry| entry == as_listed || entry.trim_start_matches("./") == bare)
-        {
+        let lines = line_count(&read_text(ctx, &file)?);
+        measurements.push(Measurement::count(
+            GateId::ChapterSizeCap,
+            file.as_str(),
+            "lines",
+            lines,
+            cap_for(&file),
+        ));
+    }
+    Ok(measurements)
+}
+
+/// The legacy list's entries, as `./`-prefixed paths, with the findings its
+/// own expiry rules produce.
+fn legacy_entries(
+    ctx: &GateCtx,
+    violations: &mut Vec<Violation>,
+) -> Result<Vec<String>, GateError> {
+    let mut entries = Vec::new();
+    for entry in read_text(ctx, LEGACY_DEBT_PATH)?.lines() {
+        if entry.is_empty() || entry.starts_with('#') {
             continue;
         }
-        if line_count(&read_text(ctx, &file)?) > cap_for(&file) {
-            violations.push(Violation::Finding(Finding::on_file(RULE, file, "")));
+        let file = if entry.starts_with("./") {
+            entry.to_string()
+        } else {
+            format!("./{entry}")
+        };
+        if !ctx.path(&file).is_file() {
+            violations.push(Violation::Finding(Finding::on_file(
+                RULE,
+                format!("delist {file}"),
+                "deleted",
+            )));
+            continue;
         }
+        if line_count(&read_text(ctx, Utf8Path::new(&file))?) <= cap_for(Utf8Path::new(&file)) {
+            violations.push(Violation::Finding(Finding::on_file(
+                RULE,
+                format!("delist {file}"),
+                "now fits",
+            )));
+        }
+        entries.push(file);
     }
+    Ok(entries)
+}
+
+/// Judge every chapter and catalog against its cap or its recorded ceiling.
+///
+/// # Errors
+///
+/// [`GateError::Io`] when a matched file cannot be read, and
+/// [`GateError::Debt`] when the debt file cannot be trusted.
+pub fn run(ctx: &GateCtx, _files: &[String]) -> GateResult {
+    let mut violations = Vec::new();
+    let debt = budget::read_debt(ctx)?;
+    let legacy = if Presence::at(&ctx.repo_root).legacy {
+        legacy_entries(ctx, &mut violations)?
+    } else {
+        Vec::new()
+    };
+    let measurements: Vec<Measurement> = measure(ctx)?
+        .into_iter()
+        .filter(|m| {
+            let bare = m.path.trim_start_matches("./");
+            !legacy
+                .iter()
+                .any(|entry| entry == &m.path || entry.trim_start_matches("./") == bare)
+        })
+        .collect();
+    violations.extend(budget::judge(
+        &debt,
+        GateId::ChapterSizeCap,
+        RULE,
+        &measurements,
+        |m| Violation::Finding(Finding::on_file(RULE, m.path.as_str(), "")),
+    ));
     Ok(violations)
 }
 
@@ -176,7 +215,7 @@ mod tests {
     }
 
     #[test]
-    fn debt_exempts_an_oversize_chapter() {
+    fn legacy_debt_exempts_an_oversize_chapter() {
         let dir = tempfile::tempdir().unwrap();
         write(&dir, "method/debt-chapter.md", &"line\n".repeat(201));
         write(
@@ -188,7 +227,7 @@ mod tests {
     }
 
     #[test]
-    fn debt_expires_when_the_chapter_fits_even_unterminated() {
+    fn legacy_debt_expires_when_the_chapter_fits_even_unterminated() {
         let dir = tempfile::tempdir().unwrap();
         write(&dir, "method/debt-chapter.md", "# fits\n");
         write(
@@ -207,7 +246,7 @@ mod tests {
     }
 
     #[test]
-    fn debt_expires_when_the_chapter_is_deleted_even_unterminated() {
+    fn legacy_debt_expires_when_the_chapter_is_deleted_even_unterminated() {
         let dir = tempfile::tempdir().unwrap();
         write(
             &dir,
@@ -222,6 +261,82 @@ mod tests {
             "method/missing-chapter.md",
         );
         assert!(run_in(&dir)[0].contains("deleted"));
+    }
+
+    #[test]
+    fn a_recorded_ceiling_is_judged_instead_of_the_cap() {
+        let dir = tempfile::tempdir().unwrap();
+        write(&dir, "method/legacy.md", &"line\n".repeat(250));
+        write(
+            &dir,
+            ".spec-driven-docs/debt.yaml",
+            "schema_version: 1\nchapter-size-cap:\n  method/legacy.md:\n    lines:\n      ceiling: 250\n",
+        );
+        assert!(run_in(&dir).is_empty());
+
+        write(&dir, "method/legacy.md", &"line\n".repeat(251));
+        let out = run_in(&dir);
+        assert_eq!(
+            out,
+            vec![
+                "FAIL docs-format:chapter-stays-within-200-lines ./method/legacy.md: 251 lines, recorded ceiling is 250"
+                    .to_string()
+            ]
+        );
+
+        write(&dir, "method/legacy.md", &"line\n".repeat(240));
+        let out = run_in(&dir);
+        assert_eq!(out.len(), 1);
+        assert!(out[0].contains("sdd debt tighten --apply"), "{}", out[0]);
+    }
+
+    #[test]
+    fn a_ceiling_never_lets_a_second_chapter_grow() {
+        // The ratchet is per path: a ceiling on one chapter exempts no other.
+        let dir = tempfile::tempdir().unwrap();
+        write(&dir, "method/legacy.md", &"line\n".repeat(250));
+        write(&dir, "method/fresh.md", &"line\n".repeat(201));
+        write(
+            &dir,
+            ".spec-driven-docs/debt.yaml",
+            "schema_version: 1\nchapter-size-cap:\n  method/legacy.md:\n    lines:\n      ceiling: 250\n",
+        );
+        assert_eq!(
+            run_in(&dir),
+            vec!["FAIL docs-format:chapter-stays-within-200-lines ./method/fresh.md".to_string()]
+        );
+    }
+
+    #[test]
+    fn both_debt_formats_present_is_an_error_naming_migrate() {
+        let dir = tempfile::tempdir().unwrap();
+        write(&dir, "method/legacy.md", &"line\n".repeat(250));
+        write(&dir, ".spec-driven-docs/debt.yaml", "schema_version: 1\n");
+        write(
+            &dir,
+            ".spec-driven-docs/chapter-size-debt.txt",
+            "method/legacy.md\n",
+        );
+        let ctx = GateCtx::new(dir.path().to_str().unwrap());
+        let error = run(&ctx, &[]).unwrap_err();
+        assert!(
+            error.to_string().contains("sdd debt migrate --apply"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn a_malformed_debt_file_stops_the_gate_rather_than_passing_it() {
+        let dir = tempfile::tempdir().unwrap();
+        write(&dir, "method/legacy.md", &"line\n".repeat(250));
+        write(
+            &dir,
+            ".spec-driven-docs/debt.yaml",
+            "schema_version: 1\nchapter-size-cap:\n  method/legacy.md:\n    lines: 250\n",
+        );
+        let ctx = GateCtx::new(dir.path().to_str().unwrap());
+        let error = run(&ctx, &[]).unwrap_err();
+        assert!(error.to_string().contains("method/legacy.md"), "{error}");
     }
 
     #[test]

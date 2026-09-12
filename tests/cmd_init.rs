@@ -57,6 +57,24 @@ fn installs_both_profiles_and_they_verify() {
     }
 }
 
+/// VERIFIES budget-debt:debt-is-created-by-an-explicit-act
+#[test]
+fn initialization_writes_no_debt_file() {
+    let fixture = Fixture::new();
+    fixture.write("method/legacy.md", &"line\n".repeat(400));
+    fixture.write("_docs/specs/SPEC-legacy.md", &"line\n".repeat(400));
+    fixture.install("knowledge-base");
+    assert!(
+        !fixture.path().join(".spec-driven-docs/debt.yaml").exists(),
+        "the install baselined the inherited corpus"
+    );
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .success();
+}
+
 #[test]
 fn installs_into_a_target_with_spaces() {
     let parent = tempfile::tempdir().unwrap();

@@ -7,6 +7,7 @@
 
 pub mod assess;
 pub mod completions;
+pub mod debt;
 pub mod doctor;
 pub mod gate;
 pub mod hooks;

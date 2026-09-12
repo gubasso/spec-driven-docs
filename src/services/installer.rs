@@ -225,13 +225,33 @@ fn compute_target_state(target: &Utf8Path, options: &InitOptions) -> Result<Targ
         files.push((destination, bytes.to_vec()));
     }
 
+    // What the target already records as adopted. A destination that holds
+    // project content and is recorded nowhere is preserved and noted: the
+    // seed does not land, and the project should know the specification it
+    // would have received.
+    let recorded_adopted: Vec<String> = recorded_field(target, "adopted_files")
+        .and_then(|value| {
+            value.as_array().map(|entries| {
+                entries
+                    .iter()
+                    .filter_map(|entry| entry.get("destination")?.as_str().map(String::from))
+                    .collect()
+            })
+        })
+        .unwrap_or_default();
     for projection in declaration.adopted {
         let seed = crate::embedded::asset(projection.source)
             .ok_or_else(|| anyhow::anyhow!("payload asset missing: {}", projection.source))?;
         let destination = resolve_destination(projection.destination, declaration.docs_root);
         let existing = target.join(&destination);
         let mut bytes = if existing.is_file() {
-            std::fs::read(&existing)?
+            let held = std::fs::read(&existing)?;
+            if held != seed && !recorded_adopted.iter().any(|d| d == destination.as_str()) {
+                lines.push(format!(
+                    "note: {destination} already exists and is kept; the seed was not written, so read it with 'sdd spec' and reconcile by hand"
+                ));
+            }
+            held
         } else {
             seed.to_vec()
         };

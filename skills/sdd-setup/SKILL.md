@@ -60,6 +60,16 @@ Edit the file, then run `sdd hooks --apply`. The managed block is rendered from 
 
 `sdd gate --explain <PATH>` answers which gates judge a path and names the pattern and layer that decided each answer. It is the first thing to run after a surprising result. It reports path eligibility only: pre-commit also applies each row's `types:`, which the command prints rather than folds in.
 
+## Carry an inherited corpus
+
+A budget gate fails a document over its cap. A project adopting the convention over documents written before it records each inherited violation in `.spec-driven-docs/debt.yaml`, per gate, per path, per dimension, under `sdd spec budget-debt`. A recorded ceiling is judged instead of the cap and only comes down. Nothing delivers the file, and a project inheriting a corpus records debt rather than raising a budget.
+
+- `sdd debt baseline` previews every current violation as debt, and `--apply` writes it. It refuses where a debt file exists, because a baseline never widens one.
+- `sdd debt migrate` converts the older flat list at `.spec-driven-docs/chapter-size-debt.txt` and removes it under `--apply`. It preserves every exemption and broadens nothing.
+- `sdd debt tighten` lowers each ceiling to its measurement and clears each corrected exception under `--apply`. It never raises a ceiling.
+
+A brownfield landing runs the install, then `sdd debt baseline`, then `sdd debt baseline --apply`, then its first commit. A gate failure naming `sdd debt tighten --apply` means a carried document shrank: run it and commit the file with the change. Where `sdd verify` notes that no local specification defines `budget-debt:a-recorded-dimension-only-shrinks`, the project's specs predate the mechanism: read the rule with `sdd spec budget-debt` and add it to the project's copy.
+
 ## Declare the two locations
 
 Two locations belong to the project rather than to this framework. Ask for each with `AskUserQuestion`, in the plan turn, and pass the answer to `sdd init`. Mark no answer as recommended: each one has its own cost. These two questions are the only place that names a candidate path. Everywhere else the corpus names the variable.

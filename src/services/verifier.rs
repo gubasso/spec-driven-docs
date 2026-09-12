@@ -304,6 +304,10 @@ pub fn verify(target: &Utf8Path) -> Result<VerifyReport, AppError> {
     check_projection(&manifest, &mut report);
     check_integration(target, &manifest, &mut report)?;
     check_specs(target, &manifest, &mut report)?;
+    check_debt(target, &mut report);
+    for reconciliation in crate::services::policy::needed(target, manifest.docs_root)? {
+        report.note(reconciliation.note(manifest.docs_root));
+    }
 
     let current = CanonVersion::current();
     if manifest.canon_version > current {
@@ -325,6 +329,26 @@ pub fn verify(target: &Utf8Path) -> Result<VerifyReport, AppError> {
         ));
     }
     Ok(report)
+}
+
+/// The debt file must be readable, and it must be the only debt format.
+///
+/// A file no budget gate can read fails once here rather than once from
+/// every budget gate. The legacy list alone is a note naming its migration:
+/// it still works, and nothing about it is wrong until the day the project
+/// wants a ceiling that only shrinks.
+fn check_debt(target: &Utf8Path, report: &mut VerifyReport) {
+    use crate::domain::debt::{Debt, LEGACY_DEBT_PATH, Presence};
+    let presence = Presence::at(target);
+    if let Err(error) = Debt::read(target) {
+        report.fail(format!("FAIL {error}"));
+        return;
+    }
+    if presence.legacy {
+        report.note(format!(
+            "note: {LEGACY_DEBT_PATH} is the legacy debt list, which skips a listed chapter instead of holding it to a ceiling; run 'sdd debt migrate --apply'"
+        ));
+    }
 }
 
 /// The marker pair a host file's managed region uses.

@@ -58,6 +58,8 @@ Verify: `git log --diff-filter=DR --name-only --format= -- '*/decisions/ADR-*' |
 
 The author MUST keep a filled decision record at or below 350 words.
 
+A ceiling the project records for an inherited record under `SPEC-budget-debt.md` is judged instead of the cap, and it only comes down.
+
 #### Scenario: A record grows past the cap
 
 - GIVEN a record covering both a storage choice and a migration approach

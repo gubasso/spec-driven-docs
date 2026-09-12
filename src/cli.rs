@@ -6,6 +6,7 @@
 
 pub mod assess;
 pub mod completions;
+pub mod debt;
 pub mod doctor;
 pub mod gate;
 pub mod hooks;
@@ -56,6 +57,8 @@ pub enum Commands {
     Gate(gate::GateArgs),
     /// Render the delivered gate set as pre-commit hook entries.
     Hooks(hooks::HooksArgs),
+    /// Record, migrate, or tighten the inherited budget violations a project carries.
+    Debt(debt::DebtArgs),
     /// Read the known-issue zone.
     Ki(ki::KiArgs),
     /// Read a method chapter, or list them.

@@ -29,6 +29,25 @@ pub fn write_file(path: &Utf8Path, bytes: &[u8]) -> std::io::Result<()> {
     std::fs::write(path, bytes)
 }
 
+/// Write a file through a sibling temporary file and a rename, creating its
+/// parent directories.
+///
+/// A failure partway leaves the destination as it was rather than
+/// half-written, and an interruption leaves either the old bytes or the new.
+///
+/// # Errors
+///
+/// Any I/O error creating directories, writing the temporary file, or
+/// renaming it into place.
+pub fn write_atomic(path: &Utf8Path, bytes: &[u8]) -> std::io::Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let scratch = path.with_extension(format!("{}.sdd-tmp", path.extension().unwrap_or_default()));
+    std::fs::write(&scratch, bytes)?;
+    std::fs::rename(&scratch, path)
+}
+
 /// Why a destination cannot be touched.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DestinationRefusal {
@@ -133,6 +152,21 @@ mod tests {
             check_destination(&target, Utf8Path::new("d.md")),
             Err(DestinationRefusal::NotARegularFile)
         );
+    }
+
+    #[test]
+    fn an_atomic_write_lands_the_bytes_and_leaves_no_scratch_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = root(&dir).join("a/debt.yaml");
+        write_atomic(&path, b"first").unwrap();
+        write_atomic(&path, b"second").unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), b"second");
+        let siblings: Vec<_> = std::fs::read_dir(path.parent().unwrap())
+            .unwrap()
+            .filter_map(Result::ok)
+            .map(|entry| entry.file_name().to_string_lossy().to_string())
+            .collect();
+        assert_eq!(siblings, vec!["debt.yaml".to_string()]);
     }
 
     #[test]
