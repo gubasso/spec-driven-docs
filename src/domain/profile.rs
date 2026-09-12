@@ -162,6 +162,18 @@ const ADOPTED: &[Projection] = &[
         "instance/seeds/config.yaml",
         ".spec-driven-docs/config.yaml",
     ),
+    // The specifications that authorize what a project can declare. Each
+    // one is an addition rather than an edit to an existing seed, because
+    // an addition reaches an existing instance on its next upgrade and an
+    // edit to an adopted file never does.
+    proj(
+        "_docs/specs/SPEC-budget-debt.md",
+        "{docs_root}/specs/SPEC-budget-debt.md",
+    ),
+    proj(
+        "_docs/specs/SPEC-writing-policy.md",
+        "{docs_root}/specs/SPEC-writing-policy.md",
+    ),
     proj(
         "_docs/specs/SPEC-decision-records.md",
         "{docs_root}/specs/SPEC-decision-records.md",

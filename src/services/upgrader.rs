@@ -272,7 +272,7 @@ pub fn upgrade(options: &UpgradeOptions) -> Result<UpgradeOutcome, AppError> {
         return Ok(outcome);
     }
 
-    init(&InitOptions {
+    let reinstalled = init(&InitOptions {
         target: target.clone(),
         profile: installed.profile,
         apply: true,
@@ -283,12 +283,22 @@ pub fn upgrade(options: &UpgradeOptions) -> Result<UpgradeOutcome, AppError> {
         plan_zone: None,
         docs_scratch: None,
         reserve: Vec::new(),
+        writing_style: None,
     })
     .map_err(|error| {
         AppError::Refused(format!(
             "upgrade aborted during reinstall from {old} to {new}: {error}"
         ))
     })?;
+    // The reinstall's destination list is noise here, and its notes are
+    // not: a seed that did not land because the project already holds the
+    // destination is something the operator must hear about once.
+    outcome.lines.extend(
+        reinstalled
+            .lines
+            .into_iter()
+            .filter(|line| line.starts_with("note:")),
+    );
 
     finish(&target, &installed, old, new, &mut outcome)?;
     Ok(outcome)

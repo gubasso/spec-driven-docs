@@ -13,6 +13,7 @@ pub mod adr_cites_a_live_rule;
 pub mod adr_filename_shape;
 pub mod adr_word_cap;
 pub mod agents_digest_size;
+pub mod budget;
 pub mod chapter_size_cap;
 pub mod comparison_dated_tables;
 pub mod comparison_escaped_pipes;
@@ -188,6 +189,10 @@ pub enum GateError {
         /// The underlying failure.
         source: std::io::Error,
     },
+    /// The instance's debt file cannot be trusted, so no budget gate can
+    /// judge against it.
+    #[error("{0}")]
+    Debt(crate::domain::debt::DebtError),
 }
 
 impl GateError {
@@ -206,6 +211,7 @@ impl From<GateError> for crate::error::AppError {
                 let kind = source.kind();
                 Self::Io(std::io::Error::new(kind, format!("{path}: {source}")))
             }
+            GateError::Debt(error) => Self::Debt(error),
         }
     }
 }

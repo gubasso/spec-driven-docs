@@ -29,12 +29,12 @@
     {
       "source": "skills/sdd-migrate/SKILL.md",
       "destination": "skills/sdd-migrate/SKILL.md",
-      "sha256": "055dd066994fb394e8cd712fceac7ff11f43889dc80446b47ba34973ea3afc74"
+      "sha256": "deedfec03f10da3580493b191770d7e7dc577f49ff775e30cf2adc8f1a7de175"
     },
     {
       "source": "skills/sdd-setup/SKILL.md",
       "destination": "skills/sdd-setup/SKILL.md",
-      "sha256": "5fcb752d7b4322c81fa7d257696aa143cfa76f5f0caac3cd751d82a34a8bf645"
+      "sha256": "b9611976a606e459e39f372668a3fe5953b307e2f69201277e0a7656814ffbcb"
     },
     {
       "source": "skills/sdd-write-docs/SKILL.md",
@@ -54,6 +54,12 @@
   ],
   "adopted_files": [
     {
+      "source": "_docs/specs/SPEC-budget-debt.md",
+      "destination": "_docs/specs/SPEC-budget-debt.md",
+      "sha256": "1b652c9984683d4732b748ad363d56232095dd5fe9c2d048fd4dab59a468d684",
+      "baseline_sha256": "1b652c9984683d4732b748ad363d56232095dd5fe9c2d048fd4dab59a468d684"
+    },
+    {
       "source": "_docs/specs/SPEC-comparison-docs.md",
       "destination": "_docs/specs/SPEC-comparison-docs.md",
       "sha256": "e9e3525239db5ad1408ab2b3d9b78624524b36885b7ffa478618a0b65f3de804",
@@ -62,20 +68,20 @@
     {
       "source": "_docs/specs/SPEC-decision-records.md",
       "destination": "_docs/specs/SPEC-decision-records.md",
-      "sha256": "c39e7d7f3559493ae5293c24b52f49364c657f7840c4d5002012254932aef8f3",
-      "baseline_sha256": "c39e7d7f3559493ae5293c24b52f49364c657f7840c4d5002012254932aef8f3"
+      "sha256": "bc47cb825ddbf052a7613be17b7f2cc320c03af4af816e39892c515503738f75",
+      "baseline_sha256": "bc47cb825ddbf052a7613be17b7f2cc320c03af4af816e39892c515503738f75"
     },
     {
       "source": "_docs/specs/SPEC-distribution.md",
       "destination": "_docs/specs/SPEC-distribution.md",
-      "sha256": "08674558dfb021ba8ec59691e292176aea404c3910f54da19934c02e1da9f79c",
-      "baseline_sha256": "08674558dfb021ba8ec59691e292176aea404c3910f54da19934c02e1da9f79c"
+      "sha256": "cab362259e4f6ec02eaa3ab77e060258886ed4b16c957099e9fdff1238f70b10",
+      "baseline_sha256": "cab362259e4f6ec02eaa3ab77e060258886ed4b16c957099e9fdff1238f70b10"
     },
     {
       "source": "_docs/specs/SPEC-docs-format.md",
       "destination": "_docs/specs/SPEC-docs-format.md",
-      "sha256": "8aa97f98f069e4208ee77b362a2fb0b70baa29a7ddb704e02f960b923609e22f",
-      "baseline_sha256": "8aa97f98f069e4208ee77b362a2fb0b70baa29a7ddb704e02f960b923609e22f"
+      "sha256": "d90c7751f1f6e75fa44bbb78a1ae6a85827a7e7513928dcd06141ac1dafc9ebe",
+      "baseline_sha256": "d90c7751f1f6e75fa44bbb78a1ae6a85827a7e7513928dcd06141ac1dafc9ebe"
     },
     {
       "source": "_docs/specs/SPEC-docs-foundations.md",
@@ -86,8 +92,8 @@
     {
       "source": "_docs/specs/SPEC-docs-specs.md",
       "destination": "_docs/specs/SPEC-docs-specs.md",
-      "sha256": "c62e033081d5427e6aa2eb0a33fb0d8e9821d620fa91782ff3a1df1de05f92bb",
-      "baseline_sha256": "c62e033081d5427e6aa2eb0a33fb0d8e9821d620fa91782ff3a1df1de05f92bb"
+      "sha256": "18fd6bd137514ac1df897e959393ab7e20ecc661e06885fd11ba5b299af9dde5",
+      "baseline_sha256": "18fd6bd137514ac1df897e959393ab7e20ecc661e06885fd11ba5b299af9dde5"
     },
     {
       "source": "_docs/specs/SPEC-guides.md",
@@ -98,8 +104,8 @@
     {
       "source": "_docs/specs/SPEC-instance.md",
       "destination": "_docs/specs/SPEC-instance.md",
-      "sha256": "90db9197f6bedee5a31c02885aa9eefc197f5e375da116a034cc40618193a298",
-      "baseline_sha256": "90db9197f6bedee5a31c02885aa9eefc197f5e375da116a034cc40618193a298"
+      "sha256": "f86aa3d3d48dc2028b5baf18bb45f1a7bf5ce0300bbfef39b4d0431919b6aeb9",
+      "baseline_sha256": "f86aa3d3d48dc2028b5baf18bb45f1a7bf5ce0300bbfef39b4d0431919b6aeb9"
     },
     {
       "source": "_docs/specs/SPEC-known-issues.md",
@@ -126,10 +132,16 @@
       "baseline_sha256": "1d06d5913a17c9ff071463e99f869ee5da5ef2488da5b9967c14fe689f3ed9ca"
     },
     {
+      "source": "_docs/specs/SPEC-writing-policy.md",
+      "destination": "_docs/specs/SPEC-writing-policy.md",
+      "sha256": "e48af91d103a6a680191f30c6e0e43c7d3610edb4d4ba4ee6a783509670865bf",
+      "baseline_sha256": "e48af91d103a6a680191f30c6e0e43c7d3610edb4d4ba4ee6a783509670865bf"
+    },
+    {
       "source": "_docs/specs/SPEC-writing-style.md",
       "destination": "_docs/specs/SPEC-writing-style.md",
-      "sha256": "72f36ffb29d6df4d798e73f075d54e4ca9ef9f950b77fbc4a74691f3d25564d8",
-      "baseline_sha256": "72f36ffb29d6df4d798e73f075d54e4ca9ef9f950b77fbc4a74691f3d25564d8"
+      "sha256": "1d5555c5ba405294e2e7bac79f7b5796520e11a63a25ef15975abe14faa4e4a1",
+      "baseline_sha256": "1d5555c5ba405294e2e7bac79f7b5796520e11a63a25ef15975abe14faa4e4a1"
     },
     {
       "source": "_docs/decisions/TEMPLATE-adr.md",

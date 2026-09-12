@@ -58,6 +58,8 @@ Verify: `pre-commit run cargo-test --all-files`
 
 The managed pre-commit block is rendered from the declaration, so the project MUST NOT edit the block, and the per-gate wiring in the block MUST match what the declaration renders. `sdd hooks --apply` is what brings a stale block back into agreement, and it works at the same version.
 
+The documentation block in the root author-instructions file carries the writing-style route the declaration selects, so the same verb rewrites it and the same check holds it.
+
 #### Scenario: The declaration is edited and nothing else is run
 
 - GIVEN a project that adds an exclusion to its declaration

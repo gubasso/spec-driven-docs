@@ -7,6 +7,7 @@
 
 pub mod assess;
 pub mod completions;
+pub mod debt;
 pub mod doctor;
 pub mod gate;
 pub mod hooks;
@@ -14,6 +15,7 @@ pub mod init;
 pub mod ki;
 pub mod license;
 pub mod man;
+pub mod policy;
 pub mod read;
 pub mod self_manifest;
 pub mod skill;

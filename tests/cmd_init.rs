@@ -57,6 +57,24 @@ fn installs_both_profiles_and_they_verify() {
     }
 }
 
+/// VERIFIES budget-debt:debt-is-created-by-an-explicit-act
+#[test]
+fn initialization_writes_no_debt_file() {
+    let fixture = Fixture::new();
+    fixture.write("method/legacy.md", &"line\n".repeat(400));
+    fixture.write("_docs/specs/SPEC-legacy.md", &"line\n".repeat(400));
+    fixture.install("knowledge-base");
+    assert!(
+        !fixture.path().join(".spec-driven-docs/debt.yaml").exists(),
+        "the install baselined the inherited corpus"
+    );
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .success();
+}
+
 #[test]
 fn installs_into_a_target_with_spaces() {
     let parent = tempfile::tempdir().unwrap();
@@ -653,4 +671,92 @@ fn a_recorded_location_the_arguments_would_refuse_stops_the_install_early() {
             "{key}: the refused install wrote into the target"
         );
     }
+}
+
+/// VERIFIES writing-policy:the-project-selects-one-source
+/// VERIFIES writing-policy:none-imposes-no-obligation
+#[test]
+fn the_managed_route_matches_each_selection() {
+    let route = "Read the writing style before you author or edit prose:";
+    for (selection, expected) in [
+        ("builtin", Some("`sdd method writing-style`.")),
+        ("project:docs/STYLE.md", Some("`docs/STYLE.md`.")),
+        ("none", None),
+    ] {
+        let fixture = Fixture::new();
+        fixture
+            .cmd()
+            .args([
+                "init",
+                "--target",
+                &fixture.target(),
+                "--profile",
+                "codebase",
+                "--apply",
+                "--writing-style",
+                selection,
+            ])
+            .assert()
+            .success();
+        let agents = fixture.read("AGENTS.md");
+        match expected {
+            Some(target) => assert!(
+                agents.contains(&format!("{route} {target}")),
+                "{selection}: the route is missing from:\n{agents}"
+            ),
+            None => assert!(
+                !agents.contains(route) && !agents.contains("writing-style"),
+                "{selection}: a route was installed:\n{agents}"
+            ),
+        }
+        assert!(
+            !agents.contains("{writing_style}"),
+            "{selection}: the placeholder leaked"
+        );
+        let declaration = fixture.read(".spec-driven-docs/config.yaml");
+        assert!(
+            declaration.contains("writing_style:"),
+            "{selection}: the declaration does not carry the key"
+        );
+        fixture
+            .cmd()
+            .args(["verify", "--target", &fixture.target()])
+            .assert()
+            .success();
+        // A reinstall with no flag keeps the selection.
+        fixture.install("codebase");
+        assert_eq!(
+            fixture.read("AGENTS.md"),
+            agents,
+            "{selection}: a reinstall changed the route"
+        );
+    }
+}
+
+#[test]
+fn a_writing_style_selection_the_arguments_cannot_mean_is_a_usage_error() {
+    let fixture = Fixture::new();
+    for bad in [
+        "house",
+        "project:",
+        "project:/etc/style.md",
+        "project:../style.md",
+    ] {
+        fixture
+            .cmd()
+            .args([
+                "init",
+                "--target",
+                &fixture.target(),
+                "--profile",
+                "codebase",
+                "--apply",
+                "--writing-style",
+                bad,
+            ])
+            .assert()
+            .code(64)
+            .stderr(predicate::str::contains("--writing-style"));
+    }
+    assert!(!fixture.path().join("AGENTS.md").exists());
 }

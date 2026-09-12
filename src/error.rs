@@ -9,6 +9,7 @@
 use camino::Utf8PathBuf;
 use thiserror::Error;
 
+use crate::domain::debt::DebtError;
 use crate::domain::marker::MarkerError;
 
 /// Every failure the binary can exit with.
@@ -37,6 +38,11 @@ pub enum AppError {
     /// The managed pre-commit block or its host file is malformed.
     #[error(transparent)]
     Marker(#[from] MarkerError),
+
+    /// The instance's debt file cannot be trusted, or a debt verb was asked
+    /// for a state it refuses.
+    #[error(transparent)]
+    Debt(#[from] DebtError),
 
     /// The install or upgrade refused to touch the target as found, and the
     /// target was left (or restored) unchanged.
@@ -72,9 +78,13 @@ impl AppError {
         match self {
             Self::Violations { .. } => 1,
             Self::Usage(_) => 64,
-            Self::ManifestInvalid(_) | Self::Marker(_) => 65,
+            Self::ManifestInvalid(_)
+            | Self::Marker(_)
+            | Self::Debt(
+                DebtError::Shape(_) | DebtError::Malformed { .. } | DebtError::TwoFormats,
+            ) => 65,
             Self::ManifestMissing(_) => 66,
-            Self::Refused(_) => 73,
+            Self::Refused(_) | Self::Debt(_) => 73,
             Self::Git { code, .. } => *code,
             Self::Io(e) if e.kind() == std::io::ErrorKind::NotFound => 66,
             Self::Io(e) if e.kind() == std::io::ErrorKind::PermissionDenied => 77,
@@ -92,6 +102,7 @@ impl AppError {
             Self::ManifestMissing(_) => "ManifestMissing",
             Self::ManifestInvalid(_) => "ManifestInvalid",
             Self::Marker(_) => "Marker",
+            Self::Debt(_) => "Debt",
             Self::Refused(_) => "Refused",
             Self::Git { .. } => "Git",
             Self::Io(_) => "Io",
@@ -129,6 +140,17 @@ mod tests {
     #[test]
     fn malformed_marker_is_sixty_five() {
         assert_eq!(AppError::Marker(MarkerError::Malformed).exit_code(), 65);
+    }
+
+    #[test]
+    fn a_malformed_debt_file_is_sixty_five_and_a_refused_debt_verb_is_seventy_three() {
+        assert_eq!(
+            AppError::Debt(DebtError::Shape("not yaml".into())).exit_code(),
+            65
+        );
+        assert_eq!(AppError::Debt(DebtError::TwoFormats).exit_code(), 65);
+        assert_eq!(AppError::Debt(DebtError::AlreadyBaselined).exit_code(), 73);
+        assert_eq!(AppError::Debt(DebtError::NothingToMigrate).exit_code(), 73);
     }
 
     #[test]

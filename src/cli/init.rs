@@ -45,4 +45,12 @@ pub struct InitArgs {
     /// the recorded value stays.
     #[arg(long, value_name = "PATH")]
     pub docs_scratch: Option<String>,
+
+    /// Where the writing style comes from: `builtin` routes authors to
+    /// `sdd method writing-style`, `project:<PATH>` routes them to the
+    /// project's own document, and `none` installs no route and imposes no
+    /// conversion obligation. Recorded in the instance's declaration.
+    /// Omitted, the recorded value stays.
+    #[arg(long, value_name = "SELECTION")]
+    pub writing_style: Option<String>,
 }

@@ -18,7 +18,7 @@ This repository is the canonical knowledge product for spec-driven documentation
 - The delivered gate set is declared once, in the registry in `src/gates.rs`. The managed block an instance receives is rendered from the registry at install time and committed nowhere, so there is no copy to hold equal. This repository publishes no `.pre-commit-hooks.yaml`: the gates serve instances, not repositories that reference them remotely.
 - This repository is an instance of itself, and the one whose block no installer wrote: the managed region of its own `.pre-commit-config.yaml` is maintained by hand, so a new gate is wired there in the same change. The release checks hold that region to the registry.
 - Checks of invariants only this repository has (the license split, version alignment) are cargo tests under `tests/`, never delivered (ADR-split-gates-by-delivery-domain).
-- `_docs/specs/`, `_docs/decisions/`, marker-delimited integrations, and instance debt are local overlays after installation.
+- `_docs/specs/`, `_docs/decisions/`, marker-delimited integrations, and the debt file `SPEC-budget-debt.md` governs are local overlays after installation.
 - Keep each durable fact in one owner and link to it elsewhere.
 - `LICENSE` splits terms on the same boundary: CC BY 4.0 for the method, MIT for the payload.
 

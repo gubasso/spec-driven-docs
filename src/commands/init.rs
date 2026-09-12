@@ -28,6 +28,12 @@ pub fn run(_ctx: &AppContext, args: InitArgs) -> Result<(), AppError> {
         .map(parse_docs_scratch)
         .transpose()
         .map_err(|error| AppError::Usage(format!("--docs-scratch: {error}")))?;
+    let writing_style = args
+        .writing_style
+        .as_deref()
+        .map(crate::domain::instance_config::WritingStyle::parse_flag)
+        .transpose()
+        .map_err(|error| AppError::Usage(format!("--writing-style: {error}")))?;
     let outcome = init(&InitOptions {
         target: args.target,
         profile: args.profile,
@@ -36,6 +42,7 @@ pub fn run(_ctx: &AppContext, args: InitArgs) -> Result<(), AppError> {
         plan_zone,
         docs_scratch,
         reserve: args.reserve,
+        writing_style,
     })?;
     for line in &outcome.lines {
         output::line(line);

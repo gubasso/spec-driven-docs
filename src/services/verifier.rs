@@ -118,6 +118,34 @@ fn check_declaration(target: &Utf8Path, manifest: &Manifest, report: &mut Verify
         }
     };
 
+    // The documentation block carries the writing-style route the
+    // declaration selects, so a stale route is the same disagreement as a
+    // stale hook filter, and the same command repairs it.
+    let agents = target.join(crate::commands::hooks::AGENTS);
+    let agents_recorded = manifest
+        .integration_blocks
+        .iter()
+        .any(|block| block.path.as_str() == crate::commands::hooks::AGENTS);
+    if agents_recorded
+        && let Ok(host) = std::fs::read_to_string(&agents)
+        && let Some(region) = crate::domain::marker::block_region_with(
+            &host,
+            crate::domain::marker::AGENTS_BEGIN,
+            crate::domain::marker::AGENTS_END,
+        )
+    {
+        let expected = crate::services::agents_render::render_block(
+            manifest.docs_root.as_str(),
+            &declaration.writing_style,
+        );
+        if region != expected {
+            report.fail(format!(
+                "FAIL the documentation block in {} does not match the declaration; run 'sdd hooks --apply'",
+                crate::commands::hooks::AGENTS
+            ));
+        }
+    }
+
     let config = target.join(crate::commands::hooks::CONFIG);
     let Ok(host) = std::fs::read_to_string(&config) else {
         return;
@@ -304,6 +332,10 @@ pub fn verify(target: &Utf8Path) -> Result<VerifyReport, AppError> {
     check_projection(&manifest, &mut report);
     check_integration(target, &manifest, &mut report)?;
     check_specs(target, &manifest, &mut report)?;
+    check_debt(target, &mut report);
+    for reconciliation in crate::services::policy::needed(target, manifest.docs_root)? {
+        report.note(reconciliation.note(manifest.docs_root));
+    }
 
     let current = CanonVersion::current();
     if manifest.canon_version > current {
@@ -325,6 +357,26 @@ pub fn verify(target: &Utf8Path) -> Result<VerifyReport, AppError> {
         ));
     }
     Ok(report)
+}
+
+/// The debt file must be readable, and it must be the only debt format.
+///
+/// A file no budget gate can read fails once here rather than once from
+/// every budget gate. The legacy list alone is a note naming its migration:
+/// it still works, and nothing about it is wrong until the day the project
+/// wants a ceiling that only shrinks.
+fn check_debt(target: &Utf8Path, report: &mut VerifyReport) {
+    use crate::domain::debt::{Debt, LEGACY_DEBT_PATH, Presence};
+    let presence = Presence::at(target);
+    if let Err(error) = Debt::read(target) {
+        report.fail(format!("FAIL {error}"));
+        return;
+    }
+    if presence.legacy {
+        report.note(format!(
+            "note: {LEGACY_DEBT_PATH} is the legacy debt list, which skips a listed chapter instead of holding it to a ceiling; run 'sdd debt migrate --apply'"
+        ));
+    }
 }
 
 /// The marker pair a host file's managed region uses.

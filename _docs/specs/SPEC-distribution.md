@@ -315,7 +315,9 @@ Verify: `cargo nextest run -E 'binary(canon)'`
 
 ### `distribution:the-declaration-is-seeded-once-and-then-owned` — The declaration is seeded once and then owned
 
-`sdd init` MUST write `.spec-driven-docs/config.yaml` in every case, record it among the adopted files, and never overwrite it again. An upgrade MUST carry it forward unchanged and re-render the managed block from it.
+`sdd init` MUST write `.spec-driven-docs/config.yaml` in every case, record it among the adopted files, and never overwrite it again. An upgrade MUST carry it forward unchanged and re-render the managed blocks from it.
+
+The boundary is the actor, not the file. An automatic write to an adopted file during install or upgrade is forbidden. An operator-invoked command that previews a specific change first and writes it on request is not: `sdd debt tighten --apply` lowers the project's debt file, and `sdd policy reconcile --apply` appends to an adopted specification the rule that authorizes a declaration the project made, and each updates the record for the file it changed.
 
 #### Scenario: An instance that declares an exclusion is upgraded
 

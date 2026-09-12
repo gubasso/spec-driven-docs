@@ -473,3 +473,193 @@ fn a_version_two_instance_still_refuses_an_edited_managed_block() {
             "CONFLICT locally edited managed block: .pre-commit-config.yaml",
         ));
 }
+
+/// An instance one version behind, with one adopted specification this
+/// binary seeds absent from the tree and the record.
+fn behind_without(spec: &str) -> Fixture {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    std::fs::remove_file(fixture.path().join(spec)).unwrap();
+    let mut manifest: serde_json::Value =
+        serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
+    manifest["canon_version"] = "0.7.0".into();
+    let adopted = manifest["adopted_files"].as_array_mut().unwrap();
+    adopted.retain(|entry| entry["destination"].as_str().unwrap() != spec);
+    fixture.write(
+        ".spec-driven-docs/manifest.json",
+        &(serde_json::to_string_pretty(&manifest).unwrap() + "\n"),
+    );
+    fixture
+}
+
+/// A newly added adopted projection lands on the next upgrade: the seed is
+/// written where the destination is absent.
+#[test]
+fn the_new_specification_seeds_into_an_existing_instance() {
+    let spec = "_docs/specs/SPEC-budget-debt.md";
+    let fixture = behind_without(spec);
+    fixture
+        .cmd()
+        .args(["upgrade", "--target", &fixture.target()])
+        .assert()
+        .success();
+    assert!(
+        fixture
+            .read(spec)
+            .contains("budget-debt:a-recorded-dimension-only-shrinks")
+    );
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .success();
+}
+
+/// A project that already holds a file at the new destination keeps it,
+/// and the upgrade says so, because the seed it would have received is what
+/// authorizes the declaration.
+#[test]
+fn project_content_at_the_new_destination_survives_and_notes() {
+    let spec = "_docs/specs/SPEC-budget-debt.md";
+    let fixture = behind_without(spec);
+    let own = "# Budget Debt Specification\n\n## Purpose\n\nOurs.\n\n## Requirements\n\n### `budget-debt:our-own-rule` — Ours\n\nThe author MUST keep it.\n\n#### Scenario: Ours\n\n- GIVEN x\n- WHEN y\n- THEN z\n\nVerify: `true`\n";
+    fixture.write(spec, own);
+    fixture
+        .cmd()
+        .args(["upgrade", "--target", &fixture.target()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(format!(
+            "note: {spec} already exists and is kept"
+        )));
+    assert_eq!(
+        fixture.read(spec),
+        own,
+        "the upgrade rewrote project content"
+    );
+}
+
+/// An instance carrying only the legacy list upgrades green: no seed reaches
+/// the debt file, so the two formats never meet, and the verifier names the
+/// migration as a note.
+#[test]
+fn an_instance_carrying_only_the_legacy_list_stays_green_with_a_note() {
+    let fixture = behind_without("_docs/specs/SPEC-budget-debt.md");
+    fixture.write("method/carried.md", &"line\n".repeat(250));
+    fixture.write(
+        ".spec-driven-docs/chapter-size-debt.txt",
+        "method/carried.md\n",
+    );
+    fixture
+        .cmd()
+        .args(["upgrade", "--target", &fixture.target()])
+        .assert()
+        .success();
+    assert!(!fixture.path().join(".spec-driven-docs/debt.yaml").exists());
+    fixture
+        .cmd()
+        .args(["gate", "chapter-size-cap"])
+        .current_dir(fixture.path())
+        .assert()
+        .success();
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("sdd debt migrate --apply"));
+}
+
+#[test]
+fn the_writing_policy_specification_seeds_into_an_existing_instance() {
+    let spec = "_docs/specs/SPEC-writing-policy.md";
+    let fixture = behind_without(spec);
+    fixture
+        .cmd()
+        .args(["upgrade", "--target", &fixture.target()])
+        .assert()
+        .success();
+    assert!(
+        fixture
+            .read(spec)
+            .contains("writing-policy:the-project-selects-one-source")
+    );
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .success();
+}
+
+/// A declaration written before the key existed reads as `builtin`, so an
+/// upgraded instance keeps the route it had.
+#[test]
+fn a_declaration_without_the_writing_style_key_upgrades_as_builtin() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    fixture.write(".spec-driven-docs/config.yaml", "reserved: []\ngates: {}\n");
+    let manifest = fixture
+        .read(".spec-driven-docs/manifest.json")
+        .replace(env!("CARGO_PKG_VERSION"), "0.7.0");
+    fixture.write(".spec-driven-docs/manifest.json", &manifest);
+    fixture
+        .cmd()
+        .args(["upgrade", "--target", &fixture.target()])
+        .assert()
+        .success();
+    assert!(
+        fixture
+            .read("AGENTS.md")
+            .contains("`sdd method writing-style`.")
+    );
+    assert_eq!(
+        fixture.read(".spec-driven-docs/config.yaml"),
+        "reserved: []\ngates: {}\n"
+    );
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .success();
+}
+
+/// An upgrade never reconciles: an instance whose own specification lacks
+/// the sentinel upgrades with that file unchanged, and still needs it.
+#[test]
+fn an_upgrade_never_reconciles() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    fixture.write("method/legacy.md", &"line\n".repeat(250));
+    fixture
+        .cmd()
+        .args(["debt", "baseline", "--target", &fixture.target(), "--apply"])
+        .assert()
+        .success();
+    let spec = "_docs/specs/SPEC-budget-debt.md";
+    let older = fixture.read(spec).replace(
+        "budget-debt:a-recorded-dimension-only-shrinks",
+        "budget-debt:an-older-sentence",
+    );
+    fixture.write(spec, &older);
+    let manifest = fixture
+        .read(".spec-driven-docs/manifest.json")
+        .replace(env!("CARGO_PKG_VERSION"), "0.7.0");
+    fixture.write(".spec-driven-docs/manifest.json", &manifest);
+
+    fixture
+        .cmd()
+        .args(["upgrade", "--target", &fixture.target()])
+        .assert()
+        .success();
+    assert_eq!(
+        fixture.read(spec),
+        older,
+        "the upgrade rewrote an adopted file"
+    );
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("run 'sdd policy reconcile'"));
+}

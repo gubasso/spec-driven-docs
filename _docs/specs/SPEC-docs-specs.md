@@ -86,6 +86,8 @@ Verify: reviewer confirms each requirement's `Verify:` line names a command or a
 
 The author MUST keep a spec at or below 300 authored lines, and MUST give one carrying more than 100 a generated table of contents.
 
+A ceiling or an exception the project records for an inherited spec under `SPEC-budget-debt.md` is judged instead, and it only comes down.
+
 #### Scenario: A domain accumulates requirements
 
 - GIVEN a spec approaching the cap

@@ -36,11 +36,11 @@ With no instance, classify before landing: `sdd assess --target . --json` reads 
 
 ## Land an instance
 
-Ask the two declaration questions below first, in the same plan turn as the profile. Their answers are flags on the one apply, so the sequence writes once.
+Ask the three declaration questions below first, in the same plan turn as the profile. Their answers are flags on the one apply, so the sequence writes once.
 
 1. Choose the profile: `codebase` keeps records under `docs/`, and `knowledge-base` keeps them under `_docs/`.
 2. Preview: `sdd init --target "$PWD" --profile codebase`. A non-empty target defaults to a dry run and lists every destination.
-3. Review the listed paths, then apply, carrying whichever declarations the operator gave: `sdd init --target "$PWD" --profile codebase --apply --plan-zone docs/plan --docs-scratch .docs-scratch`.
+3. Review the listed paths, then apply, carrying whichever declarations the operator gave: `sdd init --target "$PWD" --profile codebase --apply --plan-zone docs/plan --docs-scratch .docs-scratch --writing-style builtin`.
 4. Confirm: `sdd verify --target "$PWD"` prints `OK spec-driven-docs <version>`.
 
 The install seeds specs and templates the project owns from then on (adopted). It lands byte-exact configurations and agent skills the canon owns (managed), and splices one marked block into `.pre-commit-config.yaml`. It touches nothing outside its destinations and the markers.
@@ -59,6 +59,16 @@ Edit the file, then run `sdd hooks --apply`. The managed block is rendered from 
 `sdd init --reserve <PATH>` records a reservation at install time. Pass it once per path. Ask the operator whether another tool owns a region of any file in the repository before running the install, because that is the case the mechanism exists for.
 
 `sdd gate --explain <PATH>` answers which gates judge a path and names the pattern and layer that decided each answer. It is the first thing to run after a surprising result. It reports path eligibility only: pre-commit also applies each row's `types:`, which the command prints rather than folds in.
+
+## Carry an inherited corpus
+
+A budget gate fails a document over its cap. A project adopting the convention over documents written before it records each inherited violation in `.spec-driven-docs/debt.yaml`, per gate, per path, per dimension, under `sdd spec budget-debt`. A recorded ceiling is judged instead of the cap and only comes down. Nothing delivers the file, and a project inheriting a corpus records debt rather than raising a budget.
+
+- `sdd debt baseline` previews every current violation as debt, and `--apply` writes it. It refuses where a debt file exists, because a baseline never widens one.
+- `sdd debt migrate` converts the older flat list at `.spec-driven-docs/chapter-size-debt.txt` and removes it under `--apply`. It preserves every exemption and broadens nothing.
+- `sdd debt tighten` lowers each ceiling to its measurement and clears each corrected exception under `--apply`. It never raises a ceiling.
+
+A brownfield landing runs the install, then `sdd debt baseline`, then `sdd debt baseline --apply`, then its first commit. A gate failure naming `sdd debt tighten --apply` means a carried document shrank: run it and commit the file with the change. Where `sdd verify` notes that no local specification defines `budget-debt:a-recorded-dimension-only-shrinks`, the project's specs predate the mechanism, and `sdd policy reconcile` offers the correction: it previews the rule it would add, and `--apply` appends it to the project's copy.
 
 ## Declare the two locations
 
@@ -79,6 +89,16 @@ The docs scratch holds material that is not a statement yet, and it stages a mig
 
 Both flags are optional, and an omitted flag keeps what is recorded: a later `sdd init` or `sdd upgrade` that carries no flag changes neither value. `--plan-zone none` and `--docs-scratch none` are how a recorded value is cleared. `sdd status --json` reports both, plus whatever the two variables carry here.
 
+## Select the writing source
+
+The writing style is the project's to select, under `sdd spec writing-policy`. Ask with `AskUserQuestion`, in the plan turn, and pass the answer as `--writing-style`. Mark no answer as recommended: each one has its own cost.
+
+- `builtin`: this convention's chapter, served offline by `sdd method writing-style`, with nothing to maintain.
+- `project:<PATH>`: the project's own document, which the project keeps.
+- `none`: no route and no conversion obligation, so an agent editing the project's documents follows whatever its own instructions say.
+
+The selection lives in `.spec-driven-docs/config.yaml` under `writing_style`. To change it later, edit the file and run `sdd hooks --apply`, which rewrites the documentation block in `AGENTS.md` as well as the pre-commit block. Where `sdd verify` notes that no local specification defines `writing-policy:the-project-selects-one-source`, the project's specs predate the selection, and `sdd policy reconcile` offers the same correction.
+
 ## Land the variables
 
 `SDD_PLAN_ZONE` and `SDD_DOCS_SCRATCH` override the recorded values. Neither is required, and the binary writes neither. Land them as a gated step the operator approves first.
@@ -91,7 +111,7 @@ Both flags are optional, and an omitted flag keeps what is recorded: a later `sd
 
 ## Wire agent context
 
-`sdd init` manages this for you. The install writes a marker-delimited documentation block into the root `AGENTS.md` and records it as an integration block. The install creates the file when absent. The block routes an agent to the affected specs and to `sdd method writing-style` before the agent authors or edits prose. Every byte outside the markers is your own. Do not hand-copy the block: an edit inside the markers is a conflict `sdd upgrade` refuses, and an edit outside them survives.
+`sdd init` manages this for you. The install writes a marker-delimited documentation block into the root `AGENTS.md` and records it as an integration block. The install creates the file when absent. The block routes an agent to the affected specs and to the selected writing source, `sdd method writing-style` by default, before the agent authors or edits prose. Every byte outside the markers is your own. Do not hand-copy the block: an edit inside the markers is a conflict `sdd upgrade` refuses, and an edit outside them survives.
 
 ## Verify
 

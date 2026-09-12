@@ -22,8 +22,8 @@ use crate::output;
 /// different roots. Templating against a fixed `_docs` would build patterns
 /// no path in a `codebase` instance matches, and every filename-selected
 /// gate there would silently judge nothing.
-fn docs_root() -> String {
-    crate::services::verifier::read_manifest(Utf8Path::new("."))
+fn docs_root_at(root: &Utf8Path) -> String {
+    crate::services::verifier::read_manifest(root)
         .map_or_else(|_| "_docs".to_string(), |m| m.docs_root.to_string())
 }
 
@@ -70,9 +70,23 @@ fn filter_for(
     .map_err(|error| AppError::Usage(error.to_string()))
 }
 
-/// The declaration this invocation resolves against.
-fn declaration() -> Result<InstanceConfig, AppError> {
-    InstanceConfig::read(Utf8Path::new(".")).map_err(|error| AppError::Usage(error.to_string()))
+/// The declaration a repository root carries.
+fn declaration_at(root: &Utf8Path) -> Result<InstanceConfig, AppError> {
+    InstanceConfig::read(root).map_err(|error| AppError::Usage(error.to_string()))
+}
+
+/// One gate's context at a repository root: the project's declaration
+/// applied, and no flag.
+///
+/// This is how a verb other than `gate` measures with a gate, so a debt
+/// baseline and a hook run judge the same subject set.
+///
+/// # Errors
+///
+/// [`AppError::Usage`] when the declaration does not parse.
+pub(crate) fn context_at(root: &Utf8Path, id: GateId) -> Result<GateCtx, AppError> {
+    let filter = filter_for(id, &declaration_at(root)?, &docs_root_at(root), &[], &[])?;
+    Ok(GateCtx::with_filter(root, filter))
 }
 
 /// Refuse a path this command must not follow.
@@ -123,8 +137,8 @@ fn declared_globs(filter: &PathFilter) -> String {
 /// printed rather than folded into the answer.
 fn explain(path: &str) -> Result<(), AppError> {
     contained(path)?;
-    let declaration = declaration()?;
-    let docs_root = docs_root();
+    let declaration = declaration_at(Utf8Path::new("."))?;
+    let docs_root = docs_root_at(Utf8Path::new("."));
     // Decide on the form a pattern speaks. `GateCtx` does this for the run
     // path; this one answers without a context.
     let relative = crate::domain::path_filter::project(Utf8Path::new(path), Utf8Path::new("."));
@@ -215,7 +229,14 @@ pub fn run(_ctx: &AppContext, args: GateArgs) -> Result<(), AppError> {
     for path in &files {
         contained(path)?;
     }
-    let filter = filter_for(id, &declaration()?, &docs_root(), &include, &exclude)?;
+    let here = Utf8Path::new(".");
+    let filter = filter_for(
+        id,
+        &declaration_at(here)?,
+        &docs_root_at(here),
+        &include,
+        &exclude,
+    )?;
     // Filter the passed paths always. Ruff carries `--force-exclude`
     // because the opposite default surprised people under pre-commit, which
     // passes changed files explicitly, and pre-commit is this tool's only

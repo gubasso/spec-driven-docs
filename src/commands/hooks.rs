@@ -8,14 +8,20 @@
 //! `--apply` exists because nothing else reaches the block after an ordinary
 //! declaration edit. `sdd upgrade` returns early at the same version, and a
 //! render to stdout changes no file, so without this a project could edit
-//! its declaration and see nothing happen.
+//! its declaration and see nothing happen. The declaration also selects the
+//! writing-style route the documentation block in `AGENTS.md` carries, so
+//! `--apply` and `--check` reach that block too: one verb brings every
+//! managed region back into agreement with the declaration.
 
 use camino::Utf8Path;
 
+use crate::adapters::fs::write_within;
 use crate::cli::hooks::HooksArgs;
 use crate::context::AppContext;
 use crate::domain::instance_config::InstanceConfig;
+use crate::domain::manifest::{MANIFEST_PATH, Manifest};
 use crate::domain::marker;
+use crate::domain::ownership::Sha256;
 use crate::error::AppError;
 use crate::output;
 use crate::services::hooks_render::{RenderOptions, render_block};
@@ -23,35 +29,185 @@ use crate::services::hooks_render::{RenderOptions, render_block};
 /// Where a pre-commit configuration lives in a target.
 pub const CONFIG: &str = ".pre-commit-config.yaml";
 
-/// Update the manifest's record of the managed region.
-fn record_block_hash(target: &Utf8Path, spliced: &str) -> Result<(), AppError> {
-    let manifest_path = target.join(".spec-driven-docs/manifest.json");
-    let Ok(text) = std::fs::read_to_string(&manifest_path) else {
-        // No manifest: the target is not an instance, and nothing records
-        // the region. The rewrite still stands.
-        return Ok(());
+/// Where the documentation block lives in a target.
+pub const AGENTS: &str = "AGENTS.md";
+
+/// Update the manifest's record of one managed region.
+///
+/// A target with no manifest is not an instance, and nothing records the
+/// region there. A manifest that exists must be readable and must carry
+/// exactly one record for the region, or the rewrite cannot be brought into
+/// agreement with its record and the caller puts the region back.
+fn record_block_hash(target: &Utf8Path, path: &str, hash: Option<Sha256>) -> Result<(), AppError> {
+    let manifest_relative = Utf8Path::new(MANIFEST_PATH);
+    let text = match std::fs::read_to_string(target.join(manifest_relative)) {
+        Ok(text) => text,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error.into()),
     };
-    let Some(hash) = marker::block_hash(spliced) else {
-        return Ok(());
-    };
+    let hash = hash.ok_or_else(|| {
+        AppError::ManifestInvalid(format!("the rewritten {path} carries no managed block"))
+    })?;
     let mut document: serde_json::Value = serde_json::from_str(&text)
         .map_err(|error| AppError::ManifestInvalid(error.to_string()))?;
-    if let Some(blocks) = document
+    let Some(blocks) = document
         .get_mut("integration_blocks")
         .and_then(serde_json::Value::as_array_mut)
-    {
-        for block in blocks.iter_mut() {
-            if block.get("path").and_then(serde_json::Value::as_str) == Some(CONFIG) {
-                block["marker_hash"] = serde_json::Value::String(hash.to_string());
-            }
+    else {
+        return Err(AppError::ManifestInvalid(
+            "integration_blocks is not an array".to_string(),
+        ));
+    };
+    let mut matched = 0usize;
+    for block in blocks.iter_mut() {
+        if block.get("path").and_then(serde_json::Value::as_str) == Some(path) {
+            block["marker_hash"] = serde_json::Value::String(hash.to_string());
+            matched += 1;
         }
+    }
+    if matched != 1 {
+        return Err(AppError::ManifestInvalid(format!(
+            "the manifest records {matched} integration blocks for {path}; expected one"
+        )));
     }
     let rendered = serde_json::to_string_pretty(&document)
         .map_err(|error| AppError::ManifestInvalid(error.to_string()))?;
-    let scratch = manifest_path.with_extension("json.sdd-tmp");
-    std::fs::write(&scratch, format!("{rendered}\n"))?;
-    std::fs::rename(&scratch, &manifest_path)?;
+    write_within(
+        target,
+        manifest_relative,
+        format!("{rendered}\n").as_bytes(),
+    )?;
     Ok(())
+}
+
+/// Put one region back after its record could not be written, and say so
+/// where even that fails.
+fn restored(target: &Utf8Path, relative: &str, previous: &[u8], cause: &AppError) -> AppError {
+    match write_within(target, Utf8Path::new(relative), previous) {
+        Ok(()) => AppError::Refused(format!(
+            "{relative} was rewritten and its record could not be updated, so it was put back: {cause}"
+        )),
+        Err(error) => AppError::Refused(format!(
+            "{relative} was rewritten, its record could not be updated ({cause}), and restoring it failed ({error}); verify {relative} by hand"
+        )),
+    }
+}
+
+/// What the root `AGENTS.md` holds against what the declaration renders.
+#[derive(Debug)]
+enum Agents {
+    /// The block is present and agrees with the declaration.
+    Current,
+    /// The block is present and disagrees; the host as it would be written.
+    Stale(String),
+    /// The install recorded a block and the host no longer carries one, or
+    /// the host is gone.
+    Missing(&'static str),
+    /// The install recorded no block here, so none is owed: this
+    /// repository's own root digest is release-kit-owned and carries none.
+    Unmanaged,
+}
+
+/// The instance record, where the target is an instance.
+///
+/// An absent record means the target is not an instance, and the verb
+/// still renders and rewrites. A record that exists and cannot be read is
+/// an error: no ownership check judges anything before it has read the
+/// record, and a read failure is not evidence that nothing is recorded.
+fn instance_record(target: &Utf8Path) -> Result<Option<Manifest>, AppError> {
+    match crate::services::verifier::read_manifest(target) {
+        Ok(manifest) => Ok(Some(manifest)),
+        Err(AppError::ManifestMissing(_)) => Ok(None),
+        Err(error) => Err(error),
+    }
+}
+
+/// Whether the record names a documentation block in `AGENTS.md`.
+fn agents_block_recorded(manifest: Option<&Manifest>) -> bool {
+    manifest.is_some_and(|manifest| {
+        manifest
+            .integration_blocks
+            .iter()
+            .any(|block| block.path.as_str() == AGENTS)
+    })
+}
+
+/// Read the documentation block's state.
+///
+/// A host that cannot be read for a reason other than absence is an error,
+/// never a silent "current".
+fn agents_state(
+    target: &Utf8Path,
+    recorded: bool,
+    docs_root: &str,
+    declaration: &InstanceConfig,
+) -> Result<Agents, AppError> {
+    let path = target.join(AGENTS);
+    if path.is_symlink() {
+        return Err(AppError::Refused(
+            "AGENTS.md is a symlink; refusing to write the documentation block through it"
+                .to_string(),
+        ));
+    }
+    // The record is what says whether a block is owed here. A block the
+    // install never recorded is the project's own text, whatever it looks
+    // like, and this verb has no record to bring it into agreement with.
+    if !recorded {
+        return Ok(Agents::Unmanaged);
+    }
+    let host = match std::fs::read_to_string(&path) {
+        Ok(host) => host,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(Agents::Missing("the file is absent"));
+        }
+        Err(error) => return Err(error.into()),
+    };
+    if marker::block_region_with(&host, marker::AGENTS_BEGIN, marker::AGENTS_END).is_none() {
+        return Ok(Agents::Missing("its managed block is gone"));
+    }
+    let block = crate::services::agents_render::render_block(docs_root, &declaration.writing_style);
+    let placed = marker::place_agents_block(&host, &block)?;
+    Ok(if placed == host {
+        Agents::Current
+    } else {
+        Agents::Stale(placed)
+    })
+}
+
+/// Report every region that disagrees with the declaration, and fail on
+/// any.
+fn check(
+    path: &Utf8Path,
+    config_current: bool,
+    agents_path: &Utf8Path,
+    agents: &Agents,
+) -> Result<(), AppError> {
+    let mut count = 0;
+    if !config_current {
+        output::line(format!(
+            "FAIL {path} does not match the declaration; run 'sdd hooks --apply'"
+        ));
+        count += 1;
+    }
+    match agents {
+        Agents::Stale(..) => {
+            output::line(format!(
+                "FAIL the documentation block in {agents_path} does not match the declaration; run 'sdd hooks --apply'"
+            ));
+            count += 1;
+        }
+        Agents::Missing(why) => {
+            output::line(format!(
+                "FAIL the install recorded a documentation block in {agents_path} and {why}; run 'sdd init --apply' to restore it"
+            ));
+            count += 1;
+        }
+        Agents::Current | Agents::Unmanaged => {}
+    }
+    if count == 0 {
+        return Ok(());
+    }
+    Err(AppError::Violations { count })
 }
 
 /// Render the delivered gate set, and optionally write it.
@@ -67,9 +223,11 @@ pub fn run(_ctx: &AppContext, args: HooksArgs) -> Result<(), AppError> {
         InstanceConfig::read(target).map_err(|error| AppError::Usage(error.to_string()))?;
     // The recorded root, where the target is an instance. Rendering against
     // another root would write a block the installer never would.
+    let manifest = instance_record(target)?;
     let docs_root = args.docs_root.unwrap_or_else(|| {
-        crate::services::verifier::read_manifest(target)
-            .map_or_else(|_| "_docs".to_string(), |m| m.docs_root.to_string())
+        manifest
+            .as_ref()
+            .map_or_else(|| "_docs".to_string(), |m| m.docs_root.to_string())
     });
 
     if !args.apply && !args.check {
@@ -95,36 +253,65 @@ pub fn run(_ctx: &AppContext, args: HooksArgs) -> Result<(), AppError> {
     // is where the installer measures it.
     let (base, _) = marker::split_block(&host)?;
     let rendered = render_block(&RenderOptions {
-        docs_root,
+        docs_root: docs_root.clone(),
         entry: args.entry,
         indent: marker::splice_indent(&base)?,
-        declaration,
+        declaration: declaration.clone(),
     });
     let spliced = marker::splice(&base, &rendered)?;
+    let agents = agents_state(
+        target,
+        agents_block_recorded(manifest.as_ref()),
+        &docs_root,
+        &declaration,
+    )?;
+    let agents_path = target.join(AGENTS);
 
     if args.check {
-        if spliced == host {
-            return Ok(());
-        }
-        output::line(format!(
-            "FAIL {path} does not match the declaration; run 'sdd hooks --apply'"
-        ));
-        return Err(AppError::Violations { count: 1 });
+        return check(&path, spliced == host, &agents_path, &agents);
     }
 
-    if spliced == host {
+    // A recorded block that is gone is not this verb's to rewrite: the
+    // install owns placing it, and a rewrite here would recreate the block
+    // without knowing what else the operator removed.
+    if let Agents::Missing(why) = &agents {
+        return Err(AppError::Refused(format!(
+            "the install recorded a documentation block in {agents_path} and {why}; run 'sdd init --apply' to restore it"
+        )));
+    }
+    let agents_placed = match agents {
+        Agents::Stale(placed) => Some(placed),
+        Agents::Current | Agents::Unmanaged | Agents::Missing(_) => None,
+    };
+    if spliced == host && agents_placed.is_none() {
         output::line(format!("OK {path} already matches the declaration"));
         return Ok(());
     }
-    // Write through a sibling temporary file and rename, so a failure leaves
-    // the configuration byte-identical rather than half-written.
-    let scratch = path.with_extension("yaml.sdd-tmp");
-    std::fs::write(&scratch, &spliced)?;
-    std::fs::rename(&scratch, &path)?;
-    // The manifest records this region's hash, and the block-tamper check
-    // reads it. A rewrite that left the record behind would report the
-    // instance as tampered the moment it was made correct.
-    record_block_hash(target, &spliced)?;
-    output::line(format!("OK rewrote the managed region in {path}"));
+    // Every write is bounded to the target and atomic, and the manifest
+    // record moves with each region: the block-tamper check reads it, so
+    // a rewrite that left the record behind would report the instance as
+    // tampered the moment it was made correct. A record that cannot be
+    // written puts the region back.
+    if spliced != host {
+        write_within(target, Utf8Path::new(CONFIG), spliced.as_bytes())?;
+        if let Err(error) = record_block_hash(target, CONFIG, marker::block_hash(&spliced)) {
+            return Err(restored(target, CONFIG, host.as_bytes(), &error));
+        }
+        output::line(format!("OK rewrote the managed region in {path}"));
+    }
+    if let Some(placed) = agents_placed {
+        let previous = std::fs::read(&agents_path)?;
+        write_within(target, Utf8Path::new(AGENTS), placed.as_bytes())?;
+        if let Err(error) = record_block_hash(
+            target,
+            AGENTS,
+            marker::block_hash_with(&placed, marker::AGENTS_BEGIN, marker::AGENTS_END),
+        ) {
+            return Err(restored(target, AGENTS, &previous, &error));
+        }
+        output::line(format!(
+            "OK rewrote the documentation block in {agents_path}"
+        ));
+    }
     Ok(())
 }
