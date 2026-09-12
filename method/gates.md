@@ -145,20 +145,17 @@ for f in _docs/specs/SPEC-*.md; do
   [ "$n" -le 100 ] || rg -q '<!--TOC-->' "$f" || { echo "FAIL $f: over 100 lines, no TOC"; exit 1; }
 done
 
-for f in _docs/decisions/ADR-?*.md; do
-  w=$(wc -w < "$f")
-  [ "$w" -le 350 ] || { echo "FAIL $f: $w words, cap is 350"; exit 1; }
-done
+for f in _docs/decisions/ADR-?*.md; do w=$(wc -w < "$f"); [ "$w" -le 350 ] || { echo "FAIL $f: $w words, cap is 350"; exit 1; }; done
 
-find . -type d \( -name .git -o -name node_modules -o -name vendor \) -prune -o \
-  -type f \( -name '[0-9][0-9]-*.md' -o -name glossary.md -o -name README.md \) -print |
+{ find method comparison-docs -maxdepth 1 -name '*.md' ! -name AGENTS.md; find . -type d \( -name .git -o -name node_modules -o -name vendor \) -prune -o \
+  -type f \( -name glossary.md -o -name README.md \) -print; } | sort -u |
 while IFS= read -r f; do
-  case "$f" in *-gates.md | *-checklist.md | *glossary.md | *README.md) cap=300 ;; *) cap=200 ;; esac
+  case "${f##*/}" in gates.md | checklist.md | glossary.md | README.md | SOURCES.md) cap=300 ;; *) cap=200 ;; esac
   [ "$(wc -l < "$f")" -le "$cap" ] || { echo "FAIL $f: cap is $cap"; exit 1; }
 done
 ```
 
-The chapter loop is what stops a shelf from absorbing a subject by growing. A catalog takes the larger number for the reason [Format](./format.md) states. It is matched by name because no command can tell an argument from an inventory. The shelf index is in the loop because no numbered pattern matches it. The walk prunes what a project vendors rather than authors, because a cap nobody can satisfy is a cap they switch off. Where a budget lands over an older corpus, the loop skips a list of named paths and fails when a listed path fits or disappears. The exemption then shrinks on its own.
+The chapter loop is what stops a shelf from absorbing a subject by growing. A catalog takes the larger number for the reason [Format](./format.md) states. A chapter is selected by the directory it sits in, because a slug says nothing about its kind, and a catalog is matched by name because no command can tell an argument from an inventory. The walk prunes what a project vendors rather than authors, because a cap nobody can satisfy is a cap they switch off. Where a budget lands over an older corpus, the loop skips a list of named paths and fails when a listed path fits or disappears. The exemption then shrinks on its own.
 
 ## Tables of contents
 
@@ -261,40 +258,41 @@ The `awk` attributes a marker to the requirement heading above it, not to one in
 
 These rules are real and no command decides them. A reviewer does.
 
-| Rule                                                        | Why no command                            |
-| ----------------------------------------------------------- | ----------------------------------------- |
-| A requirement names a subject that can act                  | requires reading the sentence             |
-| A requirement statement is one sentence                     | requires reading the sentence             |
-| A reference is one level from the entry document            | requires knowing the entry document       |
-| A scenario names the contested case, not a restatement      | requires knowing the ambiguity            |
-| A deferral's reopening condition is checkable               | requires domain knowledge                 |
-| Prose is spent only on a decision, hazard, or constraint    | requires judging necessity                |
-| A document contains no bold or italic text                  | stated without a gate by decision         |
-| One term for one concept                                    | requires knowing which terms are synonyms |
-| A fact has exactly one owner                                | requires knowing what the fact is         |
-| A document owns what it governs                             | requires knowing the project's own domain |
-| A spec introduces no section outside its shape              | its trailing wildcard admits any heading  |
-| A run of records about one domain means a missing spec      | requires reading the corpus               |
-| A seeded rule states an obligation its adopter can violate  | requires reading the rule's subject       |
-| A seeded rule's verification is one the adopter can perform | requires knowing the adopter's tools      |
-| A spec change is declared as a typed clause                 | a command cannot see an omitted clause    |
-| A typed clause's type matches the diff                      | requires reading both sides               |
-| A typed clause outside a tracked plan zone                  | the project declined to gate that zone    |
-| A step is one action, and an unprinted outcome is a step    | requires reading the step                 |
-| Every step carries a check a reader can judge               | requires reading the step                 |
-| A manual step enumerates every field and value              | requires knowing the interface            |
-| A step's inputs are produced by an earlier step             | requires tracing the procedure            |
-| A guide opens with preconditions and closes with a check    | requires reading the guide                |
-| A divergent result states its condition and destination     | requires knowing the tool's behavior      |
-| An upstream-owned fact is verified against its source       | requires fetching the source              |
-| An upstream citation is dated and lives in reference        | requires reading the reference zone       |
-| An artifact token names one artifact, never a step          | requires judging the name                 |
-| A comment holds only what the code cannot express           | requires reading the code beside it       |
-| A claim about code quotes the code that shows it            | requires reading the code beside it       |
-| A report leads with a run before its supporting detail      | requires reading the document             |
-| A pointer carries only what orients the reader              | requires knowing what the target owns     |
-| An operational document carries every part of its shape     | requires knowing which shape it is        |
-| A destructive step shows its dry run and its loss           | requires knowing the tool's forms         |
-| A suppression naming no case states its reason              | the language's own linter owns the syntax |
+| Rule                                                               | Why no command                            |
+| ------------------------------------------------------------------ | ----------------------------------------- |
+| A requirement names a subject that can act                         | requires reading the sentence             |
+| A requirement statement is one sentence                            | requires reading the sentence             |
+| A reference is one level from the entry document                   | requires knowing the entry document       |
+| A scenario names the contested case, not a restatement             | requires knowing the ambiguity            |
+| A deferral's reopening condition is checkable                      | requires domain knowledge                 |
+| Prose is spent only on a decision, hazard, or constraint           | requires judging necessity                |
+| A document contains no bold or italic text                         | stated without a gate by decision         |
+| One term for one concept                                           | requires knowing which terms are synonyms |
+| A fact has exactly one owner                                       | requires knowing what the fact is         |
+| A document owns what it governs                                    | requires knowing the project's own domain |
+| A spec introduces no section outside its shape                     | its trailing wildcard admits any heading  |
+| A run of records about one domain means a missing spec             | requires reading the corpus               |
+| A seeded rule states an obligation its adopter can violate         | requires reading the rule's subject       |
+| A seeded rule's verification is one the adopter can perform        | requires knowing the adopter's tools      |
+| A spec change is declared as a typed clause                        | a command cannot see an omitted clause    |
+| A typed clause's type matches the diff                             | requires reading both sides               |
+| A typed clause outside a tracked plan zone                         | the project declined to gate that zone    |
+| A step is one action, and an unprinted outcome is a step           | requires reading the step                 |
+| Every step carries a check a reader can judge                      | requires reading the step                 |
+| A manual step enumerates every field and value                     | requires knowing the interface            |
+| A step's inputs are produced by an earlier step                    | requires tracing the procedure            |
+| A guide opens with preconditions and closes with a check           | requires reading the guide                |
+| A divergent result states its condition and destination            | requires knowing the tool's behavior      |
+| An upstream-owned fact is verified against its source              | requires fetching the source              |
+| An upstream citation is dated and lives in reference               | requires reading the reference zone       |
+| An artifact token names one artifact, never a step                 | requires judging the name                 |
+| A comment holds only what the code cannot express                  | requires reading the code beside it       |
+| A claim about code quotes the code that shows it                   | requires reading the code beside it       |
+| A report leads with a run before its supporting detail             | requires reading the document             |
+| A pointer carries only what orients the reader                     | requires knowing what the target owns     |
+| An operational document carries every part of its shape            | requires knowing which shape it is        |
+| A destructive step shows its dry run and its loss                  | requires knowing the tool's forms         |
+| A suppression naming no case states its reason                     | the language's own linter owns the syntax |
+| A digit inside a document's slug names its subject, not a position | requires knowing the subject              |
 
 [Checklist](./checklist.md) is where these are asked at review time.

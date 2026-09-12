@@ -429,11 +429,20 @@ fn no_authored_document_carries_an_ordinal_prefix() {
     );
     for path in markdown {
         let name = path.file_name().unwrap().to_string_lossy();
-        let bytes = name.as_bytes();
-        let numbered = bytes.len() > 3
-            && bytes[0].is_ascii_digit()
-            && bytes[1].is_ascii_digit()
-            && bytes[2] == b'-';
+        // A digit run followed by a hyphen at the front of the slug, after
+        // any uppercase kind prefix, is the allocated form. A digit inside a
+        // slug, as in `2fa-setup.md`, names a subject and passes.
+        let slug = match name.split_once('-') {
+            Some((prefix, rest))
+                if !prefix.is_empty() && prefix.bytes().all(|b| b.is_ascii_uppercase()) =>
+            {
+                rest
+            }
+            _ => name.as_ref(),
+        };
+        let bytes = slug.as_bytes();
+        let digits = bytes.iter().take_while(|b| b.is_ascii_digit()).count();
+        let numbered = digits > 0 && bytes.get(digits) == Some(&b'-');
         assert!(
             !numbered,
             "{}: a document is named by a slug, not by a number; the reading order belongs in the directory's README.md",

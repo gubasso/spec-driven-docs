@@ -413,7 +413,7 @@ fn creates_a_root_agents_file_with_the_managed_block() {
         "Read the writing style before you author or edit prose: `sdd method writing-style`."
     ));
     assert!(agents.contains(
-        "Name a document by a slug drawn from its subject, never by a number, and give the directory a `README.md`"
+        "Name a document by a slug drawn from its subject, never by a number. Where its directory holds documents with no kind prefix, give that directory a `README.md`"
     ));
     assert!(!agents.contains("simple-english"));
 }

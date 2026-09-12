@@ -21,7 +21,7 @@ Owner: [Placement](./placement.md).
 - [ ] Each document has one primary reader need and lives in the matching zone.
 - [ ] Every spec is at `<root>/specs/SPEC-<domain>.md` and none is co-located with what it governs.
 - [ ] Every file whose kind this framework fixes carries its uppercase prefix: `SPEC-`, `ADR-`, `KI-`, or `TEMPLATE-`. Guides, reference, and explanation pages carry none.
-- [ ] No prefixed filename carries a counter. The slug is the identifier.
+- [ ] No document name carries a counter or a position in a sequence. The slug is the identifier, and a directory of unprefixed documents has a `README.md` explaining it.
 - [ ] No exploratory material entered the docs root.
 
 ## Specs

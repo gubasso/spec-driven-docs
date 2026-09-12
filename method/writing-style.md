@@ -82,8 +82,6 @@ Bad: Publish a remaining-document count that turns conversion into a sweep.
 
 Good: Leave untouched documents alone until an author edits them.
 
-The current chapter-size gate does not recognize a slug-named chapter. A reviewer holds this chapter to the 200-line budget.
-
 ## Sources
 
 The style merges two sources by layer. It copies neither source as a runtime dependency.

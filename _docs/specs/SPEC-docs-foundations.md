@@ -102,6 +102,8 @@ The author MUST name a managed document by a kebab-case slug drawn from its subj
 
 A reading order belongs in the prose of the directory's `README.md`, where an insertion costs one sentence. No program parses that order.
 
+The command below rejects a digit run followed by a hyphen at the front of the slug, after any uppercase kind prefix, because that is the allocated form and no command can tell `2026-roadmap.md` from `01-roadmap.md`. A slug whose subject carries a leading number puts the word first, as in `roadmap-2026.md`. Whether a digit elsewhere in a slug, as in `2fa-setup.md`, names the subject is a reviewer's judgment, and `method/gates.md` declares it unenforced.
+
 #### Scenario: Two branches each add a record
 
 - GIVEN two branches that each add the next numbered record
@@ -114,7 +116,7 @@ A reading order belongs in the prose of the directory's `README.md`, where an in
 - WHEN the order is written into every filename as a prefix
 - THEN a chapter inserted between two others renumbers the tail, and every link into it breaks
 
-Verify: `{ find . -name '[0-9][0-9]-*' -not -path './.git/*' -not -path './target/*'; find . -name '*-*.md' -not -path './.git/*' -not -path './target/*' | rg '/(ADR|KI)-[0-9]'; } | grep . && exit 1 || exit 0`
+Verify: `find . -name '*.md' -not -path './.git/*' -not -path './target/*' -not -path '*/node_modules/*' | rg '/([A-Z]+-)?[0-9]+-[^/]*$' | grep . && exit 1 || exit 0`
 
 ### `docs-foundations:a-document-directory-explains-itself` — A directory of slug-named documents carries a README
 

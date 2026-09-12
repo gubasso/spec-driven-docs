@@ -15,7 +15,7 @@ Copy the block below into the project's root author-instructions file. It tells 
 - Never rename or delete a merged decision record, and never edit one to describe the present.
 - Keep exploratory material in the docs scratch this instance declares, which `SDD_DOCS_SCRATCH` overrides; promotion is a rewrite into the owning zone.
 - Write step-by-step guides to the guides spec: every step carries its check, a manual step enumerates its fields and values, and upstream facts carry dated citations in the reference zone.
-- Name a document by a slug drawn from its subject, never by a number, and give the directory a `README.md` saying what it holds and what each document covers.
+- Name a document by a slug drawn from its subject, never by a number. Where its directory holds documents with no kind prefix, give that directory a `README.md` saying what it holds and what each document covers.
 - Report documentation changes by ownership: which spec changed, which rule IDs, which hooks passed.
 - Stay inside the budget for the artifact class: `<root>` author instructions 100 lines, a subtree's 150, a spec 300, a record 350 words, a chapter 200, a catalog 300. Every one of these is gated; a document that wants more room splits.
 ```

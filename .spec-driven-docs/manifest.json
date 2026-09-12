@@ -39,7 +39,7 @@
     {
       "source": "skills/sdd-write-docs/SKILL.md",
       "destination": "skills/sdd-write-docs/SKILL.md",
-      "sha256": "0ddcad899c0e06e76a82c32cdd03884b141bbad550fee578fccf6397979a3491"
+      "sha256": "9b56ed8c7dfc18cbc524f2bf381abb6eca7d23df11a6874d101681c6a5dfca86"
     },
     {
       "source": "skill-shared/plan-gate.md",
@@ -86,8 +86,8 @@
     {
       "source": "_docs/specs/SPEC-docs-foundations.md",
       "destination": "_docs/specs/SPEC-docs-foundations.md",
-      "sha256": "8c9af6a8cfdaf276207251944ae0850287288b4c2d5e6518d9dee92420f810e8",
-      "baseline_sha256": "8c9af6a8cfdaf276207251944ae0850287288b4c2d5e6518d9dee92420f810e8"
+      "sha256": "632106cc4e4c2a3e6b728407738fa609859f66ae47da175c39e3f7a59761f874",
+      "baseline_sha256": "632106cc4e4c2a3e6b728407738fa609859f66ae47da175c39e3f7a59761f874"
     },
     {
       "source": "_docs/specs/SPEC-docs-specs.md",

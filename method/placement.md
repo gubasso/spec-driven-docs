@@ -108,7 +108,7 @@ A file whose kind this framework fixes carries that kind as an uppercase prefix.
 | Spec companion   | `SPEC-<domain>/`     | `<root>/specs/`                  |
 
 - A file whose kind this framework fixes MUST carry that kind as an uppercase prefix.
-- A prefixed filename MUST carry the slug that identifies it, and no counter.
+- A managed document MUST be named by a slug drawn from its subject, and no counter or position in a sequence. A directory of documents with no kind prefix MUST carry a `README.md` saying what it holds.
 
 The prefix is uppercase because the discriminator must win over the slug when a reader scans a column of filenames. It is the first thing read and the only part that repeats.
 
