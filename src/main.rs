@@ -36,6 +36,7 @@ fn run(cli: Cli) -> Result<(), AppError> {
         Commands::Gate(args) => commands::gate::run(&ctx, args),
         Commands::Hooks(args) => commands::hooks::run(&ctx, args),
         Commands::Debt(args) => commands::debt::run(&ctx, args),
+        Commands::Policy(args) => commands::policy::run(&ctx, args),
         Commands::Ki(args) => commands::ki::run(&ctx, args),
         Commands::Method(args) => commands::read::run(&ctx, &reader::METHOD, args),
         Commands::Spec(args) => commands::read::run(&ctx, &reader::SPECS, args),

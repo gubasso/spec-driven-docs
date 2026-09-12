@@ -318,7 +318,7 @@ fn debt_without_the_sentinel_is_a_note_and_the_gates_stay_green() {
             "note: .spec-driven-docs/debt.yaml records budget debt and no local specification defines `budget-debt:a-recorded-dimension-only-shrinks`",
         ))
         .stdout(predicate::str::contains("_docs/specs/SPEC-budget-debt.md owns it"))
-        .stdout(predicate::str::contains("add the rule to the project's copy"));
+        .stdout(predicate::str::contains("run 'sdd policy reconcile'"));
     fixture
         .cmd()
         .args(["gate", "chapter-size-cap"])

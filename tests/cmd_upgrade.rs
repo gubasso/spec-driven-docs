@@ -622,3 +622,44 @@ fn a_declaration_without_the_writing_style_key_upgrades_as_builtin() {
         .assert()
         .success();
 }
+
+/// An upgrade never reconciles: an instance whose own specification lacks
+/// the sentinel upgrades with that file unchanged, and still needs it.
+#[test]
+fn an_upgrade_never_reconciles() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    fixture.write("method/legacy.md", &"line\n".repeat(250));
+    fixture
+        .cmd()
+        .args(["debt", "baseline", "--target", &fixture.target(), "--apply"])
+        .assert()
+        .success();
+    let spec = "_docs/specs/SPEC-budget-debt.md";
+    let older = fixture.read(spec).replace(
+        "budget-debt:a-recorded-dimension-only-shrinks",
+        "budget-debt:an-older-sentence",
+    );
+    fixture.write(spec, &older);
+    let manifest = fixture
+        .read(".spec-driven-docs/manifest.json")
+        .replace(env!("CARGO_PKG_VERSION"), "0.7.0");
+    fixture.write(".spec-driven-docs/manifest.json", &manifest);
+
+    fixture
+        .cmd()
+        .args(["upgrade", "--target", &fixture.target()])
+        .assert()
+        .success();
+    assert_eq!(
+        fixture.read(spec),
+        older,
+        "the upgrade rewrote an adopted file"
+    );
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("run 'sdd policy reconcile'"));
+}

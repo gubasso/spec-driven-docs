@@ -13,6 +13,7 @@ pub mod hooks;
 pub mod init;
 pub mod ki;
 pub mod license;
+pub mod policy;
 pub mod read;
 pub mod skill;
 pub mod status;
@@ -59,6 +60,8 @@ pub enum Commands {
     Hooks(hooks::HooksArgs),
     /// Record, migrate, or tighten the inherited budget violations a project carries.
     Debt(debt::DebtArgs),
+    /// Bring an adopted specification into agreement with what the project declared.
+    Policy(policy::PolicyArgs),
     /// Read the known-issue zone.
     Ki(ki::KiArgs),
     /// Read a method chapter, or list them.

@@ -34,7 +34,7 @@
     {
       "source": "skills/sdd-setup/SKILL.md",
       "destination": "skills/sdd-setup/SKILL.md",
-      "sha256": "415cd7f2c9ff27dbbf0127d7063fbce2dd3fca5bdc745907db1f5545cb2b3eee"
+      "sha256": "b9611976a606e459e39f372668a3fe5953b307e2f69201277e0a7656814ffbcb"
     },
     {
       "source": "skills/sdd-write-docs/SKILL.md",
@@ -74,8 +74,8 @@
     {
       "source": "_docs/specs/SPEC-distribution.md",
       "destination": "_docs/specs/SPEC-distribution.md",
-      "sha256": "08674558dfb021ba8ec59691e292176aea404c3910f54da19934c02e1da9f79c",
-      "baseline_sha256": "08674558dfb021ba8ec59691e292176aea404c3910f54da19934c02e1da9f79c"
+      "sha256": "cab362259e4f6ec02eaa3ab77e060258886ed4b16c957099e9fdff1238f70b10",
+      "baseline_sha256": "cab362259e4f6ec02eaa3ab77e060258886ed4b16c957099e9fdff1238f70b10"
     },
     {
       "source": "_docs/specs/SPEC-docs-format.md",

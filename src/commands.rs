@@ -15,6 +15,7 @@ pub mod init;
 pub mod ki;
 pub mod license;
 pub mod man;
+pub mod policy;
 pub mod read;
 pub mod self_manifest;
 pub mod skill;

@@ -68,7 +68,7 @@ A budget gate fails a document over its cap. A project adopting the convention o
 - `sdd debt migrate` converts the older flat list at `.spec-driven-docs/chapter-size-debt.txt` and removes it under `--apply`. It preserves every exemption and broadens nothing.
 - `sdd debt tighten` lowers each ceiling to its measurement and clears each corrected exception under `--apply`. It never raises a ceiling.
 
-A brownfield landing runs the install, then `sdd debt baseline`, then `sdd debt baseline --apply`, then its first commit. A gate failure naming `sdd debt tighten --apply` means a carried document shrank: run it and commit the file with the change. Where `sdd verify` notes that no local specification defines `budget-debt:a-recorded-dimension-only-shrinks`, the project's specs predate the mechanism: read the rule with `sdd spec budget-debt` and add it to the project's copy.
+A brownfield landing runs the install, then `sdd debt baseline`, then `sdd debt baseline --apply`, then its first commit. A gate failure naming `sdd debt tighten --apply` means a carried document shrank: run it and commit the file with the change. Where `sdd verify` notes that no local specification defines `budget-debt:a-recorded-dimension-only-shrinks`, the project's specs predate the mechanism, and `sdd policy reconcile` offers the correction: it previews the rule it would add, and `--apply` appends it to the project's copy.
 
 ## Declare the two locations
 
@@ -97,7 +97,7 @@ The writing style is the project's to select, under `sdd spec writing-policy`. A
 - `project:<PATH>`: the project's own document, which the project keeps.
 - `none`: no route and no conversion obligation, so an agent editing the project's documents follows whatever its own instructions say.
 
-The selection lives in `.spec-driven-docs/config.yaml` under `writing_style`. To change it later, edit the file and run `sdd hooks --apply`, which rewrites the documentation block in `AGENTS.md` as well as the pre-commit block. Where `sdd verify` notes that no local specification defines `writing-policy:the-project-selects-one-source`, the project's specs predate the selection: read the rule with `sdd spec writing-policy` and add it to the project's copy.
+The selection lives in `.spec-driven-docs/config.yaml` under `writing_style`. To change it later, edit the file and run `sdd hooks --apply`, which rewrites the documentation block in `AGENTS.md` as well as the pre-commit block. Where `sdd verify` notes that no local specification defines `writing-policy:the-project-selects-one-source`, the project's specs predate the selection, and `sdd policy reconcile` offers the same correction.
 
 ## Land the variables
 
