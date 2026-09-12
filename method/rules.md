@@ -58,7 +58,9 @@ Naming a subject that can act is the rule that catches most bad requirements. "T
 
 ## Keywords
 
-Use MUST, MUST NOT, REQUIRED, SHALL, SHALL NOT, SHOULD, SHOULD NOT, MAY, in capitals, as RFC 2119 and RFC 8174 define them. Capitalization is what makes them normative and greppable. The same words in lowercase are ordinary prose.
+Use MUST, MUST NOT, SHOULD, SHOULD NOT, and MAY, in capitals, as RFC 2119 and RFC 8174 define them. Capitalization is what makes them normative and greppable. The same words in lowercase are ordinary prose.
+
+RFC 2119 defines eleven keywords for three levels. This project declares one spelling for each level, because a reader who meets two spellings has to decide whether the author meant a difference.
 
 Prefer MUST and MUST NOT. A rule stated as SHOULD is a rule nobody is accountable for, and a spec whose every rule is a SHOULD is a style guide.
 

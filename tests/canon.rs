@@ -461,6 +461,70 @@ fn every_directory_of_slug_named_documents_has_a_readme() {
     }
 }
 
+/// The RFC 2119 spellings `method/rules.md` declines to declare. Each is a
+/// synonym of a declared keyword, and `ADR-declare-one-spelling-per-requirement-level`
+/// states why a synonym costs a reader a decision.
+const RETIRED_KEYWORDS: &[&str] = &["SHALL", "REQUIRED", "RECOMMENDED", "OPTIONAL"];
+
+/// Files quoting another project's terms, which keep their own words.
+const QUOTED_TERMS: &[&str] = &[
+    "THIRD_PARTY_NOTICES.md",
+    "LICENSE",
+    "LICENSE-MIT",
+    "LICENSE-CC-BY-4.0",
+];
+
+/// Whether `line` carries `word` as a whole uppercase word.
+fn names_uppercase_word(line: &str, word: &str) -> bool {
+    line.match_indices(word).any(|(at, _)| {
+        let before = line[..at].chars().next_back();
+        let after = line[at + word.len()..].chars().next();
+        !before.is_some_and(|c| c.is_ascii_alphanumeric() || c == '_')
+            && !after.is_some_and(|c| c.is_ascii_alphanumeric() || c == '_')
+    })
+}
+
+/// SATISFIES docs-specs:statement-uses-an-ears-pattern
+///
+/// The chapter declares the set, the gate snippets and the spec's `Verify:`
+/// commands run it, and this holds the authored tree to the declaration so
+/// the three copies cannot drift apart in silence.
+#[test]
+fn no_authored_document_uses_a_retired_keyword() {
+    let mut markdown = Vec::new();
+    for subtree in DOCUMENT_SUBTREES {
+        walk_markdown(&canon().join(subtree), &mut markdown);
+    }
+    for root_file in ["README.md", "AGENTS.md"] {
+        markdown.push(canon().join(root_file));
+    }
+    for path in markdown {
+        let relative = path.strip_prefix(canon()).unwrap().display().to_string();
+        if QUOTED_TERMS.contains(&path.file_name().unwrap().to_str().unwrap()) {
+            continue;
+        }
+        let text = std::fs::read_to_string(&path).unwrap();
+        for (index, line) in text.lines().enumerate() {
+            for word in RETIRED_KEYWORDS {
+                assert!(
+                    !names_uppercase_word(line, word),
+                    "{relative}:{}: '{word}' is a synonym of a declared keyword; method/rules.md declares one spelling per level",
+                    index + 1
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn a_retired_keyword_is_matched_as_an_uppercase_word() {
+    assert!(names_uppercase_word("The author SHALL cite it.", "SHALL"));
+    assert!(names_uppercase_word("(SHALL)", "SHALL"));
+    assert!(!names_uppercase_word("the author shall cite it", "SHALL"));
+    assert!(!names_uppercase_word("MARSHALL", "SHALL"));
+    assert!(!names_uppercase_word("OPTIONAL_FLAG", "OPTIONAL"));
+}
+
 /// SATISFIES spec-to-code:a-gate-message-cites-the-rule
 #[test]
 fn every_spec_defined_rule_cited_by_the_registry_resolves() {

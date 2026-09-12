@@ -117,7 +117,7 @@ A full EARS parser is not worth building. Two properties catch most breaches. A 
 
 ```bash
 rg -UIo -r '$1' '^### `[a-z0-9-]+:[a-z0-9-]+`[^\n]*\n\n([^\n]+)' _docs/specs \
-  | rg -v '\b(MUST|MUST NOT|SHALL|SHALL NOT|SHOULD|SHOULD NOT|MAY|REQUIRED)\b' \
+  | rg -v '\b(MUST|MUST NOT|SHOULD|SHOULD NOT|MAY)\b' \
   | grep . && exit 1 || exit 0
 ```
 
@@ -127,7 +127,7 @@ Whether the sentence names an actor that can act is a judgment call and stays wi
 
 ```bash
 for f in _docs/specs/SPEC-*.md; do
-  n=$(rg -c '\b(MUST NOT|SHALL NOT)\b' "$f" || echo 0)
+  n=$(rg -c '\bMUST NOT\b' "$f" || echo 0)
   [ "$n" -le 5 ] || { echo "FAIL $f: $n prohibitions, cap is 5"; exit 1; }
 done
 ```

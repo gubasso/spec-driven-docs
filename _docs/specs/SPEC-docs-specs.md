@@ -44,7 +44,7 @@ The author MUST write every requirement statement as one sentence in an EARS pat
 - WHEN they write "records are best kept short"
 - THEN the statement names no actor and no threshold, and the gate rejects it
 
-Verify: ``rg -UIo -r '$1' '^### `[a-z0-9-]+:[a-z0-9-]+`[^\n]*\n\n([^\n]+)' . --glob 'SPEC-*.md' | rg -v '(MUST|SHALL|SHOULD|MAY|REQUIRED)' | grep . && exit 1 || exit 0``
+Verify: ``rg -UIo -r '$1' '^### `[a-z0-9-]+:[a-z0-9-]+`[^\n]*\n\n([^\n]+)' . --glob 'SPEC-*.md' | rg -v '(MUST|SHOULD|MAY)' | grep . && exit 1 || exit 0``
 
 ### `docs-specs:rule-id-is-unique-and-slugged` — A rule ID is a slug pair and is unique
 
@@ -118,7 +118,7 @@ The author MUST keep a spec at or below five prohibitions, each paired with the 
 - WHEN an agent applies it
 - THEN some prohibitions are dropped unpredictably, and the gate rejects the spec
 
-Verify: `for f in docs/specs/SPEC-*.md _docs/specs/SPEC-*.md; do [ -e "$f" ] || continue; n=$(rg -c 'MUST NOT|SHALL NOT' "$f" || echo 0); [ "$n" -le 5 ] || exit 1; done`
+Verify: `for f in docs/specs/SPEC-*.md _docs/specs/SPEC-*.md; do [ -e "$f" ] || continue; n=$(rg -c 'MUST NOT' "$f" || echo 0); [ "$n" -le 5 ] || exit 1; done`
 
 ### `docs-specs:unenforced-rules-are-declared` — An unenforced rule is declared
 
