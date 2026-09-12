@@ -122,7 +122,12 @@ fn check_declaration(target: &Utf8Path, manifest: &Manifest, report: &mut Verify
     // declaration selects, so a stale route is the same disagreement as a
     // stale hook filter, and the same command repairs it.
     let agents = target.join(crate::commands::hooks::AGENTS);
-    if let Ok(host) = std::fs::read_to_string(&agents)
+    let agents_recorded = manifest
+        .integration_blocks
+        .iter()
+        .any(|block| block.path.as_str() == crate::commands::hooks::AGENTS);
+    if agents_recorded
+        && let Ok(host) = std::fs::read_to_string(&agents)
         && let Some(region) = crate::domain::marker::block_region_with(
             &host,
             crate::domain::marker::AGENTS_BEGIN,

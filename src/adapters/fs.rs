@@ -32,20 +32,42 @@ pub fn write_file(path: &Utf8Path, bytes: &[u8]) -> std::io::Result<()> {
 /// Write a file through a sibling temporary file and a rename, creating its
 /// parent directories.
 ///
-/// A failure partway leaves the destination as it was rather than
-/// half-written, and an interruption leaves either the old bytes or the new.
+/// The scratch file is created exclusively, so a path that already exists
+/// there, a symlink to somewhere else included, refuses the write rather
+/// than being followed or truncated. A failure partway leaves the
+/// destination as it was rather than half-written, and an interruption
+/// leaves either the old bytes or the new.
 ///
 /// # Errors
 ///
-/// Any I/O error creating directories, writing the temporary file, or
-/// renaming it into place.
+/// Any I/O error creating directories, creating or writing the scratch
+/// file, or renaming it into place. A scratch path that already exists is
+/// [`std::io::ErrorKind::AlreadyExists`].
 pub fn write_atomic(path: &Utf8Path, bytes: &[u8]) -> std::io::Result<()> {
+    use std::io::Write as _;
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
     let scratch = path.with_extension(format!("{}.sdd-tmp", path.extension().unwrap_or_default()));
-    std::fs::write(&scratch, bytes)?;
-    std::fs::rename(&scratch, path)
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&scratch)
+        .map_err(|error| {
+            std::io::Error::new(
+                error.kind(),
+                format!("{scratch}: {error}; remove the scratch file to retry"),
+            )
+        })?;
+    let written = file.write_all(bytes).and_then(|()| file.sync_all());
+    drop(file);
+    if let Err(error) = written {
+        let _ = std::fs::remove_file(&scratch);
+        return Err(error);
+    }
+    std::fs::rename(&scratch, path).inspect_err(|_| {
+        let _ = std::fs::remove_file(&scratch);
+    })
 }
 
 /// Write a repository-relative destination under a target, refusing a path
@@ -217,6 +239,29 @@ mod tests {
             .map(|entry| entry.file_name().to_string_lossy().to_string())
             .collect();
         assert_eq!(siblings, vec!["debt.yaml".to_string()]);
+    }
+
+    #[test]
+    fn a_pre_existing_scratch_symlink_is_refused_and_nothing_outside_is_touched() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = root(&dir);
+        let outside = tempfile::tempdir().unwrap();
+        let victim = outside.path().join("victim");
+        std::fs::write(&victim, b"keep").unwrap();
+        std::os::unix::fs::symlink(&victim, target.join("debt.yaml.sdd-tmp").as_std_path())
+            .unwrap();
+        let error = write_atomic(&target.join("debt.yaml"), b"new").unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::AlreadyExists);
+        assert_eq!(
+            std::fs::read(&victim).unwrap(),
+            b"keep",
+            "the scratch symlink was followed"
+        );
+        assert!(!target.join("debt.yaml").exists());
+        // A stale regular scratch file refuses the same way, and stays.
+        std::fs::remove_file(target.join("debt.yaml.sdd-tmp")).unwrap();
+        std::fs::write(target.join("debt.yaml.sdd-tmp"), b"stale").unwrap();
+        assert!(write_atomic(&target.join("debt.yaml"), b"new").is_err());
     }
 
     #[test]

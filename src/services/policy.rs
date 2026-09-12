@@ -278,25 +278,12 @@ fn with_adopted_record(
     Ok(())
 }
 
-/// Carry out every plan as one transaction, and report the files written.
-///
-/// Every destination and the manifest are checked to stay inside the
-/// target before a byte lands, every existing file is backed up, each
-/// specification is written atomically and re-read to confirm it defines
-/// its sentinel, and the manifest is written last with every record moved
-/// at once. Any failure restores every path this call touched, so the
-/// operator never holds an adopted file the record does not describe, or
-/// one plan applied and another not.
-///
-/// # Errors
-///
-/// [`AppError::Refused`] for a checklist plan, a destination that leaves
-/// the target, or a rewrite that does not define its sentinel, and
-/// manifest and I/O errors when the tree cannot be read or written. The
-/// target is restored before any of these returns.
-pub fn apply_all(target: &Utf8Path, plans: &[Plan]) -> Result<Vec<Utf8PathBuf>, AppError> {
-    let manifest_relative = Utf8Path::new(crate::domain::manifest::MANIFEST_PATH);
-    let mut writes: Vec<(Utf8PathBuf, Vec<u8>, &'static Sentinel)> = Vec::new();
+type Write = (Utf8PathBuf, Vec<u8>, &'static Sentinel);
+
+/// The writes a set of plans amounts to, every destination checked to stay
+/// inside the target, or the refusal that stops the whole apply.
+fn preflight(target: &Utf8Path, plans: &[Plan]) -> Result<Vec<Write>, AppError> {
+    let mut writes: Vec<Write> = Vec::new();
     for plan in plans {
         let sentinel = plan.reconciliation.sentinel;
         match &plan.action {
@@ -323,22 +310,60 @@ pub fn apply_all(target: &Utf8Path, plans: &[Plan]) -> Result<Vec<Utf8PathBuf>, 
         crate::adapters::fs::check_destination(target, destination)
             .map_err(|refusal| AppError::Refused(format!("{destination}: {refusal}")))?;
     }
+    let manifest_relative = Utf8Path::new(crate::domain::manifest::MANIFEST_PATH);
     crate::adapters::fs::check_destination(target, manifest_relative)
         .map_err(|refusal| AppError::Refused(format!("{manifest_relative}: {refusal}")))?;
+    Ok(writes)
+}
+
+/// Put every backed-up path back, and name the ones that could not be.
+///
+/// A path whose bytes already equal its backup is left alone, so a file
+/// the failure never reached is not rewritten through the same failing
+/// primitive.
+fn restore(target: &Utf8Path, backups: &[(Utf8PathBuf, Option<Vec<u8>>)]) -> Vec<Utf8PathBuf> {
+    let mut unrestored = Vec::new();
+    for (destination, previous) in backups {
+        let full = target.join(destination);
+        let current = std::fs::read(&full).ok();
+        if current.as_ref() == previous.as_ref() {
+            continue;
+        }
+        let put_back = previous.as_ref().map_or_else(
+            || std::fs::remove_file(&full).is_ok() || !full.exists(),
+            |bytes| write_atomic(&full, bytes).is_ok(),
+        );
+        if !put_back {
+            unrestored.push(destination.clone());
+        }
+    }
+    unrestored
+}
+
+/// Carry out every plan as one transaction, and report the files written.
+///
+/// Every destination and the manifest are checked to stay inside the
+/// target before a byte lands, every existing file is backed up, each
+/// specification is written atomically and re-read to confirm it defines
+/// its sentinel, and the manifest is written last with every record moved
+/// at once. Any failure restores every path this call touched, so the
+/// operator never holds an adopted file the record does not describe, or
+/// one plan applied and another not.
+///
+/// # Errors
+///
+/// [`AppError::Refused`] for a checklist plan, a destination that leaves
+/// the target, or a rewrite that does not define its sentinel, and
+/// manifest and I/O errors when the tree cannot be read or written. The
+/// target is restored before any of these returns.
+pub fn apply_all(target: &Utf8Path, plans: &[Plan]) -> Result<Vec<Utf8PathBuf>, AppError> {
+    let manifest_relative = Utf8Path::new(crate::domain::manifest::MANIFEST_PATH);
+    let writes = preflight(target, plans)?;
     let manifest_text = std::fs::read_to_string(target.join(manifest_relative))?;
     let mut document: serde_json::Value = serde_json::from_str(&manifest_text)
         .map_err(|error| AppError::ManifestInvalid(error.to_string()))?;
 
     let mut backups: Vec<(Utf8PathBuf, Option<Vec<u8>>)> = Vec::new();
-    let restore = |backups: &[(Utf8PathBuf, Option<Vec<u8>>)]| {
-        for (destination, previous) in backups {
-            let full = target.join(destination);
-            let _ = previous.as_ref().map_or_else(
-                || std::fs::remove_file(&full),
-                |bytes| write_atomic(&full, bytes),
-            );
-        }
-    };
     let mut attempt = |backups: &mut Vec<(Utf8PathBuf, Option<Vec<u8>>)>| -> Result<(), AppError> {
         for (destination, bytes, sentinel) in &writes {
             let full = target.join(destination);
@@ -373,15 +398,21 @@ pub fn apply_all(target: &Utf8Path, plans: &[Plan]) -> Result<Vec<Utf8PathBuf>, 
         Ok(())
     };
     if let Err(error) = attempt(&mut backups) {
-        restore(&backups);
-        return Err(match error {
-            AppError::Refused(reason) => {
-                AppError::Refused(format!("{reason}; every file is restored"))
-            }
-            other => AppError::Refused(format!(
-                "reconciliation aborted and every file is restored: {other}"
-            )),
-        });
+        let unrestored = restore(target, &backups);
+        let cause = match error {
+            AppError::Refused(reason) => reason,
+            other => format!("reconciliation aborted: {other}"),
+        };
+        if unrestored.is_empty() {
+            return Err(AppError::Refused(format!(
+                "{cause}; every file is restored"
+            )));
+        }
+        let paths: Vec<&str> = unrestored.iter().map(|p| p.as_str()).collect();
+        return Err(AppError::Refused(format!(
+            "{cause}; restoration is incomplete, verify by hand: {}",
+            paths.join(" ")
+        )));
     }
     Ok(writes
         .into_iter()

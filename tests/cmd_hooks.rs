@@ -383,3 +383,60 @@ fn an_unrecorded_agents_file_is_not_the_verbs_to_judge() {
         .assert()
         .success();
 }
+
+/// A manifest that cannot be written puts the region back, and the verb
+/// says so rather than reporting the rewrite as complete.
+#[test]
+fn a_failed_record_update_puts_the_region_back() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    let before = fixture.read(".pre-commit-config.yaml");
+    let declaration = fixture
+        .read(".spec-driven-docs/config.yaml")
+        .replace("reserved: []", "reserved:\n  - 'vendor/**'");
+    fixture.write(".spec-driven-docs/config.yaml", &declaration);
+    std::fs::create_dir(
+        fixture
+            .path()
+            .join(".spec-driven-docs/manifest.json.sdd-tmp"),
+    )
+    .unwrap();
+    fixture
+        .cmd()
+        .args(["hooks", "--target", &fixture.target(), "--apply"])
+        .assert()
+        .code(73)
+        .stderr(predicate::str::contains("put back"));
+    assert_eq!(fixture.read(".pre-commit-config.yaml"), before);
+}
+
+/// A manifest that records no block for the region is not silently
+/// skipped: the rewrite cannot be brought into agreement with a record it
+/// does not have, so the region goes back.
+#[test]
+fn a_manifest_without_the_regions_record_refuses_the_apply() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    let before = fixture.read(".pre-commit-config.yaml");
+    let declaration = fixture
+        .read(".spec-driven-docs/config.yaml")
+        .replace("reserved: []", "reserved:\n  - 'vendor/**'");
+    fixture.write(".spec-driven-docs/config.yaml", &declaration);
+    let mut manifest: serde_json::Value =
+        serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
+    manifest["integration_blocks"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|block| block["path"] != ".pre-commit-config.yaml");
+    fixture.write(
+        ".spec-driven-docs/manifest.json",
+        &(serde_json::to_string_pretty(&manifest).unwrap() + "\n"),
+    );
+    fixture
+        .cmd()
+        .args(["hooks", "--target", &fixture.target(), "--apply"])
+        .assert()
+        .code(73)
+        .stderr(predicate::str::contains("expected one"));
+    assert_eq!(fixture.read(".pre-commit-config.yaml"), before);
+}
