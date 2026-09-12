@@ -440,3 +440,23 @@ fn a_manifest_without_the_regions_record_refuses_the_apply() {
         .stderr(predicate::str::contains("expected one"));
     assert_eq!(fixture.read(".pre-commit-config.yaml"), before);
 }
+
+/// A record that exists and cannot be read is not evidence that nothing is
+/// recorded: the verb stops rather than judging the block unmanaged.
+#[test]
+fn an_unreadable_record_stops_the_check_rather_than_passing_it() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    fixture.write("AGENTS.md", "# Project\n\nNo block here.\n");
+    fixture.write(".spec-driven-docs/manifest.json", "{ not json");
+    fixture
+        .cmd()
+        .args(["hooks", "--target", &fixture.target(), "--check"])
+        .assert()
+        .code(65);
+    fixture
+        .cmd()
+        .args(["hooks", "--target", &fixture.target(), "--apply"])
+        .assert()
+        .code(65);
+}

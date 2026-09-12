@@ -325,8 +325,15 @@ fn restore(target: &Utf8Path, backups: &[(Utf8PathBuf, Option<Vec<u8>>)]) -> Vec
     let mut unrestored = Vec::new();
     for (destination, previous) in backups {
         let full = target.join(destination);
-        let current = std::fs::read(&full).ok();
-        if current.as_ref() == previous.as_ref() {
+        // Only an absent file is evidence of absence. Any other read failure
+        // says nothing about the file, so the restoration is attempted and
+        // its own result decides.
+        let current = match std::fs::read(&full) {
+            Ok(bytes) => Some(Some(bytes)),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Some(None),
+            Err(_) => None,
+        };
+        if current.as_ref() == Some(previous) {
             continue;
         }
         let put_back = previous.as_ref().map_or_else(

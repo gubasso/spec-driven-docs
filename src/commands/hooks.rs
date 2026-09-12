@@ -19,7 +19,7 @@ use crate::adapters::fs::write_within;
 use crate::cli::hooks::HooksArgs;
 use crate::context::AppContext;
 use crate::domain::instance_config::InstanceConfig;
-use crate::domain::manifest::MANIFEST_PATH;
+use crate::domain::manifest::{MANIFEST_PATH, Manifest};
 use crate::domain::marker;
 use crate::domain::ownership::Sha256;
 use crate::error::AppError;
@@ -108,9 +108,23 @@ enum Agents {
     Unmanaged,
 }
 
-/// Whether the manifest records a documentation block in `AGENTS.md`.
-fn agents_block_recorded(target: &Utf8Path) -> bool {
-    crate::services::verifier::read_manifest(target).is_ok_and(|manifest| {
+/// The instance record, where the target is an instance.
+///
+/// An absent record means the target is not an instance, and the verb
+/// still renders and rewrites. A record that exists and cannot be read is
+/// an error: no ownership check judges anything before it has read the
+/// record, and a read failure is not evidence that nothing is recorded.
+fn instance_record(target: &Utf8Path) -> Result<Option<Manifest>, AppError> {
+    match crate::services::verifier::read_manifest(target) {
+        Ok(manifest) => Ok(Some(manifest)),
+        Err(AppError::ManifestMissing(_)) => Ok(None),
+        Err(error) => Err(error),
+    }
+}
+
+/// Whether the record names a documentation block in `AGENTS.md`.
+fn agents_block_recorded(manifest: Option<&Manifest>) -> bool {
+    manifest.is_some_and(|manifest| {
         manifest
             .integration_blocks
             .iter()
@@ -124,6 +138,7 @@ fn agents_block_recorded(target: &Utf8Path) -> bool {
 /// never a silent "current".
 fn agents_state(
     target: &Utf8Path,
+    recorded: bool,
     docs_root: &str,
     declaration: &InstanceConfig,
 ) -> Result<Agents, AppError> {
@@ -137,7 +152,7 @@ fn agents_state(
     // The record is what says whether a block is owed here. A block the
     // install never recorded is the project's own text, whatever it looks
     // like, and this verb has no record to bring it into agreement with.
-    if !agents_block_recorded(target) {
+    if !recorded {
         return Ok(Agents::Unmanaged);
     }
     let host = match std::fs::read_to_string(&path) {
@@ -159,6 +174,42 @@ fn agents_state(
     })
 }
 
+/// Report every region that disagrees with the declaration, and fail on
+/// any.
+fn check(
+    path: &Utf8Path,
+    config_current: bool,
+    agents_path: &Utf8Path,
+    agents: &Agents,
+) -> Result<(), AppError> {
+    let mut count = 0;
+    if !config_current {
+        output::line(format!(
+            "FAIL {path} does not match the declaration; run 'sdd hooks --apply'"
+        ));
+        count += 1;
+    }
+    match agents {
+        Agents::Stale(..) => {
+            output::line(format!(
+                "FAIL the documentation block in {agents_path} does not match the declaration; run 'sdd hooks --apply'"
+            ));
+            count += 1;
+        }
+        Agents::Missing(why) => {
+            output::line(format!(
+                "FAIL the install recorded a documentation block in {agents_path} and {why}; run 'sdd init --apply' to restore it"
+            ));
+            count += 1;
+        }
+        Agents::Current | Agents::Unmanaged => {}
+    }
+    if count == 0 {
+        return Ok(());
+    }
+    Err(AppError::Violations { count })
+}
+
 /// Render the delivered gate set, and optionally write it.
 ///
 /// # Errors
@@ -172,9 +223,11 @@ pub fn run(_ctx: &AppContext, args: HooksArgs) -> Result<(), AppError> {
         InstanceConfig::read(target).map_err(|error| AppError::Usage(error.to_string()))?;
     // The recorded root, where the target is an instance. Rendering against
     // another root would write a block the installer never would.
+    let manifest = instance_record(target)?;
     let docs_root = args.docs_root.unwrap_or_else(|| {
-        crate::services::verifier::read_manifest(target)
-            .map_or_else(|_| "_docs".to_string(), |m| m.docs_root.to_string())
+        manifest
+            .as_ref()
+            .map_or_else(|| "_docs".to_string(), |m| m.docs_root.to_string())
     });
 
     if !args.apply && !args.check {
@@ -206,36 +259,16 @@ pub fn run(_ctx: &AppContext, args: HooksArgs) -> Result<(), AppError> {
         declaration: declaration.clone(),
     });
     let spliced = marker::splice(&base, &rendered)?;
-    let agents = agents_state(target, &docs_root, &declaration)?;
+    let agents = agents_state(
+        target,
+        agents_block_recorded(manifest.as_ref()),
+        &docs_root,
+        &declaration,
+    )?;
     let agents_path = target.join(AGENTS);
 
     if args.check {
-        let mut count = 0;
-        if spliced != host {
-            output::line(format!(
-                "FAIL {path} does not match the declaration; run 'sdd hooks --apply'"
-            ));
-            count += 1;
-        }
-        match &agents {
-            Agents::Stale(..) => {
-                output::line(format!(
-                    "FAIL the documentation block in {agents_path} does not match the declaration; run 'sdd hooks --apply'"
-                ));
-                count += 1;
-            }
-            Agents::Missing(why) => {
-                output::line(format!(
-                    "FAIL the install recorded a documentation block in {agents_path} and {why}; run 'sdd init --apply' to restore it"
-                ));
-                count += 1;
-            }
-            Agents::Current | Agents::Unmanaged => {}
-        }
-        if count == 0 {
-            return Ok(());
-        }
-        return Err(AppError::Violations { count });
+        return check(&path, spliced == host, &agents_path, &agents);
     }
 
     // A recorded block that is gone is not this verb's to rewrite: the
