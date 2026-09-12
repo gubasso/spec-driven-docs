@@ -21,9 +21,9 @@ Load this file, find the owning chapter below, then read that chapter. Do not re
 | Question the agent arrives with                             | Owning chapter   |
 | ----------------------------------------------------------- | ---------------- |
 | What is a verdict allowed to be based on?                   | `model.md`       |
-| How wide may the table be, and when do I split it?          | `table-shape.md` |
+| How wide can the table be, and when do I split it?          | `table-shape.md` |
 | Which verdict do I put in this cell, and how is it written? | `verdicts.md`    |
-| Where may a link start, where does it land, how many?       | `references.md`  |
+| Where can a link start, where does it land, how many?       | `references.md`  |
 | What shape is the scenario and its result?                  | `scenarios.md`   |
 | How is the document dated and refreshed?                    | `freshness.md`   |
 | What command enforces this rule?                            | `gates.md`       |

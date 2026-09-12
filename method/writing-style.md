@@ -41,6 +41,7 @@ Descriptive text explains a subject.
 - Do not put an `-ing` verb after a comma. Bad: "The hook failed, blocking the commit." Good: "The hook failed and blocked the commit."
 - Put a condition before its command. Bad: "Read the log if the build fails." Good: "If the build fails, read the log."
 - Use `can` for ability, `will` for a certain future result, and `must` for an obligation. Bad: "The user should restart the service." Good: "The user must restart the service."
+  - This rule governs lowercase prose. [`rules.md`](./rules.md#keywords) owns the uppercase keywords.
 - Do not use contractions. Bad: "The command doesn't change the file." Good: "The command does not change the file."
 - Do not use a semicolon. Bad: "The check failed; read the report." Good: "The check failed. Read the report."
 - Do not use an em dash. Bad: "The record is immutable—the spec owns the present." Good: "The record is immutable. The spec owns the present."

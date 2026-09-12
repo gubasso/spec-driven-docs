@@ -47,7 +47,7 @@ The length limit is the point. An evidence section that grows into an essay is a
 - A scenario MUST NOT depend on the author's machine, an unpublished tool, or a private path.
 - A scenario that cannot be made portable MUST be marked untested rather than reported.
 
-A verdict a reader cannot reproduce is an assertion with a symbol in front of it. If the honest answer is that the run needs hardware the reader does not have, say so in the evidence section and keep the verdict. If it needs the author's own setup, the row is not ready.
+A verdict a reader cannot reproduce is an assertion with a symbol in front of it. If the honest answer is hardware the reader does not have, say so in the evidence section. Keep the verdict. If it needs the author's own setup, the row is not ready.
 
 ## One run is not a result
 

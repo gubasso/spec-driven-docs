@@ -4,7 +4,7 @@ A format for the document that answers whether to use this instead of that. The 
 
 ## Problem
 
-Two failures produce most comparison pages. The first is a matrix built by reading everyone's documentation: fast to write, impossible to re-verify, wrong within a release, and indistinguishable from an honest one. The second is a matrix of bare emoji: scannable and unreadable, because a screen reader announces the symbol by its Unicode name and the symbol vanishes in monochrome. It is also unreadable because the symbol carries no qualification for the middle state where most real answers live.
+Two failures produce most comparison pages. The first is a matrix built by reading everyone's documentation. It is fast to write, impossible to re-verify, and wrong within a release. It also looks exactly like an honest one. The second is a matrix of bare emoji, which is scannable and unreadable at once. A screen reader announces the symbol by its Unicode name, and the symbol vanishes in monochrome. The symbol also carries no qualification for the middle state where most real answers live.
 
 ## Model
 
@@ -25,7 +25,7 @@ Two failures produce most comparison pages. The first is a matrix built by readi
 | [Table shape](./table-shape.md)                            | Five columns, split by theme, rows phrased as observable behavior.  |
 | [Verdicts](./verdicts.md)                                  | Six states, symbol plus word, and why a blank cell is not a value.  |
 | [References](./references.md)                              | Label links to the method, verdict links to the evidence.           |
-| [Scenarios](./scenarios.md)                                | The method names no expected outcome; the evidence names a version. |
+| [Scenarios](./scenarios.md)                                | The method names no expected outcome. The evidence names a version. |
 | [Freshness](./freshness.md)                                | Every table is dated, and untested beats a stale yes.               |
 | [Gates](./gates.md)                                        | Five working commands, and the rules no command can check.          |
 | [Checklist](./checklist.md)                                | What must pass before the document merges.                          |

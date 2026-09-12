@@ -44,7 +44,7 @@ Legend: ✅ yes, works on the default path · ⚠️ partial, needs configuratio
 - A cell MUST NOT be empty.
 - A cell MUST NOT hold a bare dash, an em dash, or `-` as a verdict.
 
-An empty cell means one of four different things and the reader cannot tell which: not applicable, not tested, tested and negative, or the author stopped filling the table. `➖ n/a` and `❓ untested` exist to separate the two honest cases, and they read as deliberate where a blank reads as unfinished.
+An empty cell means one of four different things, and the reader cannot tell which. It can mean not applicable, not tested, tested and negative, or the author stopped filling the table. `➖ n/a` and `❓ untested` exist to separate the two honest cases, and they read as deliberate where a blank reads as unfinished.
 
 `❓ untested` is the state authors are most tempted to skip, and it is the one that keeps the document trustworthy. [Freshness](./freshness.md) owns what to do with it.
 

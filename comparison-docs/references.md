@@ -37,7 +37,7 @@ Two references in a cell mean the row is really two rows. A reader who meets two
 - Evidence MAY live in the same document, below the matrix, or in a separate document.
 - A heading used as an anchor MUST be unique within its section.
 
-Same document is the default: the round trip is one jump each way and the reader never loses the table. Split to a separate document when the evidence for one theme outgrows the matrix that indexes it. Keep one file per theme rather than one file per subject, so the shared method stays beside the results it produced.
+Same document is the default: the round trip is one jump each way and the reader never loses the table. Split to a separate document when the evidence for one theme outgrows the matrix that indexes it. Keep one file per theme rather than one file per subject. The shared method then stays beside the results it produced.
 
 Uniqueness is not cosmetic. Repeating `### Result` under every capability produces a set of anchors that a linter accepts and a reader cannot distinguish. Name the heading for the pair it describes: `### Fork bomb, podman`.
 

@@ -65,4 +65,4 @@ No command checks these. They are review obligations, and a reviewer who is told
 - That a `Verified:` date is the date of the runs rather than the date of the edit.
 - That a repeated-run claim rests on the number of runs it states.
 
-The first is the shelf's central rule and the least checkable one. Nothing distinguishes a verdict read off a changelog from a verdict observed. That is why [Scenarios](./scenarios.md) requires the evidence section to carry a version and a date: not because that proves the run happened, but because inventing one is a deliberate act rather than a lapse.
+The first is the shelf's central rule and the least checkable one. Nothing distinguishes a verdict read off a changelog from a verdict observed. That is why [Scenarios](./scenarios.md) requires the evidence section to carry a version and a date. The version and the date do not prove the run happened. They make inventing one a deliberate act rather than a lapse.

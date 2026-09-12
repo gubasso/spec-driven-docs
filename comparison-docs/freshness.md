@@ -25,7 +25,7 @@ A stale positive is worse than a gap. A reader who sees `❓ untested` knows exa
 - A document MUST carry a re-verification cadence.
 - The cadence MUST live wherever the project tracks perishable facts, not only in prose.
 
-Pick the cadence from what moves. A row about a subject on a six-week release train needs a look each release. A row about a filesystem boundary that has not changed in a decade does not. One cadence for the whole document sets it wrong for most rows.
+Pick the cadence from what moves. A row about a subject on a six-week release train needs a look each release. A row about a filesystem boundary that stayed fixed for a decade does not. One cadence for the whole document sets it wrong for most rows.
 
 ## Retiring a subject
 
