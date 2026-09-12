@@ -29,7 +29,7 @@ The destination also matters to the reader. A footnote drops them at the bottom 
 
 - A cell MUST carry at most one reference.
 
-Two references in a cell mean the row is really two rows. This is the rule the MDN browser compatibility tables enforce at the data level: one note per support assertion, because a cell that needs two qualifications is asserting two things.
+Two references in a cell mean the row is really two rows. A reader who meets two links in one cell stops scanning and starts reading, which is the cost [Table shape](./table-shape.md) and [Verdicts](./verdicts.md) already price. The rule is this shelf's own. The MDN schema permits an array of notes on one support statement, so it imposes no such limit.
 
 ## Where the destination lives
 
@@ -50,6 +50,6 @@ The notes column is what several published matrices use, and it reads well when 
 ## Sources
 
 - The GitHub Flavored Markdown specification, on cells holding inline content only and block-level elements being excluded: <https://github.github.com/gfm/>
-- MDN, on one footnote per compatibility cell: <https://developer.mozilla.org/en-US/docs/MDN/Writing_guidelines/Page_structures/Compatibility_tables>
+- MDN browser-compat-data schema, on `notes` being a string or an array of strings: <https://github.com/mdn/browser-compat-data/blob/main/schemas/compat-data-schema.md>
 - caniuse, whose cell carries a support state plus a numbered note pointing at the catch: <https://github.com/Fyrd/caniuse/blob/main/CONTRIBUTING.md>
 - EMQX, a published matrix using a trailing notes column across thematic tables: <https://docs.emqx.com/en/emqx/latest/getting-started/feature-comparison.html>
