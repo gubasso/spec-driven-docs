@@ -29,7 +29,7 @@ The destination also matters to the reader. A footnote drops them at the bottom 
 
 - A cell MUST carry at most one reference.
 
-Two references in a cell mean the row is really two rows. This is the rule the MDN browser compatibility tables enforce at the data level: one note per support assertion, because a cell that needs two qualifications is asserting two things.
+Two references in a cell mean the row is really two rows. A reader who meets two links in one cell stops scanning and starts reading, which is the cost [Table shape](./table-shape.md) and [Verdicts](./verdicts.md) already price. The rule is this shelf's own. The MDN schema permits an array of notes on one support statement, so it imposes no such limit.
 
 ## Where the destination lives
 
@@ -37,7 +37,7 @@ Two references in a cell mean the row is really two rows. This is the rule the M
 - Evidence MAY live in the same document, below the matrix, or in a separate document.
 - A heading used as an anchor MUST be unique within its section.
 
-Same document is the default: the round trip is one jump each way and the reader never loses the table. Split to a separate document when the evidence for one theme outgrows the matrix that indexes it. Keep one file per theme rather than one file per subject, so the shared method stays beside the results it produced.
+Same document is the default: the round trip is one jump each way and the reader never loses the table. Split to a separate document when the evidence for one theme outgrows the matrix that indexes it. Keep one file per theme rather than one file per subject. The shared method then stays beside the results it produced.
 
 Uniqueness is not cosmetic. Repeating `### Result` under every capability produces a set of anchors that a linter accepts and a reader cannot distinguish. Name the heading for the pair it describes: `### Fork bomb, podman`.
 
@@ -50,6 +50,6 @@ The notes column is what several published matrices use, and it reads well when 
 ## Sources
 
 - The GitHub Flavored Markdown specification, on cells holding inline content only and block-level elements being excluded: <https://github.github.com/gfm/>
-- MDN, on one footnote per compatibility cell: <https://developer.mozilla.org/en-US/docs/MDN/Writing_guidelines/Page_structures/Compatibility_tables>
+- MDN browser-compat-data schema, on `notes` being a string or an array of strings: <https://github.com/mdn/browser-compat-data/blob/main/schemas/compat-data-schema.md>
 - caniuse, whose cell carries a support state plus a numbered note pointing at the catch: <https://github.com/Fyrd/caniuse/blob/main/CONTRIBUTING.md>
 - EMQX, a published matrix using a trailing notes column across thematic tables: <https://docs.emqx.com/en/emqx/latest/getting-started/feature-comparison.html>
