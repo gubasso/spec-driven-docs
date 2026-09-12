@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.7.0](https://github.com/gubasso/spec-driven-docs/compare/v0.6.6...v0.7.0) - 2026-09-11
 
+This version removes `spec-to-code:a-permanent-exception-states-its-reason` and the model of other tools' suppression syntax that enforced it. An instance that upgrades has work to do in the same change:
+
+- Re-point any citation of that rule ID. It no longer resolves, so a `SATISFIES` comment or an entry document naming it fails the citation check.
+- Turn on the reason rule your own toolchain ships. Rust has `clippy::allow_attributes_without_reason` and JavaScript has `eslint-comments/require-description`. Ruff ships no equivalent, so a Python suppression leaves its reason to review.
+- Declare the paths whose `KI-` tokens are fixtures rather than citations. `sdd gate suppression-names-its-case` now reads every `KI-<slug>` token outside the documentation root, so a test that builds a record in a temporary directory needs an entry under `gates:` in `.spec-driven-docs/config.yaml`.
+
+An `sdd: permanent` marker already written stays as inert prose. No gate reads it, and nothing fails on it. `spec-to-code:a-suppression-names-its-case` keeps its ID, so every citation of that rule still resolves.
+
+```bash
+sdd upgrade --target . --dry-run
+sdd upgrade --target .
+```
+
 ### Added
 
 - *(gates)* [**breaking**] Keep the case check and delete the suppression-syntax model ([#78](https://github.com/gubasso/spec-driven-docs/pull/78))
