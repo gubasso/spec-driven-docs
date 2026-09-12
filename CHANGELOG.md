@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.2](https://github.com/gubasso/spec-driven-docs/compare/v0.7.1...v0.7.2) - 2026-09-12
+
+This version gives a project two policies of its own and one command that keeps its specifications in agreement with them. Nothing fails on an upgraded instance that declares neither.
+
+- Budget debt. `.spec-driven-docs/debt.yaml` carries an inherited budget violation per gate, path, and dimension, and the four budget gates judge the record instead of the budget. The record only shrinks: `sdd debt baseline` creates it once, `sdd debt migrate` converts the older `chapter-size-debt.txt`, and `sdd debt tighten` lowers it. An instance still carrying the flat list works as before and `sdd verify` names the migration. `spec-size-cap` now reports a missing table of contents beside an over-cap line count rather than after it.
+- Writing source. `writing_style` in `.spec-driven-docs/config.yaml` selects `builtin`, `project`, or `none`, and `sdd hooks --apply` rewrites the documentation block in `AGENTS.md` as well as the pre-commit block. An absent key is `builtin`, so the route an upgraded instance carries does not change.
+- Reconciliation. `SPEC-budget-debt.md` and `SPEC-writing-policy.md` seed on the upgrade. Where a project already holds a file at either destination, the upgrade keeps it and says so, and `sdd policy reconcile` offers the rule that authorizes the declaration.
+
+```bash
+sdd upgrade --target . --dry-run
+sdd upgrade --target .
+```
+
+### Added
+
+- *(instance)* Carry inherited violations and select the writing source ([#83](https://github.com/gubasso/spec-driven-docs/pull/83))
+
 ## [0.7.1](https://github.com/gubasso/spec-driven-docs/compare/v0.7.0...v0.7.1) - 2026-09-12
 
 ### Other
