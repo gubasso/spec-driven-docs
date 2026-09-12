@@ -40,10 +40,10 @@ An emoji's accessible name comes from the Unicode consortium and cannot be overr
 
 ## Width on a small screen
 
-| Source                              | Establishes                                                                                                                                                                                      | Confirmed  |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
-| Nielsen Norman Group, mobile tables | For complex or wordy entries, roughly two columns fit legibly on a narrow phone. A comparison table is the article's example. The options are vertical stacking, horizontal scroll, or a toggle. | 2026-08-18 |
-| UXmatters, designing mobile tables  | A comparison table can need horizontal scrolling to preserve its column relationships. A content table can become a vertical list and keep its meaning.                                          | 2026-08-18 |
+| Source                              | Establishes                                                                                                                                                                                                                                | Confirmed  |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
+| Nielsen Norman Group, mobile tables | For complex or wordy entries, roughly two columns fit legibly on a narrow phone. A comparison table is the article's example. The remedies are sticky headers and columns, a selective view, an accordion, and a visible scroll indicator. | 2026-09-12 |
+| UXmatters, designing mobile tables  | Sideways scrolling forces an oversized element into a mobile screen, and dual-axis scrolling is confusing. Converting a table into a vertical list breaks every table interaction.                                                         | 2026-09-12 |
 
 No standards body publishes a column limit, and the shelf's five-column rule is an operational default rather than a cited constant. What is cited is that the failure arrives early and that splitting is the accessible remedy.
 
