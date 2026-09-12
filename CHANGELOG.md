@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0](https://github.com/gubasso/spec-driven-docs/compare/v0.7.2...v0.8.0) - 2026-09-12
+
+### Other
+
+- *(method)* [**breaking**] Name every managed document by a slug and narrow the keyword set ([#85](https://github.com/gubasso/spec-driven-docs/pull/85))
+
 ## [0.7.2](https://github.com/gubasso/spec-driven-docs/compare/v0.7.1...v0.7.2) - 2026-09-12
 
 This version gives a project two policies of its own and one command that keeps its specifications in agreement with them. Nothing fails on an upgraded instance that declares neither.
