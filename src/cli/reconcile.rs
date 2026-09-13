@@ -75,6 +75,14 @@ pub struct PlanArgs {
     #[arg(long = "set", value_name = "DECISION=ANSWER")]
     pub set: Vec<String>,
 
+    /// A path no delivered gate judges. Repeatable.
+    ///
+    /// A region another tool renders or hashes. It changes what the
+    /// landing writes, so it is part of the plan rather than a flag on
+    /// the apply.
+    #[arg(long, value_name = "PATH")]
+    pub reserve: Vec<String>,
+
     /// Print one JSON object instead of text.
     #[arg(long)]
     pub json: bool,

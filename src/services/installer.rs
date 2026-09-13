@@ -8,11 +8,8 @@
 //! guarded; and any failure mid-apply rolls the target back. What the
 //! payload contains is `embedded`'s and the profiles' business.
 
-use std::collections::BTreeMap;
-
 use camino::{Utf8Path, Utf8PathBuf};
 
-use crate::adapters::fs::{DestinationRefusal, check_destination, write_file};
 use crate::domain::manifest::{
     CANON_SOURCE, MANIFEST_PATH, Manifest, PlanZone, SCHEMA_VERSION, validate_docs_scratch_path,
     validate_plan_zone_path,
@@ -24,7 +21,6 @@ use crate::domain::version::CanonVersion;
 use crate::error::AppError;
 use crate::release::ReleaseBundle;
 use crate::services::hooks_render::{RenderOptions, render_block};
-use crate::services::verifier;
 
 /// What an installation was asked to do.
 #[derive(Debug, Clone)]
@@ -57,6 +53,8 @@ pub struct InitOutcome {
     pub lines: Vec<String>,
     /// Whether files were written.
     pub applied: bool,
+    /// Every destination the landing took back, relative to the target.
+    pub removed: Vec<String>,
 }
 
 fn canonical_target(target: &Utf8Path) -> Result<Utf8PathBuf, AppError> {
@@ -421,114 +419,6 @@ pub fn compute_target_state(
     Ok(TargetState { files, lines })
 }
 
-fn refusal_line(destination: &Utf8Path, refusal: &DestinationRefusal) -> String {
-    match refusal {
-        DestinationRefusal::SymlinkEscape => {
-            format!("destination escapes the target through a symlink: {destination}")
-        }
-        DestinationRefusal::FileBlocksDirectory(blocked) => {
-            format!("a file blocks a directory the install needs: {blocked}")
-        }
-        DestinationRefusal::NotARegularFile => {
-            format!("destination exists and is not a regular file: {destination}")
-        }
-    }
-}
-
-fn apply(target: &Utf8Path, state: &TargetState) -> Result<(), AppError> {
-    let mut ordered: Vec<&(Utf8PathBuf, Vec<u8>)> = state.files.iter().collect();
-    ordered.sort_by(|a, b| a.0.as_str().as_bytes().cmp(b.0.as_str().as_bytes()));
-
-    for (destination, _) in &ordered {
-        check_destination(target, destination)
-            .map_err(|refusal| AppError::Refused(refusal_line(destination, &refusal)))?;
-    }
-
-    let mut backups: BTreeMap<Utf8PathBuf, Option<Vec<u8>>> = BTreeMap::new();
-    let rollback = |backups: &BTreeMap<Utf8PathBuf, Option<Vec<u8>>>| -> Vec<Utf8PathBuf> {
-        let mut unrestored = Vec::new();
-        for (destination, previous) in backups {
-            let full = target.join(destination);
-            let restored = previous.as_ref().map_or_else(
-                || std::fs::remove_file(&full).is_ok() || !full.exists(),
-                |bytes| write_file(&full, bytes).is_ok(),
-            );
-            if !restored {
-                unrestored.push(destination.clone());
-            }
-        }
-        unrestored
-    };
-    // The cause travels with the refusal: the caller has already lost the
-    // written tree by the time it reads this, so a bare "aborted" leaves
-    // nothing to act on.
-    let abort = |unrestored: Vec<Utf8PathBuf>, cause: &str| {
-        if unrestored.is_empty() {
-            AppError::Refused(format!("apply aborted; the target was restored: {cause}"))
-        } else {
-            let paths: Vec<&str> = unrestored.iter().map(|p| p.as_str()).collect();
-            AppError::Refused(format!(
-                "apply aborted and restoration is incomplete; verify by hand: {}: {cause}",
-                paths.join(" ")
-            ))
-        }
-    };
-
-    for (destination, _) in &ordered {
-        let full = target.join(destination);
-        let previous = if full.is_file() {
-            Some(std::fs::read(&full).map_err(|source| {
-                AppError::Refused(format!("cannot back up {destination}: {source}"))
-            })?)
-        } else {
-            None
-        };
-        backups.insert((*destination).clone(), previous);
-    }
-
-    let write_all = || -> std::io::Result<()> {
-        for (destination, bytes) in &ordered {
-            if destination.as_str() != MANIFEST_PATH {
-                write_file(&target.join(destination), bytes)?;
-            }
-        }
-        for (destination, bytes) in &ordered {
-            if destination.as_str() == MANIFEST_PATH {
-                write_file(&target.join(destination), bytes)?;
-            }
-        }
-        Ok(())
-    };
-
-    if let Err(source) = write_all() {
-        return Err(abort(
-            rollback(&backups),
-            &format!("write failed: {source}"),
-        ));
-    }
-
-    match verifier::verify(
-        target,
-        &crate::release::embedded::EmbeddedReleaseBundle::new(),
-    ) {
-        Ok(report) if report.failures == 0 => Ok(()),
-        Ok(report) => {
-            let failures: Vec<&str> = report
-                .lines
-                .iter()
-                .filter(|line| line.starts_with("FAIL"))
-                .map(String::as_str)
-                .collect();
-            let cause = failures.join("; ");
-            Err(abort(rollback(&backups), &cause))
-        }
-        Err(source) => Err(abort(
-            rollback(&backups),
-            &format!("the written target could not be verified: {source}"),
-        )),
-    }
-}
-
 /// Install or reinstall an instance.
 ///
 /// # Errors
@@ -538,6 +428,26 @@ fn apply(target: &Utf8Path, state: &TargetState) -> Result<(), AppError> {
 /// and [`AppError::Refused`] when the apply could not complete — the target
 /// is restored before that returns.
 pub fn init(
+    options: &InitOptions,
+    bundle: &dyn ReleaseBundle,
+    intent: crate::plan::classify::Intent,
+) -> Result<InitOutcome, AppError> {
+    init_with(
+        &crate::plan::decision::Selections::new(),
+        options,
+        bundle,
+        intent,
+    )
+}
+
+/// Install or reinstall an instance, carrying answers the caller collected.
+///
+/// # Errors
+///
+/// As [`init`], plus whatever the plan refuses when a decision it raises
+/// is unanswered.
+pub fn init_with(
+    answered: &crate::plan::decision::Selections,
     options: &InitOptions,
     bundle: &dyn ReleaseBundle,
     intent: crate::plan::classify::Intent,
@@ -554,7 +464,7 @@ pub fn init(
     let dry = options.dry_run || forced_dry;
 
     let state = compute_target_state(&target, options, bundle)?;
-    let mut lines = state.lines.clone();
+    let mut lines = state.lines;
 
     if dry {
         if forced_dry {
@@ -567,12 +477,60 @@ pub fn init(
         return Ok(InitOutcome {
             lines,
             applied: false,
+            removed: Vec::new(),
         });
     }
 
-    apply(&target, &state)?;
+    // Every write into a target comes from an operation in one plan, so
+    // this verb reaches the engine rather than writing what it computed.
+    // The state above is what the planner derives its operations from, so
+    // the landing is the same landing; what it gains is the plan's own id,
+    // the journal that can take it back, and a recorded result.
+    let result = crate::plan::session::land(&crate::plan::session::Landing {
+        target: &target,
+        selector: "embedded",
+        offline: true,
+        selections: with_profile(answered, options.profile),
+        reserve: options.reserve.clone(),
+        declared: Some(options.clone()),
+    })?;
+    for refused in result
+        .postconditions
+        .iter()
+        .filter(|postcondition| !postcondition.held)
+    {
+        lines.push(format!(
+            "FAIL {} did not hold: {}",
+            refused.id,
+            refused.detail.clone().unwrap_or_default()
+        ));
+    }
     Ok(InitOutcome {
         lines,
         applied: true,
+        removed: result
+            .operations
+            .iter()
+            .filter(|operation| operation.kind == "remove-owned-file")
+            .map(|operation| operation.path.clone())
+            .collect(),
     })
+}
+
+/// The one decision a front's flags still answer by name.
+///
+/// The rest travel as the options themselves. A flag and a decision are
+/// the same answer under two names, and rendering a recorded value back
+/// into its flag spelling only to parse it again is a round trip that can
+/// lose what it carries.
+fn with_profile(
+    answered: &crate::plan::decision::Selections,
+    profile: ProfileId,
+) -> crate::plan::decision::Selections {
+    let mut selections = answered.clone();
+    selections.insert(
+        crate::plan::decision::id::PROFILE.to_string(),
+        profile.to_string(),
+    );
+    selections
 }

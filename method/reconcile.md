@@ -77,7 +77,11 @@ The small-step path is that last case made routine. Where an interval is long, p
 | `sdd upgrade`         | upgrade, drift, current        | the operations |
 | `sdd assess`          | every classification           | nothing        |
 
+Every one of them writes through the same engine. `sdd init` and `sdd upgrade` are short forms: each turns its flags into the plan's own answers, computes one plan, stores it, and executes exactly that. Neither has a write path of its own, so a landing they perform leaves the same plan id, the same journal, and the same recorded result as `sdd reconcile apply`.
+
 A front constrains which classifications it serves and refuses the rest, naming what the target turned out to be and the verb that serves it. `sdd init` refuses a settled corpus with no instance, because landing seeds there starts a second convention beside the first. `sdd upgrade` refuses an absent instance. Neither widens its own scope, because a front that did would be the classification lying about the target.
+
+A short form can still meet a question. A release in the interval that asks something of a person raises a decision, and `sdd upgrade` stops and names it. Answer it with `--set` there, or ask `sdd reconcile plan` for the step's body first and decide with it in front of you.
 
 `sdd status` reports. A version gap it prints is a fact about the target, not work anybody approved, and the next step is a plan.
 

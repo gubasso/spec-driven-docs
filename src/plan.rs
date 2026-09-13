@@ -30,6 +30,7 @@ pub mod observe;
 pub mod operation;
 pub mod planner;
 pub mod readiness;
+pub mod session;
 pub mod store;
 
 use serde::{Deserialize, Serialize};
@@ -74,6 +75,13 @@ pub struct DesiredState {
     pub release_sha256: Sha256,
     /// The profile the target takes.
     pub profile: Option<ProfileId>,
+    /// Paths no delivered gate judges, as the caller reserved them.
+    ///
+    /// Carried so an apply recomputes the same landing. The bytes they
+    /// change are already in the operations, so the fingerprint covers
+    /// them there rather than twice.
+    #[serde(default)]
+    pub reserved: Vec<String>,
     /// What that release declares it lands, as counts a reader can check.
     pub declared: Declared,
 }

@@ -15,7 +15,7 @@ use crate::domain::ownership::Sha256;
 use crate::domain::profile::ProfileId;
 use crate::domain::version::CanonVersion;
 use crate::error::AppError;
-use crate::services::installer::{InitOptions, init};
+use crate::services::installer::{InitOptions, init_with};
 
 /// What an upgrade was asked to do.
 #[derive(Debug, Clone)]
@@ -24,6 +24,8 @@ pub struct UpgradeOptions {
     pub target: Utf8PathBuf,
     /// Report the plan and change nothing.
     pub dry_run: bool,
+    /// Every decision the operator answered on the command line.
+    pub selections: crate::plan::decision::Selections,
 }
 
 /// What an upgrade did.
@@ -129,59 +131,21 @@ fn prune_empty_parent(full: &Utf8Path, raw: &str, prunable: &str) {
     }
 }
 
-fn prune(
-    target: &Utf8Path,
-    dropped: &[Utf8PathBuf],
-    outcome: &mut UpgradeOutcome,
-) -> Vec<Utf8PathBuf> {
-    let mut unremoved = Vec::new();
-    for destination in dropped {
-        let raw = destination.as_str();
-        if raw.starts_with('/')
-            || raw == ".."
-            || raw.starts_with("../")
-            || raw.ends_with("/..")
-            || raw.contains("/../")
-        {
-            outcome.lines.push(format!(
-                "refused to remove a destination that leaves the target: {raw}"
-            ));
-            outcome.failures += 1;
-            continue;
-        }
+/// Report what the landing took back, and tidy the directories it emptied.
+///
+/// The removals are the plan's own operations, applied under its journal.
+/// This says what happened and removes the directory a removed file left
+/// empty, which no operation names because a directory is not a file.
+fn report_removals(target: &Utf8Path, removed: &[String], outcome: &mut UpgradeOutcome) {
+    for raw in removed {
+        outcome
+            .lines
+            .push(format!("removed managed file no longer owned: {raw}"));
         let Some(prunable) = PRUNABLE.iter().find(|prefix| raw.starts_with(**prefix)) else {
             continue;
         };
-        let mut prefix = target.to_path_buf();
-        let parts: Vec<&str> = raw.split('/').collect();
-        let mut escapes = false;
-        for part in &parts[..parts.len() - 1] {
-            prefix.push(part);
-            if prefix.is_symlink() {
-                escapes = true;
-            }
-        }
-        let full = target.join(destination);
-        if escapes || full.is_symlink() {
-            outcome.lines.push(format!(
-                "refused to remove a destination reached through a symlink: {raw}"
-            ));
-            outcome.failures += 1;
-            continue;
-        }
-        if !full.is_file() {
-            continue;
-        }
-        if std::fs::remove_file(&full).is_ok() {
-            outcome
-                .lines
-                .push(format!("removed managed file no longer owned: {raw}"));
-            prune_empty_parent(&full, raw, prunable);
-        } else {
-            unremoved.push(destination.clone());
-        }
+        prune_empty_parent(&target.join(raw), raw, prunable);
     }
-    unremoved
 }
 
 /// Upgrade an installed instance to this binary's version.
@@ -274,7 +238,8 @@ pub fn upgrade(
         return Ok(outcome);
     }
 
-    let reinstalled = init(
+    let reinstalled = init_with(
+        &options.selections,
         &InitOptions {
             target: target.clone(),
             profile: installed.profile,
@@ -301,6 +266,7 @@ pub fn upgrade(
     // The reinstall's destination list is noise here, and its notes are
     // not: a seed that did not land because the project already holds the
     // destination is something the operator must hear about once.
+    let removed = reinstalled.removed.clone();
     outcome.lines.extend(
         reinstalled
             .lines
@@ -308,47 +274,19 @@ pub fn upgrade(
             .filter(|line| line.starts_with("note:")),
     );
 
-    finish(&target, &installed, old, new, &mut outcome)?;
+    finish(&target, &installed, &removed, old, new, &mut outcome);
     Ok(outcome)
 }
 
 fn finish(
     target: &Utf8Path,
     installed: &Installed,
+    removed: &[String],
     old: CanonVersion,
     new: CanonVersion,
     outcome: &mut UpgradeOutcome,
-) -> Result<(), AppError> {
-    let fresh = Manifest::parse(&std::fs::read_to_string(target.join(MANIFEST_PATH))?)
-        .map_err(|error| AppError::ManifestInvalid(error.to_string()))?;
-    let kept: std::collections::BTreeSet<&Utf8PathBuf> = fresh
-        .managed_files
-        .iter()
-        .map(|entry| &entry.destination)
-        .collect();
-    let dropped: Vec<Utf8PathBuf> = installed
-        .managed
-        .iter()
-        .map(|(destination, _)| destination.clone())
-        .filter(|destination| !kept.contains(destination))
-        .collect();
-    let unremoved = prune(target, &dropped, outcome);
-    if !unremoved.is_empty() {
-        outcome.lines.push(
-            "FAIL these files are no longer owned and could not be removed; delete them by hand:"
-                .to_string(),
-        );
-        for destination in &unremoved {
-            outcome.lines.push(format!("  {destination}"));
-        }
-        outcome.lines.push(format!(
-            "the payload and manifest are upgraded to {new}; only these removals remain, and"
-        ));
-        outcome.lines.push(format!(
-            "re-running this upgrade will report 'already at {new}' rather than retry them"
-        ));
-        outcome.failures += unremoved.len();
-    }
+) {
+    report_removals(target, removed, outcome);
 
     let mut local_ids = std::collections::BTreeSet::new();
     let specs = target.join(&installed.docs_root).join("specs");
@@ -383,5 +321,4 @@ fn finish(
     } else {
         outcome.lines.push(format!("OK upgraded {old} to {new}"));
     }
-    Ok(())
 }

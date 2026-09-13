@@ -35,13 +35,13 @@ Rules governing the plan: one typed, immutable document that is the input to eve
 
 ### `reconcile:one-plan-is-the-input-to-every-write` — One plan is the input to every write
 
-Every write into a target repository MUST come from an operation in one plan, and the operation set MUST be closed. An operation MUST name digests and never bytes, MUST name one validated target-relative path, and MUST NOT run a command.
+Every write into a target repository MUST come from an operation in one plan, and the operation set MUST be closed. Every front verb MUST reach that engine and MUST NOT carry a write path of its own. An operation MUST name digests and never bytes, MUST name one validated target-relative path, and MUST NOT run a command.
 
 #### Scenario: A landing verb wants to write something the plan did not describe
 
 - GIVEN a plan whose operations do not name a destination
-- WHEN an apply runs
-- THEN the destination is not written, because three verbs walking one projection on three paths is three places for a rule to drift and one plan is one
+- WHEN a landing verb runs, whichever one the operator typed
+- THEN the destination is not written and the run leaves one recorded result under the plan's own id, because three verbs walking one projection on three paths is three places for a rule to drift and one plan is one
 
 Verify: `cargo nextest run -E 'binary(cmd_reconcile)'`
 

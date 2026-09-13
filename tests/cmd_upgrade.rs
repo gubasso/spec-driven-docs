@@ -73,8 +73,7 @@ fn an_instance_at_the_current_version_is_already_done() {
     let fixture = Fixture::new();
     fixture.install("knowledge-base");
     fixture
-        .cmd()
-        .args(["upgrade", "--target", &fixture.target()])
+        .upgrade()
         .assert()
         .success()
         .stdout(predicate::str::contains(format!(
@@ -108,8 +107,7 @@ fn conflicts_are_collected_and_abort_atomically() {
     .unwrap();
     let digest = fixture.tree_digest();
     fixture
-        .cmd()
-        .args(["upgrade", "--target", &fixture.target()])
+        .upgrade()
         .assert()
         .code(1)
         .stdout(predicate::str::contains(
@@ -136,8 +134,7 @@ fn an_upgrade_reinstalls_prunes_and_reports() {
     std::fs::set_permissions(&readonly_object, permissions).unwrap();
 
     fixture
-        .cmd()
-        .args(["upgrade", "--target", &fixture.target()])
+        .upgrade()
         .assert()
         .success()
         .stdout(predicate::str::contains(
@@ -185,17 +182,25 @@ fn a_symlinked_prune_destination_is_refused() {
     )
     .unwrap();
 
+    // The whole apply refuses before it stages anything, rather than
+    // skipping the one destination and landing the rest. The target is
+    // therefore untouched, which is the stronger of the two guarantees.
+    let digest = fixture.tree_digest();
     fixture
-        .cmd()
-        .args(["upgrade", "--target", &fixture.target()])
+        .upgrade()
         .assert()
-        .code(1)
-        .stdout(predicate::str::contains(
-            "refused to remove a destination reached through a symlink: .spec-driven-docs/verify.sh",
+        .code(73)
+        .stderr(predicate::str::contains(
+            "destination escapes the target through a symlink: .spec-driven-docs/verify.sh",
         ));
     assert!(
         outside_file.exists(),
         "the upgrade deleted through the symlink"
+    );
+    assert_eq!(
+        digest,
+        fixture.tree_digest(),
+        "a refused upgrade changed bytes"
     );
 }
 
@@ -207,8 +212,7 @@ fn any_older_version_upgrades_mechanically() {
         .replace("0.1.6", "0.0.1");
     fixture.write(".spec-driven-docs/manifest.json", &manifest);
     fixture
-        .cmd()
-        .args(["upgrade", "--target", &fixture.target()])
+        .upgrade()
         .assert()
         .success()
         .stdout(predicate::str::contains(format!(
@@ -249,8 +253,7 @@ fn a_stale_managed_skill_file_is_pruned() {
         &(serde_json::to_string_pretty(&older).unwrap() + "\n"),
     );
     fixture
-        .cmd()
-        .args(["upgrade", "--target", &fixture.target()])
+        .upgrade()
         .assert()
         .success()
         .stdout(predicate::str::contains(
@@ -280,11 +283,7 @@ fn a_locally_edited_agents_block_aborts_the_upgrade() {
     let fixture = v1_instance();
     // The v1 instance has no AGENTS block; a reinstall adds one. Give it a
     // current-shaped instance instead by reinstalling first, then editing.
-    fixture
-        .cmd()
-        .args(["upgrade", "--target", &fixture.target()])
-        .assert()
-        .success();
+    fixture.upgrade().assert().success();
     let agents = fixture.read("AGENTS.md").replace(
         "Run `sdd verify` before handoff.",
         "Run something else entirely.",
@@ -297,8 +296,7 @@ fn a_locally_edited_agents_block_aborts_the_upgrade() {
     fixture.write(".spec-driven-docs/manifest.json", &manifest);
     let digest = fixture.tree_digest();
     fixture
-        .cmd()
-        .args(["upgrade", "--target", &fixture.target()])
+        .upgrade()
         .assert()
         .code(1)
         .stdout(predicate::str::contains(
@@ -339,8 +337,7 @@ fn a_version_two_upgrade_reaches_the_current_schema() {
     downgrade_to_v2(&fixture);
 
     fixture
-        .cmd()
-        .args(["upgrade", "--target", &fixture.target()])
+        .upgrade()
         .assert()
         .success()
         .stdout(predicate::str::contains(format!(
@@ -387,11 +384,7 @@ fn a_reinstall_over_an_older_record_carries_the_declarations_forward() {
         &(serde_json::to_string_pretty(&manifest).unwrap() + "\n"),
     );
 
-    fixture
-        .cmd()
-        .args(["upgrade", "--target", &fixture.target()])
-        .assert()
-        .success();
+    fixture.upgrade().assert().success();
 
     let after: serde_json::Value =
         serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
@@ -435,8 +428,7 @@ fn an_older_schema_at_the_current_version_still_migrates() {
         .stdout(predicate::str::contains("DRY RUN migrate the record"));
 
     fixture
-        .cmd()
-        .args(["upgrade", "--target", &fixture.target()])
+        .upgrade()
         .assert()
         .success()
         .stdout(predicate::str::contains("OK migrated the record"));
@@ -465,8 +457,7 @@ fn a_version_two_instance_still_refuses_an_edited_managed_block() {
     fixture.write(".pre-commit-config.yaml", &config);
 
     fixture
-        .cmd()
-        .args(["upgrade", "--target", &fixture.target()])
+        .upgrade()
         .assert()
         .code(1)
         .stdout(predicate::str::contains(
@@ -498,11 +489,7 @@ fn behind_without(spec: &str) -> Fixture {
 fn the_new_specification_seeds_into_an_existing_instance() {
     let spec = "_docs/specs/SPEC-budget-debt.md";
     let fixture = behind_without(spec);
-    fixture
-        .cmd()
-        .args(["upgrade", "--target", &fixture.target()])
-        .assert()
-        .success();
+    fixture.upgrade().assert().success();
     assert!(
         fixture
             .read(spec)
@@ -525,8 +512,7 @@ fn project_content_at_the_new_destination_survives_and_notes() {
     let own = "# Budget Debt Specification\n\n## Purpose\n\nOurs.\n\n## Requirements\n\n### `budget-debt:our-own-rule` — Ours\n\nThe author MUST keep it.\n\n#### Scenario: Ours\n\n- GIVEN x\n- WHEN y\n- THEN z\n\nVerify: `true`\n";
     fixture.write(spec, own);
     fixture
-        .cmd()
-        .args(["upgrade", "--target", &fixture.target()])
+        .upgrade()
         .assert()
         .success()
         .stdout(predicate::str::contains(format!(
@@ -550,11 +536,7 @@ fn an_instance_carrying_only_the_legacy_list_stays_green_with_a_note() {
         ".spec-driven-docs/chapter-size-debt.txt",
         "method/carried.md\n",
     );
-    fixture
-        .cmd()
-        .args(["upgrade", "--target", &fixture.target()])
-        .assert()
-        .success();
+    fixture.upgrade().assert().success();
     assert!(!fixture.path().join(".spec-driven-docs/debt.yaml").exists());
     fixture
         .cmd()
@@ -574,11 +556,7 @@ fn an_instance_carrying_only_the_legacy_list_stays_green_with_a_note() {
 fn the_writing_policy_specification_seeds_into_an_existing_instance() {
     let spec = "_docs/specs/SPEC-writing-policy.md";
     let fixture = behind_without(spec);
-    fixture
-        .cmd()
-        .args(["upgrade", "--target", &fixture.target()])
-        .assert()
-        .success();
+    fixture.upgrade().assert().success();
     assert!(
         fixture
             .read(spec)
@@ -602,11 +580,7 @@ fn a_declaration_without_the_writing_style_key_upgrades_as_builtin() {
         .read(".spec-driven-docs/manifest.json")
         .replace(env!("CARGO_PKG_VERSION"), "0.7.0");
     fixture.write(".spec-driven-docs/manifest.json", &manifest);
-    fixture
-        .cmd()
-        .args(["upgrade", "--target", &fixture.target()])
-        .assert()
-        .success();
+    fixture.upgrade().assert().success();
     assert!(
         fixture
             .read("AGENTS.md")
@@ -646,11 +620,7 @@ fn an_upgrade_never_reconciles() {
         .replace(env!("CARGO_PKG_VERSION"), "0.7.0");
     fixture.write(".spec-driven-docs/manifest.json", &manifest);
 
-    fixture
-        .cmd()
-        .args(["upgrade", "--target", &fixture.target()])
-        .assert()
-        .success();
+    fixture.upgrade().assert().success();
     assert_eq!(
         fixture.read(spec),
         older,

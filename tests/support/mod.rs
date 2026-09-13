@@ -32,9 +32,16 @@ pub const RELOCATING_VARS: [&str; 3] = ["CLAUDE_CONFIG_DIR", "XDG_STATE_HOME", "
 /// absent. A test that means the read sets the variable back.
 pub const OFFLINE: (&str, &str) = ("SDD_OFFLINE", "1");
 
-/// One scratch target repository.
+/// One scratch target repository, with its own user-scope roots.
 pub struct Fixture {
     dir: tempfile::TempDir,
+    /// The state and cache roots this fixture's invocations use.
+    ///
+    /// Removing the variables is not enough: the tool then falls back to
+    /// the invoking user's own home, so the plan store, its lock, and the
+    /// bundle cache would be shared by every test in the suite and by the
+    /// developer running it. Each fixture gets its own.
+    home: tempfile::TempDir,
 }
 
 impl Fixture {
@@ -42,7 +49,10 @@ impl Fixture {
     pub fn new() -> Self {
         let dir = tempfile::tempdir().unwrap();
         std::fs::create_dir(dir.path().join(".git")).unwrap();
-        Self { dir }
+        Self {
+            dir,
+            home: tempfile::tempdir().unwrap(),
+        }
     }
 
     /// The target's absolute path.
@@ -68,6 +78,8 @@ impl Fixture {
         for name in RELOCATING_VARS {
             cmd.env_remove(name);
         }
+        cmd.env("XDG_STATE_HOME", self.home.path().join("state"));
+        cmd.env("XDG_CACHE_HOME", self.home.path().join("cache"));
         cmd
     }
 
@@ -84,6 +96,36 @@ impl Fixture {
             ])
             .assert()
             .success();
+    }
+
+    /// Every answer an upgrade across this canon's own history needs.
+    ///
+    /// Releases between 0.6.6 and here carry breaking guidance steps, and
+    /// the plan raises each as a decision. A test that means "upgrade
+    /// mechanically" is saying it accepts them, so it says so once here
+    /// rather than repeating the list.
+    pub fn guidance_answers() -> Vec<String> {
+        [
+            "guidance-coverage=accepted",
+            "guidance:0.7.0:re-point-the-retired-rule=accepted",
+            "guidance:0.7.0:declare-the-fixture-paths=accepted",
+        ]
+        .iter()
+        .flat_map(|answer| ["--set".to_string(), (*answer).to_string()])
+        .collect()
+    }
+
+    /// An `sdd upgrade` invocation that accepts every guidance step.
+    pub fn upgrade(&self) -> Command {
+        let mut cmd = self.cmd();
+        cmd.args(["upgrade", "--target", &self.target()]);
+        cmd.args(Self::guidance_answers());
+        cmd
+    }
+
+    /// Where this fixture's invocations keep state that outlives a command.
+    pub fn state_root(&self) -> PathBuf {
+        self.home.path().join("state")
     }
 
     /// Write a file under the target, creating parents.

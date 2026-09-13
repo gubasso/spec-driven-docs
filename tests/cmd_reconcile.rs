@@ -50,12 +50,41 @@ fn an_empty_target_plans_a_setup_and_waits_for_the_profile() {
 #[test]
 fn profile_selection_precedes_profile_relative_operations() {
     let fixture = Fixture::new();
+    // The profile alone unlocks the questions that depend on it and no
+    // operation: a first landing is a whole projection, so a partial one
+    // is not offered.
     let held = plan(&fixture, &["--set", "profile=codebase"]);
     assert_eq!(held["classification"], "setup");
+    assert!(
+        held["operations"].as_array().unwrap().is_empty(),
+        "a landing was offered before its declarations were settled"
+    );
+    let decisions: Vec<&str> = held["decisions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|decision| decision["id"].as_str().unwrap())
+        .collect();
+    assert!(decisions.contains(&"plan-zone"));
+    assert!(decisions.contains(&"writing-style"));
+
+    // Every declaration settled, the whole landing appears at once.
+    let held = plan(
+        &fixture,
+        &[
+            "--set",
+            "profile=codebase",
+            "--set",
+            "plan-zone=none",
+            "--set",
+            "docs-scratch=none",
+            "--set",
+            "writing-style=builtin",
+        ],
+    );
     let operations = held["operations"].as_array().unwrap();
     assert!(operations.len() > 20, "{} operations", operations.len());
     for operation in operations {
-        assert_eq!(operation["kind"], "write-file");
         // Every operation names digests and no bytes.
         assert!(operation.get("bytes").is_none());
         assert_eq!(operation["after"].as_str().unwrap().len(), 64);
@@ -66,15 +95,13 @@ fn profile_selection_precedes_profile_relative_operations() {
             .any(|operation| operation["path"] == "docs/specs/SPEC-instance.md"),
         "the codebase profile did not choose docs/"
     );
-    // The decisions the profile unlocks are now offered.
-    let decisions: Vec<&str> = held["decisions"]
-        .as_array()
-        .unwrap()
+    let kinds: std::collections::BTreeSet<&str> = operations
         .iter()
-        .map(|decision| decision["id"].as_str().unwrap())
+        .map(|operation| operation["kind"].as_str().unwrap())
         .collect();
-    assert!(decisions.contains(&"plan-zone"));
-    assert!(decisions.contains(&"writing-style"));
+    assert!(kinds.contains("write-record"), "{kinds:?}");
+    assert!(kinds.contains("splice-block"), "{kinds:?}");
+    assert!(kinds.contains("write-file"), "{kinds:?}");
 }
 
 #[test]
@@ -519,4 +546,58 @@ fn the_landing_verb_refuses_a_settled_corpus_without_writing() {
         ))
         .stderr(predicate::str::contains("sdd reconcile plan"));
     assert_eq!(before, fixture.tree_digest(), "the refusal wrote");
+}
+
+/// VERIFIES reconcile:one-plan-is-the-input-to-every-write
+///
+/// The compatibility fronts are short forms over the engine, not a second
+/// write path. What proves it is the store: a landing they performed left
+/// a recorded result under the plan's own fingerprint.
+#[test]
+fn the_landing_fronts_write_through_the_engine() {
+    let fixture = Fixture::new();
+    fixture
+        .cmd()
+        .args([
+            "init",
+            "--target",
+            &fixture.target(),
+            "--profile",
+            "codebase",
+            "--apply",
+        ])
+        .assert()
+        .success();
+
+    let state = std::fs::read_dir(fixture.state_root().join("spec-driven-docs/plans/results"))
+        .or_else(|_| std::fs::read_dir(fixture.state_root().join("spec-driven-docs/results")))
+        .expect("the front recorded no result, so it wrote outside the engine");
+    let results: Vec<_> = state.filter_map(Result::ok).collect();
+    assert_eq!(
+        results.len(),
+        1,
+        "one landing left {} recorded results",
+        results.len()
+    );
+    let fingerprint = results[0].file_name().to_str().unwrap().to_string();
+    assert_eq!(fingerprint.len(), 64, "the result is not under a plan id");
+
+    let attempts: Vec<_> = std::fs::read_dir(results[0].path())
+        .unwrap()
+        .filter_map(Result::ok)
+        .collect();
+    let result: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(attempts[0].path().join("result.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(result["schema"], "sdd.result/1");
+    assert_eq!(result["disposition"], "succeeded");
+    assert!(
+        result["postconditions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|held| held["held"] == true),
+        "a landing reported an unproven postcondition: {result}"
+    );
 }

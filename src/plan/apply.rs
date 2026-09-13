@@ -220,14 +220,40 @@ pub fn apply(request: &Request<'_>) -> std::result::Result<ApplyResult, AppError
     }
 
     if stored.operations.is_empty() {
-        let result = terminal(
-            stored,
-            now,
-            Disposition::Succeeded,
-            "the target already holds what the plan describes",
+        // A plan with nothing to write still proves what it claims. A
+        // target that already holds every byte can still fail its own
+        // verification, and reporting success without looking would put
+        // that claim in the result unchecked.
+        let postconditions = prove(target, stored, *bundle);
+        let failed: Vec<&PostconditionOutcome> =
+            postconditions.iter().filter(|held| !held.held).collect();
+        let (disposition, reason) = failed.first().map_or_else(
+            || {
+                (
+                    Disposition::Succeeded,
+                    "the target already holds what the plan describes".to_string(),
+                )
+            },
+            |first| {
+                (
+                    Disposition::Retryable,
+                    format!(
+                        "apply aborted: the postcondition {} did not hold: {}",
+                        first.id,
+                        first.detail.clone().unwrap_or_default()
+                    ),
+                )
+            },
         );
+        let result = ApplyResult {
+            postconditions,
+            ..terminal(stored, now, disposition, &reason)
+        };
         store.record(stored, &result)?;
-        return Ok(result);
+        if disposition == Disposition::Succeeded {
+            return Ok(result);
+        }
+        return Err(refuse(&result.reason));
     }
 
     execute(store, target, stored, *bundle, now)
@@ -299,7 +325,7 @@ fn execute(
         postconditions.iter().filter(|held| !held.held).collect();
     if let Some(first) = failed.first() {
         let reason = format!(
-            "the postcondition {} did not hold: {}",
+            "apply aborted: the postcondition {} did not hold: {}",
             first.id,
             first.detail.clone().unwrap_or_default()
         );
@@ -574,6 +600,8 @@ mod tests {
             briefing: None,
             proposed: None,
             selections: &crate::plan::decision::Selections::new(),
+            reserve: &[],
+            declarations_settled: false,
             now: "2026-09-12T00:00:00Z".to_string(),
         });
         plan.operations = operations;

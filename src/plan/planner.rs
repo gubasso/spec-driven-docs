@@ -60,6 +60,15 @@ pub struct Inputs<'a> {
     pub proposed: Option<&'a [Operation]>,
     /// What the operator selected.
     pub selections: &'a Selections,
+    /// Paths no delivered gate judges, as the caller reserved them.
+    pub reserve: &'a [String],
+    /// Whether the caller already settled the three declarations.
+    ///
+    /// A front carries them as flags, and an omitted flag keeps whatever
+    /// is recorded. So the questions are answered before the plan is
+    /// computed, and asking them again would ask an operator to repeat
+    /// something they already said.
+    pub declarations_settled: bool,
     /// The clock, as an input.
     pub now: String,
 }
@@ -108,6 +117,7 @@ pub fn plan(inputs: &Inputs<'_>) -> Plan {
         release: inputs.release.clone(),
         release_sha256: inputs.release_sha256.clone(),
         profile,
+        reserved: inputs.reserve.to_vec(),
         declared: Declared {
             payload_schema: inputs.declaration.payload_schema,
             managed: inputs.declaration.managed.len(),
@@ -394,7 +404,7 @@ fn decisions_of(
 
     // Everything below is profile-relative, so it waits for the profile.
     if profile.is_some() {
-        if inputs.observation.installation.is_none() {
+        if inputs.observation.installation.is_none() && !inputs.declarations_settled {
             let depends: Vec<String> = if decisions
                 .iter()
                 .any(|held| held.id == decision::id::PROFILE)
@@ -533,6 +543,17 @@ fn derived_operations(
     decisions: &[Decision],
 ) -> Vec<Operation> {
     if profile.is_none() {
+        return Vec::new();
+    }
+    // A first landing is a whole projection: the managed and adopted files,
+    // the two marked regions, and the record. The caller derives that from
+    // one computation and hands it over. Deriving a partial one here would
+    // offer an operator a landing that leaves a target the verifier cannot
+    // read, so where the caller gave none there is none.
+    if matches!(
+        classification,
+        Classification::Setup | Classification::Migration
+    ) {
         return Vec::new();
     }
     operations_of(inputs, profile, classification, decisions)
@@ -720,28 +741,6 @@ fn preconditions_of(
                 reason: format!(
                     "{structural} structural finding(s) would make two conventions coexist"
                 ),
-            }
-        );
-    }
-
-    // A landing that wrote every projection and no record would leave a
-    // target the verifier cannot read. Until the planner derives the
-    // record and the two marked regions, a first landing goes through the
-    // verb that does, and the plan says so rather than half-landing.
-    if matches!(
-        classification,
-        Classification::Setup | Classification::Migration
-    ) && !operations
-        .iter()
-        .any(|operation| matches!(operation, Operation::WriteRecord { .. }))
-        && !operations.is_empty()
-    {
-        require!(
-            "the-plan-records-the-instance",
-            "a first landing writes the instance record and both marked regions".to_string(),
-            Requirement::Required,
-            Evaluation::NotObserved {
-                reason: "this engine does not yet derive the record or the marked regions; land with 'sdd init --apply'".to_string(),
             }
         );
     }

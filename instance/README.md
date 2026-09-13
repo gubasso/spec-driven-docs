@@ -21,7 +21,7 @@ sdd reconcile plan --target /path/to/your-project --to latest --json
 
 The destination defaults to the release this binary carries, which keeps the default offline. `--to latest` resolves at crates.io, and `--to <version>` names one release exactly.
 
-`sdd init` and `sdd upgrade` are the short forms, each serving a narrower set of targets. `sdd init` lands a first instance and refuses a target that already documents itself under another convention. `sdd upgrade` moves a landed instance and refuses a target with no instance. Both name the verb to run instead. [method/reconcile.md](../method/reconcile.md) owns the model behind all of them.
+`sdd init` and `sdd upgrade` are the short forms, each serving a narrower set of targets and each writing through the same engine. `sdd init` lands a first instance and refuses a target that already documents itself under another convention. `sdd upgrade` moves a landed instance and refuses a target with no instance. Both name the verb to run instead. A release in the interval that asks something of a person raises a decision, which `sdd upgrade` names and `--set` answers. [method/reconcile.md](../method/reconcile.md) owns the model behind all of them.
 
 ```bash
 sdd init --target /path/to/your-project --profile codebase

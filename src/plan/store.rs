@@ -208,10 +208,31 @@ impl Store {
         self.root.join("results").join(fingerprint)
     }
 
-    /// Where the store keeps its own lock.
+    /// Where the store keeps the lock that orders a whole-store walk.
+    ///
+    /// Only the prune takes it, and only for as long as the walk. A
+    /// per-plan write takes [`Store::plan_lock_path`] instead, because two
+    /// planners for different fingerprints touch nothing in common and
+    /// serializing them would make one landing wait on another's target.
     #[must_use]
     pub fn lock_path(&self) -> Utf8PathBuf {
         self.root.join("store.lock")
+    }
+
+    /// Where one fingerprint's own lock lives.
+    ///
+    /// Two planners that computed the same plan race to publish it, and
+    /// this is what makes the second reuse the first rather than meet a
+    /// half-written directory.
+    ///
+    /// # Errors
+    ///
+    /// [`AppError::Refused`] for an id that is not a fingerprint.
+    pub fn plan_lock_path(&self, fingerprint: &str) -> std::result::Result<Utf8PathBuf, AppError> {
+        Ok(self
+            .root
+            .join("plans")
+            .join(format!("{}.lock", Self::checked(fingerprint)?)))
     }
 
     /// Create the store, owner-only.

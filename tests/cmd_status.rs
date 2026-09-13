@@ -125,6 +125,10 @@ fn status_reports_user_scope_paths_without_an_instance() {
     let fixture = Fixture::new();
     let output = fixture
         .cmd()
+        // This case is about the defaults, so it takes the two variables
+        // the fixture sets back out again and lets HOME decide.
+        .env_remove("XDG_STATE_HOME")
+        .env_remove("XDG_CACHE_HOME")
         .env("HOME", home.path())
         .args(["status", "--target", &fixture.target(), "--json"])
         .assert()
