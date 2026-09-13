@@ -68,6 +68,12 @@ pub struct Inputs<'a> {
     /// cap as debt a corpus arrived with. One measurement, so a finding
     /// and a ceiling can never disagree about what a budget is.
     pub budget: &'a [crate::domain::debt::Measurement],
+    /// The declarations a front carries, rendered for the fingerprint.
+    ///
+    /// A front's flags reach the record and no other operation, so a plan
+    /// that recorded a different plan zone would otherwise share an id
+    /// with one that did not.
+    pub declared: Option<&'a str>,
     /// Whether the caller already settled the three declarations.
     ///
     /// A front carries them as flags, and an omitted flag keeps whatever
@@ -288,31 +294,7 @@ fn findings_of(
     }
     // A number over a cap is debt the corpus arrived with, never a defect
     // in it. It records as a ceiling and comes down as documents shrink.
-    for measured in inputs.budget {
-        let crate::domain::debt::Measured::Count { value, budget } = measured.value else {
-            continue;
-        };
-        if value <= budget {
-            continue;
-        }
-        let Ok(path) = TargetPath::new(&measured.path) else {
-            continue;
-        };
-        findings.push(Finding {
-            kind: FindingKind::Budget,
-            path,
-            rule: measured.gate.to_string(),
-            statement: format!(
-                "{} is {value} {} against a budget of {budget}",
-                measured.path, measured.dimension
-            ),
-            measurement: Some(crate::plan::finding::Measurement {
-                dimension: measured.dimension.to_string(),
-                found: value as u64,
-                cap: budget as u64,
-            }),
-        });
-    }
+    findings.extend(inputs.budget.iter().filter_map(budget_finding));
 
     let corpus = &inputs.observation.corpus;
     // The foreign-root detector needs the profile, so it waits for the
@@ -794,6 +776,43 @@ fn preconditions_of(
     preconditions
 }
 
+/// One measurement that is over its budget, as a finding.
+///
+/// A count over its cap and a condition that does not hold are both debt
+/// the corpus arrived with. The second carries no number, so it reports as
+/// one against zero: the dimension is the fact, and what the ceiling
+/// records is that the exception exists.
+fn budget_finding(measured: &crate::domain::debt::Measurement) -> Option<Finding> {
+    let path = TargetPath::new(&measured.path).ok()?;
+    let (statement, found, cap) = match measured.value {
+        crate::domain::debt::Measured::Count { value, budget } if value > budget => (
+            format!(
+                "{} is {value} {} against a budget of {budget}",
+                measured.path, measured.dimension
+            ),
+            value as u64,
+            budget as u64,
+        ),
+        crate::domain::debt::Measured::Flag(true) => (
+            format!("{} carries {}", measured.path, measured.dimension),
+            1,
+            0,
+        ),
+        _ => return None,
+    };
+    Some(Finding {
+        kind: FindingKind::Budget,
+        path,
+        rule: measured.gate.to_string(),
+        statement,
+        measurement: Some(crate::plan::finding::Measurement {
+            dimension: measured.dimension.to_string(),
+            found,
+            cap,
+        }),
+    })
+}
+
 /// Every managed file the target no longer holds as the record says.
 ///
 /// Collected in one pass rather than refused one at a time, so an operator
@@ -808,6 +827,16 @@ fn edited_managed_files(inputs: &Inputs<'_>) -> Vec<String> {
             Some(found) if found == &file.recorded => {}
             Some(_) => edited.push(format!("{} was edited", file.path)),
             None => edited.push(format!("{} is gone", file.path)),
+        }
+    }
+    // A marked region is managed too. The next landing re-splices it, so
+    // an edit inside the markers would be lost. Every byte outside them is
+    // the project's own and is not compared.
+    for block in &installation.blocks {
+        match block.held.as_ref() {
+            Some(found) if found == &block.recorded => {}
+            Some(_) => edited.push(format!("the managed block in {} was edited", block.path)),
+            None => edited.push(format!("the managed block in {} is gone", block.path)),
         }
     }
     edited
@@ -865,10 +894,11 @@ fn inputs_projection(
     let operations = Value::List(
         operations
             .iter()
-            // The record is a function of every other operation plus the
-            // moment of installation. Its digest carries no independent
-            // meaning, and the moment is exactly what the fingerprint
-            // excludes, so a plan recomputed a second later keeps its id.
+            // The record carries the moment of installation, which is
+            // exactly what the fingerprint must exclude, so its digest
+            // cannot stand for it. What it uniquely says is projected
+            // below instead: dropping the whole operation would let two
+            // plans that record different declarations share one id.
             .filter(|operation| !matches!(operation, Operation::WriteRecord { .. }))
             .map(|operation| {
                 Value::map([
@@ -954,6 +984,41 @@ fn inputs_projection(
         ("operations", operations),
         ("preconditions", gates),
         ("decisions", selected),
+        ("declared", declared_projection(inputs)),
+    ])
+}
+
+/// What the record will say that no other operation carries.
+///
+/// The record's own digest cannot go in the fingerprint: it carries the
+/// moment of installation, and a plan recomputed a second later would
+/// stop matching itself. So the fields that decide what the record says
+/// are projected on their own, and the timestamp alone stays out.
+fn declared_projection(inputs: &Inputs<'_>) -> Value {
+    Value::map([
+        (
+            "profile",
+            Value::maybe(
+                inputs
+                    .selections
+                    .get(crate::plan::decision::id::PROFILE)
+                    .cloned(),
+            ),
+        ),
+        (
+            "reserved",
+            Value::List(
+                inputs
+                    .reserve
+                    .iter()
+                    .map(|path| Value::text(path.as_str()))
+                    .collect(),
+            ),
+        ),
+        (
+            "record",
+            Value::maybe(inputs.declared.map(std::string::ToString::to_string)),
+        ),
     ])
 }
 

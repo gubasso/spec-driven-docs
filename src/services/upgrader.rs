@@ -205,11 +205,24 @@ pub fn upgrade(
         .map_err(|p| AppError::Usage(format!("target is not UTF-8: {}", p.display())))?;
 
     let installed = read_installed(&target)?;
-    let new = CanonVersion::current();
+    // The destination is the release the caller handed over, not the
+    // engine running. Reporting the engine's version would name a release
+    // the target does not hold, and every later classification reads it.
+    let new: CanonVersion = bundle
+        .manifest()?
+        .version
+        .to_string()
+        .parse()
+        .map_err(|_| AppError::Refused("the release is not a version triple".to_string()))?;
     let old = installed.version;
     let mut outcome = UpgradeOutcome::default();
 
+    // Every path out of this verb validates what the operator typed. A
+    // target with nothing to do offers no decision, so any answer to one
+    // is an answer to a question nobody asked.
     if old == new && installed.schema_current {
+        crate::plan::decision::validate(&[], &options.selections)
+            .map_err(|error| AppError::Usage(error.to_string()))?;
         outcome.lines.push(format!("OK already at {new}"));
         return Ok(outcome);
     }

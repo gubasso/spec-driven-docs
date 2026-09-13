@@ -663,3 +663,63 @@ fn an_oversized_document_is_a_budget_finding_and_an_operator_can_record_it() {
         "the selected baseline produced no debt operation"
     );
 }
+
+/// VERIFIES reconcile:the-fingerprint-covers-what-the-apply-would-do
+///
+/// A front's flags reach the record and no other operation, so two plans
+/// that would record different declarations must not share an id.
+#[test]
+fn two_landings_recording_different_declarations_are_two_plans() {
+    let one = Fixture::new();
+    let two = Fixture::new();
+    let held = |fixture: &Fixture, zone: &str| -> String {
+        let out = fixture
+            .cmd()
+            .args([
+                "reconcile",
+                "plan",
+                "--target",
+                &fixture.target(),
+                "--json",
+                "--set",
+                "profile=codebase",
+                "--set",
+                &format!("plan-zone={zone}"),
+                "--set",
+                "docs-scratch=none",
+                "--set",
+                "writing-style=builtin",
+            ])
+            .output()
+            .unwrap();
+        let plan: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        plan["identity"]["plan_id"].as_str().unwrap().to_string()
+    };
+    assert_ne!(
+        held(&one, "none"),
+        held(&two, "project:docs/plan"),
+        "two different recorded plan zones produced one plan id"
+    );
+}
+
+/// VERIFIES reconcile:one-writer-holds-a-target
+///
+/// A managed region inside a file the project owns is managed too, so an
+/// edit inside the markers blocks the plan rather than being overwritten.
+#[test]
+fn an_edited_managed_block_blocks_the_plan() {
+    let fixture = Fixture::new();
+    fixture.install("codebase");
+    let agents = fixture.read("AGENTS.md");
+    let tampered = agents.replace("Run `sdd verify` before handoff.", "Run nothing.");
+    assert_ne!(agents, tampered, "the block did not carry the line");
+    fixture.write("AGENTS.md", &tampered);
+
+    let held = plan(&fixture, &[]);
+    assert_eq!(held["readiness"], "blocked");
+    let reason = held["preconditions"].to_string();
+    assert!(
+        reason.contains("managed block in AGENTS.md"),
+        "the plan does not name the edited block: {reason}"
+    );
+}

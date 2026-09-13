@@ -90,6 +90,20 @@ pub struct Installation {
     pub managed: Vec<RecordedFile>,
     /// Every adopted file, as recorded and as found.
     pub adopted: Vec<RecordedFile>,
+    /// Every marked region the canon owns, as recorded and as found.
+    pub blocks: Vec<RecordedBlock>,
+}
+
+/// One marked region a file the project owns carries.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RecordedBlock {
+    /// The host file, relative to the target.
+    pub path: TargetPath,
+    /// The region's digest as the record has it.
+    pub recorded: Sha256,
+    /// The region's digest now, or nothing where the host or the markers
+    /// are gone.
+    pub held: Option<Sha256>,
 }
 
 impl Installation {
@@ -99,6 +113,10 @@ impl Installation {
         self.managed
             .iter()
             .any(|file| file.held.as_ref() != Some(&file.recorded))
+            || self
+                .blocks
+                .iter()
+                .any(|block| block.held.as_ref() != Some(&block.recorded))
     }
 }
 
@@ -278,6 +296,31 @@ fn read_installation(target: &Utf8Path) -> (Option<Installation>, Option<String>
             baseline: Some(baseline.clone()),
         });
     }
+    // A marked region is managed too. The host file is the project's and
+    // its other bytes are none of this tool's business, so the region is
+    // compared by its own hash: an edit inside the markers is a conflict
+    // the next landing would overwrite, and an edit outside them is not.
+    let mut blocks = Vec::new();
+    for (host, recorded) in &manifest.integration_blocks {
+        let Ok(path) = TargetPath::new(host) else {
+            return (
+                None,
+                Some(format!(
+                    "{MANIFEST_PATH} records the block host {host}, which no operation may name"
+                )),
+            );
+        };
+        let (begin, end) = markers_for(host);
+        let held = std::fs::read_to_string(target.join(host))
+            .ok()
+            .and_then(|text| crate::domain::marker::block_hash_with(&text, begin, end));
+        blocks.push(RecordedBlock {
+            path,
+            recorded: recorded.clone(),
+            held,
+        });
+    }
+
     let declaration_sha256 = std::fs::read(target.join(CONFIG_PATH))
         .ok()
         .map(|bytes| Sha256::of(&bytes));
@@ -290,9 +333,20 @@ fn read_installation(target: &Utf8Path) -> (Option<Installation>, Option<String>
             declaration_sha256,
             managed,
             adopted,
+            blocks,
         }),
         None,
     )
+}
+
+/// The markers one integration host carries.
+fn markers_for(path: &str) -> (&'static str, &'static str) {
+    use crate::domain::marker::{AGENTS_BEGIN, AGENTS_END, BEGIN, END};
+    if path == crate::domain::paths::HOOKS_CONFIG_PATH {
+        (BEGIN, END)
+    } else {
+        (AGENTS_BEGIN, AGENTS_END)
+    }
 }
 
 /// One record's facts, whichever schema wrote it.
@@ -302,6 +356,7 @@ struct AnyRecord {
     docs_root: DocsRoot,
     managed_files: Vec<(String, Sha256)>,
     adopted_files: Vec<(String, Sha256, Sha256)>,
+    integration_blocks: Vec<(String, Sha256)>,
 }
 
 fn read_any_schema(text: &str) -> Option<AnyRecord> {
@@ -325,6 +380,15 @@ fn read_any_schema(text: &str) -> Option<AnyRecord> {
         managed_files: files("managed_files")
             .iter()
             .filter_map(|entry| Some((destination(entry)?, digest(entry, "sha256")?)))
+            .collect(),
+        integration_blocks: files("integration_blocks")
+            .iter()
+            .filter_map(|entry| {
+                Some((
+                    entry.get("path")?.as_str()?.to_string(),
+                    digest(entry, "marker_hash")?,
+                ))
+            })
             .collect(),
         adopted_files: files("adopted_files")
             .iter()

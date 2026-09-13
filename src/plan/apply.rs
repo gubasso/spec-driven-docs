@@ -662,6 +662,7 @@ mod tests {
             selections: &crate::plan::decision::Selections::new(),
             budget: &[],
             reserve: &[],
+            declared: None,
             declarations_settled: false,
             now: "2026-09-12T00:00:00Z".to_string(),
         });

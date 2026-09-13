@@ -341,6 +341,27 @@ fn interval_of(
     Ok((recorded, destination, interval))
 }
 
+/// Every payload artifact this release carries, by path.
+fn payload_digests(manifest: &crate::release::ReleaseManifest) -> BTreeMap<String, Sha256> {
+    manifest
+        .artifacts
+        .iter()
+        .filter(|artifact| artifact.role == Role::Payload)
+        .map(|artifact| (artifact.path.clone(), artifact.sha256.clone()))
+        .collect()
+}
+
+/// What a front's own flags will put in the record, in one line.
+///
+/// Nothing else in the plan says it: the record's digest cannot go in the
+/// fingerprint, and no other operation carries a declared location.
+fn declared_summary_of(options: &InitOptions) -> String {
+    format!(
+        "plan-zone={:?};docs-scratch={:?};writing-style={:?}",
+        options.plan_zone, options.docs_scratch, options.writing_style
+    )
+}
+
 /// Everything the landing derivation reads.
 struct Derivation<'a> {
     target: &'a Utf8Path,
@@ -412,12 +433,7 @@ pub(crate) fn compute_plan(
     let observation = observe(target)?;
     let declaration = release.bundle.declaration()?;
     let manifest = release.bundle.manifest()?;
-    let candidate: BTreeMap<String, Sha256> = manifest
-        .artifacts
-        .iter()
-        .filter(|artifact| artifact.role == Role::Payload)
-        .map(|artifact| (artifact.path.clone(), artifact.sha256.clone()))
-        .collect();
+    let candidate = payload_digests(&manifest);
     // The baseline comes from the recorded release. Where that is the
     // destination, the candidate is the baseline; where it is not, this
     // engine does not fetch it, and the plan says so rather than guessing.
@@ -497,6 +513,7 @@ pub(crate) fn compute_plan(
     let compatibility = read_compatibility(release, declaration.payload_schema)?;
     let (recorded, destination, interval) =
         interval_of(&observation, release, compatibility.as_ref())?;
+    let declared_summary = declared.map(declared_summary_of);
     let briefing = read_briefing(
         release.bundle,
         declaration.payload_schema,
@@ -523,6 +540,7 @@ pub(crate) fn compute_plan(
         selections,
         budget: &budget,
         reserve,
+        declared: declared_summary.as_deref(),
         declarations_settled: declared.is_some(),
         now: jiff::Timestamp::now().to_string(),
     });

@@ -73,7 +73,7 @@ fn an_instance_at_the_current_version_is_already_done() {
     let fixture = Fixture::new();
     fixture.install("knowledge-base");
     fixture
-        .upgrade()
+        .upgrade_bare()
         .assert()
         .success()
         .stdout(predicate::str::contains(format!(
