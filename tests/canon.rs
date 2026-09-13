@@ -1790,3 +1790,80 @@ fn every_glossary_term_names_its_owning_chapter() {
     }
     assert!(rows > 40, "the glossary rows did not parse: {rows} found");
 }
+
+/// SATISFIES docs-discovery:one-catalog-describes-every-served-document
+#[test]
+fn every_shelf_document_has_exactly_one_catalog_entry() {
+    use spec_driven_docs::domain::docs_catalog::CATALOG;
+    use spec_driven_docs::services::reader;
+
+    for shelf in [&reader::METHOD, &reader::SPECS, &reader::TEMPLATES] {
+        for name in reader::list(shelf) {
+            let held: Vec<&str> = CATALOG
+                .topics
+                .iter()
+                .filter(|topic| {
+                    matches!(&topic.target,
+                        spec_driven_docs::domain::docs_catalog::Target::Document { shelf: id, name: held }
+                            if *id == shelf.id && *held == name)
+                })
+                .map(|topic| topic.id.as_str())
+                .collect();
+            assert_eq!(
+                held.len(),
+                1,
+                "{}/{name} has {} catalog entries: {held:?}",
+                shelf.id.as_str(),
+                held.len()
+            );
+        }
+    }
+}
+
+/// SATISFIES docs-discovery:one-catalog-describes-every-served-document
+#[test]
+fn no_catalog_entry_is_orphaned() {
+    use spec_driven_docs::domain::docs_catalog::{CATALOG, Target};
+    use spec_driven_docs::services::reader;
+
+    for topic in &CATALOG.topics {
+        match &topic.target {
+            Target::Document { shelf, name } => {
+                let held = match shelf {
+                    spec_driven_docs::domain::docs_catalog::ShelfId::Method => &reader::METHOD,
+                    spec_driven_docs::domain::docs_catalog::ShelfId::Spec => &reader::SPECS,
+                    spec_driven_docs::domain::docs_catalog::ShelfId::Template => &reader::TEMPLATES,
+                };
+                assert!(
+                    reader::get(held, name).is_some(),
+                    "{} names {}/{name}, which no shelf serves",
+                    topic.id,
+                    shelf.as_str()
+                );
+            }
+            Target::Command(argv) => {
+                let names = spec_driven_docs::cli::subcommand_names();
+                assert!(
+                    argv.first().is_some_and(|verb| names.contains(verb)),
+                    "{} names an argv whose verb the parser does not offer",
+                    topic.id
+                );
+            }
+        }
+    }
+}
+
+/// SATISFIES docs-discovery:an-instance-is-routed-to-the-index
+#[test]
+fn the_managed_documentation_block_names_the_index_verb_and_stays_within_its_budget() {
+    let snippet = read("instance/snippets/AGENTS-docs.md");
+    assert!(
+        snippet.contains("sdd docs"),
+        "the managed documentation block names no reader verb"
+    );
+    let lines = snippet.lines().filter(|line| !line.is_empty()).count();
+    assert!(
+        lines <= 10,
+        "the managed documentation block runs {lines} lines against its 10-line budget"
+    );
+}

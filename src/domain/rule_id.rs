@@ -118,6 +118,8 @@ rule_ids! {
     PreSchemaReleaseIsCatalogedOrUnavailable => "bundle:a-pre-schema-release-is-cataloged-or-unavailable",
     FetchedArchiveIsVerifiedBeforeItIsRead => "bundle:a-fetched-archive-is-verified-before-it-is-read",
     ResolutionHappensOnceAndWritesOnlyTheCache => "bundle:resolution-happens-once-and-writes-only-the-cache",
+    OneCatalogDescribesEveryServedDocument => "docs-discovery:one-catalog-describes-every-served-document",
+    InstanceIsRoutedToTheIndex => "docs-discovery:an-instance-is-routed-to-the-index",
     AuthorInstructionsStayWithinBudget => "docs-format:author-instructions-stay-within-budget",
     ChapterStaysWithinLineCap => "docs-format:chapter-stays-within-200-lines",
     DocumentStatesThePresent => "docs-format:document-states-the-present",

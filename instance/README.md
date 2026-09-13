@@ -73,6 +73,15 @@ sdd payload --release latest --json
 
 `sdd payload` reports what a release carries: its version, the protocol version between it and this binary, where its facts came from, a digest over its content, and how many artifacts it holds. With no flag it reads the release the binary carries and touches no network. With `--release` it resolves at crates.io, verifies the archive against the registry checksum, and caches it under `$XDG_CACHE_HOME/spec-driven-docs`. `--offline` accepts an exact version already cached and refuses `latest`, because only the index says which release is newest. A release older than the tool can describe reports unavailable with its evidence rather than a guess.
 
+## Read the corpus
+
+```bash
+sdd docs
+sdd docs context budget
+```
+
+`sdd docs` prints one described index of everything the binary carries: the method chapters, the specifications, the templates, and the operator tasks whose answer is a help page. `sdd docs <topic>` resolves one entry by its id, an alias, or a unique prefix, and renders it. An ambiguous query names every candidate rather than guessing one. The managed documentation block a landing writes names this verb, so an agent that has never opened the canon reaches any chapter in two commands.
+
 ## Report
 
 ```bash

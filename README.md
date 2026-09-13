@@ -16,6 +16,7 @@ Prebuilt installers ship with each GitHub release, and `cargo binstall spec-driv
 
 ## Quick paths
 
+- Find anything the binary carries: `sdd docs`, then `sdd docs <topic>`.
 - Read the method: [method/README.md](./method/README.md), or `sdd method --list` anywhere.
 - Author a comparison: [comparison-docs/README.md](./comparison-docs/README.md).
 - See what a landing would do: `sdd reconcile plan`, documented in [instance/README.md](./instance/README.md#request-a-plan).

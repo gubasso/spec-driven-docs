@@ -40,6 +40,7 @@ fn run(cli: Cli) -> Result<(), AppError> {
         Commands::Debt(args) => commands::debt::run(&ctx, args),
         Commands::Policy(args) => commands::policy::run(&ctx, args),
         Commands::Ki(args) => commands::ki::run(&ctx, args),
+        Commands::Docs(args) => commands::docs::run(&ctx, &args),
         Commands::Method(args) => commands::read::run(&ctx, &reader::METHOD, args),
         Commands::Spec(args) => commands::read::run(&ctx, &reader::SPECS, args),
         Commands::Template(args) => commands::read::run(&ctx, &reader::TEMPLATES, args),

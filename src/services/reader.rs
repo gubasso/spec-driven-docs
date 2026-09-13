@@ -7,9 +7,13 @@
 
 use include_dir::Dir;
 
+use crate::domain::docs_catalog::ShelfId;
+
 /// One addressable shelf of embedded documents.
 #[derive(Debug, Clone, Copy)]
 pub struct Shelf {
+    /// Which shelf this is, as the catalog names it.
+    pub id: ShelfId,
     /// The embedded directory.
     pub dir: &'static Dir<'static>,
     /// A kind prefix hidden from short names, e.g. `SPEC-`.
@@ -18,16 +22,19 @@ pub struct Shelf {
 
 /// The method chapters and glossary.
 pub const METHOD: Shelf = Shelf {
+    id: ShelfId::Method,
     dir: &crate::embedded::METHOD,
     strip: None,
 };
 /// The spec documents, addressed without their `SPEC-` prefix.
 pub const SPECS: Shelf = Shelf {
+    id: ShelfId::Spec,
     dir: &crate::embedded::SPECS,
     strip: Some("SPEC-"),
 };
 /// The templates, addressed without their `TEMPLATE-` prefix.
 pub const TEMPLATES: Shelf = Shelf {
+    id: ShelfId::Template,
     dir: &crate::embedded::TEMPLATES,
     strip: Some("TEMPLATE-"),
 };

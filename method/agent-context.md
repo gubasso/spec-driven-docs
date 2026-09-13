@@ -70,6 +70,8 @@ A large corpus cannot be loaded, and an agent told to read the docs will either 
 
 Where the entry document lives depends on the timescale. For work in flight it is the story or task file. For a domain being maintained it is the spec. Both work for the same reason.
 
+A tool that ships a corpus owes its reader the same entry. A corpus reachable by a command nobody is told to run is not reachable, and a listing of bare names describes nothing. The entry is one described index the always-loaded file names in one clause, and the reader loads one topic from it. This tool's is `sdd docs`.
+
 ## Budget the always-loaded files
 
 An author-instructions file is paid for on every session whether or not it is relevant. As a result, its length is a standing tax rather than a one-time cost.

@@ -44,6 +44,7 @@ This repository is the canonical knowledge product for spec-driven documentation
 
 ## Routing
 
+- The whole corpus this binary carries, described: `sdd docs`, then `sdd docs <topic>`.
 - Method-specific routing: `method/AGENTS.md`.
 - Landing, upgrading, and drift in an instance: `method/reconcile.md`.
 - Comparison-document routing: `comparison-docs/AGENTS.md`.

@@ -8,6 +8,7 @@
 //! that every resolver under it stays pure.
 
 pub mod debt;
+pub mod docs_catalog;
 pub mod finding;
 pub mod gate_id;
 pub mod instance_config;

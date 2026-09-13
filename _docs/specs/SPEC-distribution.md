@@ -63,7 +63,7 @@ Verify: `cargo nextest run -E 'binary(cmd_init)'`
 
 ### `distribution:instances-operate-offline` — Instances operate offline
 
-The installed binary MUST verify and upgrade an instance without a network or canon checkout, reading the release it carries. A verb that reaches the registry MUST be one the operator asked for by naming another release, and `SPEC-bundle.md` states what that read owes.
+The installed binary MUST verify and upgrade an instance without a network or canon checkout, reading the release it carries. A verb that reaches the registry MUST be one the operator asked for by naming another release, and `SPEC-bundle.md` states what that read owes. The readers `sdd docs`, `sdd method`, `sdd spec`, and `sdd template` serve the corpus the binary carries and MUST touch no network, and `SPEC-docs-discovery.md` states what describes that corpus.
 
 #### Scenario: The canon repository is unreachable
 

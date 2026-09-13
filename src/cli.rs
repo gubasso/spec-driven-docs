@@ -7,6 +7,7 @@
 pub mod assess;
 pub mod completions;
 pub mod debt;
+pub mod docs;
 pub mod doctor;
 pub mod gate;
 pub mod hooks;
@@ -70,6 +71,8 @@ pub enum Commands {
     Policy(policy::PolicyArgs),
     /// Read the known-issue zone.
     Ki(ki::KiArgs),
+    /// Read this binary's own corpus: the index, or one topic.
+    Docs(docs::DocsArgs),
     /// Read a method chapter, or list them.
     Method(read::ReadArgs),
     /// Read a spec seed, or list them.
