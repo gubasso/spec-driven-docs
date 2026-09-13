@@ -378,8 +378,17 @@ impl Store {
         )?;
         if result.disposition.is_terminal() {
             // The fingerprint is free again, so identical inputs plan into
-            // a fresh directory rather than meeting a stripped one.
-            let _ = std::fs::remove_dir_all(self.directory(id).root);
+            // a fresh directory rather than meeting a stripped one. A
+            // directory that will not go leaves an executable plan for a
+            // run that already ended, which the caller has to hear about.
+            let held = self.directory(id).root;
+            if let Err(cause) = std::fs::remove_dir_all(&held)
+                && held.exists()
+            {
+                return Err(AppError::Refused(format!(
+                    "the result was recorded and the plan at {held} could not be removed: {cause}; remove it by hand before planning the same inputs again"
+                )));
+            }
         }
         Ok(())
     }
@@ -465,10 +474,17 @@ impl Store {
             }
             // A writer that took this plan's lock has not written its
             // journal yet, and removing the plan under it would take the
-            // blobs the apply is about to read.
-            if guard_journal && self.plan_is_held(name) {
-                continue;
-            }
+            // blobs the apply is about to read. The guard is held across
+            // the removal, not probed and dropped: a writer arriving in
+            // between would meet a directory going away underneath it.
+            let _guard = if guard_journal {
+                match self.hold_plan(name) {
+                    Some(held) => Some(held),
+                    None => continue,
+                }
+            } else {
+                None
+            };
             if older_than(&path, now, days) {
                 std::fs::remove_dir_all(&path)?;
                 removed.push(path);
@@ -477,18 +493,14 @@ impl Store {
         Ok(removed)
     }
 
-    /// Whether another process holds one plan's lock right now.
+    /// Take one plan's lock for a prune, or give up.
     ///
-    /// Probed without waiting: this is housekeeping, and a plan somebody
-    /// is working on is one to leave alone rather than to queue behind.
-    fn plan_is_held(&self, fingerprint: &str) -> bool {
-        let Ok(path) = self.plan_lock_path(fingerprint) else {
-            return true;
-        };
-        if !path.exists() {
-            return false;
-        }
-        crate::transaction::lock::Lock::exclusive(&path, "plan store prune").is_err()
+    /// Taken without waiting: this is housekeeping, and a plan somebody is
+    /// working on is one to leave alone rather than to queue behind. The
+    /// caller holds what this returns for as long as it touches the plan.
+    fn hold_plan(&self, fingerprint: &str) -> Option<crate::transaction::lock::Lock> {
+        let path = self.plan_lock_path(fingerprint).ok()?;
+        crate::transaction::lock::Lock::exclusive(&path, "plan store prune").ok()
     }
 }
 

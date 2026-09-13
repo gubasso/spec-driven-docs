@@ -35,7 +35,7 @@ Rules governing the plan: one typed, immutable document that is the input to eve
 
 ### `reconcile:one-plan-is-the-input-to-every-write` — One plan is the input to every write
 
-Every write into a target repository MUST come from an operation in one plan, and the operation set MUST be closed. Every front verb MUST reach that engine and MUST NOT carry a write path of its own. An operation MUST name digests and never bytes, MUST name one validated target-relative path, and MUST NOT run a command.
+Every write into a target repository MUST come from an operation in one plan, and the operation set MUST be closed: every variant MUST have a producer. Every front verb MUST reach that engine and MUST NOT carry a write path of its own. An operation MUST name digests and never bytes, MUST name one validated target-relative path, and MUST NOT run a command. Taking back an owned file MUST also take the directory that removal empties, where the directory is one the canon owns and is not an owned root.
 
 #### Scenario: A landing verb wants to write something the plan did not describe
 

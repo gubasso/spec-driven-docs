@@ -107,7 +107,7 @@ fn conflicts_are_collected_and_abort_atomically() {
     .unwrap();
     let digest = fixture.tree_digest();
     fixture
-        .upgrade()
+        .upgrade_bare()
         .assert()
         .code(1)
         .stdout(predicate::str::contains(
@@ -457,7 +457,7 @@ fn a_version_two_instance_still_refuses_an_edited_managed_block() {
     fixture.write(".pre-commit-config.yaml", &config);
 
     fixture
-        .upgrade()
+        .upgrade_bare()
         .assert()
         .code(1)
         .stdout(predicate::str::contains(

@@ -109,6 +109,22 @@ fn read_installed(target: &Utf8Path) -> Result<Installed, AppError> {
     }
 }
 
+/// Refuse an answer on a path where no plan offers a decision.
+///
+/// A target with nothing to do and one whose managed files were edited
+/// both end before a plan exists. An answer given on either is an answer
+/// to a question nobody asked, and letting it pass silently would make
+/// typing look like consent on the one path where nothing checked it.
+/// A downgrade refuses on its own terms before this can matter.
+///
+/// # Errors
+///
+/// [`AppError::Usage`] naming the decision nothing offered.
+fn unanswerable(selections: &crate::plan::decision::Selections) -> Result<(), AppError> {
+    crate::plan::decision::validate(&[], selections)
+        .map_err(|error| AppError::Usage(error.to_string()))
+}
+
 /// Every managed file and region the target no longer holds as recorded.
 ///
 /// A reinstall replaces a managed file and re-splices a managed region, so
@@ -217,12 +233,8 @@ pub fn upgrade(
     let old = installed.version;
     let mut outcome = UpgradeOutcome::default();
 
-    // Every path out of this verb validates what the operator typed. A
-    // target with nothing to do offers no decision, so any answer to one
-    // is an answer to a question nobody asked.
     if old == new && installed.schema_current {
-        crate::plan::decision::validate(&[], &options.selections)
-            .map_err(|error| AppError::Usage(error.to_string()))?;
+        unanswerable(&options.selections)?;
         outcome.lines.push(format!("OK already at {new}"));
         return Ok(outcome);
     }
@@ -234,6 +246,13 @@ pub fn upgrade(
 
     let conflicts = conflicts_at(&target, &installed)?;
     if !conflicts.is_empty() {
+        // The conflict is what the operator needs to see. An answer to a
+        // decision that never got offered is reported beside it rather
+        // than instead of it: turning it into the exit reason would hide
+        // the edited file behind a complaint about a flag.
+        if let Err(refused) = unanswerable(&options.selections) {
+            outcome.lines.push(format!("note: {refused}"));
+        }
         let count = conflicts.len();
         outcome.lines.extend(conflicts);
         outcome.failures += count;

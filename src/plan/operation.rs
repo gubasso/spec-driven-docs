@@ -151,6 +151,14 @@ pub enum Operation {
         after: Sha256,
     },
     /// Take back a file the release no longer owns.
+    ///
+    /// And the directory that removal empties, where the directory is one
+    /// the canon owns and is not itself an owned root. A skill is a
+    /// directory holding one file, and an empty directory carrying a
+    /// retired skill's name is one some agents still list. The directory
+    /// is part of what this operation names rather than a second mutation
+    /// beside it, because a file's removal is the only thing that can
+    /// empty it.
     RemoveOwnedFile {
         /// Where.
         path: TargetPath,

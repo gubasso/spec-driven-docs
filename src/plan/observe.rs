@@ -381,15 +381,18 @@ fn read_any_schema(text: &str) -> Option<AnyRecord> {
             .iter()
             .filter_map(|entry| Some((destination(entry)?, digest(entry, "sha256")?)))
             .collect(),
+        // All or nothing. An entry this engine cannot read is a record it
+        // cannot vouch for, and dropping it would report a managed region
+        // as absent, which is what lets the next landing overwrite it.
         integration_blocks: files("integration_blocks")
             .iter()
-            .filter_map(|entry| {
+            .map(|entry| {
                 Some((
                     entry.get("path")?.as_str()?.to_string(),
                     digest(entry, "marker_hash")?,
                 ))
             })
-            .collect(),
+            .collect::<Option<Vec<_>>>()?,
         adopted_files: files("adopted_files")
             .iter()
             .filter_map(|entry| {
