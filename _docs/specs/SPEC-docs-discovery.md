@@ -29,7 +29,7 @@ Verify: `cargo nextest run -E 'binary(canon) + binary(cmd_docs)'`
 
 ### `docs-discovery:an-instance-is-routed-to-the-index` — An instance is routed to the index
 
-The managed documentation block an instance receives MUST name the index verb in at most one line, and MUST NOT restate what a topic says. A digest MUST route to a topic rather than copy it.
+The managed documentation block an instance receives MUST name the index verb in at most one line, and MUST NOT restate what a topic says. A digest MUST route to a topic rather than copy it. A skill MUST route to a topic through `sdd docs` or the shelf verb that serves it, and MUST NOT restate the topic's own description.
 
 #### Scenario: An agent opens a repository that adopted this tool
 

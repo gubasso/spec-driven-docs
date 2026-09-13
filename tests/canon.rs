@@ -753,26 +753,131 @@ fn the_payload_carries_both_shared_gates() {
 
 /// SATISFIES distribution:a-landing-classifies-its-target-first
 #[test]
-fn the_skills_and_the_gate_route_by_the_classification() {
+fn the_pre_flight_gate_invokes_no_planner_or_skill() {
     let gate = read("skill-shared/pre-flight-gate.md");
-    assert!(
-        gate.contains("sdd assess"),
-        "the pre-flight gate does not name the classification step"
-    );
-    let setup = read("skills/sdd-setup/SKILL.md");
-    let migrate = read("skills/sdd-migrate/SKILL.md");
-    for (name, text) in [("sdd-setup", &setup), ("sdd-migrate", &migrate)] {
+    for named in ["sdd assess", "sdd reconcile", "migration skill"] {
         assert!(
-            text.contains("sdd assess"),
-            "{name}: does not route by sdd assess"
+            !gate.contains(named),
+            "the pre-flight gate names '{named}'; it hands its findings back and routes nothing"
         );
-        for verdict in ["greenfield", "brownfield", "needs-decision"] {
+    }
+}
+
+/// SATISFIES distribution:a-landing-classifies-its-target-first
+#[test]
+fn the_setup_skill_requests_exactly_one_initial_plan() {
+    let setup = read("skills/sdd-setup/SKILL.md");
+    assert!(
+        setup.contains("sdd reconcile plan --target . --json"),
+        "the router does not request a plan"
+    );
+    assert!(
+        setup.contains("Request exactly one initial plan"),
+        "the router does not bound its initial plan request"
+    );
+    assert!(
+        !setup.contains("sdd assess"),
+        "the router classifies for itself instead of reading the plan's classification"
+    );
+}
+
+/// SATISFIES distribution:a-landing-classifies-its-target-first
+#[test]
+fn the_setup_skill_routes_each_classification_to_its_chapter() {
+    let setup = read("skills/sdd-setup/SKILL.md");
+    for classification in [
+        "setup",
+        "migration",
+        "upgrade",
+        "drift",
+        "current",
+        "invalid",
+    ] {
+        assert!(
+            setup.contains(classification),
+            "the router does not name the {classification} classification"
+        );
+    }
+    for chapter in ["sdd docs migration", "sdd docs reconcile"] {
+        assert!(
+            setup.contains(chapter),
+            "the router does not route a classification to {chapter}"
+        );
+    }
+}
+
+#[test]
+fn the_setup_skill_names_the_five_steps() {
+    let setup = read("skills/sdd-setup/SKILL.md");
+    for step in [
+        "## 1. Observe",
+        "## 2. Request a plan",
+        "## 3. Present the plan",
+        "## 4. Decide and apply",
+        "## 5. Read the result",
+    ] {
+        assert!(setup.contains(step), "the router has no '{step}' section");
+    }
+}
+
+#[test]
+fn the_setup_skill_declares_its_gated_steps() {
+    let setup = read("skills/sdd-setup/SKILL.md");
+    assert!(setup.contains("## What waits for the operator"));
+    for gated in [
+        "ignore entry for the docs scratch",
+        "sdd reconcile apply <plan-id> --target .",
+        "before its entry retires anything",
+        "Every retirement of a file the project authored",
+        "Every disposition question",
+        "migration directory at the close",
+    ] {
+        assert!(
+            setup.contains(gated),
+            "the router does not gate '{gated}' for the operator"
+        );
+    }
+}
+
+#[test]
+fn the_setup_skill_offers_incremental_only_as_the_plan_does() {
+    let setup = read("skills/sdd-setup/SKILL.md");
+    assert!(
+        setup.contains("never offer it where the plan does not"),
+        "the router states a scope rule of its own instead of deferring to the plan"
+    );
+}
+
+/// SATISFIES docs-discovery:an-instance-is-routed-to-the-index
+#[test]
+fn every_skill_routes_to_a_topic_and_restates_no_catalog_entry() {
+    use spec_driven_docs::domain::docs_catalog::{CATALOG, Target};
+
+    for (dir, text) in skill_dirs() {
+        assert!(
+            text.contains("sdd docs"),
+            "{dir}: names no reader verb for the corpus"
+        );
+        for topic in &CATALOG.topics {
+            let copied =
+                matches!(topic.target, Target::Document { .. }) && text.contains(&topic.summary);
             assert!(
-                text.contains(verdict),
-                "{name}: does not route the {verdict} verdict"
+                !copied,
+                "{dir}: copies the catalog summary of '{}'",
+                topic.id
             );
         }
     }
+}
+
+#[test]
+fn the_payload_carries_two_skills() {
+    let names = spec_driven_docs::embedded::skill_names();
+    assert_eq!(
+        names,
+        vec!["sdd-setup", "sdd-write-docs"],
+        "the payload carries {names:?}"
+    );
 }
 
 /// SATISFIES distribution:skills-are-part-of-the-payload

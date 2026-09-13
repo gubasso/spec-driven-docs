@@ -247,7 +247,7 @@ fn a_missing_skill_beside_an_unvouched_edit_names_force() {
         .success();
     std::fs::remove_file(home.path().join(".claude/skills/sdd-setup/SKILL.md")).unwrap();
     std::fs::write(
-        home.path().join(".claude/skills/sdd-migrate/SKILL.md"),
+        home.path().join(".claude/skills/sdd-write-docs/SKILL.md"),
         "mine now\n",
     )
     .unwrap();

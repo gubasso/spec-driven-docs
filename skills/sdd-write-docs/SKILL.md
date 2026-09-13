@@ -22,15 +22,16 @@ When the request carries `--no-plan`, skip the plan gate's approval turn only. S
 
 ## Route to the rules
 
-| Need                                | Command                                                  |
-| ----------------------------------- | -------------------------------------------------------- |
-| List method chapters                | `sdd method --list`                                      |
-| Read a chapter                      | `sdd method <chapter>`                                   |
-| List rule domains                   | `sdd spec --list`                                        |
-| Read the binding rules for a domain | the adopted `SPEC-<domain>.md`; else `sdd spec <domain>` |
-| List templates                      | `sdd template --list`                                    |
-| Start a new document                | `sdd template <name>`                                    |
-| List the known-issue cases          | `sdd ki list`                                            |
+| Need                                   | Command                                                  |
+| -------------------------------------- | -------------------------------------------------------- |
+| Find the topic that answers a question | `sdd docs`, then `sdd docs <topic>`                      |
+| List method chapters                   | `sdd method --list`                                      |
+| Read a chapter                         | `sdd method <chapter>`                                   |
+| List rule domains                      | `sdd spec --list`                                        |
+| Read the binding rules for a domain    | the adopted `SPEC-<domain>.md`; else `sdd spec <domain>` |
+| List templates                         | `sdd template --list`                                    |
+| Start a new document                   | `sdd template <name>`                                    |
+| List the known-issue cases             | `sdd ki list`                                            |
 
 ## Before writing
 

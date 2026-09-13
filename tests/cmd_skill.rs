@@ -26,7 +26,6 @@ use support::{Fixture, Home};
 fn destinations() -> Vec<String> {
     let mut found = Vec::new();
     for root in [".agents/skills", ".claude/skills"] {
-        found.extend(package(root, "sdd-migrate"));
         found.extend(package(root, "sdd-setup"));
         found.extend(package(root, "sdd-write-docs"));
     }
@@ -54,7 +53,7 @@ fn list_prints_every_skill_name_one_per_line() {
         .args(["skill", "list"])
         .assert()
         .success()
-        .stdout("sdd-migrate\nsdd-setup\nsdd-write-docs\n");
+        .stdout("sdd-setup\nsdd-write-docs\n");
 }
 
 #[test]
@@ -65,7 +64,7 @@ fn show_prints_the_frontmatter_and_body() {
         .assert()
         .success()
         .stdout(predicate::str::contains("name: sdd-setup"))
-        .stdout(predicate::str::contains("## Land an instance"));
+        .stdout(predicate::str::contains("## 2. Request a plan"));
 }
 
 #[test]
