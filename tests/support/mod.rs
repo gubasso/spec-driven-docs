@@ -116,10 +116,20 @@ impl Fixture {
     }
 
     /// An `sdd upgrade` invocation that accepts every guidance step.
+    ///
+    /// For an instance old enough that the whole interval applies. An
+    /// answer the plan does not offer is a usage error, so a fixture
+    /// already past a step uses [`Fixture::upgrade_bare`].
     pub fn upgrade(&self) -> Command {
+        let mut cmd = self.upgrade_bare();
+        cmd.args(Self::guidance_answers());
+        cmd
+    }
+
+    /// An `sdd upgrade` invocation that answers nothing.
+    pub fn upgrade_bare(&self) -> Command {
         let mut cmd = self.cmd();
         cmd.args(["upgrade", "--target", &self.target()]);
-        cmd.args(Self::guidance_answers());
         cmd
     }
 

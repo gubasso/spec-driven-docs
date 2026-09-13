@@ -7,6 +7,7 @@
 
 pub mod agents_render;
 pub mod assess;
+pub mod budget;
 pub mod hooks_render;
 pub mod installer;
 pub mod known_issues;

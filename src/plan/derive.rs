@@ -83,6 +83,41 @@ pub fn operations_for(
     Ok((operations, blobs))
 }
 
+/// The debt file the operator asked the landing to record.
+///
+/// The same bytes `sdd debt baseline --apply` writes, from the same
+/// measurements, so the two can never disagree about what a ceiling is.
+/// A target that already carries a debt file keeps it: a baseline never
+/// widens one, and a landing is not the place to argue with that.
+///
+/// # Errors
+///
+/// [`AppError::Refused`] for a destination no operation may name.
+pub fn debt_operation(
+    target: &Utf8Path,
+    measured: &[crate::domain::debt::Measurement],
+) -> Result<Option<(Operation, Vec<u8>)>, AppError> {
+    use crate::domain::paths::DEBT_PATH;
+
+    if target.join(DEBT_PATH).exists() {
+        return Ok(None);
+    }
+    let debt = crate::domain::debt::Debt::baseline(measured);
+    if debt.is_empty() {
+        return Ok(None);
+    }
+    let bytes = debt.render().into_bytes();
+    let path = TargetPath::new(DEBT_PATH).map_err(|error| AppError::Refused(error.to_string()))?;
+    Ok(Some((
+        Operation::WriteDebt {
+            path,
+            before: None,
+            after: Sha256::of(&bytes),
+        },
+        bytes,
+    )))
+}
+
 /// Every managed file the record holds that this release no longer lands.
 ///
 /// Only managed, and only under a root the canon owns. An adopted file the

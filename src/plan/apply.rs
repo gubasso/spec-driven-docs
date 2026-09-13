@@ -278,38 +278,20 @@ fn execute(
         // this one result. A `?` here would return with the journal
         // outstanding and the operations before it still applied, which
         // is the state the journal exists to prevent.
-        let done = bytes
-            .as_ref()
-            .map_or_else(
-                || remove(destination),
-                |bytes| {
-                    Stage::write(destination, bytes)
-                        .and_then(|scratch| Stage::replace(&scratch, destination))
-                },
-            )
+        let done = contained(target, operation.path().as_path())
+            .and_then(|()| {
+                bytes.as_ref().map_or_else(
+                    || remove(target, destination),
+                    |bytes| {
+                        Stage::write(destination, bytes)
+                            .and_then(|scratch| Stage::replace(&scratch, destination))
+                    },
+                )
+            })
             .and_then(|()| journal.mark_done(destination));
         if let Err(cause) = done {
-            let restored = journal.roll_back();
             let reason = format!("{} could not be written: {cause}", operation.path());
-            let result = terminal(
-                plan,
-                now,
-                if restored.is_ok() {
-                    Disposition::Retryable
-                } else {
-                    Disposition::RecoveryRequired
-                },
-                &reason,
-            );
-            store.record(plan, &result)?;
-            return Err(restored.err().map_or_else(
-                || refuse(&format!("{reason}; the target was put back")),
-                |failure| {
-                    AppError::Unrecovered(format!(
-                        "{reason}; the target could not be put back: {failure}"
-                    ))
-                },
-            ));
+            return Err(undo(store, plan, &journal, now, &reason, None));
         }
         outcomes.push(OperationOutcome {
             kind: operation.kind().to_string(),
@@ -321,40 +303,49 @@ fn execute(
     }
 
     let postconditions = prove(target, plan, bundle);
-    let failed: Vec<&PostconditionOutcome> =
-        postconditions.iter().filter(|held| !held.held).collect();
-    if let Some(first) = failed.first() {
+    if let Some(first) = postconditions.iter().find(|held| !held.held) {
         let reason = format!(
             "apply aborted: the postcondition {} did not hold: {}",
             first.id,
             first.detail.clone().unwrap_or_default()
         );
-        let restored = journal.roll_back();
-        let result = ApplyResult {
-            postconditions: postconditions.clone(),
-            ..terminal(
-                plan,
-                now,
-                if restored.is_ok() {
-                    Disposition::Retryable
-                } else {
-                    Disposition::RecoveryRequired
-                },
-                &reason,
-            )
-        };
-        store.record(plan, &result)?;
-        return Err(refuse(&reason));
+        return Err(undo(
+            store,
+            plan,
+            &journal,
+            now,
+            &reason,
+            Some(postconditions),
+        ));
     }
 
-    journal.finish()?;
+    // The journal is the last thing to go. Removing it is what ends the
+    // run; a failure to remove it leaves a record the next invocation
+    // rolls back, so it is a refusal. A failure to sync after the removal
+    // is not: the target already holds what the plan described, and
+    // undoing a landing that worked because a directory sync failed would
+    // trade a durability note for real lost work.
+    if let Err(cause) = journal.finish()
+        && directory.journal.exists()
+    {
+        let reason = format!("the journal could not be closed: {cause}");
+        return Err(undo(store, plan, &journal, now, &reason, None));
+    }
+
     let result = ApplyResult {
         operations: outcomes,
         postconditions,
         affected,
         ..terminal(plan, now, Disposition::Succeeded, "every operation landed")
     };
-    store.record(plan, &result)?;
+    // The target holds what the plan described and the journal is gone, so
+    // the run succeeded whether or not its record can be written. A store
+    // that refuses is reported and does not undo a landing that worked.
+    if let Err(cause) = store.record(plan, &result) {
+        return Err(AppError::Unrecovered(format!(
+            "the landing succeeded and its result could not be recorded: {cause}"
+        )));
+    }
     Ok(result)
 }
 
@@ -400,12 +391,81 @@ fn stage_every_operation(
     Ok((entries, planned))
 }
 
+/// Put the target back, record what the attempt achieved, and say so.
+///
+/// One handler for every failure after the journal opened. Recording is
+/// best effort: the run already failed, and a store that cannot be written
+/// does not change what the target holds. What the caller must learn is
+/// whether the rollback took.
+fn undo(
+    store: &Store,
+    plan: &Plan,
+    journal: &Journal,
+    now: &str,
+    reason: &str,
+    postconditions: Option<Vec<PostconditionOutcome>>,
+) -> AppError {
+    let restored = journal.roll_back();
+    let disposition = if restored.is_ok() {
+        Disposition::Retryable
+    } else {
+        Disposition::RecoveryRequired
+    };
+    let result = ApplyResult {
+        postconditions: postconditions.unwrap_or_default(),
+        ..terminal(plan, now, disposition, reason)
+    };
+    let _ = store.record(plan, &result);
+    restored.err().map_or_else(
+        || refuse(&format!("{reason}; the target was put back")),
+        |failure| {
+            AppError::Unrecovered(format!(
+                "{reason}; the target could not be put back: {failure}"
+            ))
+        },
+    )
+}
+
 /// Take one destination away, treating an absent one as already gone.
-fn remove(destination: &Utf8Path) -> std::result::Result<(), AppError> {
+///
+/// A removal that empties the directory it lived in takes that directory
+/// too, where the directory is one the canon owns. A skill is a directory
+/// holding one file, and an empty directory carrying a retired skill's
+/// name is one some agents still list. The sweep runs here, inside the
+/// lock and the journal, because a directory is not a file and no
+/// operation names one.
+fn remove(target: &Utf8Path, destination: &Utf8Path) -> std::result::Result<(), AppError> {
     match std::fs::remove_file(destination) {
-        Ok(()) => crate::transaction::sync_parent(destination).map_err(AppError::Io),
+        Ok(()) => {
+            crate::transaction::sync_parent(destination).map_err(AppError::Io)?;
+            sweep_emptied_parent(target, destination);
+            Ok(())
+        }
         Err(source) if source.kind() == std::io::ErrorKind::NotFound => Ok(()),
         Err(source) => Err(AppError::Io(source)),
+    }
+}
+
+/// Remove the directory a removal emptied, never a root the canon owns.
+fn sweep_emptied_parent(target: &Utf8Path, destination: &Utf8Path) {
+    let Some(parent) = destination.parent() else {
+        return;
+    };
+    let Ok(relative) = parent.strip_prefix(target) else {
+        return;
+    };
+    let owned = crate::domain::paths::PRUNABLE_ROOTS
+        .iter()
+        .any(|root| relative.as_str().starts_with(root.trim_end_matches('/')));
+    if !owned
+        || crate::domain::paths::PRUNABLE_ROOTS
+            .iter()
+            .any(|root| relative.as_str() == root.trim_end_matches('/'))
+    {
+        return;
+    }
+    if std::fs::read_dir(parent).is_ok_and(|mut entries| entries.next().is_none()) {
+        let _ = std::fs::remove_dir(parent);
     }
 }
 
@@ -600,6 +660,7 @@ mod tests {
             briefing: None,
             proposed: None,
             selections: &crate::plan::decision::Selections::new(),
+            budget: &[],
             reserve: &[],
             declarations_settled: false,
             now: "2026-09-12T00:00:00Z".to_string(),

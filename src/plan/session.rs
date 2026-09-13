@@ -107,6 +107,64 @@ pub(crate) fn read_release(to: &str, offline: bool) -> Result<Release, AppError>
     }
 }
 
+/// One release a caller already holds, borrowed.
+///
+/// A front resolves its bundle once and hands the same object over, so
+/// the release its preview described is the release that lands. An owned
+/// [`Release`] lends one of these; a caller holding only a bundle builds
+/// one directly.
+#[derive(Clone)]
+pub(crate) struct ReleaseRef<'a> {
+    /// The bytes, through the seam.
+    pub bundle: &'a dyn ReleaseBundle,
+    /// The exact release this is.
+    pub version: String,
+    /// Where its facts came from.
+    pub provenance: &'static str,
+    /// The registry checksum, where one was read.
+    pub checksum: Option<Sha256>,
+    /// Whether the registry marks it withdrawn.
+    pub yanked: bool,
+}
+
+impl<'a> ReleaseRef<'a> {
+    /// Describe a bundle a caller already holds.
+    ///
+    /// # Errors
+    ///
+    /// Whatever the bundle's manifest refuses.
+    pub(crate) fn of(bundle: &'a dyn ReleaseBundle) -> Result<Self, AppError> {
+        let manifest = bundle.manifest()?;
+        Ok(Self {
+            bundle,
+            version: manifest.version.to_string(),
+            provenance: match manifest.provenance {
+                Provenance::Native => "native",
+                Provenance::LegacyAdapted => "legacy-adapted",
+            },
+            checksum: None,
+            yanked: false,
+        })
+    }
+}
+
+impl Release {
+    /// Lend this release to the planner.
+    pub(crate) fn borrow(&self) -> ReleaseRef<'_> {
+        ReleaseRef {
+            bundle: self.bundle.as_ref(),
+            version: self.version.clone(),
+            provenance: if self.provenance == "native" {
+                "native"
+            } else {
+                "legacy-adapted"
+            },
+            checksum: self.checksum.clone(),
+            yanked: self.yanked,
+        }
+    }
+}
+
 /// What every release in the interval asks of this target.
 ///
 /// The vocabulary a step filters against is the destination set a landed
@@ -114,12 +172,24 @@ pub(crate) fn read_release(to: &str, offline: bool) -> Result<Release, AppError>
 /// excluded rather than shown.
 fn read_briefing(
     bundle: &dyn ReleaseBundle,
+    payload_schema: u32,
     recorded: Option<crate::domain::version::CanonVersion>,
     destination: crate::domain::version::CanonVersion,
     selections: &decision::Selections,
 ) -> Result<Option<guidance::Briefing>, AppError> {
-    let Ok(bytes) = bundle.artifact(guidance::INDEX_PATH) else {
-        return Ok(None);
+    // The same rule the compatibility declaration takes. A release that
+    // owes a ledger and carries none would otherwise plan ready with no
+    // breaking step raised, which is the one outcome the ledger exists to
+    // prevent. Only a release from before the declaration may be silent.
+    let bytes = match bundle.artifact(guidance::INDEX_PATH) {
+        Ok(bytes) => bytes,
+        Err(_) if payload_schema == 0 => return Ok(None),
+        Err(source) => {
+            return Err(AppError::Refused(format!(
+                "this release declares payload schema {payload_schema} and its {} could not be read: {source}",
+                guidance::INDEX_PATH
+            )));
+        }
     };
     let index =
         guidance::Index::parse(&bytes).map_err(|error| AppError::Refused(error.to_string()))?;
@@ -223,7 +293,7 @@ fn recorded_managed(
 /// [`AppError::Refused`] when the declaration does not parse, or when a
 /// bundle that owes one carries none.
 fn read_compatibility(
-    release: &Release,
+    release: &ReleaseRef<'_>,
     payload_schema: u32,
 ) -> Result<Option<compatibility::Compatibility>, AppError> {
     match release.bundle.artifact(compatibility::DECLARATION_PATH) {
@@ -239,6 +309,91 @@ fn read_compatibility(
     }
 }
 
+/// What the interval between the record and the destination is.
+///
+/// # Errors
+///
+/// [`AppError::Refused`] when the release is not a version triple.
+type Interval = (
+    Option<crate::domain::version::CanonVersion>,
+    crate::domain::version::CanonVersion,
+    Option<compatibility::Interval>,
+);
+
+fn interval_of(
+    observation: &crate::plan::observe::Observation,
+    release: &ReleaseRef<'_>,
+    compatibility: Option<&compatibility::Compatibility>,
+) -> Result<Interval, AppError> {
+    let recorded = observation
+        .installation
+        .as_ref()
+        .map(|installed| installed.canon_version);
+    let destination: crate::domain::version::CanonVersion = release
+        .version
+        .parse()
+        .map_err(|_| AppError::Refused(format!("{} is not a released triple", release.version)))?;
+    let interval = compatibility.map(|_| compatibility::Interval {
+        engine: crate::domain::version::CanonVersion::current(),
+        recorded,
+        destination,
+    });
+    Ok((recorded, destination, interval))
+}
+
+/// Everything the landing derivation reads.
+struct Derivation<'a> {
+    target: &'a Utf8Path,
+    profile: ProfileId,
+    declaration: &'a crate::domain::projection::Declaration,
+    observation: &'a crate::plan::observe::Observation,
+    selections: &'a decision::Selections,
+    reserve: &'a [String],
+    declared: Option<&'a InitOptions>,
+    budget: &'a [crate::domain::debt::Measurement],
+}
+
+/// Every write one landing implies, and the bytes each one lands.
+///
+/// The installer owns what a release lands, so this takes its answer and
+/// says what kind of write each destination is, then adds the one write
+/// an operator has to ask for.
+///
+/// # Errors
+///
+/// Whatever the installer or the derivation refuses.
+fn derive_landing(
+    from: &Derivation<'_>,
+    release: &ReleaseRef<'_>,
+) -> Result<crate::plan::derive::Derived, AppError> {
+    let options = match from.declared {
+        Some(held) => held.clone(),
+        None => landing_options(from.target, from.profile, from.selections, from.reserve)?,
+    };
+    let state = compute_target_state(from.target, &options, release.bundle)?;
+    let mut derived = crate::plan::derive::operations_for(
+        from.target,
+        &state.files,
+        from.declaration,
+        from.profile,
+        &recorded_managed(from.observation),
+    )?;
+    // The inherited violations become a ceiling only where the operator
+    // asked for that. A version moving never records one.
+    if from
+        .selections
+        .get(decision::id::DEBT_BASELINE)
+        .map(String::as_str)
+        == Some("record")
+        && let Some((operation, bytes)) =
+            crate::plan::derive::debt_operation(from.target, from.budget)?
+    {
+        derived.1.insert(Sha256::of(&bytes), bytes);
+        derived.0.push(operation);
+    }
+    Ok(derived)
+}
+
 /// Compute one plan against one target.
 ///
 /// # Errors
@@ -251,7 +406,7 @@ pub(crate) fn compute_plan(
     selections: &decision::Selections,
     reserve: &[String],
     declared: Option<&InitOptions>,
-    release: &Release,
+    release: &ReleaseRef<'_>,
 ) -> Result<(Plan, BTreeMap<Sha256, Vec<u8>>), AppError> {
     let _ = offline;
     let observation = observe(target)?;
@@ -296,21 +451,42 @@ pub(crate) fn compute_plan(
         ]
         .iter()
         .all(|id| selections.contains_key(*id));
+    // A profile change is a named migration, not something a landing verb
+    // does because a flag said so. The record decides for an installed
+    // target, and a caller asking for another one is refused rather than
+    // quietly landing the other profile's files under this one's record.
+    if let (Some(held), Some(asked)) = (
+        observation
+            .installation
+            .as_ref()
+            .map(|installed| installed.profile),
+        declared.map(|options| options.profile),
+    ) && held != asked
+    {
+        return Err(AppError::Refused(format!(
+            "this instance records the {held} profile and the request names {asked}; a profile change is its own migration, not a landing"
+        )));
+    }
+
+    // The same measurements `sdd debt` records, taken once and read twice.
+    // The gates resolve the documentation root the same way here as they
+    // do at commit time, so a finding and a later gate failure agree.
+    let budget = crate::services::budget::measure_all(target).unwrap_or_default();
+
     let landing = match profile {
-        Some(profile) if answered && observation.invalid.is_none() => {
-            let options = match declared {
-                Some(held) => held.clone(),
-                None => landing_options(target, profile, selections, reserve)?,
-            };
-            let state = compute_target_state(target, &options, release.bundle.as_ref())?;
-            Some(crate::plan::derive::operations_for(
+        Some(profile) if answered && observation.invalid.is_none() => Some(derive_landing(
+            &Derivation {
                 target,
-                &state.files,
-                &declaration,
                 profile,
-                &recorded_managed(&observation),
-            )?)
-        }
+                declaration: &declaration,
+                observation: &observation,
+                selections,
+                reserve,
+                declared,
+                budget: &budget,
+            },
+            release,
+        )?),
         _ => None,
     };
     let (proposed, blobs) = landing.map_or_else(
@@ -319,20 +495,15 @@ pub(crate) fn compute_plan(
     );
 
     let compatibility = read_compatibility(release, declaration.payload_schema)?;
-    let recorded = observation
-        .installation
-        .as_ref()
-        .map(|installed| installed.canon_version);
-    let destination: crate::domain::version::CanonVersion = release
-        .version
-        .parse()
-        .map_err(|_| AppError::Refused(format!("{} is not a released triple", release.version)))?;
-    let interval = compatibility.as_ref().map(|_| compatibility::Interval {
-        engine: crate::domain::version::CanonVersion::current(),
+    let (recorded, destination, interval) =
+        interval_of(&observation, release, compatibility.as_ref())?;
+    let briefing = read_briefing(
+        release.bundle,
+        declaration.payload_schema,
         recorded,
         destination,
-    });
-    let briefing = read_briefing(release.bundle.as_ref(), recorded, destination, selections)?;
+        selections,
+    )?;
 
     let computed = compute(&Inputs {
         observation: &observation,
@@ -342,7 +513,7 @@ pub(crate) fn compute_plan(
         selector: to.to_string(),
         release: release.version.clone(),
         release_sha256: manifest.payload_sha256,
-        provenance: release.provenance.clone(),
+        provenance: release.provenance.to_string(),
         registry_checksum: release.checksum.clone(),
         yanked: release.yanked,
         compatibility: compatibility.as_ref(),
@@ -350,6 +521,7 @@ pub(crate) fn compute_plan(
         briefing: briefing.as_ref(),
         proposed: proposed.as_deref(),
         selections,
+        budget: &budget,
         reserve,
         declarations_settled: declared.is_some(),
         now: jiff::Timestamp::now().to_string(),
@@ -380,12 +552,24 @@ pub(crate) fn blobs_for(plan: &Plan, bundle: &dyn ReleaseBundle) -> BTreeMap<Sha
 pub(crate) struct Landing<'a> {
     /// The repository, already canonical.
     pub target: &'a Utf8Path,
-    /// The destination, as the caller named it.
-    pub selector: &'a str,
+    /// The release that lands, resolved once by the caller.
+    ///
+    /// The object, not a selector to resolve again. A caller that reads a
+    /// fixture or an older release must land that release's bytes, and a
+    /// second resolution here would land whatever this binary carries
+    /// while the caller's preview described something else.
+    pub release: ReleaseRef<'a>,
     /// Whether the network is forbidden.
     pub offline: bool,
-    /// Every decision the caller answered.
+    /// Every decision the operator answered, validated against the plan.
+    ///
+    /// Only these. A value the front carries internally, such as the
+    /// profile a record already names, is not an answer anybody typed and
+    /// is not a decision the plan offers, so validating it would refuse a
+    /// correct request.
     pub selections: decision::Selections,
+    /// Answers the front supplies for itself, which nobody typed.
+    pub carried: decision::Selections,
     /// Paths no delivered gate judges, from the caller's flags.
     pub reserve: Vec<String>,
     /// The declarations a front already holds, where it holds them.
@@ -394,6 +578,23 @@ pub(crate) struct Landing<'a> {
     /// round-trip through, so it hands them over as they are rather than
     /// rendering them into answers the planner would parse back.
     pub declared: Option<InitOptions>,
+}
+
+impl Landing<'_> {
+    /// What the plan records as the caller's request.
+    ///
+    /// The embedded release has no version to look up, so it keeps the
+    /// word rather than a triple: an apply that read the triple back
+    /// would go to the registry for a release this binary already holds.
+    fn selector(&self) -> String {
+        if self.release.provenance == "native"
+            && self.release.version == crate::domain::version::CanonVersion::current().to_string()
+        {
+            "embedded".to_string()
+        } else {
+            self.release.version.clone()
+        }
+    }
 }
 
 /// Take one plan's own lock, after an opportunistic prune.
@@ -412,6 +613,59 @@ fn plan_lock(store: &Store, fingerprint: &str) -> Result<Lock, AppError> {
     Lock::exclusive_waiting(&store.plan_lock_path(fingerprint)?, "landing", STORE_WAIT)
 }
 
+/// Compute the plan one landing would run, and write nothing.
+///
+/// What a preview owes its reader is the plan, not a list of paths. A
+/// preview that could not show a blocked precondition or a decision the
+/// interval raises would tell an operator the run is ready when it is not.
+///
+/// # Errors
+///
+/// [`AppError::Busy`] when a writer holds the target, and whatever the
+/// planner refuses.
+pub(crate) fn preview(request: &Landing<'_>) -> Result<Plan, AppError> {
+    let _lock = Lock::shared(&target_lock(request.target)?, "landing preview")?;
+    let mut answers = request.carried.clone();
+    answers.extend(request.selections.clone());
+    let (plan, _) = compute_plan(
+        request.target,
+        &request.selector(),
+        request.offline,
+        &answers,
+        &request.reserve,
+        request.declared.as_ref(),
+        &request.release,
+    )?;
+    decision::validate(&plan.decisions, &request.selections)
+        .map_err(|error| AppError::Usage(error.to_string()))?;
+    Ok(plan)
+}
+
+/// What a preview says about a plan beyond the destinations it names.
+///
+/// One line per thing that would stop the run or ask a question. A ready
+/// plan adds nothing, because the destination list already said it all.
+#[must_use]
+pub(crate) fn preview_lines(plan: &Plan) -> Vec<String> {
+    let mut lines = Vec::new();
+    for precondition in &plan.preconditions {
+        if precondition.requirement == crate::plan::readiness::Requirement::Required
+            && !precondition.evaluation.is_satisfied()
+        {
+            lines.push(format!(
+                "BLOCKED {}: {}",
+                precondition.id, precondition.statement
+            ));
+        }
+    }
+    for decision in &plan.decisions {
+        if decision.selected.is_none() {
+            lines.push(format!("DECISION {}: {}", decision.id, decision.question));
+        }
+    }
+    lines
+}
+
 /// Plan one landing and execute it.
 ///
 /// The one path from a target to a write. Every front reaches the engine
@@ -425,23 +679,31 @@ fn plan_lock(store: &Store, fingerprint: &str) -> Result<Lock, AppError> {
 /// the planner, the store, or the executor refuses.
 pub(crate) fn land(request: &Landing<'_>) -> Result<ApplyResult, AppError> {
     let _lock = Lock::exclusive(&target_lock(request.target)?, "landing")?;
-    let release = read_release(request.selector, request.offline)?;
+    let release = &request.release;
+    let mut answers = request.carried.clone();
+    answers.extend(request.selections.clone());
     let (plan, blobs) = compute_plan(
         request.target,
-        request.selector,
+        &request.selector(),
         request.offline,
-        &request.selections,
+        &answers,
         &request.reserve,
         request.declared.as_ref(),
-        &release,
+        release,
     )?;
+    // An answer the plan does not offer is not authorization. The front
+    // verbs take `--set` too, so the check belongs here rather than in one
+    // caller: a malformed answer that reached a precondition would turn
+    // typing into consent.
+    decision::validate(&plan.decisions, &request.selections)
+        .map_err(|error| AppError::Usage(error.to_string()))?;
 
     let store = Store::new(&state_root()?);
     store.create()?;
     let _store_lock = plan_lock(&store, &plan.identity.plan_id)?;
     if !store.holds(&plan.identity.plan_id) {
         let mut blobs = blobs;
-        for (digest, bytes) in blobs_for(&plan, release.bundle.as_ref()) {
+        for (digest, bytes) in blobs_for(&plan, release.bundle) {
             blobs.entry(digest).or_insert(bytes);
         }
         store.put(&plan, &blobs)?;
@@ -454,7 +716,7 @@ pub(crate) fn land(request: &Landing<'_>) -> Result<ApplyResult, AppError> {
         // lock, so nothing could move between the two. The apply still
         // compares the two fingerprints rather than assuming that.
         recomputed: &plan,
-        bundle: release.bundle.as_ref(),
+        bundle: release.bundle,
         now: jiff::Timestamp::now().to_string(),
     })
 }

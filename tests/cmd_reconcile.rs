@@ -601,3 +601,65 @@ fn the_landing_fronts_write_through_the_engine() {
         "a landing reported an unproven postcondition: {result}"
     );
 }
+
+/// VERIFIES reconcile:a-finding-is-something-the-program-proved
+///
+/// A budget finding is a measurement, and it is the same measurement
+/// `sdd debt` records. A corpus over a cap gets a finding and, where the
+/// operator asks for it, one debt operation carrying the ceiling.
+#[test]
+fn an_oversized_document_is_a_budget_finding_and_an_operator_can_record_it() {
+    let fixture = Fixture::new();
+    let long: String = std::iter::repeat_n("A sentence here.\n\n", 300).collect();
+    fixture.write("docs/specs/SPEC-held.md", "# Held\n\nRules.\n");
+    fixture.write(
+        "docs/decisions/ADR-too-long.md",
+        &format!("# Too long\n\n{long}"),
+    );
+
+    let settled = [
+        "--set",
+        "profile=codebase",
+        "--set",
+        "plan-zone=none",
+        "--set",
+        "docs-scratch=none",
+        "--set",
+        "writing-style=builtin",
+        "--set",
+        "migration-scope=sweep",
+    ];
+    let held = plan(&fixture, &settled);
+    let budget: Vec<&serde_json::Value> = held["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|finding| finding["kind"] == "budget")
+        .collect();
+    assert!(
+        !budget.is_empty(),
+        "no budget finding: {}",
+        held["findings"]
+    );
+    assert!(budget[0]["measurement"]["found"].as_u64().unwrap() > 0);
+    assert!(
+        held["operations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|operation| operation["kind"] != "write-debt"),
+        "a ceiling was recorded without the operator asking"
+    );
+
+    let mut answered: Vec<&str> = settled.to_vec();
+    answered.extend(["--set", "debt-baseline=record"]);
+    let held = plan(&fixture, &answered);
+    assert!(
+        held["operations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|operation| operation["kind"] == "write-debt"),
+        "the selected baseline produced no debt operation"
+    );
+}

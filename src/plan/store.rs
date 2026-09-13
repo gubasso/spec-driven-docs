@@ -229,9 +229,12 @@ impl Store {
     ///
     /// [`AppError::Refused`] for an id that is not a fingerprint.
     pub fn plan_lock_path(&self, fingerprint: &str) -> std::result::Result<Utf8PathBuf, AppError> {
+        // Beside the plans rather than among them: the prune walks the
+        // plans directory and treats every aged entry as a directory, so a
+        // lock file sitting in it would break housekeeping.
         Ok(self
             .root
-            .join("plans")
+            .join("locks")
             .join(format!("{}.lock", Self::checked(fingerprint)?)))
     }
 
@@ -414,14 +417,14 @@ impl Store {
         keep: Option<&str>,
     ) -> std::result::Result<Vec<Utf8PathBuf>, AppError> {
         let mut removed = Vec::new();
-        removed.extend(Self::prune_under(
+        removed.extend(self.prune_under(
             &self.root.join("plans"),
             now,
             PLAN_TTL_DAYS,
             keep,
             true,
         )?);
-        removed.extend(Self::prune_under(
+        removed.extend(self.prune_under(
             &self.root.join("results"),
             now,
             RESULT_TTL_DAYS,
@@ -432,6 +435,7 @@ impl Store {
     }
 
     fn prune_under(
+        &self,
         root: &Utf8Path,
         now: jiff::Timestamp,
         days: i64,
@@ -450,7 +454,19 @@ impl Store {
             if Some(name) == keep {
                 continue;
             }
+            // Only a fingerprint directory is a plan. Anything else under
+            // here is not this walk's business, and treating it as one
+            // would fail the whole prune on the first stray entry.
+            if !path.is_dir() || Self::checked(name).is_err() {
+                continue;
+            }
             if guard_journal && path.join("apply.journal").exists() {
+                continue;
+            }
+            // A writer that took this plan's lock has not written its
+            // journal yet, and removing the plan under it would take the
+            // blobs the apply is about to read.
+            if guard_journal && self.plan_is_held(name) {
                 continue;
             }
             if older_than(&path, now, days) {
@@ -459,6 +475,20 @@ impl Store {
             }
         }
         Ok(removed)
+    }
+
+    /// Whether another process holds one plan's lock right now.
+    ///
+    /// Probed without waiting: this is housekeeping, and a plan somebody
+    /// is working on is one to leave alone rather than to queue behind.
+    fn plan_is_held(&self, fingerprint: &str) -> bool {
+        let Ok(path) = self.plan_lock_path(fingerprint) else {
+            return true;
+        };
+        if !path.exists() {
+            return false;
+        }
+        crate::transaction::lock::Lock::exclusive(&path, "plan store prune").is_err()
     }
 }
 

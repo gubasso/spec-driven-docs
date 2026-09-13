@@ -92,8 +92,6 @@ pub mod id {
     pub const MIGRATION_SCOPE: &str = "migration-scope";
     /// Whether the inherited violations are recorded as debt.
     pub const DEBT_BASELINE: &str = "debt-baseline";
-    /// Whether an absent sentinel is appended to the project's specs.
-    pub const RECONCILE_POLICY: &str = "reconcile-policy";
     /// Whether a yanked release is an acceptable destination.
     pub const ACCEPT_YANKED: &str = "accept-yanked-release";
 }

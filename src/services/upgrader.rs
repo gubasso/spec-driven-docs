@@ -109,42 +109,74 @@ fn read_installed(target: &Utf8Path) -> Result<Installed, AppError> {
     }
 }
 
-use crate::domain::paths::PRUNABLE_ROOTS as PRUNABLE;
-
-/// Remove the directory a pruned file leaves empty, never the prunable root.
+/// Every managed file and region the target no longer holds as recorded.
 ///
-/// A skill is a directory holding one `SKILL.md`, so pruning the file alone
-/// leaves an empty directory carrying the old skill's name — which some
-/// agents still list.
-fn prune_empty_parent(full: &Utf8Path, raw: &str, prunable: &str) {
-    let Some((relative_parent, _)) = raw.rsplit_once('/') else {
-        return;
-    };
-    if relative_parent == prunable.trim_end_matches('/') {
-        return;
+/// A reinstall replaces a managed file and re-splices a managed region, so
+/// an edit to either would be lost. An edit outside the markers is the
+/// project's own and survives, which is why the region is compared by its
+/// own hash rather than the host file's.
+///
+/// # Errors
+///
+/// Any I/O error reading a destination.
+fn conflicts_at(target: &Utf8Path, installed: &Installed) -> Result<Vec<String>, AppError> {
+    let mut conflicts = Vec::new();
+    for (destination, recorded) in &installed.managed {
+        let file = target.join(destination);
+        if !file.is_file() {
+            conflicts.push(format!("CONFLICT missing managed file: {destination}"));
+            continue;
+        }
+        if sha256_file(&file)? != *recorded {
+            conflicts.push(format!(
+                "CONFLICT locally edited managed file: {destination}"
+            ));
+        }
     }
-    let Some(directory) = full.parent() else {
-        return;
-    };
-    if std::fs::read_dir(directory).is_ok_and(|mut entries| entries.next().is_none()) {
-        let _ = std::fs::remove_dir(directory);
+    for (path, recorded) in &installed.integration {
+        let full = target.join(path);
+        if !full.is_file() {
+            conflicts.push(format!("CONFLICT missing integration host: {path}"));
+            continue;
+        }
+        let (begin, end) = markers_for(path.as_str());
+        let host = std::fs::read_to_string(&full)?;
+        match crate::domain::marker::block_hash_with(&host, begin, end) {
+            Some(present) if present == *recorded => {}
+            _ => conflicts.push(format!("CONFLICT locally edited managed block: {path}")),
+        }
+    }
+    Ok(conflicts)
+}
+
+/// The options a reinstall carries.
+///
+/// No flag: the reinstall carries the recorded declarations forward, and
+/// the project's own declaration file is adopted, so the reinstall reads
+/// it rather than replacing it.
+fn reinstall_options(target: &Utf8Path, profile: ProfileId) -> InitOptions {
+    InitOptions {
+        target: target.to_path_buf(),
+        profile,
+        apply: false,
+        dry_run: true,
+        plan_zone: None,
+        docs_scratch: None,
+        reserve: Vec::new(),
+        writing_style: None,
     }
 }
 
-/// Report what the landing took back, and tidy the directories it emptied.
+/// Report what the landing took back.
 ///
-/// The removals are the plan's own operations, applied under its journal.
-/// This says what happened and removes the directory a removed file left
-/// empty, which no operation names because a directory is not a file.
-fn report_removals(target: &Utf8Path, removed: &[String], outcome: &mut UpgradeOutcome) {
+/// The removals are the plan's own operations, applied under its journal,
+/// and the executor sweeps the directory each one emptied inside that
+/// same transaction. This only says what happened.
+fn report_removals(removed: &[String], outcome: &mut UpgradeOutcome) {
     for raw in removed {
         outcome
             .lines
             .push(format!("removed managed file no longer owned: {raw}"));
-        let Some(prunable) = PRUNABLE.iter().find(|prefix| raw.starts_with(**prefix)) else {
-            continue;
-        };
-        prune_empty_parent(&target.join(raw), raw, prunable);
     }
 }
 
@@ -187,35 +219,7 @@ pub fn upgrade(
         )));
     }
 
-    let mut conflicts = Vec::new();
-    for (destination, recorded) in &installed.managed {
-        let file = target.join(destination);
-        if !file.is_file() {
-            conflicts.push(format!("CONFLICT missing managed file: {destination}"));
-            continue;
-        }
-        if sha256_file(&file)? != *recorded {
-            conflicts.push(format!(
-                "CONFLICT locally edited managed file: {destination}"
-            ));
-        }
-    }
-    // A locally edited managed integration region is a conflict too: the
-    // reinstall re-splices the region, so an edit inside the markers would be
-    // lost. An edit outside the markers is the project's own and survives.
-    for (path, recorded) in &installed.integration {
-        let full = target.join(path);
-        if !full.is_file() {
-            conflicts.push(format!("CONFLICT missing integration host: {path}"));
-            continue;
-        }
-        let (begin, end) = markers_for(path.as_str());
-        let host = std::fs::read_to_string(&full)?;
-        match crate::domain::marker::block_hash_with(&host, begin, end) {
-            Some(present) if present == *recorded => {}
-            _ => conflicts.push(format!("CONFLICT locally edited managed block: {path}")),
-        }
-    }
+    let conflicts = conflicts_at(&target, &installed)?;
     if !conflicts.is_empty() {
         let count = conflicts.len();
         outcome.lines.extend(conflicts);
@@ -235,23 +239,36 @@ pub fn upgrade(
                 .lines
                 .push(format!("DRY RUN upgrade {old} to {new}"));
         }
+        // The preview is the plan. A release in the interval that asks
+        // something of a person is exactly what a dry run must show, and
+        // a version pair alone cannot show it.
+        let preview = init_with(
+            &options.selections,
+            &reinstall_options(&target, installed.profile),
+            bundle,
+            crate::plan::classify::Intent::Reconcile,
+        )
+        .map_err(|error| {
+            AppError::Refused(format!(
+                "upgrade could not be planned from {old} to {new}: {error}"
+            ))
+        })?;
+        outcome
+            .lines
+            .extend(preview.lines.into_iter().filter(|line| {
+                line.starts_with("BLOCKED")
+                    || line.starts_with("DECISION")
+                    || line.starts_with("note:")
+            }));
         return Ok(outcome);
     }
 
     let reinstalled = init_with(
         &options.selections,
         &InitOptions {
-            target: target.clone(),
-            profile: installed.profile,
             apply: true,
             dry_run: false,
-            // No flag: the reinstall carries the recorded declarations forward,
-            // and the project's own declaration file is adopted, so the
-            // reinstall reads it rather than replacing it.
-            plan_zone: None,
-            docs_scratch: None,
-            reserve: Vec::new(),
-            writing_style: None,
+            ..reinstall_options(&target, installed.profile)
         },
         bundle,
         // The upgrade already classified the target; the reinstall is its
@@ -286,7 +303,7 @@ fn finish(
     new: CanonVersion,
     outcome: &mut UpgradeOutcome,
 ) {
-    report_removals(target, removed, outcome);
+    report_removals(removed, outcome);
 
     let mut local_ids = std::collections::BTreeSet::new();
     let specs = target.join(&installed.docs_root).join("specs");

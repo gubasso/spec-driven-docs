@@ -428,7 +428,7 @@ fn an_older_schema_at_the_current_version_still_migrates() {
         .stdout(predicate::str::contains("DRY RUN migrate the record"));
 
     fixture
-        .upgrade()
+        .upgrade_bare()
         .assert()
         .success()
         .stdout(predicate::str::contains("OK migrated the record"));
@@ -489,7 +489,7 @@ fn behind_without(spec: &str) -> Fixture {
 fn the_new_specification_seeds_into_an_existing_instance() {
     let spec = "_docs/specs/SPEC-budget-debt.md";
     let fixture = behind_without(spec);
-    fixture.upgrade().assert().success();
+    fixture.upgrade_bare().assert().success();
     assert!(
         fixture
             .read(spec)
@@ -512,7 +512,7 @@ fn project_content_at_the_new_destination_survives_and_notes() {
     let own = "# Budget Debt Specification\n\n## Purpose\n\nOurs.\n\n## Requirements\n\n### `budget-debt:our-own-rule` — Ours\n\nThe author MUST keep it.\n\n#### Scenario: Ours\n\n- GIVEN x\n- WHEN y\n- THEN z\n\nVerify: `true`\n";
     fixture.write(spec, own);
     fixture
-        .upgrade()
+        .upgrade_bare()
         .assert()
         .success()
         .stdout(predicate::str::contains(format!(
@@ -536,7 +536,7 @@ fn an_instance_carrying_only_the_legacy_list_stays_green_with_a_note() {
         ".spec-driven-docs/chapter-size-debt.txt",
         "method/carried.md\n",
     );
-    fixture.upgrade().assert().success();
+    fixture.upgrade_bare().assert().success();
     assert!(!fixture.path().join(".spec-driven-docs/debt.yaml").exists());
     fixture
         .cmd()
@@ -556,7 +556,7 @@ fn an_instance_carrying_only_the_legacy_list_stays_green_with_a_note() {
 fn the_writing_policy_specification_seeds_into_an_existing_instance() {
     let spec = "_docs/specs/SPEC-writing-policy.md";
     let fixture = behind_without(spec);
-    fixture.upgrade().assert().success();
+    fixture.upgrade_bare().assert().success();
     assert!(
         fixture
             .read(spec)
@@ -580,7 +580,7 @@ fn a_declaration_without_the_writing_style_key_upgrades_as_builtin() {
         .read(".spec-driven-docs/manifest.json")
         .replace(env!("CARGO_PKG_VERSION"), "0.7.0");
     fixture.write(".spec-driven-docs/manifest.json", &manifest);
-    fixture.upgrade().assert().success();
+    fixture.upgrade_bare().assert().success();
     assert!(
         fixture
             .read("AGENTS.md")
@@ -620,7 +620,7 @@ fn an_upgrade_never_reconciles() {
         .replace(env!("CARGO_PKG_VERSION"), "0.7.0");
     fixture.write(".spec-driven-docs/manifest.json", &manifest);
 
-    fixture.upgrade().assert().success();
+    fixture.upgrade_bare().assert().success();
     assert_eq!(
         fixture.read(spec),
         older,
@@ -632,4 +632,25 @@ fn an_upgrade_never_reconciles() {
         .assert()
         .success()
         .stdout(predicate::str::contains("run 'sdd policy reconcile'"));
+}
+
+/// VERIFIES distribution:upgrade-conflicts-are-atomic
+///
+/// The preview is the plan. A release in the interval that asks something
+/// of a person is exactly what a dry run must show, and a version pair
+/// alone cannot show it.
+#[test]
+fn a_dry_run_names_the_decision_the_interval_raises() {
+    let fixture = v1_instance();
+    let digest = fixture.tree_digest();
+    fixture
+        .cmd()
+        .args(["upgrade", "--target", &fixture.target(), "--dry-run"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("DRY RUN upgrade 0.1.6 to"))
+        .stdout(predicate::str::contains(
+            "DECISION guidance:0.7.0:re-point-the-retired-rule",
+        ));
+    assert_eq!(digest, fixture.tree_digest(), "a dry run changed bytes");
 }

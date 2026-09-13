@@ -466,6 +466,16 @@ pub fn init_with(
     let state = compute_target_state(&target, options, bundle)?;
     let mut lines = state.lines;
 
+    let landing = crate::plan::session::Landing {
+        target: &target,
+        release: crate::plan::session::ReleaseRef::of(bundle)?,
+        offline: true,
+        selections: answered.clone(),
+        carried: profile_only(options.profile),
+        reserve: options.reserve.clone(),
+        declared: Some(options.clone()),
+    };
+
     if dry {
         if forced_dry {
             lines.push(
@@ -473,6 +483,12 @@ pub fn init_with(
                     .to_string(),
             );
         }
+        // The preview is the plan. A destination list alone cannot say
+        // that a precondition blocks the run or that a release in the
+        // interval asks something of a person.
+        lines.extend(crate::plan::session::preview_lines(
+            &crate::plan::session::preview(&landing)?,
+        ));
         lines.push("DRY RUN: no files written".to_string());
         return Ok(InitOutcome {
             lines,
@@ -486,14 +502,7 @@ pub fn init_with(
     // The state above is what the planner derives its operations from, so
     // the landing is the same landing; what it gains is the plan's own id,
     // the journal that can take it back, and a recorded result.
-    let result = crate::plan::session::land(&crate::plan::session::Landing {
-        target: &target,
-        selector: "embedded",
-        offline: true,
-        selections: with_profile(answered, options.profile),
-        reserve: options.reserve.clone(),
-        declared: Some(options.clone()),
-    })?;
+    let result = crate::plan::session::land(&landing)?;
     for refused in result
         .postconditions
         .iter()
@@ -523,11 +532,8 @@ pub fn init_with(
 /// the same answer under two names, and rendering a recorded value back
 /// into its flag spelling only to parse it again is a round trip that can
 /// lose what it carries.
-fn with_profile(
-    answered: &crate::plan::decision::Selections,
-    profile: ProfileId,
-) -> crate::plan::decision::Selections {
-    let mut selections = answered.clone();
+fn profile_only(profile: ProfileId) -> crate::plan::decision::Selections {
+    let mut selections = crate::plan::decision::Selections::new();
     selections.insert(
         crate::plan::decision::id::PROFILE.to_string(),
         profile.to_string(),

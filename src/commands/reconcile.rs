@@ -37,13 +37,20 @@ pub fn run(ctx: &AppContext, args: ReconcileArgs) -> Result<(), AppError> {
 }
 
 fn resolve_target(ctx: &AppContext, target: &Utf8Path) -> Result<Utf8PathBuf, AppError> {
-    if target.is_absolute() {
-        return Ok(target.to_owned());
-    }
-    if target == "." {
-        return Ok(ctx.cwd.clone());
-    }
-    Err(AppError::Usage("target must be absolute or .".to_string()))
+    let named = if target.is_absolute() {
+        target.to_owned()
+    } else if target == "." {
+        ctx.cwd.clone()
+    } else {
+        return Err(AppError::Usage("target must be absolute or .".to_string()));
+    };
+    // The lock is keyed by the path, so two spellings of one repository
+    // would take two locks and interleave. Canonicalizing first makes one
+    // repository one key, whichever symlink the operator typed.
+    let resolved = std::fs::canonicalize(&named)
+        .map_err(|_| AppError::Usage(format!("unresolved target: {named}")))?;
+    Utf8PathBuf::from_path_buf(resolved)
+        .map_err(|path| AppError::Usage(format!("target is not UTF-8: {}", path.display())))
 }
 
 fn run_plan(ctx: &AppContext, args: &PlanArgs) -> Result<(), AppError> {
@@ -62,7 +69,7 @@ fn run_plan(ctx: &AppContext, args: &PlanArgs) -> Result<(), AppError> {
         &selections,
         &args.reserve,
         None,
-        &release,
+        &release.borrow(),
     )?;
     decision::validate(&computed.decisions, &selections)
         .map_err(|error| AppError::Usage(error.to_string()))?;
@@ -166,7 +173,7 @@ fn run_apply(ctx: &AppContext, args: &ApplyArgs) -> Result<(), AppError> {
         &selections,
         &stored.desired_state.reserved,
         None,
-        &release,
+        &release.borrow(),
     )?;
 
     // The store is global, so its own lock orders writers across targets.

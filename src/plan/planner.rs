@@ -62,6 +62,12 @@ pub struct Inputs<'a> {
     pub selections: &'a Selections,
     /// Paths no delivered gate judges, as the caller reserved them.
     pub reserve: &'a [String],
+    /// What the budget gates measured at the target.
+    ///
+    /// The gates decide pass or fail; the planner reports a number over a
+    /// cap as debt a corpus arrived with. One measurement, so a finding
+    /// and a ceiling can never disagree about what a budget is.
+    pub budget: &'a [crate::domain::debt::Measurement],
     /// Whether the caller already settled the three declarations.
     ///
     /// A front carries them as flags, and an omitted flag keeps whatever
@@ -280,6 +286,34 @@ fn findings_of(
     if classification != Classification::Migration {
         return findings;
     }
+    // A number over a cap is debt the corpus arrived with, never a defect
+    // in it. It records as a ceiling and comes down as documents shrink.
+    for measured in inputs.budget {
+        let crate::domain::debt::Measured::Count { value, budget } = measured.value else {
+            continue;
+        };
+        if value <= budget {
+            continue;
+        }
+        let Ok(path) = TargetPath::new(&measured.path) else {
+            continue;
+        };
+        findings.push(Finding {
+            kind: FindingKind::Budget,
+            path,
+            rule: measured.gate.to_string(),
+            statement: format!(
+                "{} is {value} {} against a budget of {budget}",
+                measured.path, measured.dimension
+            ),
+            measurement: Some(crate::plan::finding::Measurement {
+                dimension: measured.dimension.to_string(),
+                found: value as u64,
+                cap: budget as u64,
+            }),
+        });
+    }
+
     let corpus = &inputs.observation.corpus;
     // The foreign-root detector needs the profile, so it waits for the
     // decision rather than judging against a default.

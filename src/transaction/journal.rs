@@ -142,7 +142,7 @@ impl Journal {
     /// # Errors
     ///
     /// [`AppError::Unrecovered`] when a destination cannot be put back.
-    pub fn roll_back(self) -> Result<(), AppError> {
+    pub fn roll_back(&self) -> Result<(), AppError> {
         roll_back_record(&self.path, &self.record)
     }
 
@@ -151,10 +151,13 @@ impl Journal {
     /// # Errors
     ///
     /// Any I/O error removing the journal or syncing its directory.
-    pub fn finish(self) -> Result<(), AppError> {
+    pub fn finish(&mut self) -> Result<(), AppError> {
         std::fs::remove_file(&self.path)?;
-        sync_parent(&self.path)?;
-        Ok(())
+        // The record is gone from disk, so the run is complete whatever
+        // the sync reports. A failure here means the removal may not
+        // survive a crash, which is worth saying and is not worth undoing
+        // a landing that already holds what the plan described.
+        sync_parent(&self.path).map_err(AppError::Io)
     }
 
     /// What this run recorded, for a test that inspects it.
@@ -326,7 +329,7 @@ mod tests {
     fn a_finished_run_leaves_no_journal() {
         let dir = tempfile::tempdir().unwrap();
         let path = root(&dir).join("run.journal");
-        let journal = Journal::begin(&path, &root(&dir).join("backups"), Vec::new()).unwrap();
+        let mut journal = Journal::begin(&path, &root(&dir).join("backups"), Vec::new()).unwrap();
         assert!(path.is_file());
         journal.finish().unwrap();
         assert!(!path.exists());

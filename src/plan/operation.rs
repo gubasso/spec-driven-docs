@@ -14,7 +14,6 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::domain::ownership::Sha256;
-use crate::domain::rule_id::RuleId;
 
 /// A path an operation may name: relative, inside the target, and ordinary.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -158,17 +157,6 @@ pub enum Operation {
         /// What the target must still hold.
         before: Sha256,
     },
-    /// Append one rule to an adopted specification the operator selected.
-    AppendRule {
-        /// Where.
-        path: TargetPath,
-        /// Which rule.
-        rule: RuleId,
-        /// What the target must still hold.
-        before: Sha256,
-        /// What the target will hold.
-        after: Sha256,
-    },
     /// Write the inherited violations the operator asked to record.
     WriteDebt {
         /// Where.
@@ -198,7 +186,6 @@ impl Operation {
             | Self::KeepFile { path, .. }
             | Self::SpliceBlock { path, .. }
             | Self::RemoveOwnedFile { path, .. }
-            | Self::AppendRule { path, .. }
             | Self::WriteDebt { path, .. }
             | Self::WriteRecord { path, .. } => path,
         }
@@ -212,7 +199,6 @@ impl Operation {
             Self::KeepFile { .. } => "keep-file",
             Self::SpliceBlock { .. } => "splice-block",
             Self::RemoveOwnedFile { .. } => "remove-owned-file",
-            Self::AppendRule { .. } => "append-rule",
             Self::WriteDebt { .. } => "write-debt",
             Self::WriteRecord { .. } => "write-record",
         }
@@ -227,7 +213,7 @@ impl Operation {
             | Self::SpliceBlock { before, .. }
             | Self::WriteDebt { before, .. }
             | Self::WriteRecord { before, .. } => before.as_ref(),
-            Self::RemoveOwnedFile { before, .. } | Self::AppendRule { before, .. } => Some(before),
+            Self::RemoveOwnedFile { before, .. } => Some(before),
             Self::KeepFile { held, .. } => Some(held),
         }
     }
@@ -238,7 +224,6 @@ impl Operation {
         match self {
             Self::WriteFile { after, .. }
             | Self::SpliceBlock { after, .. }
-            | Self::AppendRule { after, .. }
             | Self::WriteDebt { after, .. }
             | Self::WriteRecord { after, .. } => Some(after),
             Self::KeepFile { held, .. } => Some(held),
