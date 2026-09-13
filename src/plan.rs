@@ -19,11 +19,13 @@
 
 pub mod apply;
 pub mod classify;
+pub mod compatibility;
 pub mod decision;
 pub mod derive;
 pub mod evidence;
 pub mod finding;
 pub mod fingerprint;
+pub mod guidance;
 pub mod observe;
 pub mod operation;
 pub mod planner;
@@ -116,6 +118,18 @@ pub struct ReleaseSource {
     pub registry_checksum: Option<Sha256>,
     /// Whether the registry marks it yanked.
     pub yanked: bool,
+    /// The lowest engine this release declares it needs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub minimum_engine: Option<String>,
+    /// How much of the interval the guidance ledger covers.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub guidance_coverage: Option<crate::plan::guidance::Coverage>,
+    /// Every guidance step that reaches this target.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub guidance_steps: Vec<String>,
+    /// How many steps this target's destinations excluded.
+    #[serde(default)]
+    pub guidance_excluded: usize,
     /// What each of the above rests on.
     pub evidence_refs: Vec<String>,
 }

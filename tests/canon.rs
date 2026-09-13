@@ -1627,3 +1627,84 @@ fn the_published_crate_carries_the_payload_and_the_release_catalog() {
         "the published crate carries no legacy descriptor"
     );
 }
+
+/// SATISFIES release:every-release-declares-what-it-asks
+///
+/// One entry per release from the capability floor. Absence never means
+/// two things: `none` says there is nothing to do, and a missing entry is
+/// a release-time failure rather than a silent gap.
+#[test]
+fn every_covered_release_has_exactly_one_guidance_entry() {
+    use spec_driven_docs::plan::guidance::{Index, NONE};
+
+    let index = Index::parse(read("guidance/index.toml").as_bytes()).expect("the ledger parses");
+    let catalog = spec_driven_docs::release::legacy::LegacyCatalog::embedded();
+    for entry in &catalog.index().releases {
+        if !entry.eligible {
+            continue;
+        }
+        let version = entry.version.parse().expect("a released triple");
+        assert!(
+            index.entry(version).is_some(),
+            "{} is eligible and the guidance ledger does not cover it",
+            entry.version
+        );
+    }
+    for entry in &index.releases {
+        if entry.guidance == NONE {
+            continue;
+        }
+        let path = format!("guidance/{}", entry.guidance);
+        assert!(
+            canon().join(&path).is_file(),
+            "{} selects {path}, which is not on disk",
+            entry.version
+        );
+    }
+}
+
+/// SATISFIES release:every-release-declares-what-it-asks
+#[test]
+fn every_guidance_step_names_a_body_the_payload_carries() {
+    use spec_driven_docs::plan::guidance::{Guidance, Index, NONE};
+
+    let index = Index::parse(read("guidance/index.toml").as_bytes()).expect("the ledger parses");
+    let bodies: Vec<String> = walkdir::WalkDir::new(canon().join("guidance"))
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_type().is_file())
+        .filter_map(|entry| {
+            let path = entry.path().strip_prefix(canon()).ok()?;
+            Some(path.to_str()?.to_string())
+        })
+        .collect();
+    let mut files = 0usize;
+    for entry in &index.releases {
+        if entry.guidance == NONE {
+            continue;
+        }
+        let path = format!("guidance/{}", entry.guidance);
+        // The parser is what holds a step to its kind, its destinations,
+        // its actor, and a body the bundle carries.
+        Guidance::parse(&path, read(&path).as_bytes(), &bodies)
+            .unwrap_or_else(|error| panic!("{path}: {error}"));
+        files += 1;
+    }
+    assert!(files > 0, "the ledger selects no guidance file");
+}
+
+/// SATISFIES bundle:a-release-declares-what-it-lands
+#[test]
+fn the_compatibility_declaration_is_present_and_true() {
+    use spec_driven_docs::plan::compatibility::Compatibility;
+
+    let held = Compatibility::parse(read("instance/compatibility.toml").as_bytes())
+        .expect("the declaration parses");
+    let version: spec_driven_docs::domain::version::CanonVersion = env!("CARGO_PKG_VERSION")
+        .parse()
+        .expect("the crate version is a triple");
+    assert!(
+        held.minimum_engine <= version,
+        "the declaration needs an engine newer than the one that carries it"
+    );
+}

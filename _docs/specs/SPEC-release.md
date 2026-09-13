@@ -14,6 +14,7 @@
   - [`release:the-canon-record-describes-its-tree` — The canon record describes its tree](#releasethe-canon-record-describes-its-tree--the-canon-record-describes-its-tree)
   - [`release:the-rk-pin-has-two-facts-and-one-mover` — The rk pin has two facts and one mover](#releasethe-rk-pin-has-two-facts-and-one-mover--the-rk-pin-has-two-facts-and-one-mover)
   - [`release:third-party-notices-travel-with-the-payload` — Third-party notices travel with the payload](#releasethird-party-notices-travel-with-the-payload--third-party-notices-travel-with-the-payload)
+  - [`release:every-release-declares-what-it-asks` — Every release declares what it asks](#releaseevery-release-declares-what-it-asks--every-release-declares-what-it-asks)
 
 <!--TOC-->
 
@@ -148,3 +149,15 @@ The release MUST carry a third-party notice naming every third-party source the 
 - THEN the notice prints byte-identical to `THIRD_PARTY_NOTICES.md` and names the source's upstream MIT terms and resolved object ID. The canon test proves the notice appears in the packaged crate
 
 Verify: `pre-commit run cargo-test --all-files`
+
+### `release:every-release-declares-what-it-asks` — Every release declares what it asks
+
+Every release MUST add exactly one entry to the guidance ledger, selecting a guidance file or `none`. A release that changes a managed projection's bytes, drops an adopted seed, retires a rule ID, adds a declaration key, or widens a gate's judged set MUST NOT select `none`. Every step MUST name its kind, its destinations, its actor, and a prose body the payload carries, and every release MUST carry its compatibility declaration.
+
+#### Scenario: A release retires a rule and declares nothing
+
+- GIVEN a release whose diff retires a rule ID and whose ledger entry reads `none`
+- WHEN the canon test suite runs
+- THEN it fails naming the change, because an instance that takes the release has work the release did not describe
+
+Verify: `cargo nextest run -E 'binary(canon)'`

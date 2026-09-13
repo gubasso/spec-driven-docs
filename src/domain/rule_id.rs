@@ -168,6 +168,7 @@ rule_ids! {
     DeliveredGateReadsWhatTheConventionOwns => "release:a-delivered-gate-reads-what-the-convention-owns",
     ReleasedVersionIsNotReAuthored => "release:a-released-version-is-not-re-authored",
     TagDerivesFromTheVersionFile => "release:a-tag-derives-from-the-version-file",
+    EveryReleaseDeclaresWhatItAsks => "release:every-release-declares-what-it-asks",
     LicenseDeclaresBothHalves => "release:license-declares-both-halves",
     CanonRecordDescribesItsTree => "release:the-canon-record-describes-its-tree",
     RkPinHasTwoFactsAndOneMover => "release:the-rk-pin-has-two-facts-and-one-mover",

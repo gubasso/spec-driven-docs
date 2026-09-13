@@ -95,6 +95,8 @@ pub struct Descriptor {
     pub version: String,
     /// The payload roots that release's archive carries.
     pub payload_roots: Vec<String>,
+    /// What that release needed of the engine that landed it.
+    pub compatibility: crate::plan::compatibility::Compatibility,
     /// What it landed, written in the schema this engine reads.
     pub projection: Declaration,
 }
@@ -248,10 +250,25 @@ impl LegacyCatalog {
                 "the descriptor for {version} did not render as a declaration: {source}"
             ))
         })?;
+        // The compatibility answer travels as virtual metadata too, so an
+        // adapted candidate answers the question the same way a native one
+        // does rather than being a second case in the planner.
+        let compatibility =
+            toml::to_string_pretty(&descriptor.compatibility).map_err(|source| {
+                AppError::Refused(format!(
+                    "the descriptor for {version} did not render its compatibility: {source}"
+                ))
+            })?;
         Ok(Adapted {
             payload_schema: PRE_SCHEMA,
             descriptor_sha256,
-            metadata: BTreeMap::from([(DECLARATION_PATH.to_string(), rendered.into_bytes())]),
+            metadata: BTreeMap::from([
+                (DECLARATION_PATH.to_string(), rendered.into_bytes()),
+                (
+                    crate::plan::compatibility::DECLARATION_PATH.to_string(),
+                    compatibility.into_bytes(),
+                ),
+            ]),
         })
     }
 }
@@ -363,6 +380,22 @@ mod tests {
             error.to_string().contains("carries no file under it"),
             "{error}"
         );
+    }
+
+    #[test]
+    fn every_descriptor_carries_a_compatibility_section() {
+        let catalog = LegacyCatalog::embedded();
+        for version in catalog.descriptors().keys() {
+            let (descriptor, _) = catalog.descriptor(version).unwrap();
+            assert_eq!(
+                descriptor.compatibility.schema,
+                crate::plan::compatibility::SCHEMA
+            );
+            assert_eq!(
+                descriptor.compatibility.minimum_engine.to_string(),
+                *version
+            );
+        }
     }
 
     #[test]

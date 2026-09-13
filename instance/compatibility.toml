@@ -1,0 +1,18 @@
+# What this release needs of the engine that lands it.
+#
+# Small by design and never absent. An absence that means "no requirement"
+# cannot be told from an absence that means somebody forgot, so a
+# schema-one bundle without this file is invalid and says so.
+
+schema = "sdd.compatibility/1"
+
+# The lowest engine that can land this release. Most releases need no more
+# than the payload schema already implies: an engine that cannot decode the
+# schema refuses at the declaration long before it reads this line. Raise
+# it only where a release needs something a decoder alone does not give.
+minimum_engine = "0.8.1"
+
+# Versions an upgrade may not skip. A plan whose interval crosses one is
+# blocked naming it, and the operator plans toward that version first. The
+# engine never takes the small step on its own.
+must_pass_through = []

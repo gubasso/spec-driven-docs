@@ -25,6 +25,8 @@ pub static MARKDOWNLINT: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/.markd
 /// subdirectory would make the declaration a one-file exception to the
 /// payload inventory.
 pub static INSTANCE: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/instance");
+/// What each release asks of an instance that takes it.
+pub static GUIDANCE: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/guidance");
 /// The method chapters and glossary.
 pub static METHOD: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/method");
 /// The cross-agent skills, one `SKILL.md` per directory.
@@ -50,6 +52,7 @@ const EMBEDDED_ROOTS: &[(&str, &Dir<'static>)] = &[
     ("templates", &TEMPLATES),
     (".markdownlint", &MARKDOWNLINT),
     ("instance", &INSTANCE),
+    ("guidance", &GUIDANCE),
     ("method", &METHOD),
     ("skills", &SKILLS),
     ("skill-shared", &SKILL_SHARED),

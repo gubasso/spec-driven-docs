@@ -182,39 +182,39 @@ version = "0.6.6"
 checksum = "3851948238e5dab03708925c5651625885d7077ef923fdea0d1552680211f66e"
 eligible = true
 descriptor = "0.6.6.toml"
-descriptor_sha256 = "3ac6c44b7098e78ac48b9a5b2727aac19495941b37ad9c82dae46c203598e27c"
+descriptor_sha256 = "f62a64d2088804a3fd4cc56be8c3fd2e51013c3c2802fc79bcf2fe3312455cb8"
 
 [[releases]]
 version = "0.7.0"
 checksum = "476d1ae108fb8cd1006eb3a7766fe0fa6df3ee3f20ebf39e1a4a91754dd47f94"
 eligible = true
 descriptor = "0.7.0.toml"
-descriptor_sha256 = "af6d6fe0ff3a33d542ce5d8e0b9de2b53a6dbec98c3c9fe63877edfe61b47305"
+descriptor_sha256 = "fb7974e87f2c14923483e236072a1fb64390577bd8c5dc776b52fea44bc19901"
 
 [[releases]]
 version = "0.7.1"
 checksum = "65a13ae9384b7c212674dfdd9e18c79df268847b0480fb99d71cef9d2cace8ac"
 eligible = true
 descriptor = "0.7.1.toml"
-descriptor_sha256 = "93d06fb7e36e39b566f808311c3cecbf7dcf78cb8ea30a8c8a17c5fe29d8dc56"
+descriptor_sha256 = "2b25aa5634352c8545ecb5c4802cfcb400aceff988c6a99c24264e9eae5698e5"
 
 [[releases]]
 version = "0.7.2"
 checksum = "418e6f05910ada34f7de53e3479a10a9a4b88344e7040d1c4538b32fe23067b5"
 eligible = true
 descriptor = "0.7.2.toml"
-descriptor_sha256 = "c5900ce9642e5ea262cc32ea7e067bafdd190e64ff5c05a5882578fdba8a8e32"
+descriptor_sha256 = "781e826eaf40dae79072c593cbca770b6eafd812eccaae791b07a39fb9f5857a"
 
 [[releases]]
 version = "0.8.0"
 checksum = "d4a62a06b1d2aeedb95fccb009eb3105f64d67367c85bba77db29d5dee5d451e"
 eligible = true
 descriptor = "0.8.0.toml"
-descriptor_sha256 = "69d71325a0a6bc722485271c38f799603168ef96558d9246fddb0503e05b5c15"
+descriptor_sha256 = "5a56787a5da3a14536a3d5861b1eeaedbf7bc5a94cbbb4220554091ad4582777"
 
 [[releases]]
 version = "0.8.1"
 checksum = "fa9720942b3f2da4043e971b0787d16fa08efb354f9878e583bf7d991d2ce890"
 eligible = true
 descriptor = "0.8.1.toml"
-descriptor_sha256 = "242a2d0243aca47b93dadf61919733f9fb68d978fec36147fc80b9a467c432d0"
+descriptor_sha256 = "10f462216d484f02140175a26656e844e81ec3a45a90fb1fc49f636738e85eff"

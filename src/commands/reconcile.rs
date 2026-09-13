@@ -22,7 +22,7 @@ use crate::plan::observe::observe;
 use crate::plan::planner::{Inputs, plan as compute};
 use crate::plan::readiness::Readiness;
 use crate::plan::store::{Result as ApplyResult, Store};
-use crate::plan::{Plan, decision};
+use crate::plan::{Plan, compatibility, decision, guidance};
 use crate::release::crates_io::CratesIoResolver;
 use crate::release::embedded::EmbeddedReleaseBundle;
 use crate::release::{Provenance, ReleaseBundle, ReleaseResolver, Role, Selector};
@@ -126,6 +126,54 @@ fn read_release(to: &str, offline: bool) -> Result<Release, AppError> {
             })
         }
     }
+}
+
+/// What every release in the interval asks of this target.
+///
+/// The vocabulary a step filters against is the destination set a landed
+/// instance has, so a step about something the target did not install is
+/// excluded rather than shown.
+fn read_briefing(
+    bundle: &dyn ReleaseBundle,
+    recorded: Option<crate::domain::version::CanonVersion>,
+    destination: crate::domain::version::CanonVersion,
+    selections: &decision::Selections,
+) -> Result<Option<guidance::Briefing>, AppError> {
+    let Ok(bytes) = bundle.artifact(guidance::INDEX_PATH) else {
+        return Ok(None);
+    };
+    let index =
+        guidance::Index::parse(&bytes).map_err(|error| AppError::Refused(error.to_string()))?;
+    let bodies: Vec<String> = bundle
+        .manifest()?
+        .artifacts
+        .iter()
+        .map(|artifact| artifact.path.clone())
+        .collect();
+    let mut files = Vec::new();
+    for entry in index.interval(recorded, destination) {
+        if entry.guidance == guidance::NONE {
+            continue;
+        }
+        let path = format!("guidance/{}", entry.guidance);
+        let bytes = bundle.artifact(&path)?;
+        let held = guidance::Guidance::parse(&path, &bytes, &bodies)
+            .map_err(|error| AppError::Refused(error.to_string()))?;
+        files.push((entry.version, held));
+    }
+    // Every destination a landed instance has. An unlanded target has
+    // none, so nothing filters through and the briefing is empty.
+    let held: Vec<String> = if recorded.is_some() {
+        guidance::DESTINATIONS
+            .iter()
+            .map(|destination| (*destination).to_string())
+            .collect()
+    } else {
+        Vec::new()
+    };
+    Ok(Some(guidance::brief(
+        &index, &files, recorded, &held, selections,
+    )))
 }
 
 /// Read the declarations one landing would record, from the answers given.
@@ -233,6 +281,40 @@ fn compute_plan(
         |(operations, bytes)| (Some(operations), bytes),
     );
 
+    // What the destination needs of this engine, and what the interval
+    // asks of this target. A schema-one bundle without the declaration is
+    // invalid: an absence meaning "no requirement" cannot be told from an
+    // absence meaning somebody forgot.
+    let compatibility = match release.bundle.artifact(compatibility::DECLARATION_PATH) {
+        Ok(bytes) => Some(
+            compatibility::Compatibility::parse(&bytes)
+                .map_err(|error| AppError::Refused(error.to_string()))?,
+        ),
+        Err(_) if declaration.payload_schema == 0 => None,
+        Err(_) => {
+            return Err(AppError::Refused(format!(
+                "release {} declares payload schema {} and carries no {}",
+                release.version,
+                declaration.payload_schema,
+                compatibility::DECLARATION_PATH
+            )));
+        }
+    };
+    let recorded = observation
+        .installation
+        .as_ref()
+        .map(|installed| installed.canon_version);
+    let destination: crate::domain::version::CanonVersion = release
+        .version
+        .parse()
+        .map_err(|_| AppError::Refused(format!("{} is not a released triple", release.version)))?;
+    let interval = compatibility.as_ref().map(|_| compatibility::Interval {
+        engine: crate::domain::version::CanonVersion::current(),
+        recorded,
+        destination,
+    });
+    let briefing = read_briefing(release.bundle.as_ref(), recorded, destination, selections)?;
+
     let computed = compute(&Inputs {
         observation: &observation,
         declaration: &declaration,
@@ -244,6 +326,9 @@ fn compute_plan(
         provenance: release.provenance.clone(),
         registry_checksum: release.checksum.clone(),
         yanked: release.yanked,
+        compatibility: compatibility.as_ref(),
+        interval: interval.as_ref(),
+        briefing: briefing.as_ref(),
         proposed: proposed.as_deref(),
         selections,
         now: jiff::Timestamp::now().to_string(),

@@ -1,0 +1,21 @@
+# Transcribed from this release's own changelog entry, which is the only
+# briefing it shipped with.
+
+schema = "sdd.guidance/1"
+release = "0.7.2"
+
+[[steps]]
+id = "carry-the-inherited-budget"
+kind = "seed-added"
+breaking = false
+destinations = ["specs", "debt"]
+actor = "operator"
+text = "carry-the-inherited-budget.md"
+
+[[steps]]
+id = "select-the-writing-source"
+kind = "declaration-key-added"
+breaking = false
+destinations = ["declaration", "agents-digest"]
+actor = "operator"
+text = "select-the-writing-source.md"

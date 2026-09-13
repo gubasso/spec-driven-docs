@@ -47,6 +47,12 @@ pub struct Inputs<'a> {
     pub registry_checksum: Option<Sha256>,
     /// Whether the registry marks the release yanked.
     pub yanked: bool,
+    /// What the destination release needs of this engine.
+    pub compatibility: Option<&'a crate::plan::compatibility::Compatibility>,
+    /// The interval the plan crosses, for the compatibility check.
+    pub interval: Option<&'a crate::plan::compatibility::Interval>,
+    /// What the interval's releases ask of this target.
+    pub briefing: Option<&'a crate::plan::guidance::Briefing>,
     /// What one landing would write, where the caller computed it.
     ///
     /// The installer owns that computation, so the planner takes its
@@ -78,14 +84,23 @@ pub fn plan(inputs: &Inputs<'_>) -> Plan {
         .iter()
         .filter(|found| found.kind == FindingKind::Structural)
         .count();
-    let decisions = decisions_of(inputs, classification, profile, structural, &findings);
+    let mut decisions = decisions_of(inputs, classification, profile, structural, &findings);
+    if let Some(briefing) = inputs.briefing {
+        decisions.extend(briefing.decisions.iter().cloned());
+    }
     let operations = inputs.proposed.map_or_else(
         || derived_operations(inputs, profile, classification, &decisions),
         <[Operation]>::to_vec,
     );
 
-    let preconditions =
+    let mut preconditions =
         preconditions_of(inputs, classification, &operations, &decisions, structural);
+    if let (Some(held), Some(interval)) = (inputs.compatibility, inputs.interval) {
+        preconditions.extend(crate::plan::compatibility::preconditions(held, interval));
+    }
+    if let Some(briefing) = inputs.briefing {
+        preconditions.extend(briefing.preconditions.iter().cloned());
+    }
     let verdict = readiness(&preconditions);
 
     let desired_state = DesiredState {
@@ -112,6 +127,20 @@ pub fn plan(inputs: &Inputs<'_>) -> Plan {
         provenance: inputs.provenance.clone(),
         registry_checksum: inputs.registry_checksum.clone(),
         yanked: inputs.yanked,
+        minimum_engine: inputs
+            .compatibility
+            .map(|held| held.minimum_engine.to_string()),
+        guidance_coverage: inputs.interval.and_then(|interval| {
+            inputs
+                .briefing
+                .map(|_| crate::plan::guidance::Coverage::Complete)
+                .filter(|_| interval.recorded.is_some())
+        }),
+        guidance_steps: inputs
+            .briefing
+            .map(|briefing| briefing.applicable.clone())
+            .unwrap_or_default(),
+        guidance_excluded: inputs.briefing.map_or(0, |briefing| briefing.excluded),
         evidence_refs: vec![release_ref],
     };
     let digest = fingerprint(&inputs_projection(

@@ -16,6 +16,15 @@ payload_roots = [
   "skill-shared",
 ]
 
+# What that release needed of the engine that landed it. A pre-schema
+# release declared nothing, so the audit records the smallest true answer:
+# the release itself is the floor, and it asked nothing to be passed
+# through.
+[compatibility]
+schema = "sdd.compatibility/1"
+minimum_engine = "0.8.1"
+must_pass_through = []
+
 [projection]
 payload_schema = 1
 canon_templates = [
