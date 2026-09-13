@@ -273,6 +273,7 @@ fn execute(
     let mut journal = Journal::begin(&directory.journal, &directory.blobs, entries)?;
     let mut outcomes = Vec::new();
     let mut affected = Vec::new();
+    let mut notes: Vec<String> = Vec::new();
     for ((destination, bytes), operation) in planned.iter().zip(ordered(plan)) {
         // Every fallible step after the journal opened routes through
         // this one result. A `?` here would return with the journal
@@ -285,13 +286,20 @@ fn execute(
                     |bytes| {
                         Stage::write(destination, bytes)
                             .and_then(|scratch| Stage::replace(&scratch, destination))
+                            .map(|()| None)
                     },
                 )
             })
-            .and_then(|()| journal.mark_done(destination));
-        if let Err(cause) = done {
-            let reason = format!("{} could not be written: {cause}", operation.path());
-            return Err(undo(store, plan, &journal, now, &reason, None));
+            .and_then(|note| journal.mark_done(destination).map(|()| note));
+        let note = match done {
+            Ok(note) => note,
+            Err(cause) => {
+                let reason = format!("{} could not be written: {cause}", operation.path());
+                return Err(undo(store, plan, &journal, now, &reason, None));
+            }
+        };
+        if let Some(note) = note {
+            notes.push(note);
         }
         outcomes.push(OperationOutcome {
             kind: operation.kind().to_string(),
@@ -332,11 +340,16 @@ fn execute(
         return Err(undo(store, plan, &journal, now, &reason, None));
     }
 
+    let reason = if notes.is_empty() {
+        "every operation landed".to_string()
+    } else {
+        format!("every operation landed; {}", notes.join("; "))
+    };
     let result = ApplyResult {
         operations: outcomes,
         postconditions,
         affected,
-        ..terminal(plan, now, Disposition::Succeeded, "every operation landed")
+        ..terminal(plan, now, Disposition::Succeeded, &reason)
     };
     // The target holds what the plan described and the journal is gone, so
     // the run succeeded whether or not its record can be written. A store
@@ -434,26 +447,24 @@ fn undo(
 /// name is one some agents still list. The sweep runs here, inside the
 /// lock and the journal, because a directory is not a file and no
 /// operation names one.
-fn remove(target: &Utf8Path, destination: &Utf8Path) -> std::result::Result<(), AppError> {
+fn remove(
+    target: &Utf8Path,
+    destination: &Utf8Path,
+) -> std::result::Result<Option<String>, AppError> {
     match std::fs::remove_file(destination) {
         Ok(()) => {
             crate::transaction::sync_parent(destination).map_err(AppError::Io)?;
-            sweep_emptied_parent(target, destination);
-            Ok(())
+            Ok(sweep_emptied_parent(target, destination))
         }
-        Err(source) if source.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(source) if source.kind() == std::io::ErrorKind::NotFound => Ok(None),
         Err(source) => Err(AppError::Io(source)),
     }
 }
 
 /// Remove the directory a removal emptied, never a root the canon owns.
-fn sweep_emptied_parent(target: &Utf8Path, destination: &Utf8Path) {
-    let Some(parent) = destination.parent() else {
-        return;
-    };
-    let Ok(relative) = parent.strip_prefix(target) else {
-        return;
-    };
+fn sweep_emptied_parent(target: &Utf8Path, destination: &Utf8Path) -> Option<String> {
+    let parent = destination.parent()?;
+    let relative = parent.strip_prefix(target).ok()?;
     let owned = crate::domain::paths::PRUNABLE_ROOTS
         .iter()
         .any(|root| relative.as_str().starts_with(root.trim_end_matches('/')));
@@ -462,11 +473,19 @@ fn sweep_emptied_parent(target: &Utf8Path, destination: &Utf8Path) {
             .iter()
             .any(|root| relative.as_str() == root.trim_end_matches('/'))
     {
-        return;
+        return None;
     }
     if std::fs::read_dir(parent).is_ok_and(|mut entries| entries.next().is_none()) {
-        let _ = std::fs::remove_dir(parent);
+        // Reported rather than swallowed: a directory that stays is one
+        // an agent's picker may still list, and the operator has to know
+        // to remove it. It is not a reason to fail a landing that worked.
+        if let Err(cause) = std::fs::remove_dir(parent) {
+            return Some(format!(
+                "{relative} is empty and could not be removed: {cause}; remove it by hand"
+            ));
+        }
     }
+    None
 }
 
 /// Refuse a destination that leaves the target.

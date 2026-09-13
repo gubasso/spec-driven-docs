@@ -137,6 +137,14 @@ fn run_show(args: &ShowArgs) -> Result<(), AppError> {
 fn run_apply(ctx: &AppContext, args: &ApplyArgs) -> Result<(), AppError> {
     let target = resolve_target(ctx, &args.target)?;
     let store = Store::new(&state_root()?);
+    // The plan's own lock comes first, before the plan is even read: a
+    // prune skips a fingerprint somebody holds, and reading first would
+    // leave a window where the blobs this apply needs are swept.
+    let _plan_lock = Lock::exclusive_waiting(
+        &store.plan_lock_path(&args.plan_id)?,
+        "reconcile apply",
+        STORE_WAIT,
+    )?;
     let stored = store.get(&args.plan_id)?;
 
     // Apply holds the target alone, through observation, execution, and
@@ -178,11 +186,6 @@ fn run_apply(ctx: &AppContext, args: &ApplyArgs) -> Result<(), AppError> {
 
     // The store is global, so its own lock orders writers across targets.
     // The order is always target first, then store, on every path.
-    let _plan_lock = Lock::exclusive_waiting(
-        &store.plan_lock_path(&stored.identity.plan_id)?,
-        "reconcile apply",
-        STORE_WAIT,
-    )?;
     let result = execute(&Request {
         store: &store,
         target: &target,
