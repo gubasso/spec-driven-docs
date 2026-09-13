@@ -24,6 +24,7 @@ pub fn run(ctx: &AppContext, args: UpgradeArgs) -> Result<(), AppError> {
     } else {
         return Err(AppError::Usage("target must be absolute or .".to_string()));
     };
+    crate::commands::front::serves(crate::plan::classify::Intent::Upgrade, &target)?;
     let outcome = upgrade(
         &UpgradeOptions {
             target,

@@ -200,16 +200,30 @@ pub(crate) fn resolved_docs_scratch(
     Ok(Some(path))
 }
 
-struct TargetState {
-    files: Vec<(Utf8PathBuf, Vec<u8>)>,
-    lines: Vec<String>,
+/// Every byte one landing would put in a target, and what it would say.
+///
+/// The planner takes this rather than deriving it a second time: what a
+/// release lands into a target is one computation, and two of them would
+/// be two places for one rule to drift.
+#[derive(Debug, Clone)]
+pub struct TargetState {
+    /// Each destination and the bytes that would go there.
+    pub files: Vec<(Utf8PathBuf, Vec<u8>)>,
+    /// What the operator would be told.
+    pub lines: Vec<String>,
 }
 
 #[allow(
     clippy::too_many_lines,
     reason = "computing the target state is one ordered pass the installer replays"
 )]
-fn compute_target_state(
+/// What one landing would put in a target.
+///
+/// # Errors
+///
+/// [`AppError::Refused`] when the release declares no such profile or a
+/// marked region cannot be read, and I/O errors reading the target.
+pub fn compute_target_state(
     target: &Utf8Path,
     options: &InitOptions,
     bundle: &dyn ReleaseBundle,
@@ -513,8 +527,16 @@ fn apply(target: &Utf8Path, state: &TargetState) -> Result<(), AppError> {
 /// [`AppError::Marker`] for a configuration whose markers cannot be trusted,
 /// and [`AppError::Refused`] when the apply could not complete — the target
 /// is restored before that returns.
-pub fn init(options: &InitOptions, bundle: &dyn ReleaseBundle) -> Result<InitOutcome, AppError> {
+pub fn init(
+    options: &InitOptions,
+    bundle: &dyn ReleaseBundle,
+    intent: crate::plan::classify::Intent,
+) -> Result<InitOutcome, AppError> {
     let target = canonical_target(&options.target)?;
+    // The target is known-good before it is classified, so an argument
+    // this verb cannot mean is a usage answer rather than a walk of
+    // whatever the argument happened to name.
+    crate::commands::front::serves(intent, &target)?;
     let forced_dry = !options.apply
         && !options.dry_run
         && target_has_content(&target)?

@@ -51,7 +51,7 @@ Verify: `cargo nextest run -E 'binary(cmd_verify) + binary(cmd_status)'`
 
 ### `distribution:initialization-preserves-project-content` — Initialization preserves project content
 
-When a target is non-empty, the installer MUST preview its changes before writing any file.
+When a target is non-empty, the installer MUST preview its changes before writing any file. The preview a landing offers is the plan, and the classification decides which verb serves the target: a settled corpus is a migration, and the landing verb refuses it rather than seeding beside it.
 
 #### Scenario: A repository has a hand-commented hook configuration
 
@@ -75,7 +75,7 @@ Verify: `cargo nextest run -E 'binary(cmd_verify) + binary(cmd_upgrade)'`
 
 ### `distribution:upgrade-conflicts-are-atomic` — Upgrade conflicts are atomic
 
-If a managed file differs from its installed hash, then the upgrader MUST abort without changing the target.
+If a managed file differs from its installed hash, then the upgrader MUST abort without changing the target. Through the engine the same rule is the plan's revalidation: the apply refuses and names what moved, in one pass, with the target byte-identical.
 
 #### Scenario: One managed configuration is edited locally
 

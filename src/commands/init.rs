@@ -1,5 +1,10 @@
 //! `init` subcommand: runtime-shape.
 //!
+//! A front over the engine. It classifies the target first and serves one
+//! classification: a first landing. A settled corpus or an installed
+//! instance is somebody else's verb, and this one says which rather than
+//! landing seeds beside a convention that is already there.
+//!
 //! Projects the flags into the installer's options and prints its report.
 //! Install semantics live in `services::installer`.
 
@@ -8,6 +13,7 @@ use crate::context::AppContext;
 use crate::domain::manifest::{PlanZone, parse_docs_scratch};
 use crate::error::AppError;
 use crate::output;
+use crate::plan::classify::Intent;
 use crate::services::installer::{InitOptions, init};
 
 /// Install the payload into a target repository.
@@ -46,6 +52,7 @@ pub fn run(_ctx: &AppContext, args: InitArgs) -> Result<(), AppError> {
             writing_style,
         },
         &crate::release::embedded::EmbeddedReleaseBundle::new(),
+        Intent::Init,
     )?;
     for line in &outcome.lines {
         output::line(line);

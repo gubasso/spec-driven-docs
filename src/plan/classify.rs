@@ -87,7 +87,16 @@ impl Intent {
     pub const fn accepts(self, found: Classification) -> Result<(), IntentRefused> {
         match (self, found) {
             (Self::Reconcile | Self::Assess, _)
-            | (Self::Init, Classification::Setup)
+            // A landing verb still reinstalls over an instance it already
+            // owns. What it may not do is land seeds beside a convention
+            // that is already there, or over a record nobody can read.
+            | (
+                Self::Init,
+                Classification::Setup
+                | Classification::Upgrade
+                | Classification::Drift
+                | Classification::Current,
+            )
             | (
                 Self::Upgrade,
                 Classification::Upgrade | Classification::Drift | Classification::Current,
@@ -223,6 +232,10 @@ mod tests {
         assert_eq!(error.verb, "sdd init");
         assert!(error.to_string().contains("sdd reconcile plan"));
         assert!(Intent::Init.accepts(Classification::Setup).is_ok());
+        // A reinstall over an instance the verb already owns still works.
+        assert!(Intent::Init.accepts(Classification::Current).is_ok());
+        assert!(Intent::Init.accepts(Classification::Upgrade).is_ok());
+        assert!(Intent::Init.accepts(Classification::Invalid).is_err());
     }
 
     #[test]

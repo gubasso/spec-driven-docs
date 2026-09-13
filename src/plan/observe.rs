@@ -16,7 +16,7 @@ use camino::{Utf8Path, Utf8PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::domain::instance_config::CONFIG_PATH;
-use crate::domain::manifest::{INSTANCE_DIR, MANIFEST_PATH, Manifest};
+use crate::domain::manifest::{INSTANCE_DIR, MANIFEST_PATH};
 use crate::domain::ownership::Sha256;
 use crate::domain::paths::UserEnv;
 use crate::domain::profile::{DocsRoot, ProfileId};
@@ -133,9 +133,14 @@ pub struct Corpus {
 
 impl Corpus {
     /// Whether the target documents itself already.
+    ///
+    /// Documents, not directories. A documentation root holding empty
+    /// directories is a layout somebody started and not a corpus somebody
+    /// wrote, and refusing to land beside it would refuse a repository
+    /// that has written nothing.
     #[must_use]
     pub const fn settled(&self) -> bool {
-        !self.populated_doc_roots.is_empty() || !self.documents.is_empty()
+        !self.documents.is_empty()
     }
 }
 
@@ -220,16 +225,19 @@ fn read_installation(target: &Utf8Path) -> (Option<Installation>, Option<String>
     let Ok(text) = std::fs::read_to_string(&path) else {
         return (None, None);
     };
-    let manifest: Manifest = match serde_json::from_str::<Manifest>(&text) {
-        Ok(manifest) => manifest,
-        Err(source) => {
-            // Absence and breakage are different findings. A record that
-            // exists and cannot be read is evidence, not a clean slate.
-            return (
-                None,
-                Some(format!("{MANIFEST_PATH} does not parse: {source}")),
-            );
-        }
+    // The record's schema is its own axis. A record an older release wrote
+    // is a record this engine reads well enough to classify: what it needs
+    // is the version, the profile, the root, and the two file lists, and
+    // every schema this tool has written carries those under those names.
+    // Only a record it cannot read at all is invalid, because absence and
+    // breakage are different findings.
+    let Some(manifest) = read_any_schema(&text) else {
+        return (
+            None,
+            Some(format!(
+                "{MANIFEST_PATH} is not a record this engine can read"
+            )),
+        );
     };
     let held = |destination: &str| -> Option<Sha256> {
         std::fs::read(target.join(destination))
@@ -237,39 +245,37 @@ fn read_installation(target: &Utf8Path) -> (Option<Installation>, Option<String>
             .map(|bytes| Sha256::of(&bytes))
     };
     let mut managed = Vec::new();
-    for entry in &manifest.managed_files {
-        let Ok(path) = TargetPath::new(entry.destination.as_str()) else {
+    for (destination, recorded) in &manifest.managed_files {
+        let Ok(path) = TargetPath::new(destination) else {
             return (
                 None,
                 Some(format!(
-                    "{MANIFEST_PATH} records the destination {}, which no operation may name",
-                    entry.destination
+                    "{MANIFEST_PATH} records the destination {destination}, which no operation may name"
                 )),
             );
         };
         managed.push(RecordedFile {
-            held: held(entry.destination.as_str()),
+            held: held(destination),
             path,
-            recorded: entry.sha256.clone(),
+            recorded: recorded.clone(),
             baseline: None,
         });
     }
     let mut adopted = Vec::new();
-    for entry in &manifest.adopted_files {
-        let Ok(path) = TargetPath::new(entry.destination.as_str()) else {
+    for (destination, recorded, baseline) in &manifest.adopted_files {
+        let Ok(path) = TargetPath::new(destination) else {
             return (
                 None,
                 Some(format!(
-                    "{MANIFEST_PATH} records the destination {}, which no operation may name",
-                    entry.destination
+                    "{MANIFEST_PATH} records the destination {destination}, which no operation may name"
                 )),
             );
         };
         adopted.push(RecordedFile {
-            held: held(entry.destination.as_str()),
+            held: held(destination),
             path,
-            recorded: entry.sha256.clone(),
-            baseline: Some(entry.baseline_sha256.clone()),
+            recorded: recorded.clone(),
+            baseline: Some(baseline.clone()),
         });
     }
     let declaration_sha256 = std::fs::read(target.join(CONFIG_PATH))
@@ -287,6 +293,50 @@ fn read_installation(target: &Utf8Path) -> (Option<Installation>, Option<String>
         }),
         None,
     )
+}
+
+/// One record's facts, whichever schema wrote it.
+struct AnyRecord {
+    canon_version: CanonVersion,
+    profile: ProfileId,
+    docs_root: DocsRoot,
+    managed_files: Vec<(String, Sha256)>,
+    adopted_files: Vec<(String, Sha256, Sha256)>,
+}
+
+fn read_any_schema(text: &str) -> Option<AnyRecord> {
+    let held: serde_json::Value = serde_json::from_str(text).ok()?;
+    let files = |key: &str| -> Vec<serde_json::Value> {
+        held.get(key)
+            .and_then(|value| value.as_array())
+            .cloned()
+            .unwrap_or_default()
+    };
+    let digest = |entry: &serde_json::Value, key: &str| -> Option<Sha256> {
+        entry.get(key)?.as_str()?.parse().ok()
+    };
+    let destination = |entry: &serde_json::Value| -> Option<String> {
+        Some(entry.get("destination")?.as_str()?.to_string())
+    };
+    Some(AnyRecord {
+        canon_version: held.get("canon_version")?.as_str()?.parse().ok()?,
+        profile: serde_json::from_value(held.get("profile")?.clone()).ok()?,
+        docs_root: serde_json::from_value(held.get("docs_root")?.clone()).ok()?,
+        managed_files: files("managed_files")
+            .iter()
+            .filter_map(|entry| Some((destination(entry)?, digest(entry, "sha256")?)))
+            .collect(),
+        adopted_files: files("adopted_files")
+            .iter()
+            .filter_map(|entry| {
+                Some((
+                    destination(entry)?,
+                    digest(entry, "sha256")?,
+                    digest(entry, "baseline_sha256")?,
+                ))
+            })
+            .collect(),
+    })
 }
 
 /// Walk the corpus, reading only what a detector can prove.
@@ -425,6 +475,15 @@ mod tests {
         assert_eq!(held.corpus.populated_doc_roots, ["docs"]);
         assert!(held.corpus.settled());
         assert_eq!(held.corpus.documents.len(), 1);
+    }
+
+    #[test]
+    fn a_documentation_root_of_empty_directories_is_not_a_corpus() {
+        let (_dir, root) = scratch();
+        std::fs::create_dir_all(root.join("_docs/specs")).unwrap();
+        let held = observe(&root).unwrap();
+        assert_eq!(held.corpus.populated_doc_roots, ["_docs"]);
+        assert!(!held.corpus.settled(), "a layout is not a corpus");
     }
 
     #[test]

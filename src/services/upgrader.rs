@@ -289,6 +289,9 @@ pub fn upgrade(
             writing_style: None,
         },
         bundle,
+        // The upgrade already classified the target; the reinstall is its
+        // own act rather than a second landing decision.
+        crate::plan::classify::Intent::Reconcile,
     )
     .map_err(|error| {
         AppError::Refused(format!(

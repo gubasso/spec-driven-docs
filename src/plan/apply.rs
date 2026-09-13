@@ -77,6 +77,12 @@ pub fn moved(stored: &Plan, recomputed: &Plan) -> Vec<String> {
         moved.push("the project's declaration changed".to_string());
     }
     for operation in &stored.operations {
+        // The record restates the others and carries the moment of
+        // installation, so a difference in it alone is not the world
+        // moving. The operations it summarizes are checked below.
+        if matches!(operation, Operation::WriteRecord { .. }) {
+            continue;
+        }
         let found = recomputed
             .operations
             .iter()
@@ -94,6 +100,9 @@ pub fn moved(stored: &Plan, recomputed: &Plan) -> Vec<String> {
         }
     }
     for operation in &recomputed.operations {
+        if matches!(operation, Operation::WriteRecord { .. }) {
+            continue;
+        }
         if !stored
             .operations
             .iter()
@@ -479,6 +488,7 @@ mod tests {
             provenance: "native".to_string(),
             registry_checksum: None,
             yanked: false,
+            proposed: None,
             selections: &crate::plan::decision::Selections::new(),
             now: "2026-09-12T00:00:00Z".to_string(),
         });

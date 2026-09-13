@@ -80,8 +80,8 @@
     {
       "source": "_docs/specs/SPEC-distribution.md",
       "destination": "_docs/specs/SPEC-distribution.md",
-      "sha256": "416014273928e0a539c07496bd8898bd624923a0f5f2eb8a81c12602bbf5390c",
-      "baseline_sha256": "416014273928e0a539c07496bd8898bd624923a0f5f2eb8a81c12602bbf5390c"
+      "sha256": "5b006c227ca08d2c548282b934a54984b39dac386abfab03934c735a973725b3",
+      "baseline_sha256": "5b006c227ca08d2c548282b934a54984b39dac386abfab03934c735a973725b3"
     },
     {
       "source": "_docs/specs/SPEC-docs-format.md",

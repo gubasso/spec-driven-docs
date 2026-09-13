@@ -47,6 +47,11 @@ pub struct Inputs<'a> {
     pub registry_checksum: Option<Sha256>,
     /// Whether the registry marks the release yanked.
     pub yanked: bool,
+    /// What one landing would write, where the caller computed it.
+    ///
+    /// The installer owns that computation, so the planner takes its
+    /// answer rather than deriving a second one that could disagree.
+    pub proposed: Option<&'a [Operation]>,
     /// What the operator selected.
     pub selections: &'a Selections,
     /// The clock, as an input.
@@ -74,14 +79,11 @@ pub fn plan(inputs: &Inputs<'_>) -> Plan {
         .filter(|found| found.kind == FindingKind::Structural)
         .count();
     let decisions = decisions_of(inputs, classification, profile, structural, &findings);
-    let operations = if profile.is_some() {
-        operations_of(inputs, profile, classification, &decisions)
-    } else {
-        // Until the profile is chosen, every destination is unknown, so
-        // the planner offers no operation rather than one against a
-        // default nobody selected.
-        Vec::new()
-    };
+    let operations = inputs.proposed.map_or_else(
+        || derived_operations(inputs, profile, classification, &decisions),
+        <[Operation]>::to_vec,
+    );
+
     let preconditions =
         preconditions_of(inputs, classification, &operations, &decisions, structural);
     let verdict = readiness(&preconditions);
@@ -389,10 +391,9 @@ fn decisions_of(
                 id: decision::id::DOCS_SCRATCH.to_string(),
                 question: "where does material that is not a statement yet stage?".to_string(),
                 schema: AnswerSchema::ChoiceOrValue {
-                    choices: vec![
-                        choice("env", "wherever the docs-scratch variable points"),
-                        choice("none", "the project stages nothing"),
-                    ],
+                    choices: vec![choice("none", "the project stages nothing")],
+                    // A recorded scratch is a path. The variable overrides
+                    // it at read time, so there is no `env` to record.
                     prefixes: vec!["project:".to_string(), "external:".to_string()],
                 },
                 depends_on: depends.clone(),
@@ -489,6 +490,23 @@ fn migration_decisions(
         });
     }
     decisions
+}
+
+/// Every write the plan derives for itself, where the caller gave none.
+///
+/// Until the profile is chosen, every destination is unknown, so the
+/// planner offers no operation rather than one against a default nobody
+/// selected.
+fn derived_operations(
+    inputs: &Inputs<'_>,
+    profile: Option<ProfileId>,
+    classification: Classification,
+    decisions: &[Decision],
+) -> Vec<Operation> {
+    if profile.is_none() {
+        return Vec::new();
+    }
+    operations_of(inputs, profile, classification, decisions)
 }
 
 /// Every write the plan will make.
@@ -785,6 +803,11 @@ fn inputs_projection(
     let operations = Value::List(
         operations
             .iter()
+            // The record is a function of every other operation plus the
+            // moment of installation. Its digest carries no independent
+            // meaning, and the moment is exactly what the fingerprint
+            // excludes, so a plan recomputed a second later keeps its id.
+            .filter(|operation| !matches!(operation, Operation::WriteRecord { .. }))
             .map(|operation| {
                 Value::map([
                     ("kind", Value::text(operation.kind())),

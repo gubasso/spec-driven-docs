@@ -405,9 +405,10 @@ fn apply_refuses_a_plan_that_waits_on_a_decision() {
     assert_eq!(before, fixture.tree_digest());
 }
 
-/// A landing this engine cannot complete is blocked rather than half done.
+/// A first landing is ready once every declaration it records is answered,
+/// and it carries the record and both marked regions.
 #[test]
-fn a_first_landing_is_blocked_until_the_engine_can_record_it() {
+fn a_first_landing_plans_the_record_and_both_marked_regions() {
     let fixture = Fixture::new();
     let held = plan(
         &fixture,
@@ -422,19 +423,100 @@ fn a_first_landing_is_blocked_until_the_engine_can_record_it() {
             "writing-style=builtin",
         ],
     );
-    assert_eq!(held["readiness"], "blocked");
-    let blocked = held["preconditions"]
-        .as_array()
-        .unwrap()
+    assert_eq!(held["readiness"], "ready");
+    let operations = held["operations"].as_array().unwrap();
+    let kinds: Vec<&str> = operations
         .iter()
-        .find(|precondition| precondition["id"] == "the-plan-records-the-instance")
-        .expect("the record precondition");
-    assert_eq!(blocked["requirement"], "required");
-    assert!(
-        blocked["evaluation"]["reason"]
-            .as_str()
-            .unwrap()
-            .contains("sdd init --apply"),
-        "{blocked}"
+        .map(|operation| operation["kind"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        kinds.iter().filter(|kind| **kind == "write-record").count(),
+        1,
+        "the plan writes no record"
     );
+    assert_eq!(
+        kinds.iter().filter(|kind| **kind == "splice-block").count(),
+        2,
+        "the plan splices neither marked region"
+    );
+}
+
+/// The landing the engine plans is the landing the verb produces.
+#[test]
+fn the_engine_lands_what_the_verb_lands() {
+    let through_verb = Fixture::new();
+    through_verb.install("codebase");
+
+    let through_engine = Fixture::new();
+    let held = plan(
+        &through_engine,
+        &[
+            "--set",
+            "profile=codebase",
+            "--set",
+            "plan-zone=none",
+            "--set",
+            "docs-scratch=none",
+            "--set",
+            "writing-style=builtin",
+        ],
+    );
+    let id = held["identity"]["plan_id"].as_str().unwrap().to_string();
+    through_engine
+        .cmd()
+        .args([
+            "reconcile",
+            "apply",
+            &id,
+            "--target",
+            &through_engine.target(),
+        ])
+        .assert()
+        .success();
+    through_engine
+        .cmd()
+        .args(["verify", "--target", &through_engine.target()])
+        .assert()
+        .success();
+
+    // Every file but the record, whose one difference is the moment of
+    // installation.
+    for relative in [
+        ".spec-driven-docs/config.yaml",
+        ".spec-driven-docs/markdownlint/adr.markdownlint-cli2.jsonc",
+        "docs/specs/SPEC-instance.md",
+        ".pre-commit-config.yaml",
+        "AGENTS.md",
+    ] {
+        assert_eq!(
+            through_verb.read(relative),
+            through_engine.read(relative),
+            "{relative} differs between the verb and the engine"
+        );
+    }
+}
+
+/// VERIFIES reconcile:the-target-decides-its-classification
+#[test]
+fn the_landing_verb_refuses_a_settled_corpus_without_writing() {
+    let fixture = Fixture::new();
+    fixture.write("_docs/guide.md", "# guide\n");
+    let before = fixture.tree_digest();
+    fixture
+        .cmd()
+        .args([
+            "init",
+            "--target",
+            &fixture.target(),
+            "--profile",
+            "knowledge-base",
+            "--apply",
+        ])
+        .assert()
+        .code(73)
+        .stderr(predicate::str::contains(
+            "does not serve a migration target",
+        ))
+        .stderr(predicate::str::contains("sdd reconcile plan"));
+    assert_eq!(before, fixture.tree_digest(), "the refusal wrote");
 }

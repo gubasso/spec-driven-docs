@@ -11,8 +11,10 @@ use camino::{Utf8Path, Utf8PathBuf};
 
 use crate::cli::reconcile::{ApplyArgs, PlanArgs, ReconcileArgs, ReconcileCommand, ShowArgs};
 use crate::context::AppContext;
+use crate::domain::manifest::{PlanZone, parse_docs_scratch};
 use crate::domain::ownership::Sha256;
 use crate::domain::paths::UserEnv;
+use crate::domain::profile::ProfileId;
 use crate::error::AppError;
 use crate::output;
 use crate::plan::apply::{Request, apply as execute};
@@ -24,6 +26,7 @@ use crate::plan::{Plan, decision};
 use crate::release::crates_io::CratesIoResolver;
 use crate::release::embedded::EmbeddedReleaseBundle;
 use crate::release::{Provenance, ReleaseBundle, ReleaseResolver, Role, Selector};
+use crate::services::installer::{InitOptions, compute_target_state};
 use crate::transaction::lock::Lock;
 
 /// Run one reconcile verb.
@@ -125,6 +128,45 @@ fn read_release(to: &str, offline: bool) -> Result<Release, AppError> {
     }
 }
 
+/// Read the declarations one landing would record, from the answers given.
+fn landing_options(
+    target: &Utf8Path,
+    profile: ProfileId,
+    selections: &decision::Selections,
+) -> Result<InitOptions, AppError> {
+    let plan_zone = selections
+        .get(decision::id::PLAN_ZONE)
+        .map(|answer| PlanZone::parse(answer.strip_prefix("project:").unwrap_or(answer)))
+        .transpose()
+        .map_err(|error| AppError::Usage(format!("--set plan-zone: {error}")))?;
+    let docs_scratch = selections
+        .get(decision::id::DOCS_SCRATCH)
+        .map(|answer| {
+            let bare = answer
+                .strip_prefix("project:")
+                .or_else(|| answer.strip_prefix("external:"))
+                .unwrap_or(answer);
+            parse_docs_scratch(bare)
+        })
+        .transpose()
+        .map_err(|error| AppError::Usage(format!("--set docs-scratch: {error}")))?;
+    let writing_style = selections
+        .get(decision::id::WRITING_STYLE)
+        .map(|answer| crate::domain::instance_config::WritingStyle::parse_flag(answer))
+        .transpose()
+        .map_err(|error| AppError::Usage(format!("--set writing-style: {error}")))?;
+    Ok(InitOptions {
+        target: target.to_owned(),
+        profile,
+        apply: false,
+        dry_run: true,
+        plan_zone,
+        docs_scratch,
+        reserve: Vec::new(),
+        writing_style,
+    })
+}
+
 /// Compute one plan against one target.
 fn compute_plan(
     target: &Utf8Path,
@@ -132,7 +174,7 @@ fn compute_plan(
     offline: bool,
     selections: &decision::Selections,
     release: &Release,
-) -> Result<Plan, AppError> {
+) -> Result<(Plan, BTreeMap<Sha256, Vec<u8>>), AppError> {
     let _ = offline;
     let observation = observe(target)?;
     let declaration = release.bundle.declaration()?;
@@ -151,7 +193,47 @@ fn compute_plan(
         .as_ref()
         .is_some_and(|installed| installed.canon_version.to_string() == release.version);
     let baseline = recorded_is_destination.then(|| candidate.clone());
-    Ok(compute(&Inputs {
+
+    // The installer owns what a landing writes, so the plan takes its
+    // answer once every declaration the landing records is settled.
+    let profile = observation
+        .installation
+        .as_ref()
+        .map(|installed| installed.profile)
+        .or_else(
+            || match selections.get(decision::id::PROFILE).map(String::as_str) {
+                Some("codebase") => Some(ProfileId::Codebase),
+                Some("knowledge-base") => Some(ProfileId::KnowledgeBase),
+                _ => None,
+            },
+        );
+    let answered = observation.installation.is_some()
+        || [
+            decision::id::PLAN_ZONE,
+            decision::id::DOCS_SCRATCH,
+            decision::id::WRITING_STYLE,
+        ]
+        .iter()
+        .all(|id| selections.contains_key(*id));
+    let landing = match profile {
+        Some(profile) if answered && observation.invalid.is_none() => {
+            let options = landing_options(target, profile, selections)?;
+            let state = compute_target_state(target, &options, release.bundle.as_ref())?;
+            Some(crate::plan::derive::operations_for(
+                target,
+                &state.files,
+                &declaration,
+                profile,
+            )?)
+        }
+        _ => None,
+    };
+    let (proposed, blobs) = landing.map_or_else(
+        || (None, BTreeMap::new()),
+        |(operations, bytes)| (Some(operations), bytes),
+    );
+
+    let computed = compute(&Inputs {
         observation: &observation,
         declaration: &declaration,
         candidate: &candidate,
@@ -162,16 +244,15 @@ fn compute_plan(
         provenance: release.provenance.clone(),
         registry_checksum: release.checksum.clone(),
         yanked: release.yanked,
+        proposed: proposed.as_deref(),
         selections,
         now: jiff::Timestamp::now().to_string(),
-    }))
+    });
+    Ok((computed, blobs))
 }
 
 /// Every byte one plan will write, by digest.
-fn blobs_for(
-    plan: &Plan,
-    bundle: &dyn ReleaseBundle,
-) -> Result<BTreeMap<Sha256, Vec<u8>>, AppError> {
+fn blobs_for(plan: &Plan, bundle: &dyn ReleaseBundle) -> BTreeMap<Sha256, Vec<u8>> {
     let mut blobs = BTreeMap::new();
     for operation in &plan.operations {
         let Some(after) = operation.after() else {
@@ -180,11 +261,13 @@ fn blobs_for(
         if blobs.contains_key(after) {
             continue;
         }
-        // A plan carries every byte it will write, so an apply never has
-        // to go back to a bundle it may no longer be able to read.
-        blobs.insert(after.clone(), bundle.blob(after)?);
+        // A digest the bundle does not carry came from the target state,
+        // which already handed its bytes over.
+        if let Ok(bytes) = bundle.blob(after) {
+            blobs.insert(after.clone(), bytes);
+        }
     }
-    Ok(blobs)
+    blobs
 }
 
 fn run_plan(ctx: &AppContext, args: &PlanArgs) -> Result<(), AppError> {
@@ -196,7 +279,7 @@ fn run_plan(ctx: &AppContext, args: &PlanArgs) -> Result<(), AppError> {
     // Planning holds the target shared: several readers may plan at once,
     // and none of them may overlap an apply.
     let _lock = Lock::shared(&target_lock(&target)?, "reconcile plan")?;
-    let computed = compute_plan(&target, &args.to, args.offline, &selections, &release)?;
+    let (computed, blobs) = compute_plan(&target, &args.to, args.offline, &selections, &release)?;
     decision::validate(&computed.decisions, &selections)
         .map_err(|error| AppError::Usage(error.to_string()))?;
 
@@ -205,7 +288,12 @@ fn run_plan(ctx: &AppContext, args: &PlanArgs) -> Result<(), AppError> {
     // Identical inputs while an executable plan exists reuse it, so an
     // operator who plans twice approves one thing.
     if !store.holds(&computed.identity.plan_id) {
-        let blobs = blobs_for(&computed, release.bundle.as_ref())?;
+        // Every byte the plan will write travels with it, so an apply
+        // never has to go back to a bundle it may no longer read.
+        let mut blobs = blobs;
+        for (digest, bytes) in blobs_for(&computed, release.bundle.as_ref()) {
+            blobs.entry(digest).or_insert(bytes);
+        }
         store.put(&computed, &blobs)?;
     }
 
@@ -268,7 +356,7 @@ fn run_apply(ctx: &AppContext, args: &ApplyArgs) -> Result<(), AppError> {
         // the revalidation below reports rather than a fetch papering over.
         read_release(&stored.desired_state.selector, false)
     })?;
-    let recomputed = compute_plan(
+    let (recomputed, _) = compute_plan(
         &target,
         &stored.desired_state.selector,
         true,

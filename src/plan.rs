@@ -20,6 +20,7 @@
 pub mod apply;
 pub mod classify;
 pub mod decision;
+pub mod derive;
 pub mod evidence;
 pub mod finding;
 pub mod fingerprint;
