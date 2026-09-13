@@ -45,6 +45,7 @@ This repository is the canonical knowledge product for spec-driven documentation
 ## Routing
 
 - Method-specific routing: `method/AGENTS.md`.
+- Landing, upgrading, and drift in an instance: `method/reconcile.md`.
 - Comparison-document routing: `comparison-docs/AGENTS.md`.
 - Distribution and ownership: `_docs/specs/SPEC-distribution.md`.
 - Format and budgets: `_docs/specs/SPEC-docs-format.md`.

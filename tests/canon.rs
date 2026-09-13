@@ -1708,3 +1708,85 @@ fn the_compatibility_declaration_is_present_and_true() {
         "the declaration needs an engine newer than the one that carries it"
     );
 }
+
+/// SATISFIES distribution:a-landing-classifies-its-target-first
+#[test]
+fn the_reading_order_and_the_digest_route_to_reconcile() {
+    assert!(
+        read("method/README.md").contains("[Reconcile](./reconcile.md)"),
+        "the reading order does not name the reconcile chapter"
+    );
+    assert!(
+        read("method/AGENTS.md").contains("`reconcile.md`"),
+        "the method digest routes nothing to the reconcile chapter"
+    );
+    assert!(
+        read("AGENTS.md").contains("method/reconcile.md"),
+        "the root digest routes nothing to the reconcile chapter"
+    );
+}
+
+/// SATISFIES distribution:a-landing-classifies-its-target-first
+#[test]
+fn the_migration_chapter_sends_an_installed_instance_to_the_reconcile_chapter() {
+    let chapter = read("method/migration.md");
+    assert!(
+        chapter.contains("[Reconcile](./reconcile.md)"),
+        "the migration chapter keeps an installed instance to itself"
+    );
+}
+
+#[test]
+fn the_migration_chapter_names_the_two_proved_finding_kinds_the_unjudged_style_candidates_and_the_scope_decision()
+ {
+    let chapter = read("method/migration.md");
+    for phrase in [
+        "structural finding",
+        "budget finding",
+        "style candidate",
+        "`migration-scope`",
+        "compliant or noncompliant",
+    ] {
+        assert!(
+            chapter.contains(phrase),
+            "the migration chapter does not state '{phrase}'"
+        );
+    }
+}
+
+#[test]
+fn the_reconcile_chapter_states_the_plan_handling_rule() {
+    let chapter = read("method/reconcile.md");
+    assert!(
+        chapter.contains("never committed") && chapter.contains("never pasted"),
+        "the reconcile chapter does not state how a plan is handled"
+    );
+}
+
+/// Every glossary row resolves: the owner column names a document that
+/// exists, so a term can never point at a chapter nobody wrote.
+#[test]
+fn every_glossary_term_names_its_owning_chapter() {
+    let glossary = read("method/glossary.md");
+    let mut rows = 0;
+    for line in glossary.lines() {
+        let Some(owner) = line.rsplit('|').nth(1) else {
+            continue;
+        };
+        let owner = owner.trim().trim_matches('`');
+        if !owner.ends_with(".md") {
+            continue;
+        }
+        let relative = if owner.contains('/') {
+            owner.to_string()
+        } else {
+            format!("method/{owner}")
+        };
+        assert!(
+            canon().join(&relative).exists(),
+            "the glossary names {relative}, which does not exist"
+        );
+        rows += 1;
+    }
+    assert!(rows > 40, "the glossary rows did not parse: {rows} found");
+}

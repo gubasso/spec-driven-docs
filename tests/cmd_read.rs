@@ -94,3 +94,20 @@ fn completions_and_man_render() {
         .success()
         .stdout(predicate::str::contains(".TH"));
 }
+
+#[test]
+fn the_reconcile_chapter_renders() {
+    let fixture = Fixture::new();
+    fixture
+        .cmd()
+        .args(["method", "--list"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("reconcile"));
+    fixture
+        .cmd()
+        .args(["method", "reconcile"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Every write comes from a plan"));
+}

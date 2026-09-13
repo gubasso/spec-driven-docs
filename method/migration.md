@@ -10,11 +10,20 @@ A migration begins with a verdict about the target, read from evidence rather th
 - brownfield: a settled corpus under a documentation root, or a methodology marker such as a site generator's configuration, a decision-record directory, a specs tree. The corpus is migrated, never overwritten and never left as a second convention beside the new one.
 - needs-decision: durable prose outside any recognized home. The operator says what it is before any plan claims to know.
 
-An installed instance is a fourth state and not a classification: it routes to verification or upgrade, not to this chapter. No instance does not mean no documents. A brownfield target with no instance is the common case. Treating it as green is how a project ends up running two conventions at once.
+An installed instance is a fourth state and not a classification: it routes to [Reconcile](./reconcile.md), which owns every landing and upgrade over an instance that already exists. No instance does not mean no documents. A brownfield target with no instance is the common case. Treating it as green is how a project ends up running two conventions at once.
+
+The plan a target gets is the same plan in both chapters, and it reports the three kinds of debt separately. A structural finding is a document in a home the method does not recognize. A budget finding is a document over a size or shape budget. A style candidate is prose the writing convention would change, and the engine raises it unjudged: it never labels prose compliant or noncompliant.
 
 ## The inventory is the plan
 
-The full sweep is the default scope: every durable fact ends the migration in exactly one home, and the old convention is retired. Narrowing that scope is an explicit decision, stated where the plan is approved.
+The full sweep is the default scope: every durable fact ends the migration in exactly one home, and the old convention is retired. The reason is the structural finding. A document in an unrecognized home is evidence that two conventions would coexist, and the sweep is what retires the second one.
+
+The other two kinds of debt take the marginal path.
+
+- A budget finding becomes recorded debt under the project's `SPEC-budget-debt.md`. Each inherited violation is a ceiling that only comes down, so the corpus converges as documents are edited rather than in one pass.
+- A style candidate converts the next time somebody edits the document, under the project's selected writing source. Style never enters a sweep.
+
+Narrowing the scope is the `migration-scope` decision, and the plan offers the incremental answer only where the structural count is zero. Taking it costs one thing, stated plainly: nothing retires. Every document converts on its next edit, and the checklist below holds the recorded debt rather than a source-by-source inventory.
 
 The plan's body is a migration checklist: one entry per source document, written before the first destination write and kept under version control in the plan zone. A ranked plan with declared scope is binding, however early, per [Placement](./placement.md). Each entry carries:
 

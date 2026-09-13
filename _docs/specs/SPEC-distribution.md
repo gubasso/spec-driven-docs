@@ -123,15 +123,15 @@ Verify: `cargo nextest run -E 'binary(canon)'`
 
 ### `distribution:a-landing-classifies-its-target-first` — A landing classifies its target first
 
-Where a setup or migration task finds no instance at a target, the skills and the shared pre-flight gate MUST route by `sdd assess`. The command MUST report its evidence and exactly one verdict, write nothing, and exit 0 for every produced classification. The three verdicts are: `brownfield` where a documentation root is populated or a methodology marker exists, `greenfield` where no document beyond root metadata exists, and `needs-decision` otherwise.
+The planner MUST read a target's classification from the target alone, never from the verb the caller ran, and each front verb MUST refuse a classification it does not serve, naming what was found and the verb that serves it. After the shared pre-flight gate, a skill MUST request a plan rather than route by verb. `sdd assess` MUST keep its three-verdict projection for compatibility: it reports its evidence and exactly one of `brownfield`, `greenfield`, or `needs-decision`, writes nothing, and exits 0.
 
-#### Scenario: A documented target carries no instance
+#### Scenario: A landing verb meets a target it does not serve
 
 - GIVEN a repository holding a populated documentation root and no instance manifest
-- WHEN `sdd assess --target . --json` runs
-- THEN the report classifies `brownfield` and exits 0, so the routing skill loads the migration path instead of landing seeds beside the corpus
+- WHEN `sdd init --target . --profile codebase --apply` runs
+- THEN the command refuses, names the target as a migration, and points at `sdd reconcile plan`, so no seed lands beside the corpus
 
-Verify: `cargo nextest run -E 'binary(cmd_assess) + binary(canon)'`
+Verify: `cargo nextest run -E 'binary(cmd_assess) + binary(cmd_reconcile) + binary(canon)'`
 
 ### `distribution:a-skill-checks-its-host-before-it-plans` — A skill checks its host before it plans
 
