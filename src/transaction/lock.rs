@@ -102,6 +102,37 @@ impl Lock {
         Self::acquire(path, Mode::Exclusive, purpose)
     }
 
+    /// Take the lock alone, waiting a bounded time for a holder to leave.
+    ///
+    /// For a lock whose critical section is short and whose contention is
+    /// ordinary rather than exceptional: two operators planning at once
+    /// should queue, not fail. The bound keeps a dead holder from hanging
+    /// a command, so a wait that runs out still refuses and names it.
+    ///
+    /// # Errors
+    ///
+    /// [`AppError::Busy`] when the wait runs out, and I/O errors when the
+    /// lock file cannot be created.
+    pub fn exclusive_waiting(
+        path: &Utf8Path,
+        purpose: &str,
+        budget: std::time::Duration,
+    ) -> Result<Self, AppError> {
+        let deadline = std::time::Instant::now() + budget;
+        loop {
+            match Self::acquire(path, Mode::Exclusive, purpose) {
+                Ok(held) => return Ok(held),
+                Err(AppError::Busy(message)) => {
+                    if std::time::Instant::now() >= deadline {
+                        return Err(AppError::Busy(message));
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(25));
+                }
+                Err(other) => return Err(other),
+            }
+        }
+    }
+
     /// Take the lock beside other readers.
     ///
     /// # Errors

@@ -229,6 +229,16 @@ pub fn compute_target_state(
     bundle: &dyn ReleaseBundle,
 ) -> Result<TargetState, AppError> {
     let profile = options.profile;
+    // The release the bundle is, not the release the engine is. A plan
+    // toward an older version lands that version's bytes, so recording
+    // this binary's version would leave the target claiming a release it
+    // does not hold, and every later classification would read the lie.
+    let landed: CanonVersion = bundle
+        .manifest()?
+        .version
+        .to_string()
+        .parse()
+        .map_err(|_| AppError::Refused("the release is not a version triple".to_string()))?;
     let released = bundle.declaration()?;
     let declaration = released.profile(profile).ok_or_else(|| {
         AppError::Refused(format!(
@@ -391,7 +401,7 @@ pub fn compute_target_state(
 
     let manifest = Manifest {
         schema_version: SCHEMA_VERSION,
-        canon_version: CanonVersion::current(),
+        canon_version: landed,
         canon_source: CANON_SOURCE.to_string(),
         profile,
         docs_root: declaration.docs_root,

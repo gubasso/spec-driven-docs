@@ -17,6 +17,13 @@
   - [`reconcile:a-plan-is-stored-and-applied-by-its-id` — A plan is stored and applied by its id](#reconcilea-plan-is-stored-and-applied-by-its-id--a-plan-is-stored-and-applied-by-its-id)
   - [`reconcile:an-apply-refuses-a-plan-whose-inputs-moved` — An apply refuses a plan whose inputs moved](#reconcilean-apply-refuses-a-plan-whose-inputs-moved--an-apply-refuses-a-plan-whose-inputs-moved)
   - [`reconcile:one-writer-holds-a-target` — One writer holds a target](#reconcileone-writer-holds-a-target--one-writer-holds-a-target)
+  - [`reconcile:a-run-that-did-not-finish-is-rolled-back` — A run that did not finish is rolled back](#reconcilea-run-that-did-not-finish-is-rolled-back--a-run-that-did-not-finish-is-rolled-back)
+  - [`reconcile:an-apply-proves-every-postcondition-it-reports` — An apply proves every postcondition it reports](#reconcilean-apply-proves-every-postcondition-it-reports--an-apply-proves-every-postcondition-it-reports)
+  - [`reconcile:a-destination-is-contained-before-it-is-written` — A destination is contained before it is written](#reconcilea-destination-is-contained-before-it-is-written--a-destination-is-contained-before-it-is-written)
+  - [`reconcile:a-plan-id-is-a-fingerprint-and-never-a-path` — A plan id is a fingerprint and never a path](#reconcilea-plan-id-is-a-fingerprint-and-never-a-path--a-plan-id-is-a-fingerprint-and-never-a-path)
+  - [`reconcile:an-apply-resolves-nothing` — An apply resolves nothing](#reconcilean-apply-resolves-nothing--an-apply-resolves-nothing)
+  - [`reconcile:a-target-records-the-release-it-holds` — A target records the release it holds](#reconcilea-target-records-the-release-it-holds--a-target-records-the-release-it-holds)
+  - [`reconcile:a-release-declares-what-it-asks-of-its-operator` — A release declares what it asks of its operator](#reconcilea-release-declares-what-it-asks-of-its-operator--a-release-declares-what-it-asks-of-its-operator)
 
 <!--TOC-->
 
@@ -181,3 +188,87 @@ Planning MUST take a shared lock on the target and an apply MUST take it exclusi
 - THEN it refuses naming the holder, because two writers over one repository is the interleaving the lock exists to stop
 
 Verify: `cargo nextest run -E 'binary(cmd_reconcile)'`
+
+### `reconcile:a-run-that-did-not-finish-is-rolled-back` — A run that did not finish is rolled back
+
+Every write an apply makes MUST be journaled before the first rename, and the journal MUST name each destination, the digest it held, and the digest the run intends. Any failure after the journal opens MUST attempt rollback and MUST record what the attempt achieved. The next invocation MUST recover an outstanding journal before it plans new work, and recovery MUST restore every destination the run touched, including the instance record.
+
+#### Scenario: The process dies between two renames
+
+- GIVEN an apply whose first operation landed and whose second did not
+- WHEN the next invocation runs
+- THEN it restores both destinations before planning anything, because a target holding half of one plan is a state no plan describes
+
+Verify: `cargo nextest run -E 'binary(cmd_reconcile)'`
+
+### `reconcile:an-apply-proves-every-postcondition-it-reports` — An apply proves every postcondition it reports
+
+An apply MUST run a check behind every postcondition its plan declares and MUST NOT report one as held without it. A postcondition this engine has no check for MUST be reported as not held. A postcondition that fails MUST roll the run back.
+
+#### Scenario: A plan declares a postcondition the engine cannot check
+
+- GIVEN a stored plan naming a postcondition no check implements
+- WHEN the apply finishes its operations
+- THEN the result reports it as not held and the run rolls back, because a result that records proof nobody performed is worse than no result
+
+Verify: `cargo nextest run -E 'binary(cmd_reconcile)'`
+
+### `reconcile:a-destination-is-contained-before-it-is-written` — A destination is contained before it is written
+
+Before any operation is staged, the engine MUST confirm that every path component under the target is not a symlink and that the destination is absent or a regular file. A destination that fails MUST refuse the whole apply before the first write, and no flag MUST bypass it.
+
+#### Scenario: A directory under the target is a symlink elsewhere
+
+- GIVEN a target whose documentation root is a symlink to another writable directory
+- WHEN an apply that writes under that root runs
+- THEN it refuses before staging anything, because a validated target-relative path is not containment and a rename through a symlink writes outside the repository
+
+Verify: `cargo nextest run -E 'binary(cmd_reconcile)'`
+
+### `reconcile:a-plan-id-is-a-fingerprint-and-never-a-path` — A plan id is a fingerprint and never a path
+
+Every store entry MUST take its identifier as a validated lowercase hexadecimal sha256 and MUST refuse anything else before it reaches a path. A loaded plan whose own identifier is not the one it was fetched by MUST be refused.
+
+#### Scenario: An operator is handed a plan id carrying a path component
+
+- GIVEN an apply invoked with an id that is not a fingerprint
+- WHEN the store resolves it
+- THEN it refuses naming the id, because an identifier that reaches a join names a directory and a terminal result removes the directory its plan names
+
+Verify: `cargo nextest run -E 'binary(cmd_reconcile)'`
+
+### `reconcile:an-apply-resolves-nothing` — An apply resolves nothing
+
+An apply MUST read the exact release its plan froze, offline, by version rather than by the selector that found it. It MUST NOT reach a registry, and MUST NOT fall back to a network read when the cache no longer holds the release.
+
+#### Scenario: The newest release changes between the plan and the apply
+
+- GIVEN a plan computed with `--to latest` and a newer release published afterwards
+- WHEN the apply runs
+- THEN it reads the release the plan named and not the newer one, because an approval bound to one release is not an approval of whatever is newest at apply time
+
+Verify: `cargo nextest run -E 'binary(cmd_reconcile)'`
+
+### `reconcile:a-target-records-the-release-it-holds` — A target records the release it holds
+
+The instance record MUST name the release whose bytes landed and MUST NOT name the engine that landed them. A plan toward an older release MUST record that release.
+
+#### Scenario: A newer engine lands an older release
+
+- GIVEN a plan computed with an exact older destination
+- WHEN it applies
+- THEN the record names that older release, because every later classification, downgrade check, and interval reads this field and a false one makes all three wrong
+
+Verify: `cargo nextest run -E 'binary(cmd_reconcile)'`
+
+### `reconcile:a-release-declares-what-it-asks-of-its-operator` — A release declares what it asks of its operator
+
+Every release MUST declare its minimum engine and the versions an interval may not skip, and MUST carry one guidance ledger entry naming a step file or `none`. The plan MUST turn each into a precondition or a decision, MUST keep only the steps whose destinations the target has, and MUST raise every breaking step as a decision the operator answers.
+
+#### Scenario: An interval crosses a release that asks something of a person
+
+- GIVEN a target two releases behind and a breaking step in between
+- WHEN the plan is computed
+- THEN it needs a decision carrying that step's body, because a write cannot take a step only a person can take
+
+Verify: `cargo nextest run -E 'binary(cmd_reconcile) + binary(canon)'`

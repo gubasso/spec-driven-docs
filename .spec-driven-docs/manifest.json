@@ -123,8 +123,8 @@
     {
       "source": "_docs/specs/SPEC-reconcile.md",
       "destination": "_docs/specs/SPEC-reconcile.md",
-      "sha256": "b965f16e31ebb0e57a8fd85b290da151d1b6c73a933b3bfc66d382c8498e47b7",
-      "baseline_sha256": "b965f16e31ebb0e57a8fd85b290da151d1b6c73a933b3bfc66d382c8498e47b7"
+      "sha256": "7c8b211dd5735528b5efa45aa15dc1327b6c013c1fb45f3768884f5f75aae202",
+      "baseline_sha256": "7c8b211dd5735528b5efa45aa15dc1327b6c013c1fb45f3768884f5f75aae202"
     },
     {
       "source": "_docs/specs/SPEC-release.md",

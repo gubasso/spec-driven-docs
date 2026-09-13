@@ -44,6 +44,13 @@ pub fn run(ctx: &AppContext, args: ReconcileArgs) -> Result<(), AppError> {
     }
 }
 
+/// How long a verb waits for the store before it refuses.
+///
+/// The store's critical section is a prune and a directory write, so a
+/// second writer queues behind it rather than failing. A wait this long
+/// running out means a holder died, which is worth reporting.
+const STORE_WAIT: std::time::Duration = std::time::Duration::from_secs(30);
+
 fn resolve_target(ctx: &AppContext, target: &Utf8Path) -> Result<Utf8PathBuf, AppError> {
     if target.is_absolute() {
         return Ok(target.to_owned());
@@ -216,6 +223,23 @@ fn landing_options(
 }
 
 /// Compute one plan against one target.
+/// What the record holds now, which is what a removal can take back.
+fn recorded_managed(
+    observation: &crate::plan::observe::Observation,
+) -> Vec<(String, crate::domain::ownership::Sha256)> {
+    observation
+        .installation
+        .as_ref()
+        .map(|installed| {
+            installed
+                .managed
+                .iter()
+                .map(|file| (file.path.as_str().to_string(), file.recorded.clone()))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 fn compute_plan(
     target: &Utf8Path,
     to: &str,
@@ -272,6 +296,7 @@ fn compute_plan(
                 &state.files,
                 &declaration,
                 profile,
+                &recorded_managed(&observation),
             )?)
         }
         _ => None,
@@ -369,6 +394,10 @@ fn run_plan(ctx: &AppContext, args: &PlanArgs) -> Result<(), AppError> {
         .map_err(|error| AppError::Usage(error.to_string()))?;
 
     let store = Store::new(&state_root()?);
+    // The store is global, so its own lock orders writers across targets.
+    // The order is always target first, then store, on every path.
+    store.create()?;
+    let _store_lock = Lock::exclusive_waiting(&store.lock_path(), "reconcile plan", STORE_WAIT)?;
     let _ = store.prune(jiff::Timestamp::now(), Some(&computed.identity.plan_id));
     // Identical inputs while an executable plan exists reuse it, so an
     // operator who plans twice approves one thing.
@@ -436,11 +465,20 @@ fn run_apply(ctx: &AppContext, args: &ApplyArgs) -> Result<(), AppError> {
                 .map(|answer| (decision.id.clone(), answer.clone()))
         })
         .collect();
-    let release = read_release(&stored.desired_state.selector, true).or_else(|_| {
-        // A destination the cache no longer holds is a moved input, which
-        // the revalidation below reports rather than a fetch papering over.
-        read_release(&stored.desired_state.selector, false)
-    })?;
+    // Apply resolves nothing. It reads the exact release the plan froze,
+    // offline, by version rather than by the selector that found it: a
+    // `latest` that moved between the plan and the apply would otherwise
+    // make the apply resolve a different release and then report the
+    // plan as stale, which is the network deciding rather than the plan.
+    let frozen = if stored.desired_state.selector == "embedded" {
+        // The embedded bundle is this binary's own and has no version to
+        // look up. Naming its version instead would send the apply to the
+        // registry for a release it already carries.
+        "embedded".to_string()
+    } else {
+        stored.desired_state.release.clone()
+    };
+    let release = read_release(&frozen, true)?;
     let (recomputed, _) = compute_plan(
         &target,
         &stored.desired_state.selector,
@@ -449,11 +487,15 @@ fn run_apply(ctx: &AppContext, args: &ApplyArgs) -> Result<(), AppError> {
         &release,
     )?;
 
+    // The store is global, so its own lock orders writers across targets.
+    // The order is always target first, then store, on every path.
+    let _store_lock = Lock::exclusive_waiting(&store.lock_path(), "reconcile apply", STORE_WAIT)?;
     let result = execute(&Request {
         store: &store,
         target: &target,
         stored: &stored,
         recomputed: &recomputed,
+        bundle: release.bundle.as_ref(),
         now: jiff::Timestamp::now().to_string(),
     })?;
     if args.json {

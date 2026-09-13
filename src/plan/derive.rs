@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 use camino::{Utf8Path, Utf8PathBuf};
 
 use crate::domain::ownership::Sha256;
-use crate::domain::paths::{AGENTS_DIGEST_PATH, HOOKS_CONFIG_PATH, MANIFEST_PATH};
+use crate::domain::paths::{AGENTS_DIGEST_PATH, HOOKS_CONFIG_PATH, MANIFEST_PATH, PRUNABLE_ROOTS};
 use crate::domain::profile::{ProfileId, resolve_destination};
 use crate::domain::projection::Declaration;
 use crate::error::AppError;
@@ -34,6 +34,7 @@ pub fn operations_for(
     files: &[(Utf8PathBuf, Vec<u8>)],
     declaration: &Declaration,
     profile: ProfileId,
+    recorded_managed: &[(String, Sha256)],
 ) -> Result<Derived, AppError> {
     let adopted = adopted_destinations(declaration, profile);
     let mut operations = Vec::new();
@@ -78,7 +79,52 @@ pub fn operations_for(
             },
         });
     }
+    operations.extend(removals(target, files, recorded_managed)?);
     Ok((operations, blobs))
+}
+
+/// Every managed file the record holds that this release no longer lands.
+///
+/// Only managed, and only under a root the canon owns. An adopted file the
+/// release stops seeding stays: the project owns it from the moment it
+/// lands, and a version moving is not permission to take it back. A file
+/// whose bytes are not the ones the record vouches for stays too, because
+/// the operator edited it and a removal would be a silent loss.
+fn removals(
+    target: &Utf8Path,
+    files: &[(Utf8PathBuf, Vec<u8>)],
+    recorded_managed: &[(String, Sha256)],
+) -> Result<Vec<Operation>, AppError> {
+    let landing: Vec<&str> = files
+        .iter()
+        .map(|(destination, _)| destination.as_str())
+        .collect();
+    let mut removals = Vec::new();
+    for (destination, recorded) in recorded_managed {
+        if landing.contains(&destination.as_str()) {
+            continue;
+        }
+        if !PRUNABLE_ROOTS
+            .iter()
+            .any(|prefix| destination.starts_with(prefix))
+        {
+            continue;
+        }
+        let path =
+            TargetPath::new(destination).map_err(|error| AppError::Refused(error.to_string()))?;
+        let Ok(held) = std::fs::read(target.join(destination)) else {
+            continue;
+        };
+        let found = Sha256::of(&held);
+        if &found != recorded {
+            continue;
+        }
+        removals.push(Operation::RemoveOwnedFile {
+            path,
+            before: found,
+        });
+    }
+    Ok(removals)
 }
 
 /// Every destination one profile adopts, resolved.
@@ -121,7 +167,7 @@ mod tests {
             ),
         ];
         let (operations, blobs) =
-            operations_for(&target, &files, declaration, ProfileId::Codebase).unwrap();
+            operations_for(&target, &files, declaration, ProfileId::Codebase, &[]).unwrap();
         let kinds: Vec<&str> = operations.iter().map(Operation::kind).collect();
         assert_eq!(
             kinds,
@@ -161,10 +207,57 @@ mod tests {
             &files,
             &crate::domain::profile::DECLARATION,
             ProfileId::Codebase,
+            &[],
         )
         .unwrap();
         assert!(operations.is_empty());
         assert!(blobs.is_empty());
+    }
+
+    #[test]
+    fn a_managed_file_the_release_dropped_is_taken_back() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = Utf8PathBuf::from(dir.path().to_str().unwrap());
+        let dropped = ".spec-driven-docs/markdownlint/retired.jsonc";
+        crate::adapters::fs::write_file(&target.join(dropped), b"old").unwrap();
+        let recorded = vec![(dropped.to_string(), Sha256::of(b"old"))];
+        let (operations, _) = operations_for(
+            &target,
+            &[],
+            &crate::domain::profile::DECLARATION,
+            ProfileId::Codebase,
+            &recorded,
+        )
+        .unwrap();
+        assert_eq!(operations.len(), 1);
+        assert_eq!(operations[0].kind(), "remove-owned-file");
+        assert_eq!(operations[0].path().as_str(), dropped);
+    }
+
+    #[test]
+    fn an_edited_dropped_file_and_one_outside_the_owned_roots_both_stay() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = Utf8PathBuf::from(dir.path().to_str().unwrap());
+        let edited = ".spec-driven-docs/markdownlint/retired.jsonc";
+        let adopted = "docs/specs/SPEC-retired.md";
+        crate::adapters::fs::write_file(&target.join(edited), b"mine now").unwrap();
+        crate::adapters::fs::write_file(&target.join(adopted), b"seed").unwrap();
+        let recorded = vec![
+            (edited.to_string(), Sha256::of(b"old")),
+            (adopted.to_string(), Sha256::of(b"seed")),
+        ];
+        let (operations, _) = operations_for(
+            &target,
+            &[],
+            &crate::domain::profile::DECLARATION,
+            ProfileId::Codebase,
+            &recorded,
+        )
+        .unwrap();
+        assert!(
+            operations.is_empty(),
+            "an edited file or one the project owns was taken back: {operations:?}"
+        );
     }
 
     #[test]
@@ -177,7 +270,8 @@ mod tests {
                 &target,
                 &files,
                 &crate::domain::profile::DECLARATION,
-                ProfileId::Codebase
+                ProfileId::Codebase,
+                &[],
             )
             .is_err()
         );

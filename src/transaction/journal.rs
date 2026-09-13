@@ -7,10 +7,13 @@
 //! run intends to put there, and it is written and synced before the first
 //! rename.
 //!
-//! Recovery goes one way here: back to what was there. A skill package is
-//! small enough to re-install after a recovery, so rolling forward would be
-//! a second code path for no gain. The repository apply, whose plan carries
-//! bytes a target cannot regenerate, adds the forward direction.
+//! Recovery goes one way: back to what was there. Both writers use it, the
+//! skill install and the repository apply alike. A run that did not finish
+//! is undone whole, including its record, so the target returns to one
+//! state it was in rather than to a mixture of two. Completing forward
+//! would need a durable commit marker and a second recovery path, and the
+//! cost of rolling back instead is one re-run of a plan that is still
+//! stored under its own id.
 
 use camino::{Utf8Path, Utf8PathBuf};
 use serde::{Deserialize, Serialize};

@@ -274,12 +274,19 @@ impl CratesIoResolver {
     }
 
     /// The verified archive for one identity, from the cache or the network.
-    fn archive(&self, identity: &CachedIdentity) -> Result<Vec<u8>, AppError> {
+    ///
+    /// The second value says whether these bytes are already cached. A
+    /// checksum that matches the index proves the bytes are the published
+    /// crate, and nothing more: the archive can still hold a traversal, a
+    /// duplicate path, or a declaration this engine cannot read. Caching
+    /// it here would serve a refusal offline forever, so the caller
+    /// publishes it only after the whole bundle is admitted.
+    fn archive(&self, identity: &CachedIdentity) -> Result<(Vec<u8>, bool), AppError> {
         let held = self.archive_path(&identity.cksum);
         if let Ok(bytes) = std::fs::read(&held)
             && Sha256::of(&bytes).as_str() == identity.cksum
         {
-            return Ok(bytes);
+            return Ok((bytes, true));
         }
         let url = self.download_url(&identity.version, &identity.cksum)?;
         let bytes = self.read(&url, MAX_COMPRESSED_BYTES)?;
@@ -293,8 +300,7 @@ impl CratesIoResolver {
                 identity.version, identity.cksum
             )));
         }
-        self.remember(identity, &bytes)?;
-        Ok(bytes)
+        Ok((bytes, false))
     }
 
     /// Build the bundle one verified archive carries.
@@ -310,7 +316,7 @@ impl CratesIoResolver {
         {
             self.catalog.descriptor(&identity.version)?;
         }
-        let archive = self.archive(identity)?;
+        let (archive, cached) = self.archive(identity)?;
         let files = admit(&archive, &format!("{CRATE_NAME}-{}", identity.version))?;
         let native = files
             .get(crate::domain::projection::DECLARATION_PATH)
@@ -318,6 +324,9 @@ impl CratesIoResolver {
             .transpose()
             .map_err(|source| AppError::Refused(source.to_string()))?;
         if let Some(declaration) = native {
+            if !cached {
+                self.remember(identity, &archive)?;
+            }
             return Ok(CrateReleaseBundle {
                 version,
                 payload_schema: declaration.payload_schema,
@@ -328,6 +337,9 @@ impl CratesIoResolver {
             });
         }
         let adapted = self.catalog.adapt(&identity.version, &files)?;
+        if !cached {
+            self.remember(identity, &archive)?;
+        }
         Ok(CrateReleaseBundle {
             version,
             payload_schema: adapted.payload_schema,

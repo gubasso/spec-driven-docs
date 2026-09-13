@@ -38,6 +38,8 @@ pub struct Request<'a> {
     pub stored: &'a Plan,
     /// The same plan, computed again from the same inputs, just now.
     pub recomputed: &'a Plan,
+    /// The release the plan froze, for the verification postcondition.
+    pub bundle: &'a dyn crate::release::ReleaseBundle,
     /// The clock, as an input.
     pub now: String,
 }
@@ -148,6 +150,7 @@ pub fn apply(request: &Request<'_>) -> std::result::Result<ApplyResult, AppError
         target,
         stored,
         recomputed,
+        bundle,
         now,
     } = request;
     let directory = store.directory(&stored.identity.plan_id);
@@ -156,7 +159,21 @@ pub fn apply(request: &Request<'_>) -> std::result::Result<ApplyResult, AppError
     // deterministically before another plan is even considered.
     journal::recover(&directory.journal)?;
 
-    let differences = moved(stored, recomputed);
+    // The fingerprint is the identity an approval bound to, so it decides.
+    // `moved` runs only to explain a difference the digest already proved,
+    // and it never decides on its own: a projection field it does not
+    // restate, the target's own path among them, would otherwise let a
+    // plan approved for one repository execute against another.
+    let mut differences = Vec::new();
+    if stored.input_fingerprint != recomputed.input_fingerprint {
+        differences = moved(stored, recomputed);
+        if differences.is_empty() {
+            differences.push(format!(
+                "the plan's inputs no longer hash to {}",
+                stored.identity.plan_id
+            ));
+        }
+    }
     if !differences.is_empty() {
         let result = terminal(
             stored,
@@ -213,7 +230,7 @@ pub fn apply(request: &Request<'_>) -> std::result::Result<ApplyResult, AppError
         return Ok(result);
     }
 
-    execute(store, target, stored, now)
+    execute(store, target, stored, *bundle, now)
 }
 
 /// Stage, journal, replace, and prove.
@@ -221,6 +238,7 @@ fn execute(
     store: &Store,
     target: &Utf8Path,
     plan: &Plan,
+    bundle: &dyn crate::release::ReleaseBundle,
     now: &str,
 ) -> std::result::Result<ApplyResult, AppError> {
     let directory = store.directory(&plan.identity.plan_id);
@@ -230,17 +248,20 @@ fn execute(
     let mut outcomes = Vec::new();
     let mut affected = Vec::new();
     for ((destination, bytes), operation) in planned.iter().zip(ordered(plan)) {
-        let done = match bytes {
-            Some(bytes) => {
-                let scratch = Stage::write(destination, bytes)?;
-                Stage::replace(&scratch, destination)
-            }
-            None => match std::fs::remove_file(destination) {
-                Ok(()) => crate::transaction::sync_parent(destination).map_err(AppError::Io),
-                Err(source) if source.kind() == std::io::ErrorKind::NotFound => Ok(()),
-                Err(source) => Err(AppError::Io(source)),
-            },
-        };
+        // Every fallible step after the journal opened routes through
+        // this one result. A `?` here would return with the journal
+        // outstanding and the operations before it still applied, which
+        // is the state the journal exists to prevent.
+        let done = bytes
+            .as_ref()
+            .map_or_else(
+                || remove(destination),
+                |bytes| {
+                    Stage::write(destination, bytes)
+                        .and_then(|scratch| Stage::replace(&scratch, destination))
+                },
+            )
+            .and_then(|()| journal.mark_done(destination));
         if let Err(cause) = done {
             let restored = journal.roll_back();
             let reason = format!("{} could not be written: {cause}", operation.path());
@@ -264,7 +285,6 @@ fn execute(
                 },
             ));
         }
-        journal.mark_done(destination)?;
         outcomes.push(OperationOutcome {
             kind: operation.kind().to_string(),
             path: operation.path().as_str().to_string(),
@@ -274,7 +294,7 @@ fn execute(
         affected.push(operation.path().as_str().to_string());
     }
 
-    let postconditions = prove(target, plan);
+    let postconditions = prove(target, plan, bundle);
     let failed: Vec<&PostconditionOutcome> =
         postconditions.iter().filter(|held| !held.held).collect();
     if let Some(first) = failed.first() {
@@ -329,6 +349,12 @@ fn stage_every_operation(
     let mut entries = Vec::new();
     let mut planned: Vec<Staged> = Vec::new();
     for operation in ordered(plan) {
+        // A validated target-relative path is not containment. A directory
+        // along the way can be a symlink out of the repository, and a
+        // rename through one writes wherever it points. The check runs
+        // before anything is read or staged, so a refusal leaves the whole
+        // target untouched.
+        contained(target, operation.path().as_path())?;
         let destination = target.join(operation.path().as_path());
         let before = stage.back_up(&destination)?;
         match operation.after() {
@@ -348,10 +374,44 @@ fn stage_every_operation(
     Ok((entries, planned))
 }
 
+/// Take one destination away, treating an absent one as already gone.
+fn remove(destination: &Utf8Path) -> std::result::Result<(), AppError> {
+    match std::fs::remove_file(destination) {
+        Ok(()) => crate::transaction::sync_parent(destination).map_err(AppError::Io),
+        Err(source) if source.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(source) => Err(AppError::Io(source)),
+    }
+}
+
+/// Refuse a destination that leaves the target.
+///
+/// The same guard the landing verbs run, applied to every operation of
+/// every kind: write, splice, and removal alike.
+///
+/// # Errors
+///
+/// [`AppError::Refused`] naming the destination and what was wrong.
+fn contained(target: &Utf8Path, relative: &Utf8Path) -> std::result::Result<(), AppError> {
+    crate::adapters::fs::check_destination(target, relative).map_err(|refusal| {
+        AppError::Refused(match refusal {
+            crate::adapters::fs::DestinationRefusal::SymlinkEscape => {
+                format!("destination escapes the target through a symlink: {relative}")
+            }
+            crate::adapters::fs::DestinationRefusal::FileBlocksDirectory(blocked) => {
+                format!("a file blocks a directory the plan needs: {blocked}")
+            }
+            crate::adapters::fs::DestinationRefusal::NotARegularFile => {
+                format!("destination exists and is not a regular file: {relative}")
+            }
+        })
+    })
+}
+
 /// The order the apply writes in.
 ///
-/// The record is last, because its commit is what turns a recovery
-/// forward: a run that reached it did what the plan described.
+/// The record is last, because it is the claim that the rest landed. A run
+/// the process did not finish is rolled back whole, this operation with
+/// it, so a target never carries a record for files it does not hold.
 fn ordered(plan: &Plan) -> Vec<&Operation> {
     let mut ordered: Vec<&Operation> = plan
         .operations
@@ -367,7 +427,11 @@ fn ordered(plan: &Plan) -> Vec<&Operation> {
 }
 
 /// What the apply proves once every operation has landed.
-fn prove(target: &Utf8Path, plan: &Plan) -> Vec<PostconditionOutcome> {
+fn prove(
+    target: &Utf8Path,
+    plan: &Plan,
+    bundle: &dyn crate::release::ReleaseBundle,
+) -> Vec<PostconditionOutcome> {
     plan.postconditions
         .iter()
         .map(|postcondition| match postcondition.id.as_str() {
@@ -394,13 +458,30 @@ fn prove(target: &Utf8Path, plan: &Plan) -> Vec<PostconditionOutcome> {
                     }),
                 }
             }
-            // Verification is the standing postcondition, and the front
-            // verbs already run it. Reporting it here without running it
-            // twice keeps the result honest about what was proved.
+            "verification-passes" => {
+                let report = crate::services::verifier::verify(target, bundle);
+                let detail = match &report {
+                    Ok(report) if report.failures == 0 => None,
+                    Ok(report) => Some(format!(
+                        "sdd verify reports {} failure(s): {}",
+                        report.failures,
+                        report.lines.join("; ")
+                    )),
+                    Err(source) => Some(format!("sdd verify could not run: {source}")),
+                };
+                PostconditionOutcome {
+                    id: postcondition.id.clone(),
+                    held: detail.is_none(),
+                    detail,
+                }
+            }
+            // A postcondition nobody implemented is not a postcondition
+            // that held. Reporting it as proved would put a claim in the
+            // result that nothing behind it ever checked.
             other => PostconditionOutcome {
                 id: other.to_string(),
-                held: true,
-                detail: None,
+                held: false,
+                detail: Some(format!("{other} has no check behind it in this engine")),
             },
         })
         .collect()

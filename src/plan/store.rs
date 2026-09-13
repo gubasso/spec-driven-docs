@@ -143,7 +143,54 @@ impl Store {
         &self.root
     }
 
+    /// One attempt's directory name, as a name and never as a path.
+    ///
+    /// The attempt id is built from the caller's clock, so it is not a
+    /// digest and cannot be checked as one. It is reduced to the
+    /// characters a directory name may carry, which is what keeps a
+    /// separator out of the join.
+    fn attempt_slug(value: &str) -> String {
+        let held: String = value
+            .chars()
+            .map(|held| {
+                if held.is_ascii_alphanumeric() || held == '-' {
+                    held
+                } else {
+                    '-'
+                }
+            })
+            .collect();
+        if held.is_empty() {
+            "attempt".to_string()
+        } else {
+            held
+        }
+    }
+
+    /// Refuse an id that is not a fingerprint.
+    ///
+    /// Every public entry takes the id as a string, and the strings reach
+    /// `Path::join`, which appends whatever it is given. An id carrying a
+    /// path component would name a directory outside the store, and a
+    /// terminal result removes the directory its plan names. So the shape
+    /// is checked once, at the boundary: exactly a lowercase hex sha256.
+    ///
+    /// # Errors
+    ///
+    /// [`AppError::Refused`] naming the id.
+    pub fn checked(fingerprint: &str) -> std::result::Result<&str, AppError> {
+        fingerprint.parse::<Sha256>().map_err(|_| {
+            AppError::Refused(format!(
+                "'{fingerprint}' is not a plan id; a plan id is the 64-character fingerprint 'sdd reconcile plan' printed"
+            ))
+        })?;
+        Ok(fingerprint)
+    }
+
     /// Where one fingerprint's executable plan lives.
+    ///
+    /// The caller has already run [`Store::checked`] on the id: every
+    /// public entry does, and this is reachable only through one of them.
     #[must_use]
     pub fn directory(&self, fingerprint: &str) -> PlanDirectory {
         let root = self.root.join("plans").join(fingerprint);
@@ -191,7 +238,7 @@ impl Store {
     /// Whether an executable plan exists for this fingerprint.
     #[must_use]
     pub fn holds(&self, fingerprint: &str) -> bool {
-        self.directory(fingerprint).plan.is_file()
+        Self::checked(fingerprint).is_ok_and(|held| self.directory(held).plan.is_file())
     }
 
     /// Write one plan and every byte it will land.
@@ -205,7 +252,7 @@ impl Store {
         blobs: &BTreeMap<Sha256, Vec<u8>>,
     ) -> std::result::Result<PlanDirectory, AppError> {
         self.create()?;
-        let held = self.directory(&plan.identity.plan_id);
+        let held = self.directory(Self::checked(&plan.identity.plan_id)?);
         std::fs::create_dir_all(&held.blobs)?;
         owner_only(&held.root)?;
         owner_only(&held.blobs)?;
@@ -228,14 +275,25 @@ impl Store {
     /// [`AppError::Refused`] when no executable plan carries that
     /// fingerprint, and I/O errors when it cannot be read.
     pub fn get(&self, fingerprint: &str) -> std::result::Result<Plan, AppError> {
-        let held = self.directory(fingerprint);
+        let held = self.directory(Self::checked(fingerprint)?);
         let text = std::fs::read_to_string(&held.plan).map_err(|_| {
             AppError::Refused(format!(
                 "no executable plan carries the id {fingerprint}; run 'sdd reconcile plan' again"
             ))
         })?;
-        serde_json::from_str(&text)
-            .map_err(|source| AppError::Refused(format!("{} does not parse: {source}", held.plan)))
+        let plan: Plan = serde_json::from_str(&text).map_err(|source| {
+            AppError::Refused(format!("{} does not parse: {source}", held.plan))
+        })?;
+        // The document decides where its own results and its own cleanup
+        // go, so a document that does not answer to the id it was fetched
+        // by is refused rather than trusted.
+        if plan.identity.plan_id != fingerprint {
+            return Err(AppError::Refused(format!(
+                "{} carries the id {} and was fetched as {fingerprint}",
+                held.plan, plan.identity.plan_id
+            )));
+        }
+        Ok(plan)
     }
 
     /// One byte string the plan will write.
@@ -248,7 +306,10 @@ impl Store {
         fingerprint: &str,
         digest: &Sha256,
     ) -> std::result::Result<Vec<u8>, AppError> {
-        let path = self.directory(fingerprint).blobs.join(digest.to_string());
+        let path = self
+            .directory(Self::checked(fingerprint)?)
+            .blobs
+            .join(digest.to_string());
         let bytes = std::fs::read(&path).map_err(|source| {
             AppError::Refused(format!(
                 "the plan {fingerprint} carries no blob {digest}: {source}"
@@ -272,9 +333,10 @@ impl Store {
     ///
     /// Any I/O error writing the result or moving the plan.
     pub fn record(&self, plan: &Plan, result: &Result) -> std::result::Result<(), AppError> {
+        let id = Self::checked(&plan.identity.plan_id)?;
         let directory = self
-            .results(&result.fingerprint.to_string())
-            .join(&result.result_id);
+            .results(Self::checked(&result.fingerprint.to_string())?)
+            .join(Self::attempt_slug(&result.result_id));
         std::fs::create_dir_all(&directory)?;
         owner_only(&directory)?;
         let redacted = redact(plan);
@@ -293,7 +355,7 @@ impl Store {
         if result.disposition.is_terminal() {
             // The fingerprint is free again, so identical inputs plan into
             // a fresh directory rather than meeting a stripped one.
-            let _ = std::fs::remove_dir_all(self.directory(&plan.identity.plan_id).root);
+            let _ = std::fs::remove_dir_all(self.directory(id).root);
         }
         Ok(())
     }
@@ -301,6 +363,7 @@ impl Store {
     /// The latest result for one fingerprint, where any exists.
     #[must_use]
     pub fn latest_result(&self, fingerprint: &str) -> Option<Result> {
+        let fingerprint = Self::checked(fingerprint).ok()?;
         let mut found: Vec<(String, Result)> = std::fs::read_dir(self.results(fingerprint))
             .ok()?
             .filter_map(std::result::Result::ok)

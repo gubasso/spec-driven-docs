@@ -393,6 +393,29 @@ fn settle(result: Result<Vec<String>, Failure>) -> Result<Vec<String>, AppError>
     })
 }
 
+/// The lock an applied run holds for the whole of its own reasoning.
+///
+/// A preview takes none: it writes nothing, and a preview that refused
+/// because somebody else was installing would fail for a reason the
+/// operator cannot act on. An applied run takes it before it reads a
+/// receipt or scans a destination, so every decision it makes is one the
+/// world still agrees with when it executes. A run that derived its
+/// removals before the lock could remove files a newer install had just
+/// written.
+///
+/// # Errors
+///
+/// [`AppError::Busy`] when another process holds it, and whatever
+/// recovery refuses.
+fn held(layout: &Layout, apply: bool, purpose: &str) -> Result<Option<Lock>, Failure> {
+    if !apply {
+        return Ok(None);
+    }
+    let lock = Lock::exclusive(&layout.lock_path(), purpose)?;
+    journal::recover(&layout.journal_path())?;
+    Ok(Some(lock))
+}
+
 /// The install, with the recovery tests' interruption point.
 fn install_with(
     layout: &Layout,
@@ -400,6 +423,7 @@ fn install_with(
     force: bool,
     interrupt: Interrupt,
 ) -> Result<Vec<String>, Failure> {
+    let _lock = held(layout, apply, "skill install")?;
     let planned = plan(&layout.roots)?;
     let mut lines: Vec<String> = planned
         .iter()
@@ -470,12 +494,6 @@ fn install_with(
         .into());
     }
 
-    let _lock = Lock::exclusive(&layout.lock_path(), "skill install")?;
-    journal::recover(&layout.journal_path())?;
-    // The receipt is read again under the lock: an install that finished
-    // between the preview above and this line changed what the record
-    // vouches for.
-    let record = load_receipt(layout);
     let swept: Vec<Utf8PathBuf> = stale
         .iter()
         .filter(|(_, _, ours)| *ours)
@@ -503,6 +521,10 @@ fn uninstall_with(
     apply: bool,
     interrupt: Interrupt,
 ) -> Result<Vec<String>, Failure> {
+    // A home with no receipt has nothing this tool wrote, so an uninstall
+    // there removes nothing and takes no lock: creating the lock file
+    // would itself be the write that home was promised it would not get.
+    let _lock = held(layout, apply && layout.receipt.exists(), "skill uninstall")?;
     let planned = plan(&layout.roots)?;
     let record = load_receipt(layout);
     let mut lines: Vec<String> = Vec::new();
@@ -569,9 +591,6 @@ fn uninstall_with(
         return Ok(lines);
     }
 
-    let _lock = Lock::exclusive(&layout.lock_path(), "skill uninstall")?;
-    journal::recover(&layout.journal_path())?;
-    let record = load_receipt(layout);
     let gone: Vec<Utf8PathBuf> = removals
         .iter()
         .map(|(destination, _)| destination.clone())
