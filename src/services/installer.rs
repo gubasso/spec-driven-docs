@@ -8,21 +8,19 @@
 //! guarded; and any failure mid-apply rolls the target back. What the
 //! payload contains is `embedded`'s and the profiles' business.
 
-use std::collections::BTreeMap;
-
 use camino::{Utf8Path, Utf8PathBuf};
 
-use crate::adapters::fs::{DestinationRefusal, check_destination, write_file};
 use crate::domain::manifest::{
     CANON_SOURCE, MANIFEST_PATH, Manifest, PlanZone, SCHEMA_VERSION, validate_docs_scratch_path,
     validate_plan_zone_path,
 };
 use crate::domain::ownership::{AdoptedEntry, IntegrationBlock, ManagedEntry, Sha256};
+use crate::domain::paths::{AGENTS_DIGEST_PATH, HOOKS_CONFIG_PATH};
 use crate::domain::profile::{ProfileId, resolve_destination};
 use crate::domain::version::CanonVersion;
 use crate::error::AppError;
+use crate::release::ReleaseBundle;
 use crate::services::hooks_render::{RenderOptions, render_block};
-use crate::services::verifier;
 
 /// What an installation was asked to do.
 #[derive(Debug, Clone)]
@@ -55,6 +53,8 @@ pub struct InitOutcome {
     pub lines: Vec<String>,
     /// Whether files were written.
     pub applied: bool,
+    /// Every destination the landing took back, relative to the target.
+    pub removed: Vec<String>,
 }
 
 fn canonical_target(target: &Utf8Path) -> Result<Utf8PathBuf, AppError> {
@@ -198,34 +198,66 @@ pub(crate) fn resolved_docs_scratch(
     Ok(Some(path))
 }
 
-struct TargetState {
-    files: Vec<(Utf8PathBuf, Vec<u8>)>,
-    lines: Vec<String>,
+/// Every byte one landing would put in a target, and what it would say.
+///
+/// The planner takes this rather than deriving it a second time: what a
+/// release lands into a target is one computation, and two of them would
+/// be two places for one rule to drift.
+#[derive(Debug, Clone)]
+pub struct TargetState {
+    /// Each destination and the bytes that would go there.
+    pub files: Vec<(Utf8PathBuf, Vec<u8>)>,
+    /// What the operator would be told.
+    pub lines: Vec<String>,
 }
 
 #[allow(
     clippy::too_many_lines,
     reason = "computing the target state is one ordered pass the installer replays"
 )]
-fn compute_target_state(target: &Utf8Path, options: &InitOptions) -> Result<TargetState, AppError> {
+/// What one landing would put in a target.
+///
+/// # Errors
+///
+/// [`AppError::Refused`] when the release declares no such profile or a
+/// marked region cannot be read, and I/O errors reading the target.
+pub fn compute_target_state(
+    target: &Utf8Path,
+    options: &InitOptions,
+    bundle: &dyn ReleaseBundle,
+) -> Result<TargetState, AppError> {
     let profile = options.profile;
-    let declaration = profile.profile();
+    // The release the bundle is, not the release the engine is. A plan
+    // toward an older version lands that version's bytes, so recording
+    // this binary's version would leave the target claiming a release it
+    // does not hold, and every later classification would read the lie.
+    let landed: CanonVersion = bundle
+        .manifest()?
+        .version
+        .to_string()
+        .parse()
+        .map_err(|_| AppError::Refused("the release is not a version triple".to_string()))?;
+    let released = bundle.declaration()?;
+    let declaration = released.profile(profile).ok_or_else(|| {
+        AppError::Refused(format!(
+            "the release declares no {profile} profile, so it cannot land one"
+        ))
+    })?;
     let mut files: Vec<(Utf8PathBuf, Vec<u8>)> = Vec::new();
     let mut lines = Vec::new();
     let mut managed_entries = Vec::new();
     let mut adopted_entries = Vec::new();
 
     for projection in declaration.managed {
-        let bytes = crate::embedded::asset(projection.source)
-            .ok_or_else(|| anyhow::anyhow!("payload asset missing: {}", projection.source))?;
-        let destination = Utf8PathBuf::from(projection.destination);
+        let bytes = bundle.artifact(&projection.source)?;
+        let destination = Utf8PathBuf::from(&projection.destination);
         managed_entries.push(ManagedEntry {
-            source: projection.source.into(),
+            source: projection.source.clone().into(),
             destination: destination.clone(),
-            sha256: Sha256::of(bytes),
+            sha256: Sha256::of(&bytes),
         });
         lines.push(destination.to_string());
-        files.push((destination, bytes.to_vec()));
+        files.push((destination, bytes));
     }
 
     // What the target already records as adopted. A destination that holds
@@ -243,9 +275,8 @@ fn compute_target_state(target: &Utf8Path, options: &InitOptions) -> Result<Targ
         })
         .unwrap_or_default();
     for projection in declaration.adopted {
-        let seed = crate::embedded::asset(projection.source)
-            .ok_or_else(|| anyhow::anyhow!("payload asset missing: {}", projection.source))?;
-        let destination = resolve_destination(projection.destination, declaration.docs_root);
+        let seed = bundle.artifact(&projection.source)?;
+        let destination = resolve_destination(&projection.destination, declaration.docs_root);
         let existing = target.join(&destination);
         let mut bytes = if existing.is_file() {
             let held = std::fs::read(&existing)?;
@@ -256,7 +287,7 @@ fn compute_target_state(target: &Utf8Path, options: &InitOptions) -> Result<Targ
             }
             held
         } else {
-            seed.to_vec()
+            seed.clone()
         };
         // `--reserve` and `--writing-style` record into the declaration,
         // keeping its comments and whatever the project already wrote there.
@@ -273,16 +304,16 @@ fn compute_target_state(target: &Utf8Path, options: &InitOptions) -> Result<Targ
             bytes = text.into_bytes();
         }
         adopted_entries.push(AdoptedEntry {
-            source: projection.source.into(),
+            source: projection.source.clone().into(),
             destination: destination.clone(),
             sha256: Sha256::of(&bytes),
-            baseline_sha256: Sha256::of(seed),
+            baseline_sha256: Sha256::of(&seed),
         });
         lines.push(destination.to_string());
         files.push((destination, bytes));
     }
 
-    let config_path = target.join(".pre-commit-config.yaml");
+    let config_path = target.join(HOOKS_CONFIG_PATH);
     let host = if config_path.is_file() {
         std::fs::read_to_string(&config_path)?
     } else {
@@ -311,21 +342,18 @@ fn compute_target_state(target: &Utf8Path, options: &InitOptions) -> Result<Targ
     let spliced = crate::domain::marker::splice(&base, &block)?;
     let marker_hash = crate::domain::marker::block_hash(&spliced)
         .ok_or_else(|| anyhow::anyhow!("the rendered block lost its markers"))?;
-    lines.push(".pre-commit-config.yaml".to_string());
-    files.push((
-        Utf8PathBuf::from(".pre-commit-config.yaml"),
-        spliced.into_bytes(),
-    ));
+    lines.push(HOOKS_CONFIG_PATH.to_string());
+    files.push((Utf8PathBuf::from(HOOKS_CONFIG_PATH), spliced.into_bytes()));
 
     let mut integration_blocks = vec![IntegrationBlock {
-        path: ".pre-commit-config.yaml".into(),
+        path: HOOKS_CONFIG_PATH.into(),
         marker_hash,
     }];
 
     // The root AGENTS.md documentation block routes authors to the context they
     // load before editing. A symlinked host is refused before it is read, so a
     // link cannot redirect the read outside the target.
-    let agents_relative = Utf8Path::new("AGENTS.md");
+    let agents_relative = Utf8Path::new(AGENTS_DIGEST_PATH);
     if target.join(agents_relative).is_symlink() {
         return Err(AppError::Refused(
             "AGENTS.md is a symlink; refusing to write the documentation block through it"
@@ -362,16 +390,16 @@ fn compute_target_state(target: &Utf8Path, options: &InitOptions) -> Result<Targ
             "note: AGENTS.md carries an unmarked '## Documentation' section; the managed block was appended and the old section left in place — remove it by hand".to_string(),
         );
     }
-    lines.push("AGENTS.md".to_string());
+    lines.push(AGENTS_DIGEST_PATH.to_string());
     files.push((agents_relative.to_path_buf(), agents.into_bytes()));
     integration_blocks.push(IntegrationBlock {
-        path: "AGENTS.md".into(),
+        path: AGENTS_DIGEST_PATH.into(),
         marker_hash: agents_hash,
     });
 
     let manifest = Manifest {
         schema_version: SCHEMA_VERSION,
-        canon_version: CanonVersion::current(),
+        canon_version: landed,
         canon_source: CANON_SOURCE.to_string(),
         profile,
         docs_root: declaration.docs_root,
@@ -391,111 +419,6 @@ fn compute_target_state(target: &Utf8Path, options: &InitOptions) -> Result<Targ
     Ok(TargetState { files, lines })
 }
 
-fn refusal_line(destination: &Utf8Path, refusal: &DestinationRefusal) -> String {
-    match refusal {
-        DestinationRefusal::SymlinkEscape => {
-            format!("destination escapes the target through a symlink: {destination}")
-        }
-        DestinationRefusal::FileBlocksDirectory(blocked) => {
-            format!("a file blocks a directory the install needs: {blocked}")
-        }
-        DestinationRefusal::NotARegularFile => {
-            format!("destination exists and is not a regular file: {destination}")
-        }
-    }
-}
-
-fn apply(target: &Utf8Path, state: &TargetState) -> Result<(), AppError> {
-    let mut ordered: Vec<&(Utf8PathBuf, Vec<u8>)> = state.files.iter().collect();
-    ordered.sort_by(|a, b| a.0.as_str().as_bytes().cmp(b.0.as_str().as_bytes()));
-
-    for (destination, _) in &ordered {
-        check_destination(target, destination)
-            .map_err(|refusal| AppError::Refused(refusal_line(destination, &refusal)))?;
-    }
-
-    let mut backups: BTreeMap<Utf8PathBuf, Option<Vec<u8>>> = BTreeMap::new();
-    let rollback = |backups: &BTreeMap<Utf8PathBuf, Option<Vec<u8>>>| -> Vec<Utf8PathBuf> {
-        let mut unrestored = Vec::new();
-        for (destination, previous) in backups {
-            let full = target.join(destination);
-            let restored = previous.as_ref().map_or_else(
-                || std::fs::remove_file(&full).is_ok() || !full.exists(),
-                |bytes| write_file(&full, bytes).is_ok(),
-            );
-            if !restored {
-                unrestored.push(destination.clone());
-            }
-        }
-        unrestored
-    };
-    // The cause travels with the refusal: the caller has already lost the
-    // written tree by the time it reads this, so a bare "aborted" leaves
-    // nothing to act on.
-    let abort = |unrestored: Vec<Utf8PathBuf>, cause: &str| {
-        if unrestored.is_empty() {
-            AppError::Refused(format!("apply aborted; the target was restored: {cause}"))
-        } else {
-            let paths: Vec<&str> = unrestored.iter().map(|p| p.as_str()).collect();
-            AppError::Refused(format!(
-                "apply aborted and restoration is incomplete; verify by hand: {}: {cause}",
-                paths.join(" ")
-            ))
-        }
-    };
-
-    for (destination, _) in &ordered {
-        let full = target.join(destination);
-        let previous = if full.is_file() {
-            Some(std::fs::read(&full).map_err(|source| {
-                AppError::Refused(format!("cannot back up {destination}: {source}"))
-            })?)
-        } else {
-            None
-        };
-        backups.insert((*destination).clone(), previous);
-    }
-
-    let write_all = || -> std::io::Result<()> {
-        for (destination, bytes) in &ordered {
-            if destination.as_str() != MANIFEST_PATH {
-                write_file(&target.join(destination), bytes)?;
-            }
-        }
-        for (destination, bytes) in &ordered {
-            if destination.as_str() == MANIFEST_PATH {
-                write_file(&target.join(destination), bytes)?;
-            }
-        }
-        Ok(())
-    };
-
-    if let Err(source) = write_all() {
-        return Err(abort(
-            rollback(&backups),
-            &format!("write failed: {source}"),
-        ));
-    }
-
-    match verifier::verify(target) {
-        Ok(report) if report.failures == 0 => Ok(()),
-        Ok(report) => {
-            let failures: Vec<&str> = report
-                .lines
-                .iter()
-                .filter(|line| line.starts_with("FAIL"))
-                .map(String::as_str)
-                .collect();
-            let cause = failures.join("; ");
-            Err(abort(rollback(&backups), &cause))
-        }
-        Err(source) => Err(abort(
-            rollback(&backups),
-            &format!("the written target could not be verified: {source}"),
-        )),
-    }
-}
-
 /// Install or reinstall an instance.
 ///
 /// # Errors
@@ -504,16 +427,54 @@ fn apply(target: &Utf8Path, state: &TargetState) -> Result<(), AppError> {
 /// [`AppError::Marker`] for a configuration whose markers cannot be trusted,
 /// and [`AppError::Refused`] when the apply could not complete — the target
 /// is restored before that returns.
-pub fn init(options: &InitOptions) -> Result<InitOutcome, AppError> {
+pub fn init(
+    options: &InitOptions,
+    bundle: &dyn ReleaseBundle,
+    intent: crate::plan::classify::Intent,
+) -> Result<InitOutcome, AppError> {
+    init_with(
+        &crate::plan::decision::Selections::new(),
+        options,
+        bundle,
+        intent,
+    )
+}
+
+/// Install or reinstall an instance, carrying answers the caller collected.
+///
+/// # Errors
+///
+/// As [`init`], plus whatever the plan refuses when a decision it raises
+/// is unanswered.
+pub fn init_with(
+    answered: &crate::plan::decision::Selections,
+    options: &InitOptions,
+    bundle: &dyn ReleaseBundle,
+    intent: crate::plan::classify::Intent,
+) -> Result<InitOutcome, AppError> {
     let target = canonical_target(&options.target)?;
+    // The target is known-good before it is classified, so an argument
+    // this verb cannot mean is a usage answer rather than a walk of
+    // whatever the argument happened to name.
+    crate::commands::front::serves(intent, &target)?;
     let forced_dry = !options.apply
         && !options.dry_run
         && target_has_content(&target)?
         && !target.join(MANIFEST_PATH).is_file();
     let dry = options.dry_run || forced_dry;
 
-    let state = compute_target_state(&target, options)?;
-    let mut lines = state.lines.clone();
+    let state = compute_target_state(&target, options, bundle)?;
+    let mut lines = state.lines;
+
+    let landing = crate::plan::session::Landing {
+        target: &target,
+        release: crate::plan::session::ReleaseRef::of(bundle)?,
+        offline: true,
+        selections: answered.clone(),
+        carried: profile_only(options.profile),
+        reserve: options.reserve.clone(),
+        declared: Some(options.clone()),
+    };
 
     if dry {
         if forced_dry {
@@ -522,16 +483,60 @@ pub fn init(options: &InitOptions) -> Result<InitOutcome, AppError> {
                     .to_string(),
             );
         }
+        // The preview is the plan. A destination list alone cannot say
+        // that a precondition blocks the run or that a release in the
+        // interval asks something of a person.
+        lines.extend(crate::plan::session::preview_lines(
+            &crate::plan::session::preview(&landing)?,
+        ));
         lines.push("DRY RUN: no files written".to_string());
         return Ok(InitOutcome {
             lines,
             applied: false,
+            removed: Vec::new(),
         });
     }
 
-    apply(&target, &state)?;
+    // Every write into a target comes from an operation in one plan, so
+    // this verb reaches the engine rather than writing what it computed.
+    // The state above is what the planner derives its operations from, so
+    // the landing is the same landing; what it gains is the plan's own id,
+    // the journal that can take it back, and a recorded result.
+    let result = crate::plan::session::land(&landing)?;
+    for refused in result
+        .postconditions
+        .iter()
+        .filter(|postcondition| !postcondition.held)
+    {
+        lines.push(format!(
+            "FAIL {} did not hold: {}",
+            refused.id,
+            refused.detail.clone().unwrap_or_default()
+        ));
+    }
     Ok(InitOutcome {
         lines,
         applied: true,
+        removed: result
+            .operations
+            .iter()
+            .filter(|operation| operation.kind == "remove-owned-file")
+            .map(|operation| operation.path.clone())
+            .collect(),
     })
+}
+
+/// The one decision a front's flags still answer by name.
+///
+/// The rest travel as the options themselves. A flag and a decision are
+/// the same answer under two names, and rendering a recorded value back
+/// into its flag spelling only to parse it again is a round trip that can
+/// lose what it carries.
+fn profile_only(profile: ProfileId) -> crate::plan::decision::Selections {
+    let mut selections = crate::plan::decision::Selections::new();
+    selections.insert(
+        crate::plan::decision::id::PROFILE.to_string(),
+        profile.to_string(),
+    );
+    selections
 }

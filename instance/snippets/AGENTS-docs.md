@@ -5,5 +5,6 @@
 - {writing_style}
 - Write and edit step-by-step guides to the adopted guides spec, `{docs_root}/specs/SPEC-guides.md`.
 - Name a document by a slug drawn from its subject, never by a number. Where its directory holds documents with no kind prefix, give that directory a `README.md` saying what it holds and what each document covers.
+- For a question about this method or about operating `sdd`, run `sdd docs` and read only the topic it names.
 - Run `sdd verify` before handoff.
 - Keep adopted specs, the tracking registry, and local integration instance-owned.

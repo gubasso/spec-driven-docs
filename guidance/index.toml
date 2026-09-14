@@ -1,0 +1,36 @@
+# Which releases this engine can brief an instance about.
+#
+# One entry per release from the capability floor onward, selecting
+# `none` or a file. Absence never means two things: an entry that says
+# `none` says there is nothing to do, and a missing entry inside the
+# covered interval is a release-time failure rather than a silent gap.
+#
+# A recorded release below the floor reads as partial coverage, with the
+# floor named, rather than as an invented history.
+
+schema = "sdd.guidance-index/1"
+capability_floor = "0.6.6"
+
+[[releases]]
+version = "0.6.6"
+guidance = "none"
+
+[[releases]]
+version = "0.7.0"
+guidance = "0.7.0.toml"
+
+[[releases]]
+version = "0.7.1"
+guidance = "none"
+
+[[releases]]
+version = "0.7.2"
+guidance = "0.7.2.toml"
+
+[[releases]]
+version = "0.8.0"
+guidance = "none"
+
+[[releases]]
+version = "0.8.1"
+guidance = "none"

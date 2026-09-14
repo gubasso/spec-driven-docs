@@ -153,7 +153,7 @@ fn the_canon_record_hashes_every_file_the_tree_carries() {
         }
     }
 
-    for template in spec_driven_docs::domain::profile::CANON_TEMPLATES {
+    for template in spec_driven_docs::domain::profile::CANON_TEMPLATES.iter() {
         assert!(
             canon().join(template).is_file(),
             "{template} is declared but gone from the tree"
@@ -673,11 +673,11 @@ fn every_skill_routes_to_the_plan_gate_before_acting() {
         );
         let end = sections.get(1).copied().unwrap_or(body.len());
         let section = body[first..end].join("\n");
-        // Both shared artifacts are named, by the absolute path they install
-        // to: the two agent roots make no relative path reach one file from
-        // both, so the skills name them the one way that resolves.
+        // Both gates are named by the path they carry inside the package,
+        // relative to the skill's own root, which is what every documented
+        // host resolves a supporting file against.
         for artifact in ["pre-flight-gate.md", "plan-gate.md"] {
-            let named = format!("~/.local/state/spec-driven-docs/skills/shared/{artifact}");
+            let named = format!("references/{artifact}");
             assert!(
                 section.contains(&named),
                 "{dir}: the gate section does not name {named}"
@@ -686,9 +686,9 @@ fn every_skill_routes_to_the_plan_gate_before_acting() {
         // The spec binds the order too: the pre-flight is read first,
         // because the plan gate takes its findings as inputs.
         let pre_flight = section
-            .find("shared/pre-flight-gate.md")
+            .find("references/pre-flight-gate.md")
             .unwrap_or_default();
-        let plan = section.find("shared/plan-gate.md").unwrap_or_default();
+        let plan = section.find("references/plan-gate.md").unwrap_or_default();
         assert!(
             pre_flight < plan,
             "{dir}: the gate section names the plan gate before the pre-flight gate"
@@ -753,26 +753,131 @@ fn the_payload_carries_both_shared_gates() {
 
 /// SATISFIES distribution:a-landing-classifies-its-target-first
 #[test]
-fn the_skills_and_the_gate_route_by_the_classification() {
+fn the_pre_flight_gate_invokes_no_planner_or_skill() {
     let gate = read("skill-shared/pre-flight-gate.md");
-    assert!(
-        gate.contains("sdd assess"),
-        "the pre-flight gate does not name the classification step"
-    );
-    let setup = read("skills/sdd-setup/SKILL.md");
-    let migrate = read("skills/sdd-migrate/SKILL.md");
-    for (name, text) in [("sdd-setup", &setup), ("sdd-migrate", &migrate)] {
+    for named in ["sdd assess", "sdd reconcile", "migration skill"] {
         assert!(
-            text.contains("sdd assess"),
-            "{name}: does not route by sdd assess"
+            !gate.contains(named),
+            "the pre-flight gate names '{named}'; it hands its findings back and routes nothing"
         );
-        for verdict in ["greenfield", "brownfield", "needs-decision"] {
+    }
+}
+
+/// SATISFIES distribution:a-landing-classifies-its-target-first
+#[test]
+fn the_setup_skill_requests_exactly_one_initial_plan() {
+    let setup = read("skills/sdd-setup/SKILL.md");
+    assert!(
+        setup.contains("sdd reconcile plan --target . --json"),
+        "the router does not request a plan"
+    );
+    assert!(
+        setup.contains("Request exactly one initial plan"),
+        "the router does not bound its initial plan request"
+    );
+    assert!(
+        !setup.contains("sdd assess"),
+        "the router classifies for itself instead of reading the plan's classification"
+    );
+}
+
+/// SATISFIES distribution:a-landing-classifies-its-target-first
+#[test]
+fn the_setup_skill_routes_each_classification_to_its_chapter() {
+    let setup = read("skills/sdd-setup/SKILL.md");
+    for classification in [
+        "setup",
+        "migration",
+        "upgrade",
+        "drift",
+        "current",
+        "invalid",
+    ] {
+        assert!(
+            setup.contains(classification),
+            "the router does not name the {classification} classification"
+        );
+    }
+    for chapter in ["sdd docs migration", "sdd docs reconcile"] {
+        assert!(
+            setup.contains(chapter),
+            "the router does not route a classification to {chapter}"
+        );
+    }
+}
+
+#[test]
+fn the_setup_skill_names_the_five_steps() {
+    let setup = read("skills/sdd-setup/SKILL.md");
+    for step in [
+        "## 1. Observe",
+        "## 2. Request a plan",
+        "## 3. Present the plan",
+        "## 4. Decide and apply",
+        "## 5. Read the result",
+    ] {
+        assert!(setup.contains(step), "the router has no '{step}' section");
+    }
+}
+
+#[test]
+fn the_setup_skill_declares_its_gated_steps() {
+    let setup = read("skills/sdd-setup/SKILL.md");
+    assert!(setup.contains("## What waits for the operator"));
+    for gated in [
+        "ignore entry for the docs scratch",
+        "sdd reconcile apply <plan-id> --target .",
+        "before its entry retires anything",
+        "Every retirement of a file the project authored",
+        "Every disposition question",
+        "migration directory at the close",
+    ] {
+        assert!(
+            setup.contains(gated),
+            "the router does not gate '{gated}' for the operator"
+        );
+    }
+}
+
+#[test]
+fn the_setup_skill_offers_incremental_only_as_the_plan_does() {
+    let setup = read("skills/sdd-setup/SKILL.md");
+    assert!(
+        setup.contains("never offer it where the plan does not"),
+        "the router states a scope rule of its own instead of deferring to the plan"
+    );
+}
+
+/// SATISFIES docs-discovery:an-instance-is-routed-to-the-index
+#[test]
+fn every_skill_routes_to_a_topic_and_restates_no_catalog_entry() {
+    use spec_driven_docs::domain::docs_catalog::{CATALOG, Target};
+
+    for (dir, text) in skill_dirs() {
+        assert!(
+            text.contains("sdd docs"),
+            "{dir}: names no reader verb for the corpus"
+        );
+        for topic in &CATALOG.topics {
+            let copied =
+                matches!(topic.target, Target::Document { .. }) && text.contains(&topic.summary);
             assert!(
-                text.contains(verdict),
-                "{name}: does not route the {verdict} verdict"
+                !copied,
+                "{dir}: copies the catalog summary of '{}'",
+                topic.id
             );
         }
     }
+}
+
+#[test]
+fn the_payload_carries_two_skills() {
+    let names = spec_driven_docs::embedded::skill_names();
+    assert_eq!(
+        names,
+        vec!["sdd-setup", "sdd-write-docs"],
+        "the payload carries {names:?}"
+    );
 }
 
 /// SATISFIES distribution:skills-are-part-of-the-payload
@@ -927,9 +1032,13 @@ fn the_embedded_payload_names_no_planning_tool() {
 /// SATISFIES distribution:the-payload-names-no-other-project
 #[test]
 fn the_embedded_payload_names_no_other_project() {
+    // This project's own home is not another project. The owner's account
+    // name is part of that URL, and the payload carries the URL wherever it
+    // has to identify the canon it came from.
+    let own = spec_driven_docs::domain::manifest::CANON_SOURCE.to_lowercase();
     for (relative, text) in payload_files() {
         for (index, line) in text.lines().enumerate() {
-            let lower = line.to_lowercase();
+            let lower = line.to_lowercase().replace(&own, "");
             for project in FOREIGN_PROJECTS {
                 assert!(
                     !lower.contains(project),
@@ -1009,7 +1118,7 @@ fn a_seeded_rule_runs_no_canon_command() {
         .profile()
         .adopted
         .iter()
-        .map(|entry| entry.source)
+        .map(|entry| entry.source.as_str())
         .filter(|source| source.contains("/SPEC-"))
         .collect();
     assert!(!seeds.is_empty(), "the profile seeds no spec");
@@ -1201,12 +1310,12 @@ fn a_retired_word_is_matched_as_a_word_rather_than_a_substring() {
 
 /// SATISFIES distribution:a-declared-location-is-named-by-its-variable
 ///
-/// A concrete candidate path has one home: the question a skill asks the
-/// operator. Everywhere else the corpus names the variable, so changing what
-/// is offered never means editing a chapter, a spec, or a template.
+/// A concrete candidate path has one home: the paths section of the status
+/// report, which proposes a directory only where the target already holds
+/// it. Nothing authored spells one, so changing what is offered never means
+/// editing a chapter, a spec, a template, or a skill.
 #[test]
-fn a_concrete_declared_path_appears_only_where_a_skill_offers_it() {
-    let mut offered = 0usize;
+fn a_concrete_declared_path_appears_in_no_authored_prose() {
     for (relative, text) in authored_prose() {
         for (index, line) in text.lines().enumerate() {
             if !line.contains(".docs-scratch") {
@@ -1214,17 +1323,14 @@ fn a_concrete_declared_path_appears_only_where_a_skill_offers_it() {
             }
             // `.gitignore` is this repository's own declaration rather than
             // payload prose, so it carries the path it declared.
-            assert!(
-                relative.starts_with("skills/") || relative == ".gitignore",
-                "{relative}:{}: a concrete docs-scratch path outside a skill's question",
+            assert_eq!(
+                relative,
+                ".gitignore",
+                "{relative}:{}: a concrete docs-scratch path outside this repository's own declaration",
                 index + 1
             );
-            if relative.starts_with("skills/") {
-                offered += 1;
-            }
         }
     }
-    assert!(offered > 0, "no skill offers a concrete docs-scratch path");
 }
 
 /// SATISFIES release:the-canon-record-describes-its-tree
@@ -1248,5 +1354,654 @@ fn the_canon_declares_both_of_its_own_locations() {
             .lines()
             .any(|line| line.trim_end_matches('/') == scratch.trim_end_matches('/')),
         ".gitignore does not carry the docs scratch the record declares: {scratch}"
+    );
+}
+
+/// Every path the status report carries, spelled as a skill would spell it.
+///
+/// Derived from the report rather than listed here, so a field added to
+/// `Paths` joins the invariant without an edit to this file.
+fn reported_paths() -> std::collections::BTreeSet<String> {
+    use spec_driven_docs::domain::paths::{Paths, UserEnv, candidates, proposals};
+
+    let env = UserEnv {
+        home: Some(camino::Utf8PathBuf::from("~")),
+        ..UserEnv::default()
+    };
+    let report = Paths {
+        user: env.user_paths(),
+        active: None,
+        candidates: candidates(),
+        // Every proposal leaf is held, so every path the report can ever
+        // carry is in the set a skill must not spell.
+        proposals: proposals(&env, |_| true),
+    };
+    let value = serde_json::to_value(&report).unwrap();
+    let mut found = std::collections::BTreeSet::new();
+    collect_paths(&value, &mut found);
+
+    let mut spellings = std::collections::BTreeSet::new();
+    for path in found {
+        // A documentation root is a bare word, and the prose needs the
+        // word. What it may not spell is the directory, which carries its
+        // separator.
+        if path.contains('/') || path.contains('.') {
+            spellings.insert(path.clone());
+        } else {
+            spellings.insert(format!("{path}/"));
+            continue;
+        }
+        // A user-scope path is written either way, so both are held.
+        if let Some(relative) = path.strip_prefix("~/") {
+            spellings.insert(relative.to_string());
+        }
+    }
+    spellings
+}
+
+fn collect_paths(value: &serde_json::Value, out: &mut std::collections::BTreeSet<String>) {
+    match value {
+        serde_json::Value::Object(map) => {
+            for (key, child) in map {
+                if key == "path"
+                    && let Some(text) = child.as_str()
+                {
+                    out.insert(text.to_string());
+                }
+                collect_paths(child, out);
+            }
+        }
+        serde_json::Value::Array(items) => {
+            for item in items {
+                collect_paths(item, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Every authored skill file, skill by skill and shared file by shared file.
+fn skill_prose() -> Vec<(String, String)> {
+    let mut files = skill_dirs()
+        .into_iter()
+        .map(|(name, text)| (format!("skills/{name}/SKILL.md"), text))
+        .collect::<Vec<_>>();
+    for entry in std::fs::read_dir(canon().join("skill-shared")).unwrap() {
+        let name = entry.unwrap().file_name().to_str().unwrap().to_string();
+        let relative = format!("skill-shared/{name}");
+        let text = read(&relative);
+        files.push((relative, text));
+    }
+    files
+}
+
+/// Drop every fenced block the report itself produces.
+///
+/// A JSON example is the report's own output, so the paths in it are quoted
+/// rather than restated.
+fn without_json_examples(text: &str) -> String {
+    let mut kept = Vec::new();
+    let mut inside = false;
+    for line in text.lines() {
+        if line.starts_with("```") {
+            if inside {
+                inside = false;
+                continue;
+            }
+            inside = line.trim_start_matches('`').trim() == "json";
+            if inside {
+                continue;
+            }
+        }
+        if !inside {
+            kept.push(line);
+        }
+    }
+    kept.join("\n")
+}
+
+/// SATISFIES distribution:a-declared-location-is-named-by-its-variable
+#[test]
+fn no_skill_spells_a_path_the_binary_reports() {
+    let spellings = reported_paths();
+    for (relative, text) in skill_prose() {
+        let scanned = without_json_examples(&text);
+        for spelling in &spellings {
+            assert!(
+                !scanned.contains(spelling.as_str()),
+                "{relative} spells {spelling}; read it from the paths section of 'sdd status --json' instead"
+            );
+        }
+    }
+}
+
+/// Every control path `domain::paths` declares, as a literal.
+fn declared_control_paths() -> std::collections::BTreeSet<String> {
+    let text = read("src/domain/paths.rs");
+    let mut found = std::collections::BTreeSet::new();
+    for line in text.lines() {
+        let Some(rest) = line.strip_prefix("pub const ") else {
+            continue;
+        };
+        let Some((_, value)) = rest.split_once("= \"") else {
+            continue;
+        };
+        let Some((value, _)) = value.split_once('"') else {
+            continue;
+        };
+        // A bare word is a directory name the rest of the tree composes
+        // with, not a path a second module could redeclare.
+        if value.contains('/') || value.contains('.') {
+            found.insert(value.to_string());
+        }
+    }
+    assert!(
+        found.contains(".spec-driven-docs/manifest.json"),
+        "the declaration scan found no control paths; its parse is stale"
+    );
+    found
+}
+
+/// Every production Rust file, with its test module cut off.
+fn production_rust() -> Vec<(String, String)> {
+    let mut files = Vec::new();
+    for entry in walkdir::WalkDir::new(canon().join("src"))
+        .into_iter()
+        .filter_map(Result::ok)
+    {
+        if !entry.file_type().is_file() || entry.path().extension() != Some("rs".as_ref()) {
+            continue;
+        }
+        let relative = entry
+            .path()
+            .strip_prefix(canon())
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string();
+        let text = std::fs::read_to_string(entry.path()).unwrap();
+        let production = text
+            .split_once("#[cfg(test)]")
+            .map_or_else(|| text.clone(), |(before, _)| before.to_string());
+        files.push((relative, production));
+    }
+    files
+}
+
+/// SATISFIES distribution:a-declared-location-is-named-by-its-variable
+#[test]
+fn every_control_path_constant_has_one_declaration() {
+    let declared = declared_control_paths();
+    for (relative, text) in production_rust() {
+        // The projection declares where a release lands each payload file,
+        // which is versioned data rather than a control path. The bundle
+        // phase moves it out of Rust and into the release's own
+        // declaration; until then it is the one file that carries a
+        // destination literal.
+        if relative == "src/domain/paths.rs" || relative == "src/domain/profile.rs" {
+            continue;
+        }
+        for path in &declared {
+            let literal = format!("\"{path}\"");
+            assert!(
+                !text.contains(&literal),
+                "{relative} declares {path} a second time; read it from domain::paths"
+            );
+        }
+    }
+}
+
+/// SATISFIES distribution:a-skill-package-is-self-contained
+///
+/// A skill names a supporting file the way the package lands it, relative to
+/// the skill's own root. A shared artifact renamed without its references
+/// fails here rather than at the first agent that cannot open a gate.
+#[test]
+fn every_skill_names_its_gates_relative_to_its_own_root() {
+    use spec_driven_docs::domain::paths::{SKILL_FILE, SKILL_REFERENCES_DIR};
+
+    let package =
+        spec_driven_docs::embedded::skill_package("sdd-setup").expect("sdd-setup is embedded");
+    let references: Vec<String> = package
+        .iter()
+        .map(|(path, _)| path.clone())
+        .filter(|path| path != SKILL_FILE)
+        .collect();
+    assert!(!references.is_empty(), "the package carries no references");
+    for (relative, _) in &package {
+        assert!(
+            relative == SKILL_FILE || relative.starts_with(&format!("{SKILL_REFERENCES_DIR}/")),
+            "{relative} is neither the manual nor a reference"
+        );
+    }
+
+    for (dir, text) in skill_dirs() {
+        for reference in &references {
+            assert!(
+                text.contains(reference.as_str()),
+                "{dir}: does not name {reference}, which its package carries"
+            );
+        }
+        assert!(
+            !text.contains("skills/shared"),
+            "{dir}: still names the retired shared root"
+        );
+    }
+}
+
+/// SATISFIES bundle:a-release-declares-what-it-lands
+///
+/// The declaration is a snapshot: it replaced constants a compiler held to
+/// their shape, so a test holds it to its shape instead. A row added or
+/// dropped fails here and is reviewed as the projection change it is.
+#[test]
+fn the_declaration_is_the_projection_this_release_lands() {
+    use spec_driven_docs::domain::profile::{DECLARATION, DocsRoot, ProfileId};
+
+    assert_eq!(DECLARATION.payload_schema, 1);
+    assert_eq!(
+        DECLARATION.docs_root(ProfileId::Codebase),
+        Some(DocsRoot::Docs)
+    );
+    assert_eq!(
+        DECLARATION.docs_root(ProfileId::KnowledgeBase),
+        Some(DocsRoot::UnderscoreDocs)
+    );
+    assert_eq!(DECLARATION.managed.len(), 3, "the managed set moved");
+    assert_eq!(DECLARATION.adopted.len(), 21, "the adopted set moved");
+    assert_eq!(DECLARATION.canon_templates.len(), 2);
+    assert_eq!(DECLARATION.sentinels.len(), 2);
+    for entry in &DECLARATION.sentinels {
+        assert!(
+            DECLARATION
+                .adopted
+                .iter()
+                .any(|adopted| adopted.source == entry.source),
+            "the sentinel {} is owned by no adopted projection",
+            entry.rule
+        );
+    }
+}
+
+/// SATISFIES bundle:a-release-declares-what-it-lands
+#[test]
+fn the_declaration_roots_equal_the_payload_roots() {
+    use spec_driven_docs::domain::profile::DECLARATION;
+
+    for entry in DECLARATION.managed.iter().chain(&DECLARATION.adopted) {
+        assert!(
+            PAYLOAD_ROOTS
+                .iter()
+                .any(|root| entry.source.starts_with(&format!("{root}/"))),
+            "{} is projected from outside every declared payload root",
+            entry.source
+        );
+        assert!(
+            canon().join(&entry.source).is_file(),
+            "{} is projected and not on disk",
+            entry.source
+        );
+    }
+}
+
+/// SATISFIES bundle:a-release-is-read-through-one-seam
+///
+/// A landing verb that reached the embedded payload directly could only
+/// describe the release it was compiled with, whatever the seam says.
+#[test]
+fn no_landing_service_names_the_embedded_payload() {
+    const LANDING: &[&str] = &[
+        "src/services/installer.rs",
+        "src/services/upgrader.rs",
+        "src/services/verifier.rs",
+        "src/services/policy.rs",
+        "src/services/assess.rs",
+    ];
+    for relative in LANDING {
+        let text = read(relative);
+        let production = text
+            .split_once("#[cfg(test)]")
+            .map_or_else(|| text.clone(), |(before, _)| before.to_string());
+        assert!(
+            !production.contains("crate::embedded::asset("),
+            "{relative} reads the embedded payload rather than the release bundle"
+        );
+    }
+}
+
+/// SATISFIES bundle:a-release-is-read-through-one-seam
+#[test]
+fn every_landing_verb_takes_a_release_bundle() {
+    const SIGNATURES: &[(&str, &str)] = &[
+        ("src/services/installer.rs", "pub fn init("),
+        ("src/services/upgrader.rs", "pub fn upgrade("),
+        ("src/services/verifier.rs", "pub fn verify("),
+        ("src/services/policy.rs", "pub fn plan("),
+        ("src/services/policy.rs", "pub fn apply_all("),
+        ("src/services/assess.rs", "pub fn assess("),
+        ("src/services/self_manifest.rs", "pub fn regenerate("),
+    ];
+    for (relative, signature) in SIGNATURES {
+        let text = read(relative);
+        let start = text
+            .find(signature)
+            .unwrap_or_else(|| panic!("{relative} no longer declares {signature}"));
+        let end = text[start..]
+            .find(") ->")
+            .unwrap_or_else(|| panic!("{relative}: {signature} has no return type"));
+        let head = &text[start..start + end];
+        assert!(
+            head.contains("ReleaseBundle"),
+            "{relative}: {signature} takes no release bundle"
+        );
+    }
+}
+
+/// SATISFIES bundle:a-pre-schema-release-is-cataloged-or-unavailable
+///
+/// The packaging configuration is what decides this, and it is readable
+/// without running anything: a path the manifest excludes is a path the
+/// published crate does not carry. `cargo package --list` answers the same
+/// question and is consulted where it can, which is a checkout with its
+/// git directory. Without one, cargo walks the filesystem instead and
+/// skips every hidden entry, so it would report `.markdownlint` missing
+/// from a crate that carries it.
+#[test]
+fn the_published_crate_carries_the_payload_and_the_release_catalog() {
+    let wanted: Vec<String> = PAYLOAD_ROOTS
+        .iter()
+        .map(|root| (*root).to_string())
+        .chain(["release-compat".to_string()])
+        .collect();
+
+    let manifest = read("Cargo.toml");
+    let excluded: Vec<&str> = manifest
+        .lines()
+        .skip_while(|line| !line.starts_with("exclude = ["))
+        .skip(1)
+        .take_while(|line| !line.starts_with(']'))
+        .map(|line| line.trim().trim_matches(|held| held == '"' || held == ','))
+        .collect();
+    for root in &wanted {
+        let named = format!("/{root}");
+        assert!(
+            !excluded.contains(&named.as_str()),
+            "Cargo.toml excludes {root}, so the published crate would not carry it"
+        );
+    }
+
+    if !canon().join(".git").exists() {
+        return;
+    }
+    let listed = std::process::Command::new(env!("CARGO"))
+        .args(["package", "--list", "--allow-dirty", "--quiet"])
+        .current_dir(canon())
+        .output()
+        .expect("cargo package --list runs");
+    assert!(
+        listed.status.success(),
+        "cargo package --list failed: {}",
+        String::from_utf8_lossy(&listed.stderr)
+    );
+    let files = String::from_utf8_lossy(&listed.stdout);
+    for root in &wanted {
+        assert!(
+            files
+                .lines()
+                .any(|line| line.starts_with(&format!("{root}/"))),
+            "the published crate carries no {root}"
+        );
+    }
+    assert!(
+        files
+            .lines()
+            .any(|line| line == "release-compat/index.toml"),
+        "the published crate carries no release catalog"
+    );
+    assert!(
+        files
+            .lines()
+            .any(|line| line.starts_with("release-compat/legacy/")),
+        "the published crate carries no legacy descriptor"
+    );
+}
+
+/// SATISFIES release:every-release-declares-what-it-asks
+///
+/// One entry per release from the capability floor. Absence never means
+/// two things: `none` says there is nothing to do, and a missing entry is
+/// a release-time failure rather than a silent gap.
+#[test]
+fn every_covered_release_has_exactly_one_guidance_entry() {
+    use spec_driven_docs::plan::guidance::{Index, NONE};
+
+    let index = Index::parse(read("guidance/index.toml").as_bytes()).expect("the ledger parses");
+    let catalog = spec_driven_docs::release::legacy::LegacyCatalog::embedded();
+    for entry in &catalog.index().releases {
+        if !entry.eligible {
+            continue;
+        }
+        let version = entry.version.parse().expect("a released triple");
+        assert!(
+            index.entry(version).is_some(),
+            "{} is eligible and the guidance ledger does not cover it",
+            entry.version
+        );
+    }
+    for entry in &index.releases {
+        if entry.guidance == NONE {
+            continue;
+        }
+        let path = format!("guidance/{}", entry.guidance);
+        assert!(
+            canon().join(&path).is_file(),
+            "{} selects {path}, which is not on disk",
+            entry.version
+        );
+    }
+}
+
+/// SATISFIES release:every-release-declares-what-it-asks
+#[test]
+fn every_guidance_step_names_a_body_the_payload_carries() {
+    use spec_driven_docs::plan::guidance::{Guidance, Index, NONE};
+
+    let index = Index::parse(read("guidance/index.toml").as_bytes()).expect("the ledger parses");
+    let bodies: Vec<String> = walkdir::WalkDir::new(canon().join("guidance"))
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_type().is_file())
+        .filter_map(|entry| {
+            let path = entry.path().strip_prefix(canon()).ok()?;
+            Some(path.to_str()?.to_string())
+        })
+        .collect();
+    let mut files = 0usize;
+    for entry in &index.releases {
+        if entry.guidance == NONE {
+            continue;
+        }
+        let path = format!("guidance/{}", entry.guidance);
+        // The parser is what holds a step to its kind, its destinations,
+        // its actor, and a body the bundle carries.
+        Guidance::parse(&path, read(&path).as_bytes(), &bodies)
+            .unwrap_or_else(|error| panic!("{path}: {error}"));
+        files += 1;
+    }
+    assert!(files > 0, "the ledger selects no guidance file");
+}
+
+/// SATISFIES bundle:a-release-declares-what-it-lands
+#[test]
+fn the_compatibility_declaration_is_present_and_true() {
+    use spec_driven_docs::plan::compatibility::Compatibility;
+
+    let held = Compatibility::parse(read("instance/compatibility.toml").as_bytes())
+        .expect("the declaration parses");
+    let version: spec_driven_docs::domain::version::CanonVersion = env!("CARGO_PKG_VERSION")
+        .parse()
+        .expect("the crate version is a triple");
+    assert!(
+        held.minimum_engine <= version,
+        "the declaration needs an engine newer than the one that carries it"
+    );
+}
+
+/// SATISFIES distribution:a-landing-classifies-its-target-first
+#[test]
+fn the_reading_order_and_the_digest_route_to_reconcile() {
+    assert!(
+        read("method/README.md").contains("[Reconcile](./reconcile.md)"),
+        "the reading order does not name the reconcile chapter"
+    );
+    assert!(
+        read("method/AGENTS.md").contains("`reconcile.md`"),
+        "the method digest routes nothing to the reconcile chapter"
+    );
+    assert!(
+        read("AGENTS.md").contains("method/reconcile.md"),
+        "the root digest routes nothing to the reconcile chapter"
+    );
+}
+
+/// SATISFIES distribution:a-landing-classifies-its-target-first
+#[test]
+fn the_migration_chapter_sends_an_installed_instance_to_the_reconcile_chapter() {
+    let chapter = read("method/migration.md");
+    assert!(
+        chapter.contains("[Reconcile](./reconcile.md)"),
+        "the migration chapter keeps an installed instance to itself"
+    );
+}
+
+#[test]
+fn the_migration_chapter_names_the_two_proved_finding_kinds_the_unjudged_style_candidates_and_the_scope_decision()
+ {
+    let chapter = read("method/migration.md");
+    for phrase in [
+        "structural finding",
+        "budget finding",
+        "style candidate",
+        "`migration-scope`",
+        "compliant or noncompliant",
+    ] {
+        assert!(
+            chapter.contains(phrase),
+            "the migration chapter does not state '{phrase}'"
+        );
+    }
+}
+
+#[test]
+fn the_reconcile_chapter_states_the_plan_handling_rule() {
+    let chapter = read("method/reconcile.md");
+    assert!(
+        chapter.contains("never committed") && chapter.contains("never pasted"),
+        "the reconcile chapter does not state how a plan is handled"
+    );
+}
+
+/// Every glossary row resolves: the owner column names a document that
+/// exists, so a term can never point at a chapter nobody wrote.
+#[test]
+fn every_glossary_term_names_its_owning_chapter() {
+    let glossary = read("method/glossary.md");
+    let mut rows = 0;
+    for line in glossary.lines() {
+        let Some(owner) = line.rsplit('|').nth(1) else {
+            continue;
+        };
+        let owner = owner.trim().trim_matches('`');
+        if !owner.ends_with(".md") {
+            continue;
+        }
+        let relative = if owner.contains('/') {
+            owner.to_string()
+        } else {
+            format!("method/{owner}")
+        };
+        assert!(
+            canon().join(&relative).exists(),
+            "the glossary names {relative}, which does not exist"
+        );
+        rows += 1;
+    }
+    assert!(rows > 40, "the glossary rows did not parse: {rows} found");
+}
+
+/// SATISFIES docs-discovery:one-catalog-describes-every-served-document
+#[test]
+fn every_shelf_document_has_exactly_one_catalog_entry() {
+    use spec_driven_docs::domain::docs_catalog::CATALOG;
+    use spec_driven_docs::services::reader;
+
+    for shelf in [&reader::METHOD, &reader::SPECS, &reader::TEMPLATES] {
+        for name in reader::list(shelf) {
+            let held: Vec<&str> = CATALOG
+                .topics
+                .iter()
+                .filter(|topic| {
+                    matches!(&topic.target,
+                        spec_driven_docs::domain::docs_catalog::Target::Document { shelf: id, name: held }
+                            if *id == shelf.id && *held == name)
+                })
+                .map(|topic| topic.id.as_str())
+                .collect();
+            assert_eq!(
+                held.len(),
+                1,
+                "{}/{name} has {} catalog entries: {held:?}",
+                shelf.id.as_str(),
+                held.len()
+            );
+        }
+    }
+}
+
+/// SATISFIES docs-discovery:one-catalog-describes-every-served-document
+#[test]
+fn no_catalog_entry_is_orphaned() {
+    use spec_driven_docs::domain::docs_catalog::{CATALOG, Target};
+    use spec_driven_docs::services::reader;
+
+    for topic in &CATALOG.topics {
+        match &topic.target {
+            Target::Document { shelf, name } => {
+                let held = match shelf {
+                    spec_driven_docs::domain::docs_catalog::ShelfId::Method => &reader::METHOD,
+                    spec_driven_docs::domain::docs_catalog::ShelfId::Spec => &reader::SPECS,
+                    spec_driven_docs::domain::docs_catalog::ShelfId::Template => &reader::TEMPLATES,
+                };
+                assert!(
+                    reader::get(held, name).is_some(),
+                    "{} names {}/{name}, which no shelf serves",
+                    topic.id,
+                    shelf.as_str()
+                );
+            }
+            Target::Command(argv) => {
+                let names = spec_driven_docs::cli::subcommand_names();
+                assert!(
+                    argv.first().is_some_and(|verb| names.contains(verb)),
+                    "{} names an argv whose verb the parser does not offer",
+                    topic.id
+                );
+            }
+        }
+    }
+}
+
+/// SATISFIES docs-discovery:an-instance-is-routed-to-the-index
+#[test]
+fn the_managed_documentation_block_names_the_index_verb_and_stays_within_its_budget() {
+    let snippet = read("instance/snippets/AGENTS-docs.md");
+    assert!(
+        snippet.contains("sdd docs"),
+        "the managed documentation block names no reader verb"
+    );
+    let lines = snippet.lines().filter(|line| !line.is_empty()).count();
+    assert!(
+        lines <= 10,
+        "the managed documentation block runs {lines} lines against its 10-line budget"
     );
 }

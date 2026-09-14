@@ -16,12 +16,10 @@ use crate::adapters::fs::{remove_within, write_within};
 use crate::cli::debt::{DebtArgs, DebtVerb, DebtVerbArgs};
 use crate::context::AppContext;
 use crate::domain::debt::{
-    BUDGET_GATES, Change, DEBT_PATH, Debt, DebtError, LEGACY_DEBT_PATH, Measurement, Presence,
-    Recorded,
+    Change, DEBT_PATH, Debt, DebtError, LEGACY_DEBT_PATH, Presence, Recorded,
 };
 use crate::domain::gate_id::GateId;
 use crate::error::AppError;
-use crate::gates::GateCtx;
 use crate::output;
 
 const DRY_RUN: &str = "DRY RUN: no files written";
@@ -37,27 +35,6 @@ fn resolve_target(ctx: &AppContext, target: &Utf8Path) -> Result<Utf8PathBuf, Ap
 }
 
 /// Measure one budget gate at a root, under the project's declaration.
-fn measure_gate(root: &Utf8Path, id: GateId) -> Result<Vec<Measurement>, AppError> {
-    let ctx: GateCtx = crate::commands::gate::context_at(root, id)?;
-    let measured = match id {
-        GateId::AdrWordCap => crate::gates::adr_word_cap::measure(&ctx),
-        GateId::AgentsDigestSize => crate::gates::agents_digest_size::measure(&ctx),
-        GateId::ChapterSizeCap => crate::gates::chapter_size_cap::measure(&ctx),
-        GateId::SpecSizeCap => crate::gates::spec_size_cap::measure(&ctx),
-        _ => Ok(Vec::new()),
-    };
-    Ok(measured?)
-}
-
-/// Every measurement the four budget gates take at a root.
-pub(crate) fn measure_all(root: &Utf8Path) -> Result<Vec<Measurement>, AppError> {
-    let mut all = Vec::new();
-    for id in BUDGET_GATES {
-        all.extend(measure_gate(root, *id)?);
-    }
-    Ok(all)
-}
-
 fn print_debt(debt: &Debt) {
     for line in debt.render().lines() {
         output::line(line);
@@ -90,7 +67,7 @@ fn baseline(root: &Utf8Path, apply: bool) -> Result<(), AppError> {
     if presence.legacy {
         return Err(DebtError::LegacyBlocksBaseline.into());
     }
-    let debt = Debt::baseline(&measure_all(root)?);
+    let debt = Debt::baseline(&crate::services::budget::measure_all(root)?);
     if debt.is_empty() {
         output::line("OK no budget violation to record; no debt file is needed");
         return Ok(());
@@ -119,7 +96,7 @@ fn migrate(root: &Utf8Path, apply: bool) -> Result<(), AppError> {
     // measurements can become entries. A path the list names that the gate
     // does not measure, or that now fits, carried no live exemption and is
     // reported rather than converted.
-    let measured = measure_gate(root, GateId::ChapterSizeCap)?;
+    let measured = crate::services::budget::measure_gate(root, GateId::ChapterSizeCap)?;
     let mut debt = Debt::default();
     for path in &listed {
         match measured
@@ -188,7 +165,7 @@ fn tighten(root: &Utf8Path, apply: bool) -> Result<(), AppError> {
         output::line("OK nothing recorded; nothing to tighten");
         return Ok(());
     }
-    let tightened = debt.tighten(&measure_all(root)?);
+    let tightened = debt.tighten(&crate::services::budget::measure_all(root)?);
     for change in &tightened.changes {
         output::line(describe(change));
     }

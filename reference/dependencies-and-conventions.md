@@ -6,10 +6,12 @@ The external work this project stands on, and how it stands on each one. A sourc
 
 A source this project reads at a resolved revision and does not carry.
 
-| Source        | Relationship | Contribution                                      | Revision source                                                 |
-| ------------- | ------------ | ------------------------------------------------- | --------------------------------------------------------------- |
-| SimpleEnglish | `draws from` | Word and sentence register                        | [`method/writing-style.md`](../method/writing-style.md#sources) |
-| i-have-adhd   | `draws from` | Information architecture and contrasting examples | [`method/writing-style.md`](../method/writing-style.md#sources) |
+| Source                                                               | Relationship | Contribution                                                                                                                                                                                                           | Revision source                                                                                                        |
+| -------------------------------------------------------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| SimpleEnglish                                                        | `draws from` | Word and sentence register                                                                                                                                                                                             | [`method/writing-style.md`](../method/writing-style.md#sources)                                                        |
+| Cargo Book, "Registry Index" and "Registry Web API", read 2026-09-12 | `draws from` | The sparse index layout, the `dl` download template and its markers, the per-version `cksum`, and the `yanked` flag the resolver reads                                                                                 | [doc.rust-lang.org/cargo/reference/registry-index.html](https://doc.rust-lang.org/cargo/reference/registry-index.html) |
+| The crates.io index for this crate, read 2026-09-12                  | `draws from` | The registry checksum of every published release, and the archive audit that sets the legacy capability floor at 0.6.6: every release from 0.2.0 to 0.6.5 is missing the seed root, and 0.6.6 onward carries all eight | [`release-compat/index.toml`](../release-compat/index.toml)                                                            |
+| i-have-adhd                                                          | `draws from` | Information architecture and contrasting examples                                                                                                                                                                      | [`method/writing-style.md`](../method/writing-style.md#sources)                                                        |
 
 The exact Rust libraries and their versions live in `Cargo.toml` and `Cargo.lock`. This catalog does not repeat them.
 
@@ -20,6 +22,7 @@ A pattern this project implements. No code is vendored.
 | Convention                              | Relationship | Where it applies                                       |
 | --------------------------------------- | ------------ | ------------------------------------------------------ |
 | ASD-STE100 Simplified Technical English | `implements` | The controlled-language source behind SimpleEnglish.   |
+| Cargo registry index protocol           | `implements` | How the release resolver finds and verifies a release. |
 | EARS                                    | `implements` | The requirement statement pattern in every spec.       |
 | RFC 2119 and RFC 8174                   | `implements` | The normative keywords a requirement uses.             |
 | Diátaxis                                | `implements` | Where each document is placed.                         |

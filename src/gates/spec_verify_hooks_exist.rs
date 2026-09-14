@@ -10,6 +10,7 @@
 use std::collections::BTreeSet;
 
 use crate::domain::finding::Finding;
+use crate::domain::paths::HOOKS_CONFIG_PATH;
 use crate::domain::rule_id::RuleId;
 
 use crate::gates::{GateCtx, GateResult, Violation, read_text};
@@ -69,7 +70,7 @@ pub fn run(ctx: &GateCtx, _files: &[String]) -> GateResult {
     for file in ctx.retained(all_specs) {
         hooks.extend(hook_names_in(&read_text(ctx, &file)?));
     }
-    let config = read_text(ctx, ".pre-commit-config.yaml")?;
+    let config = read_text(ctx, HOOKS_CONFIG_PATH)?;
     Ok(hooks
         .into_iter()
         .filter(|hook| !defines_hook(&config, hook))

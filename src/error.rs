@@ -49,6 +49,22 @@ pub enum AppError {
     #[error("{0}")]
     Refused(String),
 
+    /// Another process holds the lock this run needs. Nothing was written.
+    #[error("busy: {0}")]
+    Busy(String),
+
+    /// A run the process did not finish could not be put back, so the
+    /// destinations it names are in an unknown state and no new work may
+    /// start over them.
+    #[error("unrecovered: {0}")]
+    Unrecovered(String),
+
+    /// The apply could not write the record that vouches for what it wrote.
+    /// The files were put back, because a landing this tool cannot vouch
+    /// for is a landing it will refuse to take back.
+    #[error("receipt: {0}")]
+    Receipt(String),
+
     /// A tracked-upstream lookup failed. The code is the sysexit the failure
     /// class maps to, chosen where the `git` adapter is called.
     #[error("git: {message}")]
@@ -84,7 +100,11 @@ impl AppError {
                 DebtError::Shape(_) | DebtError::Malformed { .. } | DebtError::TwoFormats,
             ) => 65,
             Self::ManifestMissing(_) => 66,
-            Self::Refused(_) | Self::Debt(_) => 73,
+            Self::Refused(_)
+            | Self::Busy(_)
+            | Self::Unrecovered(_)
+            | Self::Receipt(_)
+            | Self::Debt(_) => 73,
             Self::Git { code, .. } => *code,
             Self::Io(e) if e.kind() == std::io::ErrorKind::NotFound => 66,
             Self::Io(e) if e.kind() == std::io::ErrorKind::PermissionDenied => 77,
@@ -104,6 +124,9 @@ impl AppError {
             Self::Marker(_) => "Marker",
             Self::Debt(_) => "Debt",
             Self::Refused(_) => "Refused",
+            Self::Busy(_) => "Busy",
+            Self::Unrecovered(_) => "Unrecovered",
+            Self::Receipt(_) => "Receipt",
             Self::Git { .. } => "Git",
             Self::Io(_) => "Io",
             Self::Other(_) => "Other",

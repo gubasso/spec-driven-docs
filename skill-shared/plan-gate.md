@@ -2,7 +2,7 @@
 
 Standing instructions for the whole task, not one-time steps. Every spec-driven-docs skill drives operations that write files into a repository or under the user's home. As a result, each one plans, validates that plan against what actually knows, and only then executes.
 
-This gate opens after `~/.local/state/spec-driven-docs/skills/shared/pre-flight-gate.md` has run, and takes its findings as inputs: a failed hard probe is why there is no plan yet, and a failed soft probe is a gated step or a stated gap. That file runs whatever the request carries. This one has a flag.
+This gate opens after `references/pre-flight-gate.md` has run, and takes its findings as inputs: a failed hard probe is why there is no plan yet, and a failed soft probe is a gated step or a stated gap. That file runs whatever the request carries. This one has a flag.
 
 Hold all three phases for the rest of the task, and apply them to every further request in the same session. Without `--no-plan`, phase 3 runs in a later turn than phase 1, after the plan is approved. With the flag, the phases run in order in the current turn.
 
@@ -27,7 +27,7 @@ When the request carries `--no-plan`, replace this phase's approval turn: do not
 
 The plan is a claim about what will happen. Check it against something that knows, never against your own confidence.
 
-1. Preview every verb that has one. `sdd init` and `sdd skill install` write nothing without `--apply`. Run each and read what it reports. `sdd upgrade` writes by default, so its preview is `sdd upgrade --dry-run`, and the flag stays on until the plan is approved.
+1. Preview every verb that has one. `sdd reconcile plan` is the preview every landing validates against: it reads the target, writes nothing into it, and states every operation an apply would run. `sdd init` and `sdd skill install` write nothing without `--apply`. `sdd upgrade` writes by default, so its preview is `sdd upgrade --dry-run`, and the flag stays on until the plan is approved.
 2. Validate every action that has no preview (rewriting a document, retiring a file the project authored) against what states it instead: the placement chapter for where each fact belongs, and a read-only observation of the current state. `sdd status --target .` and `sdd verify --target .` observe and never write.
 3. Compare both against the plan: the destinations, their count, and the steps in their order.
 4. Where they disagree, stop. Say what differs, and return to phase 1. Never reconcile a surprise by widening the plan silently.
@@ -38,4 +38,4 @@ The plan is a claim about what will happen. Check it against something that know
 2. Re-observe after each one, and report what the command returned rather than that it succeeded.
 3. Gate every step the operator must run by hand: print the exact command, say what it changes and why, wait, then re-observe before continuing.
 4. Close on the verification command the plan named. `sdd verify --target .` judges the instance, and the delivered gates judge the tree.
-5. Where execution shows the plan was wrong, stop and re-plan. Do not expand the scope of an approved plan.
+5. Where execution shows the plan was wrong, stop and re-plan. Do not expand the scope of an approved plan. `sdd reconcile apply` revalidates before it writes and refuses when any semantic input moved, naming each one. That refusal is the check failing the run, not an obstacle to work around.

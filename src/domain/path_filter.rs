@@ -194,7 +194,7 @@ impl PathFilter {
 
     /// Whether this filter states any include pattern.
     #[must_use]
-    pub fn has_includes(&self) -> bool {
+    pub const fn has_includes(&self) -> bool {
         !self.include_patterns.is_empty()
     }
 
@@ -298,20 +298,20 @@ pub fn project(path: &Utf8Path, repo_root: &Utf8Path) -> Utf8PathBuf {
     // entered through that link will type. Matching only the canonical
     // spelling let `/tmp/repo-link/alias.md` past every reservation.
     let mut roots: Vec<Utf8PathBuf> = Vec::new();
-    if let Ok(absolute) = std::path::absolute(repo_root.as_std_path()) {
-        if let Ok(absolute) = Utf8PathBuf::from_path_buf(absolute) {
-            roots.push(
-                absolute
-                    .components()
-                    .filter(|p| p.as_str() != ".")
-                    .collect(),
-            );
-        }
+    if let Ok(absolute) = std::path::absolute(repo_root.as_std_path())
+        && let Ok(absolute) = Utf8PathBuf::from_path_buf(absolute)
+    {
+        roots.push(
+            absolute
+                .components()
+                .filter(|p| p.as_str() != ".")
+                .collect(),
+        );
     }
-    if let Ok(canonical) = std::fs::canonicalize(repo_root) {
-        if let Ok(canonical) = Utf8PathBuf::from_path_buf(canonical) {
-            roots.push(canonical);
-        }
+    if let Ok(canonical) = std::fs::canonicalize(repo_root)
+        && let Ok(canonical) = Utf8PathBuf::from_path_buf(canonical)
+    {
+        roots.push(canonical);
     }
     for root in &roots {
         if let Ok(rest) = lexical.strip_prefix(root) {

@@ -16,11 +16,13 @@ Prebuilt installers ship with each GitHub release, and `cargo binstall spec-driv
 
 ## Quick paths
 
+- Find anything the binary carries: `sdd docs`, then `sdd docs <topic>`.
 - Read the method: [method/README.md](./method/README.md), or `sdd method --list` anywhere.
 - Author a comparison: [comparison-docs/README.md](./comparison-docs/README.md).
-- Instantiate into a project: `sdd init`, documented in [instance/README.md](./instance/README.md#instantiate).
-- Verify an installed instance: `sdd verify`, documented in [instance/README.md](./instance/README.md#verify).
-- Upgrade an installed instance: `sdd upgrade`, documented in [instance/README.md](./instance/README.md#upgrade).
+- See what a landing would do: `sdd reconcile plan`, documented in [instance/README.md](./instance/README.md#request-a-plan).
+- Instantiate into a project: `sdd init`, the short form for a first landing.
+- Upgrade an installed instance: `sdd upgrade`, the short form for a move to a newer release.
+- Apply a plan and verify the result: `sdd reconcile apply` and `sdd verify`, documented in [instance/README.md](./instance/README.md#apply).
 - Copy stable templates: [templates/](./templates/), or `sdd template --list`.
 - Install the agent skills at user scope: `sdd skill install`, documented in [instance/README.md](./instance/README.md#skills).
 - Cut a release: [_docs/guides/release.md](./_docs/guides/release.md). First-time bootstrap: [_docs/guides/release-setup.md](./_docs/guides/release-setup.md).

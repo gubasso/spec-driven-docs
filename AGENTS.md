@@ -14,7 +14,7 @@ This repository is the canonical knowledge product for spec-driven documentation
 
 - `method/`, `comparison-docs/`, `templates/`, `reference/`, and `skills/` are canon product files.
 - `src/` is the distribution: the `sdd` binary embeds the payload at compile time from the authored paths, so canon and binary cannot drift. The payload is spec seeds, templates, `.markdownlint/` configurations, `instance/snippets/`, `skills/`, and `method/`.
-- `skill-shared/` is what every skill shares, installed once to `~/.local/state/spec-driven-docs/skills/shared/` and named there by absolute path: the two agent roots make no relative path reach one file from both. The plan gate every skill routes to lives there.
+- `skill-shared/` is the one authored source of what every skill shares. The installer materializes it into every skill package as `references/<file>`, so a skill names a gate by a path relative to its own root and a fix still lands in one file. The plan gate every skill routes to lives there.
 - The delivered gate set is declared once, in the registry in `src/gates.rs`. The managed block an instance receives is rendered from the registry at install time and committed nowhere, so there is no copy to hold equal. This repository publishes no `.pre-commit-hooks.yaml`: the gates serve instances, not repositories that reference them remotely.
 - This repository is an instance of itself, and the one whose block no installer wrote: the managed region of its own `.pre-commit-config.yaml` is maintained by hand, so a new gate is wired there in the same change. The release checks hold that region to the registry.
 - Checks of invariants only this repository has (the license split, version alignment) are cargo tests under `tests/`, never delivered (ADR-split-gates-by-delivery-domain).
@@ -44,7 +44,9 @@ This repository is the canonical knowledge product for spec-driven documentation
 
 ## Routing
 
+- The whole corpus this binary carries, described: `sdd docs`, then `sdd docs <topic>`.
 - Method-specific routing: `method/AGENTS.md`.
+- Landing, upgrading, and drift in an instance: `method/reconcile.md`.
 - Comparison-document routing: `comparison-docs/AGENTS.md`.
 - Distribution and ownership: `_docs/specs/SPEC-distribution.md`.
 - Format and budgets: `_docs/specs/SPEC-docs-format.md`.

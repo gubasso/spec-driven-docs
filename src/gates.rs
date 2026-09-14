@@ -400,7 +400,7 @@ pub static GATES: &[GateSpec] = &[
     GateSpec {
         id: GateId::InstanceManifest,
         name: "instance manifest",
-        include: &[r".spec-driven-docs/manifest.json"],
+        include: &[crate::domain::paths::MANIFEST_PATH],
         types: None,
         exclude: &[],
         always_run: true,

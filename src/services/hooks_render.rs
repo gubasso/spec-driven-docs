@@ -219,18 +219,18 @@ fn render_gates(options: &RenderOptions) -> String {
             .chain(options.declaration.reserved.iter().map(String::as_str))
             .collect();
 
-        if !gate.always_run {
-            if let Some(files) = render_patterns(&include, &options.docs_root) {
-                let _ = writeln!(out, "{field}files: {}", quoted(&files));
-            }
+        if !gate.always_run
+            && let Some(files) = render_patterns(&include, &options.docs_root)
+        {
+            let _ = writeln!(out, "{field}files: {}", quoted(&files));
         }
         if let Some(types) = gate.types {
             let _ = writeln!(out, "{field}types: [{types}]");
         }
-        if !gate.always_run {
-            if let Some(exclude) = render_patterns(&exclude, &options.docs_root) {
-                let _ = writeln!(out, "{field}exclude: {}", quoted(&exclude));
-            }
+        if !gate.always_run
+            && let Some(exclude) = render_patterns(&exclude, &options.docs_root)
+        {
+            let _ = writeln!(out, "{field}exclude: {}", quoted(&exclude));
         }
         if gate.always_run {
             let _ = writeln!(out, "{field}always_run: true");
@@ -264,10 +264,10 @@ pub fn selectors(
             if let Some(entry) = found.get_mut(id) {
                 entry.0 = Some(value.trim().to_string());
             }
-        } else if let Some(value) = trimmed.strip_prefix("exclude: ") {
-            if let Some(entry) = found.get_mut(id) {
-                entry.1 = Some(value.trim().to_string());
-            }
+        } else if let Some(value) = trimmed.strip_prefix("exclude: ")
+            && let Some(entry) = found.get_mut(id)
+        {
+            entry.1 = Some(value.trim().to_string());
         }
     }
     found

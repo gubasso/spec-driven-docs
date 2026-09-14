@@ -13,7 +13,7 @@ use camino::Utf8PathBuf;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// A lowercase-hex SHA-256 digest.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Sha256(String);
 
 impl Sha256 {

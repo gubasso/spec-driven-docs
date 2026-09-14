@@ -1,0 +1,443 @@
+# What this release's corpus holds, declared as data.
+#
+# One entry per document a shelf serves, plus the operator tasks whose
+# best answer is a help page. The summary and the aliases are prose an
+# author owes the reader. Size is never authored here: it is read from
+# the embedded bytes when asked, so it cannot go stale.
+#
+# `sdd docs` renders this as the index, `sdd docs <topic>` resolves one
+# entry, and the three shelf listings take their descriptions from it.
+
+catalog_schema = 1
+
+# Operator tasks: the answer is a help page, not a document.
+
+[[topic]]
+id = "install"
+title = "Land this method in a project"
+summary = "Make a repository an instance, with the profile that picks its documentation root."
+kind = "operator-task"
+aliases = ["first landing", "adopt the method", "instantiate"]
+target = { command = ["init", "--help"] }
+
+[[topic]]
+id = "upgrade"
+title = "Move an instance to a newer release"
+summary = "Ask for the plan that closes the gap between a landed instance and a chosen release."
+kind = "operator-task"
+aliases = ["new version", "stay current", "plan"]
+target = { command = ["reconcile", "plan", "--help"] }
+
+[[topic]]
+id = "apply"
+title = "Execute one approved plan"
+summary = "Run exactly the plan that was approved, or learn which input moved since."
+kind = "operator-task"
+aliases = ["land a plan", "execute"]
+target = { command = ["reconcile", "apply", "--help"] }
+
+[[topic]]
+id = "verify"
+title = "Check an installed instance"
+summary = "Compare the tree against the record offline, and report drift by ownership class."
+kind = "operator-task"
+aliases = ["check the instance", "drift"]
+target = { command = ["verify", "--help"] }
+
+[[topic]]
+id = "status"
+title = "Report an instance and its paths"
+summary = "Read where every path this tool names comes from, rather than writing one down."
+kind = "operator-task"
+aliases = ["paths", "where does this write"]
+target = { command = ["status", "--help"] }
+
+[[topic]]
+id = "skills"
+title = "Install the agent skills"
+summary = "Land the cross-agent skills at user scope, preview first, and sweep what a release dropped."
+kind = "operator-task"
+aliases = ["agent skills", "claude skills"]
+target = { command = ["skill", "--help"] }
+
+[[topic]]
+id = "debt"
+title = "Carry inherited budget violations"
+summary = "Record each violation a corpus arrives with as a ceiling that only comes down."
+kind = "operator-task"
+aliases = ["inherited violations", "budget ceiling"]
+target = { command = ["debt", "--help"] }
+
+[[topic]]
+id = "run-a-gate"
+title = "Run one delivered gate"
+summary = "List every gate this binary delivers, and run one against the working tree."
+kind = "operator-task"
+aliases = ["which gates", "gate list"]
+target = { command = ["gate", "--list"] }
+
+[[topic]]
+id = "known-issue-zone"
+title = "Read the known-issue zone"
+summary = "List every external defect this project works around, with both of its state axes."
+kind = "operator-task"
+aliases = ["external defect", "workaround"]
+target = { command = ["ki", "list"] }
+
+# Method chapters: the convention itself.
+
+[[topic]]
+id = "method-index"
+title = "The method, in reading order"
+summary = "Which chapter to read first, which owns what, and where to go after each one."
+kind = "method-chapter"
+aliases = ["reading order", "start here"]
+target = { document = { shelf = "method", name = "README" } }
+
+[[topic]]
+id = "method-routing"
+title = "Question to owning chapter"
+summary = "The router from one question to the single chapter that owns its answer."
+kind = "method-chapter"
+aliases = ["method map", "which chapter"]
+target = { document = { shelf = "method", name = "AGENTS" } }
+
+[[topic]]
+id = "model"
+title = "The artifact model"
+summary = "The artifact kinds, who owns each fact, and what wins when two of them disagree."
+kind = "method-chapter"
+aliases = ["precedence", "who owns this fact"]
+target = { document = { shelf = "method", name = "model" } }
+
+[[topic]]
+id = "placement"
+title = "Where a document lives"
+summary = "Domains, shelves, zones, and how to choose the one home a fact belongs in."
+kind = "method-chapter"
+aliases = ["where does this go", "zones", "shelves"]
+target = { document = { shelf = "method", name = "placement" } }
+
+[[topic]]
+id = "specs"
+title = "The shape of a specification"
+summary = "What a spec states, what it leaves out, and the sections one carries."
+kind = "method-chapter"
+aliases = ["spec shape", "write a spec"]
+target = { document = { shelf = "method", name = "specs" } }
+
+[[topic]]
+id = "rules"
+title = "The requirement grammar"
+summary = "The EARS statement, the normative keywords, the scenario, and the rule identifier."
+kind = "method-chapter"
+aliases = ["ears", "rule id", "normative keywords"]
+target = { document = { shelf = "method", name = "rules" } }
+
+[[topic]]
+id = "decisions"
+title = "Decision records"
+summary = "The record's lifecycle, and why one is never revised after it is accepted."
+kind = "method-chapter"
+aliases = ["adr", "why was this decided"]
+target = { document = { shelf = "method", name = "decisions" } }
+
+[[topic]]
+id = "agent-context"
+title = "What an agent loads"
+summary = "The digests, the entry document, and the budget an always-loaded file pays."
+kind = "method-chapter"
+aliases = ["context budget", "always loaded", "entry document"]
+target = { document = { shelf = "method", name = "agent-context" } }
+
+[[topic]]
+id = "format"
+title = "Markdown and size budgets"
+summary = "The markdown mechanics every document uses, and the size each document class may reach."
+kind = "method-chapter"
+aliases = ["size budget", "markdown"]
+target = { document = { shelf = "method", name = "format" } }
+
+[[topic]]
+id = "writing-style"
+title = "The prose register"
+summary = "How to write inside the structure: the register, the sentence, and the word."
+kind = "method-chapter"
+aliases = ["how to write", "prose"]
+target = { document = { shelf = "method", name = "writing-style" } }
+
+[[topic]]
+id = "lifecycle"
+title = "How a document changes"
+summary = "Drafts, promotion, the tracking registry, and retiring a document that no longer binds."
+kind = "method-chapter"
+aliases = ["promotion", "docs scratch", "tracking"]
+target = { document = { shelf = "method", name = "lifecycle" } }
+
+[[topic]]
+id = "gates"
+title = "Executable enforcement"
+summary = "What a gate is, which rule each one holds, and what an unenforced rule declares."
+kind = "method-chapter"
+aliases = ["enforcement", "unenforced rule"]
+target = { document = { shelf = "method", name = "gates" } }
+
+[[topic]]
+id = "spec-to-code"
+title = "Rule to implementation"
+summary = "The typed clause, the coverage tag, and the suppression that names its case."
+kind = "method-chapter"
+aliases = ["traceability", "coverage tag", "typed clause"]
+target = { document = { shelf = "method", name = "spec-to-code" } }
+
+[[topic]]
+id = "procedures"
+title = "The shape of a guide"
+summary = "A step, its check, its order, and the dated citation behind an upstream fact."
+kind = "method-chapter"
+aliases = ["write a guide", "runbook shape"]
+target = { document = { shelf = "method", name = "procedures" } }
+
+[[topic]]
+id = "operational"
+title = "Operational documents"
+summary = "Runbooks, known issues, and the other documents an operator reads under pressure."
+kind = "method-chapter"
+aliases = ["runbooks", "known issues"]
+target = { document = { shelf = "method", name = "operational" } }
+
+[[topic]]
+id = "migration"
+title = "Moving a corpus onto the method"
+summary = "Classify the target, inventory every source, and convert it one verified entry at a time."
+kind = "method-chapter"
+aliases = ["brownfield", "existing docs", "migration checklist"]
+target = { document = { shelf = "method", name = "migration" } }
+
+[[topic]]
+id = "reconcile"
+title = "The plan every landing comes from"
+summary = "One plan, one decision, one apply, and the three reconciliations that are not single verbs."
+kind = "method-chapter"
+aliases = ["landing", "managed drift", "what is a plan"]
+target = { document = { shelf = "method", name = "reconcile" } }
+
+[[topic]]
+id = "checklist"
+title = "The pre-merge review surface"
+summary = "What to read before a merge, in the order that catches the most for the least time."
+kind = "method-chapter"
+aliases = ["review", "before merging"]
+target = { document = { shelf = "method", name = "checklist" } }
+
+[[topic]]
+id = "glossary"
+title = "Every term, and its owner"
+summary = "Each term this method fixes, resolved at the chapter that owns its definition."
+kind = "method-chapter"
+aliases = ["terms", "definitions"]
+target = { document = { shelf = "method", name = "glossary" } }
+
+# Specifications: the seeds an instance adopts, and the canon-only ones.
+
+[[topic]]
+id = "spec-budget-debt"
+title = "Inherited budget violations"
+summary = "How a project records the violations it arrived with, and how each ceiling comes down."
+kind = "spec-seed"
+aliases = ["debt rules"]
+target = { document = { shelf = "spec", name = "budget-debt" } }
+
+[[topic]]
+id = "spec-bundle"
+title = "Reading another release"
+summary = "The content seam, the projection declaration, and the protocol between engine and bundle."
+kind = "spec-seed"
+aliases = ["release bundle", "payload schema"]
+target = { document = { shelf = "spec", name = "bundle" } }
+
+[[topic]]
+id = "spec-comparison-docs"
+title = "Comparison documents"
+summary = "The verdict vocabulary, the legend, the dating, and the reference in every cell."
+kind = "spec-seed"
+aliases = ["comparison rules"]
+target = { document = { shelf = "spec", name = "comparison-docs" } }
+
+[[topic]]
+id = "spec-decision-records"
+title = "Decision-record rules"
+summary = "Naming, permanence, and the word cap a record's body stays inside."
+kind = "spec-seed"
+aliases = ["adr rules", "word cap"]
+target = { document = { shelf = "spec", name = "decision-records" } }
+
+[[topic]]
+id = "spec-distribution"
+title = "Installation and ownership"
+summary = "The ownership classes, offline verification, the skills, and what a payload may carry."
+kind = "spec-seed"
+aliases = ["ownership classes", "managed and adopted"]
+target = { document = { shelf = "spec", name = "distribution" } }
+
+[[topic]]
+id = "spec-docs-discovery"
+title = "The documentation catalog"
+summary = "The one catalog behind every listing, and the route an installed instance gets to it."
+kind = "spec-seed"
+aliases = ["catalog rules", "docs route"]
+target = { document = { shelf = "spec", name = "docs-discovery" } }
+
+[[topic]]
+id = "spec-docs-format"
+title = "Markdown and budget rules"
+summary = "The markdown every document uses, and the size budget each document class carries."
+kind = "spec-seed"
+aliases = ["format rules"]
+target = { document = { shelf = "spec", name = "docs-format" } }
+
+[[topic]]
+id = "spec-docs-foundations"
+title = "The artifact model rules"
+summary = "Which artifact owns a fact, what wins on disagreement, and how artifacts are named."
+kind = "spec-seed"
+aliases = ["foundations", "model rules"]
+target = { document = { shelf = "spec", name = "docs-foundations" } }
+
+[[topic]]
+id = "spec-docs-specs"
+title = "Specification file rules"
+summary = "The requirement block, its grammar, its identifier, and its verification command."
+kind = "spec-seed"
+aliases = ["spec rules", "requirement block"]
+target = { document = { shelf = "spec", name = "docs-specs" } }
+
+[[topic]]
+id = "spec-guides"
+title = "Step-by-step guide rules"
+summary = "The step, its check, its ordering, and the dated upstream source behind a stated fact."
+kind = "spec-seed"
+aliases = ["guide rules"]
+target = { document = { shelf = "spec", name = "guides" } }
+
+[[topic]]
+id = "spec-instance"
+title = "What a project owes its instance"
+summary = "The installation record, and the managed regions the installer keeps inside local files."
+kind = "spec-seed"
+aliases = ["instance rules", "integration block"]
+target = { document = { shelf = "spec", name = "instance" } }
+
+[[topic]]
+id = "spec-known-issues"
+title = "Known-issue record rules"
+summary = "The case id, the two state axes, the retirement condition, and the walkthrough."
+kind = "spec-seed"
+aliases = ["known-issue rules"]
+target = { document = { shelf = "spec", name = "known-issues" } }
+
+[[topic]]
+id = "spec-reconcile"
+title = "The plan's rules"
+summary = "What a plan is, where its classification comes from, and what binds an approval."
+kind = "spec-seed"
+aliases = ["plan rules", "fingerprint"]
+target = { document = { shelf = "spec", name = "reconcile" } }
+
+[[topic]]
+id = "spec-release"
+title = "Cutting a release"
+summary = "Which artifact states the version, how a tag derives from it, and what a release carries."
+kind = "spec-seed"
+aliases = ["release rules", "versioning"]
+target = { document = { shelf = "spec", name = "release" } }
+
+[[topic]]
+id = "spec-spec-to-code"
+title = "Rule-to-code rules"
+summary = "Writing a requirement before its behavior, and citing the rule the work enacts."
+kind = "spec-seed"
+aliases = ["traceability rules"]
+target = { document = { shelf = "spec", name = "spec-to-code" } }
+
+[[topic]]
+id = "spec-tracking"
+title = "The tracking registry"
+summary = "The machine-readable record of facts that expire, and when each was last checked."
+kind = "spec-seed"
+aliases = ["tracking rules", "last check"]
+target = { document = { shelf = "spec", name = "tracking" } }
+
+[[topic]]
+id = "spec-writing-policy"
+title = "Where the writing style comes from"
+summary = "The one source a project selects, and the block that routes its authors to it."
+kind = "spec-seed"
+aliases = ["writing selection"]
+target = { document = { shelf = "spec", name = "writing-policy" } }
+
+[[topic]]
+id = "spec-writing-style"
+title = "Adopting the writing style"
+summary = "How the selected style binds, and how a project reaches the source it chose."
+kind = "spec-seed"
+aliases = ["style rules"]
+target = { document = { shelf = "spec", name = "writing-style" } }
+
+# Templates: a stable starting point per document class.
+
+[[topic]]
+id = "template-adr"
+title = "Decision-record template"
+summary = "The sections a decision record carries, ready to fill in."
+kind = "template"
+aliases = ["new adr"]
+target = { document = { shelf = "template", name = "adr" } }
+
+[[topic]]
+id = "template-agents-digest"
+title = "Author-instructions template"
+summary = "A digest that routes rather than restates, with its frontmatter."
+kind = "template"
+aliases = ["new digest", "agents file"]
+target = { document = { shelf = "template", name = "agents-digest" } }
+
+[[topic]]
+id = "template-comparison"
+title = "Comparison template"
+summary = "The table, the legend, and the dating a comparison document needs."
+kind = "template"
+aliases = ["new comparison"]
+target = { document = { shelf = "template", name = "comparison" } }
+
+[[topic]]
+id = "template-docs-rules"
+title = "Documentation rules template"
+summary = "A starting point for the rules a project states about its own documents."
+kind = "template"
+aliases = ["new docs rules"]
+target = { document = { shelf = "template", name = "docs-rules" } }
+
+[[topic]]
+id = "template-guide"
+title = "Guide template"
+summary = "A step-by-step guide with a check under every step."
+kind = "template"
+aliases = ["new guide"]
+target = { document = { shelf = "template", name = "guide" } }
+
+[[topic]]
+id = "template-known-issue"
+title = "Known-issue template"
+summary = "A known-issue record with both state axes and its retirement condition."
+kind = "template"
+aliases = ["new known issue"]
+target = { document = { shelf = "template", name = "known-issue" } }
+
+[[topic]]
+id = "template-spec"
+title = "Specification template"
+summary = "A specification with one requirement block, ready to copy."
+kind = "template"
+aliases = ["new spec"]
+target = { document = { shelf = "template", name = "spec" } }

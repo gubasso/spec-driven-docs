@@ -30,6 +30,34 @@ macro_rules! rule_ids {
                     $(Self::$variant => $id),+
                 }
             }
+
+            /// The rule one slug pair addresses, where a spec defines it.
+            #[must_use]
+            pub fn parse(id: &str) -> Option<Self> {
+                match id {
+                    $($id => Some(Self::$variant),)+
+                    _ => None,
+                }
+            }
+        }
+
+        impl serde::Serialize for RuleId {
+            fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                serializer.serialize_str(self.as_str())
+            }
+        }
+
+        impl<'de> serde::Deserialize<'de> for RuleId {
+            fn deserialize<D: serde::Deserializer<'de>>(
+                deserializer: D,
+            ) -> Result<Self, D::Error> {
+                let id = <std::borrow::Cow<'_, str> as serde::Deserialize>::deserialize(
+                    deserializer,
+                )?;
+                Self::parse(&id).ok_or_else(|| {
+                    serde::de::Error::custom(format!("no spec defines the rule {id}"))
+                })
+            }
         }
     };
 }
@@ -55,13 +83,12 @@ rule_ids! {
     SkillInstallRestoresOnFailure => "distribution:a-skill-install-restores-on-failure",
     SkillObeysThePortableFormat => "distribution:a-skill-obeys-the-portable-format",
     SkillPlansBeforeItActs => "distribution:a-skill-plans-before-it-acts",
-    StaleSkillIsNotAConflict => "distribution:a-stale-skill-is-not-a-conflict",
     InstallSweepsWhatThePayloadDropped => "distribution:an-install-sweeps-what-the-payload-dropped",
     InitializationPreservesProjectContent => "distribution:initialization-preserves-project-content",
     InstancesOperateOffline => "distribution:instances-operate-offline",
     ManifestIdentifiesEveryOwnedFile => "distribution:manifest-identifies-every-owned-file",
     DeclarationIsSeededOnceAndThenOwned => "distribution:the-declaration-is-seeded-once-and-then-owned",
-    SharedSkillArtifactsHaveOneHome => "distribution:shared-skill-artifacts-have-one-home",
+    SkillPackageIsSelfContained => "distribution:a-skill-package-is-self-contained",
     SkillInstallPreviewsBeforeWriting => "distribution:skill-install-previews-before-writing",
     SkillUninstallRemovesOnlyWhatItWrote => "distribution:skill-uninstall-removes-only-what-it-wrote",
     SkillsArePartOfThePayload => "distribution:skills-are-part-of-the-payload",
@@ -71,6 +98,35 @@ rule_ids! {
     ThePayloadRootsAreDeclaredOnce => "distribution:the-payload-roots-are-declared-once",
     UpgradeConflictsAreAtomic => "distribution:upgrade-conflicts-are-atomic",
     UserScopeFilesStayUnrecorded => "distribution:user-scope-files-stay-unrecorded",
+    UserScopeReceiptIsRequiredState => "distribution:a-user-scope-receipt-is-required-state",
+    PlanIsStoredAndAppliedByItsId => "reconcile:a-plan-is-stored-and-applied-by-its-id",
+    ApplyRefusesAPlanWhoseInputsMoved => "reconcile:an-apply-refuses-a-plan-whose-inputs-moved",
+    OneWriterHoldsATarget => "reconcile:one-writer-holds-a-target",
+    PlanWritesNothing => "reconcile:a-plan-writes-nothing",
+    DecisionPrecedesWhatDependsOnIt => "reconcile:a-decision-precedes-what-depends-on-it",
+    FindingIsSomethingTheProgramProved => "reconcile:a-finding-is-something-the-program-proved",
+    WriteIntoAdoptedStateIsAnOperatorAct => "reconcile:a-write-into-adopted-state-is-an-operator-act",
+    IncrementalScopeLeavesNoStructuralFinding => "reconcile:an-incremental-scope-leaves-no-structural-finding",
+    OnePlanIsTheInputToEveryWrite => "reconcile:one-plan-is-the-input-to-every-write",
+    ReadinessIsTheWorstPrecondition => "reconcile:readiness-is-the-worst-precondition",
+    FingerprintCoversWhatTheApplyWouldDo => "reconcile:the-fingerprint-covers-what-the-apply-would-do",
+    PlannerIsDeterministic => "reconcile:the-planner-is-deterministic",
+    TargetDecidesItsClassification => "reconcile:the-target-decides-its-classification",
+    ReleaseIsReadThroughOneSeam => "bundle:a-release-is-read-through-one-seam",
+    ReleaseDeclaresWhatItLands => "bundle:a-release-declares-what-it-lands",
+    ProtocolVersionIsARangeTheEngineDeclares => "bundle:the-protocol-version-is-a-range-the-engine-declares",
+    PreSchemaReleaseIsCatalogedOrUnavailable => "bundle:a-pre-schema-release-is-cataloged-or-unavailable",
+    FetchedArchiveIsVerifiedBeforeItIsRead => "bundle:a-fetched-archive-is-verified-before-it-is-read",
+    ResolutionHappensOnceAndWritesOnlyTheCache => "bundle:resolution-happens-once-and-writes-only-the-cache",
+    RunThatDidNotFinishIsRolledBack => "reconcile:a-run-that-did-not-finish-is-rolled-back",
+    ApplyProvesEveryPostconditionItReports => "reconcile:an-apply-proves-every-postcondition-it-reports",
+    DestinationIsContainedBeforeItIsWritten => "reconcile:a-destination-is-contained-before-it-is-written",
+    PlanIdIsAFingerprintAndNeverAPath => "reconcile:a-plan-id-is-a-fingerprint-and-never-a-path",
+    ApplyResolvesNothing => "reconcile:an-apply-resolves-nothing",
+    TargetRecordsTheReleaseItHolds => "reconcile:a-target-records-the-release-it-holds",
+    ReleaseDeclaresWhatItAsksOfItsOperator => "reconcile:a-release-declares-what-it-asks-of-its-operator",
+    OneCatalogDescribesEveryServedDocument => "docs-discovery:one-catalog-describes-every-served-document",
+    InstanceIsRoutedToTheIndex => "docs-discovery:an-instance-is-routed-to-the-index",
     AuthorInstructionsStayWithinBudget => "docs-format:author-instructions-stay-within-budget",
     ChapterStaysWithinLineCap => "docs-format:chapter-stays-within-200-lines",
     DocumentStatesThePresent => "docs-format:document-states-the-present",
@@ -121,6 +177,7 @@ rule_ids! {
     DeliveredGateReadsWhatTheConventionOwns => "release:a-delivered-gate-reads-what-the-convention-owns",
     ReleasedVersionIsNotReAuthored => "release:a-released-version-is-not-re-authored",
     TagDerivesFromTheVersionFile => "release:a-tag-derives-from-the-version-file",
+    EveryReleaseDeclaresWhatItAsks => "release:every-release-declares-what-it-asks",
     LicenseDeclaresBothHalves => "release:license-declares-both-halves",
     CanonRecordDescribesItsTree => "release:the-canon-record-describes-its-tree",
     RkPinHasTwoFactsAndOneMover => "release:the-rk-pin-has-two-facts-and-one-mover",

@@ -19,21 +19,32 @@ use spec_driven_docs::domain::ownership::Sha256;
 use spec_driven_docs::domain::skill_record::SkillRecord;
 use support::{Fixture, Home};
 
-const DESTINATIONS: &[&str] = &[
-    ".agents/skills/sdd-migrate/SKILL.md",
-    ".agents/skills/sdd-setup/SKILL.md",
-    ".agents/skills/sdd-write-docs/SKILL.md",
-    ".claude/skills/sdd-migrate/SKILL.md",
-    ".claude/skills/sdd-setup/SKILL.md",
-    ".claude/skills/sdd-write-docs/SKILL.md",
-    SHARED_GATE,
-    SHARED_PREFLIGHT,
-];
+/// Every file a whole install lands, home-relative.
+///
+/// Derived from the payload rather than listed, so a shared artifact added
+/// to a package joins every assertion below without an edit here.
+fn destinations() -> Vec<String> {
+    let mut found = Vec::new();
+    for root in [".agents/skills", ".claude/skills"] {
+        found.extend(package(root, "sdd-setup"));
+        found.extend(package(root, "sdd-write-docs"));
+    }
+    found
+}
 
-/// The shared artifacts, written once whichever agent an install selects.
-const SHARED: &[&str] = &[SHARED_GATE, SHARED_PREFLIGHT];
-const SHARED_GATE: &str = ".local/state/spec-driven-docs/skills/shared/plan-gate.md";
-const SHARED_PREFLIGHT: &str = ".local/state/spec-driven-docs/skills/shared/pre-flight-gate.md";
+/// Every file of one package under one root, home-relative.
+fn package(root: &str, name: &str) -> Vec<String> {
+    spec_driven_docs::embedded::skill_package(name)
+        .expect("the payload carries the skill")
+        .into_iter()
+        .map(|(relative, _)| format!("{root}/{name}/{relative}"))
+        .collect()
+}
+
+/// The two files the retired shared root held, home-relative.
+const RETIRED: &[&str] = &[RETIRED_GATE, RETIRED_PREFLIGHT];
+const RETIRED_GATE: &str = ".local/state/spec-driven-docs/skills/shared/plan-gate.md";
+const RETIRED_PREFLIGHT: &str = ".local/state/spec-driven-docs/skills/shared/pre-flight-gate.md";
 
 #[test]
 fn list_prints_every_skill_name_one_per_line() {
@@ -42,7 +53,7 @@ fn list_prints_every_skill_name_one_per_line() {
         .args(["skill", "list"])
         .assert()
         .success()
-        .stdout("sdd-migrate\nsdd-setup\nsdd-write-docs\n");
+        .stdout("sdd-setup\nsdd-write-docs\n");
 }
 
 #[test]
@@ -53,7 +64,7 @@ fn show_prints_the_frontmatter_and_body() {
         .assert()
         .success()
         .stdout(predicate::str::contains("name: sdd-setup"))
-        .stdout(predicate::str::contains("## Land an instance"));
+        .stdout(predicate::str::contains("## 2. Request a plan"));
 }
 
 #[test]
@@ -78,8 +89,11 @@ fn install_previews_by_default_and_writes_nothing() {
         .success()
         .stdout(predicate::str::contains("DRY RUN: no files written"));
     let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
-    for destination in DESTINATIONS {
-        assert!(stdout.contains(destination), "preview misses {destination}");
+    for destination in destinations() {
+        assert!(
+            stdout.contains(&destination),
+            "preview misses {destination}"
+        );
     }
     assert_eq!(digest, home.tree_digest());
 }
@@ -92,9 +106,9 @@ fn install_apply_writes_both_roots_for_all_agents() {
         .args(["skill", "install", "--apply"])
         .assert()
         .success();
-    for destination in DESTINATIONS {
+    for destination in destinations() {
         assert!(
-            home.path().join(destination).is_file(),
+            home.path().join(&destination).is_file(),
             "missing {destination}"
         );
     }
@@ -117,8 +131,14 @@ fn install_apply_for_claude_writes_one_root() {
             .is_file()
     );
     assert!(!home.path().join(".agents").exists());
-    for artifact in SHARED {
-        assert!(home.path().join(artifact).is_file(), "missing {artifact}");
+    for destination in package(".claude/skills", "sdd-setup") {
+        assert!(
+            home.path().join(&destination).is_file(),
+            "missing {destination}"
+        );
+    }
+    for retired in RETIRED {
+        assert!(!home.path().join(retired).exists(), "wrote {retired}");
     }
 }
 
@@ -144,15 +164,15 @@ const OLDER: &str = "older canon bytes\n";
 /// work — the state an older release's successful apply left behind.
 fn as_a_previous_release_left_it(home: &Home) {
     let mut record = SkillRecord::new();
-    for destination in DESTINATIONS {
-        home.write(destination, OLDER);
-        let path = Utf8PathBuf::from_path_buf(home.path().join(destination)).unwrap();
+    for destination in destinations() {
+        home.write(&destination, OLDER);
+        let path = Utf8PathBuf::from_path_buf(home.path().join(&destination)).unwrap();
         record.written.insert(path, Sha256::of(OLDER.as_bytes()));
     }
     home.write(RECORD, &record.to_json());
 }
 
-/// VERIFIES distribution:a-stale-skill-is-not-a-conflict
+/// VERIFIES distribution:skill-install-previews-before-writing
 ///
 /// The regression this rule exists for: `just install` after a release that
 /// edited a skill refused on every destination, because the payload was the
@@ -166,16 +186,16 @@ fn a_copy_a_previous_release_wrote_is_replaced_without_force() {
         .args(["skill", "install", "--apply"])
         .assert()
         .success();
-    for destination in DESTINATIONS {
+    for destination in destinations() {
         assert_ne!(
-            home.read(destination),
+            home.read(&destination),
             OLDER,
             "{destination} was not replaced"
         );
     }
 }
 
-/// VERIFIES distribution:a-stale-skill-is-not-a-conflict
+/// VERIFIES distribution:skill-install-previews-before-writing
 ///
 /// The record vouches for bytes, not for paths: an edit on top of a stale
 /// copy is still the user's and still refuses.
@@ -209,13 +229,14 @@ fn a_home_with_no_record_installs_and_writes_one() {
         .assert()
         .success();
     let record = SkillRecord::load(&Utf8PathBuf::from_path_buf(home.path().join(RECORD)).unwrap());
-    for destination in DESTINATIONS {
-        let path = Utf8PathBuf::from_path_buf(home.path().join(destination)).unwrap();
+    for destination in destinations() {
+        let path = Utf8PathBuf::from_path_buf(home.path().join(&destination)).unwrap();
         assert!(
             record.written.contains_key(&path),
             "{destination} unrecorded"
         );
     }
+    assert_eq!(record.schema_version, 2);
 }
 
 /// VERIFIES distribution:a-skill-install-restores-on-failure
@@ -361,8 +382,8 @@ fn an_install_sweeps_a_skill_the_payload_no_longer_carries() {
     );
     let record = SkillRecord::load(&Utf8PathBuf::from_path_buf(home.path().join(RECORD)).unwrap());
     assert!(!record.to_json().contains("sdd-old-name"));
-    for destination in DESTINATIONS {
-        assert!(home.path().join(destination).is_file());
+    for destination in destinations() {
+        assert!(home.path().join(&destination).is_file());
     }
 }
 
@@ -453,8 +474,11 @@ fn uninstall_previews_by_default_and_removes_nothing() {
         .success()
         .stdout(predicate::str::contains("DRY RUN: no files removed"));
     let stdout = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
-    for destination in DESTINATIONS {
-        assert!(stdout.contains(destination), "preview misses {destination}");
+    for destination in destinations() {
+        assert!(
+            stdout.contains(&destination),
+            "preview misses {destination}"
+        );
     }
     assert_eq!(digest, home.tree_digest());
 }
@@ -473,9 +497,9 @@ fn uninstall_apply_removes_payload_files_and_keeps_foreign_ones() {
         .assert()
         .success()
         .stdout(predicate::str::contains("kept (not empty):"));
-    for destination in DESTINATIONS {
+    for destination in destinations() {
         assert!(
-            !home.path().join(destination).exists(),
+            !home.path().join(&destination).exists(),
             "left behind {destination}"
         );
     }
@@ -496,23 +520,21 @@ fn uninstall_for_claude_leaves_the_other_root_alone() {
         .assert()
         .success();
     assert!(!home.path().join(".claude/skills/sdd-setup").exists());
-    assert!(
-        home.path()
-            .join(".agents/skills/sdd-setup/SKILL.md")
-            .is_file()
-    );
-    // The shared artifacts stay while the other root's skills still name them.
-    for artifact in SHARED {
-        assert!(home.path().join(artifact).is_file(), "missing {artifact}");
+    for destination in package(".agents/skills", "sdd-setup") {
+        assert!(
+            home.path().join(&destination).is_file(),
+            "missing {destination}"
+        );
     }
 }
 
-/// VERIFIES distribution:shared-skill-artifacts-have-one-home
+/// VERIFIES distribution:a-skill-package-is-self-contained
 ///
-/// The uninstall that takes the last installed skills takes the shared
-/// artifacts with them; until then every uninstall leaves them alone.
+/// Each root's packages carry their own references, so an uninstall of one
+/// root leaves the other root's gates where they are, and the last uninstall
+/// takes the receipt with it.
 #[test]
-fn the_last_uninstall_takes_the_shared_artifacts_along() {
+fn each_root_keeps_its_own_references_until_its_own_uninstall() {
     let home = Home::new();
     home.cmd()
         .args(["skill", "install", "--apply"])
@@ -522,17 +544,117 @@ fn the_last_uninstall_takes_the_shared_artifacts_along() {
         .args(["skill", "uninstall", "--agent", "codex", "--apply"])
         .assert()
         .success();
-    for artifact in SHARED {
-        assert!(home.path().join(artifact).is_file(), "missing {artifact}");
+    for destination in package(".claude/skills", "sdd-setup") {
+        assert!(
+            home.path().join(&destination).is_file(),
+            "missing {destination}"
+        );
+    }
+    for destination in package(".agents/skills", "sdd-setup") {
+        assert!(
+            !home.path().join(&destination).exists(),
+            "kept {destination}"
+        );
     }
     home.cmd()
         .args(["skill", "uninstall", "--agent", "claude", "--apply"])
         .assert()
         .success();
-    for artifact in SHARED {
-        assert!(!home.path().join(artifact).exists(), "kept {artifact}");
+    for destination in destinations() {
+        assert!(
+            !home.path().join(&destination).exists(),
+            "kept {destination}"
+        );
     }
     assert!(!home.path().join(RECORD).exists());
+}
+
+/// VERIFIES distribution:a-skill-package-is-self-contained
+///
+/// A home an earlier release left holds the two gates under the retired
+/// shared root, and the receipt vouches for them. The first install sweeps
+/// them and lands the packages.
+#[test]
+fn a_home_from_the_shared_root_release_is_swept_and_relanded() {
+    let home = Home::new();
+    let mut record = SkillRecord::new();
+    for retired in RETIRED {
+        home.write(retired, OLDER);
+        let path = Utf8PathBuf::from_path_buf(home.path().join(retired)).unwrap();
+        record.written.insert(path, Sha256::of(OLDER.as_bytes()));
+    }
+    home.write(RECORD, &record.to_json());
+
+    home.cmd()
+        .args(["skill", "install", "--apply"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("sweep (no longer in the payload)"));
+    for retired in RETIRED {
+        assert!(!home.path().join(retired).exists(), "kept {retired}");
+    }
+    assert!(
+        !home
+            .path()
+            .join(".local/state/spec-driven-docs/skills/shared")
+            .exists()
+    );
+    for destination in destinations() {
+        assert!(
+            home.path().join(&destination).is_file(),
+            "missing {destination}"
+        );
+    }
+}
+
+/// VERIFIES distribution:skill-uninstall-removes-only-what-it-wrote
+///
+/// The defect this phase closes: the uninstall consulted the payload rather
+/// than the receipt, so a skill the operator had edited was deleted.
+#[test]
+fn an_edited_skill_survives_an_uninstall_and_is_named_as_kept() {
+    let home = Home::new();
+    home.cmd()
+        .args(["skill", "install", "--apply"])
+        .assert()
+        .success();
+    home.write(".claude/skills/sdd-setup/SKILL.md", "mine\n");
+    home.cmd()
+        .args(["skill", "uninstall", "--apply"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("kept (edited):"))
+        .stdout(predicate::str::contains(
+            ".claude/skills/sdd-setup/SKILL.md",
+        ));
+    assert_eq!(home.read(".claude/skills/sdd-setup/SKILL.md"), "mine\n");
+}
+
+/// VERIFIES distribution:a-skill-install-restores-on-failure
+#[test]
+fn a_second_apply_refuses_while_the_lock_is_held() {
+    let home = Home::new();
+    home.cmd()
+        .args(["skill", "install", "--apply"])
+        .assert()
+        .success();
+    let lock = home
+        .path()
+        .join(".local/state/spec-driven-docs/skills.lock");
+    let handle = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(&lock)
+        .unwrap();
+    handle.try_lock().unwrap();
+    home.write(".claude/skills/sdd-setup/SKILL.md", "mine\n");
+    home.cmd()
+        .args(["skill", "install", "--apply", "--force"])
+        .assert()
+        .code(73)
+        .stderr(predicate::str::contains("busy"));
+    handle.unlock().unwrap();
+    assert_eq!(home.read(".claude/skills/sdd-setup/SKILL.md"), "mine\n");
 }
 
 #[test]
@@ -544,4 +666,82 @@ fn uninstall_on_an_empty_home_is_a_no_op() {
         .assert()
         .success();
     assert_eq!(digest, home.tree_digest());
+}
+
+#[test]
+fn the_agents_value_installs_the_agents_root_and_codex_is_its_alias() {
+    for value in ["agents", "codex"] {
+        let home = Home::new();
+        home.cmd()
+            .args(["skill", "install", "--agent", value, "--apply"])
+            .assert()
+            .success();
+        assert!(
+            home.path()
+                .join(".agents/skills/sdd-setup/SKILL.md")
+                .is_file(),
+            "--agent {value} did not land the shared root"
+        );
+        assert!(!home.path().join(".claude").exists());
+    }
+}
+
+#[test]
+fn claude_config_dir_relocates_the_claude_root_and_nothing_else() {
+    let home = Home::new();
+    let elsewhere = tempfile::tempdir().unwrap();
+    home.cmd()
+        .env("CLAUDE_CONFIG_DIR", elsewhere.path())
+        .args(["skill", "install", "--apply"])
+        .assert()
+        .success();
+    assert!(
+        elsewhere.path().join("skills/sdd-setup/SKILL.md").is_file(),
+        "the relocated Claude root did not receive the package"
+    );
+    assert!(!home.path().join(".claude").exists());
+    assert!(
+        home.path()
+            .join(".agents/skills/sdd-setup/SKILL.md")
+            .is_file(),
+        "the shared root moved with the Claude root"
+    );
+}
+
+#[test]
+fn a_preview_names_the_relocated_claude_root() {
+    let home = Home::new();
+    let elsewhere = tempfile::tempdir().unwrap();
+    home.cmd()
+        .env("CLAUDE_CONFIG_DIR", elsewhere.path())
+        .args(["skill", "install"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            elsewhere
+                .path()
+                .join("skills/sdd-setup/SKILL.md")
+                .to_str()
+                .unwrap(),
+        ));
+}
+
+#[test]
+fn two_selected_roots_that_resolve_to_one_path_are_planned_once() {
+    let home = Home::new();
+    let output = home
+        .cmd()
+        .env("CLAUDE_CONFIG_DIR", home.path().join(".agents"))
+        .args(["skill", "install"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let text = String::from_utf8(output).unwrap();
+    let landed = text
+        .lines()
+        .filter(|line| line.ends_with(".agents/skills/sdd-setup/SKILL.md"))
+        .count();
+    assert_eq!(landed, 1, "the collided root was planned twice:\n{text}");
 }

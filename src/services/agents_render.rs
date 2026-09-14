@@ -19,8 +19,8 @@ const ROUTE_PLACEHOLDER: &str = "- {writing_style}";
 /// `{writing_style}` unresolved.
 #[must_use]
 pub fn snippet() -> &'static str {
-    crate::embedded::SNIPPETS
-        .get_file("AGENTS-docs.md")
+    crate::embedded::INSTANCE
+        .get_file("snippets/AGENTS-docs.md")
         .and_then(include_dir::File::contents_utf8)
         .unwrap_or_default()
 }

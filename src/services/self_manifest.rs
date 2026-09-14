@@ -11,6 +11,7 @@ use camino::Utf8Path;
 use crate::adapters::fs::sha256_file;
 use crate::domain::manifest::{CANON_SOURCE, MANIFEST_PATH, Manifest, SCHEMA_VERSION};
 use crate::domain::ownership::{AdoptedEntry, IntegrationBlock, ManagedEntry};
+use crate::domain::paths::HOOKS_CONFIG_PATH;
 use crate::domain::profile::{DocsRoot, ProfileId};
 use crate::domain::version::CanonVersion;
 use crate::error::AppError;
@@ -65,7 +66,11 @@ fn skill_files(root: &Utf8Path) -> Vec<String> {
 ///
 /// [`AppError::Refused`] outside the canon checkout, and I/O errors when a
 /// recorded file cannot be read or the manifest cannot be written.
-pub fn regenerate(root: &Utf8Path) -> Result<String, AppError> {
+pub fn regenerate(
+    root: &Utf8Path,
+    bundle: &dyn crate::release::ReleaseBundle,
+) -> Result<String, AppError> {
+    let _released = bundle.manifest()?;
     if !is_canon_checkout(root) {
         return Err(AppError::Refused("not the canon checkout".to_string()));
     }
@@ -108,7 +113,7 @@ pub fn regenerate(root: &Utf8Path) -> Result<String, AppError> {
     )]
     let spec = |name: &str| name.starts_with("SPEC-") && name.ends_with(".md");
     let mut adopted_paths = sorted_files(root, "_docs/specs", spec);
-    for template in crate::domain::profile::CANON_TEMPLATES {
+    for template in crate::domain::profile::CANON_TEMPLATES.iter() {
         adopted_paths.push((*template).to_string());
     }
     let mut adopted = Vec::new();
@@ -134,7 +139,7 @@ pub fn regenerate(root: &Utf8Path) -> Result<String, AppError> {
         });
     }
 
-    let config = std::fs::read_to_string(root.join(".pre-commit-config.yaml"))?;
+    let config = std::fs::read_to_string(root.join(HOOKS_CONFIG_PATH))?;
     let marker_hash = crate::domain::marker::block_hash(&config).ok_or_else(|| {
         AppError::Refused("no managed block in .pre-commit-config.yaml".to_string())
     })?;
@@ -165,7 +170,7 @@ pub fn regenerate(root: &Utf8Path) -> Result<String, AppError> {
         managed_files: managed,
         adopted_files: adopted,
         integration_blocks: vec![IntegrationBlock {
-            path: ".pre-commit-config.yaml".into(),
+            path: HOOKS_CONFIG_PATH.into(),
             marker_hash,
         }],
     };

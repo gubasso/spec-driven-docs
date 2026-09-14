@@ -18,7 +18,8 @@ This shelf holds the method as chapters. The filenames name subjects and carry n
 12. [Procedures](./procedures.md): the shape of a step-by-step guide.
 13. [Operational](./operational.md): runbooks, known issues, and other operational documents.
 14. [Migration](./migration.md): moving an existing corpus onto the method.
-15. [Checklist](./checklist.md): the pre-merge review surface.
+15. [Reconcile](./reconcile.md): the plan every landing and upgrade comes from.
+16. [Checklist](./checklist.md): the pre-merge review surface.
 
 The [glossary](./glossary.md) defines every term the chapters use and names the chapter that owns each one. `AGENTS.md` beside this file routes an agent from a question to the chapter that owns it.
 

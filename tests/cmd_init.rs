@@ -61,9 +61,12 @@ fn installs_both_profiles_and_they_verify() {
 #[test]
 fn initialization_writes_no_debt_file() {
     let fixture = Fixture::new();
+    // The corpus arrives after the landing: a settled corpus is a
+    // migration, which this verb no longer serves. What is under test is
+    // that no landing creates debt, and that holds either way.
+    fixture.install("knowledge-base");
     fixture.write("method/legacy.md", &"line\n".repeat(400));
     fixture.write("_docs/specs/SPEC-legacy.md", &"line\n".repeat(400));
-    fixture.install("knowledge-base");
     assert!(
         !fixture.path().join(".spec-driven-docs/debt.yaml").exists(),
         "the install baselined the inherited corpus"
@@ -80,8 +83,15 @@ fn installs_into_a_target_with_spaces() {
     let parent = tempfile::tempdir().unwrap();
     let spaced = parent.path().join("codebase with spaces");
     std::fs::create_dir_all(spaced.join(".git")).unwrap();
-    assert_cmd::Command::cargo_bin("sdd")
-        .unwrap()
+    let home = tempfile::tempdir().unwrap();
+    let mut command = assert_cmd::Command::cargo_bin("sdd").unwrap();
+    // A landing keeps its plan and its journal under the state root, so
+    // this case gets its own rather than the invoking user's.
+    command
+        .env("XDG_STATE_HOME", home.path().join("state"))
+        .env("XDG_CACHE_HOME", home.path().join("cache"))
+        .env("SDD_OFFLINE", "1");
+    command
         .args([
             "init",
             "--target",

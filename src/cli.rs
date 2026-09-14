@@ -7,14 +7,17 @@
 pub mod assess;
 pub mod completions;
 pub mod debt;
+pub mod docs;
 pub mod doctor;
 pub mod gate;
 pub mod hooks;
 pub mod init;
 pub mod ki;
 pub mod license;
+pub mod payload;
 pub mod policy;
 pub mod read;
+pub mod reconcile;
 pub mod skill;
 pub mod status;
 pub mod track;
@@ -54,6 +57,10 @@ pub enum Commands {
     Verify(verify::VerifyArgs),
     /// Upgrade an installed instance to this binary's version.
     Upgrade(upgrade::UpgradeArgs),
+    /// Compute, read, and apply one plan.
+    Reconcile(reconcile::ReconcileArgs),
+    /// Report what a release carries, through the release seam.
+    Payload(payload::PayloadArgs),
     /// Run one delivered gate, or list them all.
     Gate(gate::GateArgs),
     /// Render the delivered gate set as pre-commit hook entries.
@@ -64,6 +71,8 @@ pub enum Commands {
     Policy(policy::PolicyArgs),
     /// Read the known-issue zone.
     Ki(ki::KiArgs),
+    /// Read this binary's own corpus: the index, or one topic.
+    Docs(docs::DocsArgs),
     /// Read a method chapter, or list them.
     Method(read::ReadArgs),
     /// Read a spec seed, or list them.

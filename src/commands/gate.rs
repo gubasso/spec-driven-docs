@@ -109,12 +109,12 @@ fn contained(path: &str) -> Result<(), AppError> {
     }
     // A relative path that resolves outside the repository got there through
     // a link, which is the case the `..` check cannot see.
-    if let (Ok(resolved), Ok(root)) = (std::fs::canonicalize(path), std::fs::canonicalize(".")) {
-        if !resolved.starts_with(&root) {
-            return Err(AppError::Usage(format!(
-                "{path} is reached through a link that leaves the repository"
-            )));
-        }
+    if let (Ok(resolved), Ok(root)) = (std::fs::canonicalize(path), std::fs::canonicalize("."))
+        && !resolved.starts_with(&root)
+    {
+        return Err(AppError::Usage(format!(
+            "{path} is reached through a link that leaves the repository"
+        )));
     }
     Ok(())
 }

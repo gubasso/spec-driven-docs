@@ -15,7 +15,7 @@ use crate::domain::ownership::Sha256;
 use crate::domain::profile::ProfileId;
 use crate::domain::version::CanonVersion;
 use crate::error::AppError;
-use crate::services::installer::{InitOptions, init};
+use crate::services::installer::{InitOptions, init_with};
 
 /// What an upgrade was asked to do.
 #[derive(Debug, Clone)]
@@ -24,6 +24,8 @@ pub struct UpgradeOptions {
     pub target: Utf8PathBuf,
     /// Report the plan and change nothing.
     pub dry_run: bool,
+    /// Every decision the operator answered on the command line.
+    pub selections: crate::plan::decision::Selections,
 }
 
 /// What an upgrade did.
@@ -53,7 +55,7 @@ struct Installed {
 /// The marker pair a host file's managed region uses.
 fn markers_for(path: &str) -> (&'static str, &'static str) {
     use crate::domain::marker::{AGENTS_BEGIN, AGENTS_END, BEGIN, END};
-    if path == ".pre-commit-config.yaml" {
+    if path == crate::domain::paths::HOOKS_CONFIG_PATH {
         (BEGIN, END)
     } else {
         (AGENTS_BEGIN, AGENTS_END)
@@ -107,120 +109,33 @@ fn read_installed(target: &Utf8Path) -> Result<Installed, AppError> {
     }
 }
 
-/// The only roots an upgrade may remove dropped managed files from.
-const PRUNABLE: &[&str] = &[".spec-driven-docs/", ".claude/skills/", ".agents/skills/"];
-
-/// Remove the directory a pruned file leaves empty, never the prunable root.
+/// Refuse an answer on a path where no plan offers a decision.
 ///
-/// A skill is a directory holding one `SKILL.md`, so pruning the file alone
-/// leaves an empty directory carrying the old skill's name — which some
-/// agents still list.
-fn prune_empty_parent(full: &Utf8Path, raw: &str, prunable: &str) {
-    let Some((relative_parent, _)) = raw.rsplit_once('/') else {
-        return;
-    };
-    if relative_parent == prunable.trim_end_matches('/') {
-        return;
-    }
-    let Some(directory) = full.parent() else {
-        return;
-    };
-    if std::fs::read_dir(directory).is_ok_and(|mut entries| entries.next().is_none()) {
-        let _ = std::fs::remove_dir(directory);
-    }
-}
-
-fn prune(
-    target: &Utf8Path,
-    dropped: &[Utf8PathBuf],
-    outcome: &mut UpgradeOutcome,
-) -> Vec<Utf8PathBuf> {
-    let mut unremoved = Vec::new();
-    for destination in dropped {
-        let raw = destination.as_str();
-        if raw.starts_with('/')
-            || raw == ".."
-            || raw.starts_with("../")
-            || raw.ends_with("/..")
-            || raw.contains("/../")
-        {
-            outcome.lines.push(format!(
-                "refused to remove a destination that leaves the target: {raw}"
-            ));
-            outcome.failures += 1;
-            continue;
-        }
-        let Some(prunable) = PRUNABLE.iter().find(|prefix| raw.starts_with(**prefix)) else {
-            continue;
-        };
-        let mut prefix = target.to_path_buf();
-        let parts: Vec<&str> = raw.split('/').collect();
-        let mut escapes = false;
-        for part in &parts[..parts.len() - 1] {
-            prefix.push(part);
-            if prefix.is_symlink() {
-                escapes = true;
-            }
-        }
-        let full = target.join(destination);
-        if escapes || full.is_symlink() {
-            outcome.lines.push(format!(
-                "refused to remove a destination reached through a symlink: {raw}"
-            ));
-            outcome.failures += 1;
-            continue;
-        }
-        if !full.is_file() {
-            continue;
-        }
-        if std::fs::remove_file(&full).is_ok() {
-            outcome
-                .lines
-                .push(format!("removed managed file no longer owned: {raw}"));
-            prune_empty_parent(&full, raw, prunable);
-        } else {
-            unremoved.push(destination.clone());
-        }
-    }
-    unremoved
-}
-
-/// Upgrade an installed instance to this binary's version.
+/// A target with nothing to do and one whose managed files were edited
+/// both end before a plan exists. An answer given on either is an answer
+/// to a question nobody asked, and letting it pass silently would make
+/// typing look like consent on the one path where nothing checked it.
+/// A downgrade refuses on its own terms before this can matter.
 ///
 /// # Errors
 ///
-/// [`AppError::Violations`] when conflicts block the upgrade or removals
-/// remain unfinished, [`AppError::Refused`] when the binary is older than
-/// the instance or the reinstall refuses, and manifest errors when the
-/// record cannot be read.
-pub fn upgrade(options: &UpgradeOptions) -> Result<UpgradeOutcome, AppError> {
-    if !options.target.is_absolute() {
-        return Err(AppError::Usage("target must be absolute".to_string()));
-    }
-    if !options.target.is_dir() {
-        return Err(AppError::Usage(format!(
-            "unresolved target: {}",
-            options.target
-        )));
-    }
-    let target = Utf8PathBuf::from_path_buf(std::fs::canonicalize(&options.target)?)
-        .map_err(|p| AppError::Usage(format!("target is not UTF-8: {}", p.display())))?;
+/// [`AppError::Usage`] naming the decision nothing offered.
+fn unanswerable(selections: &crate::plan::decision::Selections) -> Result<(), AppError> {
+    crate::plan::decision::validate(&[], selections)
+        .map_err(|error| AppError::Usage(error.to_string()))
+}
 
-    let installed = read_installed(&target)?;
-    let new = CanonVersion::current();
-    let old = installed.version;
-    let mut outcome = UpgradeOutcome::default();
-
-    if old == new && installed.schema_current {
-        outcome.lines.push(format!("OK already at {new}"));
-        return Ok(outcome);
-    }
-    if old > new {
-        return Err(AppError::Refused(format!(
-            "sdd {new} is older than the installed canon {old}; upgrade sdd"
-        )));
-    }
-
+/// Every managed file and region the target no longer holds as recorded.
+///
+/// A reinstall replaces a managed file and re-splices a managed region, so
+/// an edit to either would be lost. An edit outside the markers is the
+/// project's own and survives, which is why the region is compared by its
+/// own hash rather than the host file's.
+///
+/// # Errors
+///
+/// Any I/O error reading a destination.
+fn conflicts_at(target: &Utf8Path, installed: &Installed) -> Result<Vec<String>, AppError> {
     let mut conflicts = Vec::new();
     for (destination, recorded) in &installed.managed {
         let file = target.join(destination);
@@ -234,9 +149,6 @@ pub fn upgrade(options: &UpgradeOptions) -> Result<UpgradeOutcome, AppError> {
             ));
         }
     }
-    // A locally edited managed integration region is a conflict too: the
-    // reinstall re-splices the region, so an edit inside the markers would be
-    // lost. An edit outside the markers is the project's own and survives.
     for (path, recorded) in &installed.integration {
         let full = target.join(path);
         if !full.is_file() {
@@ -250,7 +162,97 @@ pub fn upgrade(options: &UpgradeOptions) -> Result<UpgradeOutcome, AppError> {
             _ => conflicts.push(format!("CONFLICT locally edited managed block: {path}")),
         }
     }
+    Ok(conflicts)
+}
+
+/// The options a reinstall carries.
+///
+/// No flag: the reinstall carries the recorded declarations forward, and
+/// the project's own declaration file is adopted, so the reinstall reads
+/// it rather than replacing it.
+fn reinstall_options(target: &Utf8Path, profile: ProfileId) -> InitOptions {
+    InitOptions {
+        target: target.to_path_buf(),
+        profile,
+        apply: false,
+        dry_run: true,
+        plan_zone: None,
+        docs_scratch: None,
+        reserve: Vec::new(),
+        writing_style: None,
+    }
+}
+
+/// Report what the landing took back.
+///
+/// The removals are the plan's own operations, applied under its journal,
+/// and the executor sweeps the directory each one emptied inside that
+/// same transaction. This only says what happened.
+fn report_removals(removed: &[String], outcome: &mut UpgradeOutcome) {
+    for raw in removed {
+        outcome
+            .lines
+            .push(format!("removed managed file no longer owned: {raw}"));
+    }
+}
+
+/// Upgrade an installed instance to this binary's version.
+///
+/// # Errors
+///
+/// [`AppError::Violations`] when conflicts block the upgrade or removals
+/// remain unfinished, [`AppError::Refused`] when the binary is older than
+/// the instance or the reinstall refuses, and manifest errors when the
+/// record cannot be read.
+pub fn upgrade(
+    options: &UpgradeOptions,
+    bundle: &dyn crate::release::ReleaseBundle,
+) -> Result<UpgradeOutcome, AppError> {
+    if !options.target.is_absolute() {
+        return Err(AppError::Usage("target must be absolute".to_string()));
+    }
+    if !options.target.is_dir() {
+        return Err(AppError::Usage(format!(
+            "unresolved target: {}",
+            options.target
+        )));
+    }
+    let target = Utf8PathBuf::from_path_buf(std::fs::canonicalize(&options.target)?)
+        .map_err(|p| AppError::Usage(format!("target is not UTF-8: {}", p.display())))?;
+
+    let installed = read_installed(&target)?;
+    // The destination is the release the caller handed over, not the
+    // engine running. Reporting the engine's version would name a release
+    // the target does not hold, and every later classification reads it.
+    let new: CanonVersion = bundle
+        .manifest()?
+        .version
+        .to_string()
+        .parse()
+        .map_err(|_| AppError::Refused("the release is not a version triple".to_string()))?;
+    let old = installed.version;
+    let mut outcome = UpgradeOutcome::default();
+
+    if old == new && installed.schema_current {
+        unanswerable(&options.selections)?;
+        outcome.lines.push(format!("OK already at {new}"));
+        return Ok(outcome);
+    }
+    if old > new {
+        return Err(AppError::Refused(format!(
+            "sdd {new} is older than the installed canon {old}; upgrade sdd"
+        )));
+    }
+
+    let conflicts = conflicts_at(&target, &installed)?;
     if !conflicts.is_empty() {
+        // The conflict is what the operator needs to see. An answer to a
+        // decision that never got offered is reported beside it rather
+        // than instead of it: turning it into the exit reason would hide
+        // the edited file behind a complaint about a flag.
+        if let Err(refused) = unanswerable(&options.selections) {
+            outcome.lines.push(format!("note: {refused}"));
+        }
         let count = conflicts.len();
         outcome.lines.extend(conflicts);
         outcome.failures += count;
@@ -269,22 +271,42 @@ pub fn upgrade(options: &UpgradeOptions) -> Result<UpgradeOutcome, AppError> {
                 .lines
                 .push(format!("DRY RUN upgrade {old} to {new}"));
         }
+        // The preview is the plan. A release in the interval that asks
+        // something of a person is exactly what a dry run must show, and
+        // a version pair alone cannot show it.
+        let preview = init_with(
+            &options.selections,
+            &reinstall_options(&target, installed.profile),
+            bundle,
+            crate::plan::classify::Intent::Reconcile,
+        )
+        .map_err(|error| {
+            AppError::Refused(format!(
+                "upgrade could not be planned from {old} to {new}: {error}"
+            ))
+        })?;
+        outcome
+            .lines
+            .extend(preview.lines.into_iter().filter(|line| {
+                line.starts_with("BLOCKED")
+                    || line.starts_with("DECISION")
+                    || line.starts_with("note:")
+            }));
         return Ok(outcome);
     }
 
-    let reinstalled = init(&InitOptions {
-        target: target.clone(),
-        profile: installed.profile,
-        apply: true,
-        dry_run: false,
-        // No flag: the reinstall carries the recorded declarations forward,
-        // and the project's own declaration file is adopted, so the
-        // reinstall reads it rather than replacing it.
-        plan_zone: None,
-        docs_scratch: None,
-        reserve: Vec::new(),
-        writing_style: None,
-    })
+    let reinstalled = init_with(
+        &options.selections,
+        &InitOptions {
+            apply: true,
+            dry_run: false,
+            ..reinstall_options(&target, installed.profile)
+        },
+        bundle,
+        // The upgrade already classified the target; the reinstall is its
+        // own act rather than a second landing decision.
+        crate::plan::classify::Intent::Reconcile,
+    )
     .map_err(|error| {
         AppError::Refused(format!(
             "upgrade aborted during reinstall from {old} to {new}: {error}"
@@ -293,6 +315,7 @@ pub fn upgrade(options: &UpgradeOptions) -> Result<UpgradeOutcome, AppError> {
     // The reinstall's destination list is noise here, and its notes are
     // not: a seed that did not land because the project already holds the
     // destination is something the operator must hear about once.
+    let removed = reinstalled.removed.clone();
     outcome.lines.extend(
         reinstalled
             .lines
@@ -300,47 +323,19 @@ pub fn upgrade(options: &UpgradeOptions) -> Result<UpgradeOutcome, AppError> {
             .filter(|line| line.starts_with("note:")),
     );
 
-    finish(&target, &installed, old, new, &mut outcome)?;
+    finish(&target, &installed, &removed, old, new, &mut outcome);
     Ok(outcome)
 }
 
 fn finish(
     target: &Utf8Path,
     installed: &Installed,
+    removed: &[String],
     old: CanonVersion,
     new: CanonVersion,
     outcome: &mut UpgradeOutcome,
-) -> Result<(), AppError> {
-    let fresh = Manifest::parse(&std::fs::read_to_string(target.join(MANIFEST_PATH))?)
-        .map_err(|error| AppError::ManifestInvalid(error.to_string()))?;
-    let kept: std::collections::BTreeSet<&Utf8PathBuf> = fresh
-        .managed_files
-        .iter()
-        .map(|entry| &entry.destination)
-        .collect();
-    let dropped: Vec<Utf8PathBuf> = installed
-        .managed
-        .iter()
-        .map(|(destination, _)| destination.clone())
-        .filter(|destination| !kept.contains(destination))
-        .collect();
-    let unremoved = prune(target, &dropped, outcome);
-    if !unremoved.is_empty() {
-        outcome.lines.push(
-            "FAIL these files are no longer owned and could not be removed; delete them by hand:"
-                .to_string(),
-        );
-        for destination in &unremoved {
-            outcome.lines.push(format!("  {destination}"));
-        }
-        outcome.lines.push(format!(
-            "the payload and manifest are upgraded to {new}; only these removals remain, and"
-        ));
-        outcome.lines.push(format!(
-            "re-running this upgrade will report 'already at {new}' rather than retry them"
-        ));
-        outcome.failures += unremoved.len();
-    }
+) {
+    report_removals(removed, outcome);
 
     let mut local_ids = std::collections::BTreeSet::new();
     let specs = target.join(&installed.docs_root).join("specs");
@@ -375,5 +370,4 @@ fn finish(
     } else {
         outcome.lines.push(format!("OK upgraded {old} to {new}"));
     }
-    Ok(())
 }

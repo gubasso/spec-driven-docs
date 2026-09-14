@@ -48,8 +48,7 @@ use serde::Deserialize;
 use crate::domain::gate_id::GateId;
 use crate::domain::path_filter::{Layer, PathFilter, PathFilterError, Pattern};
 
-/// Where an instance keeps its declaration.
-pub const CONFIG_PATH: &str = ".spec-driven-docs/config.yaml";
+pub use crate::domain::paths::CONFIG_PATH;
 
 /// The filters one named gate takes.
 #[derive(Debug, Default, Clone, Deserialize, PartialEq, Eq)]

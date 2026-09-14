@@ -18,10 +18,15 @@ pub static SPECS: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/_docs/specs")
 pub static TEMPLATES: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/templates");
 /// The markdownlint configurations the instance receives managed.
 pub static MARKDOWNLINT: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/.markdownlint");
-/// The files an instance is seeded with once and then owns.
-pub static SEEDS: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/instance/seeds");
-/// Integration snippets a consumer copies into their own files.
-pub static SNIPPETS: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/instance/snippets");
+/// What a release says about itself, plus what it seeds and splices.
+///
+/// One root rather than a root per subdirectory: the projection
+/// declaration sits beside the seeds it describes, and a root per
+/// subdirectory would make the declaration a one-file exception to the
+/// payload inventory.
+pub static INSTANCE: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/instance");
+/// What each release asks of an instance that takes it.
+pub static GUIDANCE: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/guidance");
 /// The method chapters and glossary.
 pub static METHOD: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/method");
 /// The cross-agent skills, one `SKILL.md` per directory.
@@ -46,12 +51,21 @@ const EMBEDDED_ROOTS: &[(&str, &Dir<'static>)] = &[
     ("_docs/specs", &SPECS),
     ("templates", &TEMPLATES),
     (".markdownlint", &MARKDOWNLINT),
-    ("instance/seeds", &SEEDS),
-    ("instance/snippets", &SNIPPETS),
+    ("instance", &INSTANCE),
+    ("guidance", &GUIDANCE),
     ("method", &METHOD),
     ("skills", &SKILLS),
     ("skill-shared", &SKILL_SHARED),
 ];
+
+/// Every embedded root paired with the authored path it came from.
+///
+/// The release bundle walks this to build a manifest, so a root added to
+/// the declaration reaches the bundle without a second list.
+#[must_use]
+pub const fn roots() -> &'static [(&'static str, &'static Dir<'static>)] {
+    EMBEDDED_ROOTS
+}
 
 /// Every skill name, sorted; a name is the skill's directory.
 #[must_use]
@@ -72,12 +86,33 @@ pub fn skill(name: &str) -> Option<&'static str> {
         .and_then(include_dir::File::contents_utf8)
 }
 
+/// Every file of one installed skill package, as `(path relative to the
+/// package root, bytes)`, sorted by path.
+///
+/// A package is the unit the Agent Skills format and every documented host
+/// resolve against: one directory holding `SKILL.md` and supporting files
+/// beside it. The shared artifacts are authored once under `skill-shared/`
+/// and materialized here into every package, so a fix lands in one file and
+/// reaches every root the installer writes.
+#[must_use]
+pub fn skill_package(name: &str) -> Option<Vec<(String, &'static [u8])>> {
+    use crate::domain::paths::{SKILL_FILE, SKILL_REFERENCES_DIR};
+
+    let manual = SKILLS.get_file(format!("{name}/{SKILL_FILE}"))?;
+    let mut files = vec![(SKILL_FILE.to_string(), manual.contents())];
+    for (path, bytes) in shared_artifacts() {
+        files.push((format!("{SKILL_REFERENCES_DIR}/{path}"), bytes));
+    }
+    files.sort_by(|left, right| left.0.cmp(&right.0));
+    Some(files)
+}
+
 /// Every artifact the skills share, as `(path under the root, bytes)`,
 /// sorted by path.
 ///
-/// These land once, outside the agent skill roots, because every skill names
-/// the same absolute path for them. A copy per skill would be one file to
-/// correct per agent root per skill; one copy is one.
+/// This is the authored view. What lands is [`skill_package`], which copies
+/// each of these into every package as a reference relative to the skill's
+/// own root.
 #[must_use]
 pub fn shared_artifacts() -> Vec<(String, &'static [u8])> {
     fn walk(dir: &Dir<'static>, out: &mut Vec<(String, &'static [u8])>) {
@@ -170,7 +205,7 @@ mod tests {
             let profile = id.profile();
             for entry in profile.managed.iter().chain(profile.adopted) {
                 assert!(
-                    asset(entry.source).is_some(),
+                    asset(&entry.source).is_some(),
                     "{id}: {} is not embedded",
                     entry.source
                 );
