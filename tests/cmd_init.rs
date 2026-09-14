@@ -83,8 +83,15 @@ fn installs_into_a_target_with_spaces() {
     let parent = tempfile::tempdir().unwrap();
     let spaced = parent.path().join("codebase with spaces");
     std::fs::create_dir_all(spaced.join(".git")).unwrap();
-    assert_cmd::Command::cargo_bin("sdd")
-        .unwrap()
+    let home = tempfile::tempdir().unwrap();
+    let mut command = assert_cmd::Command::cargo_bin("sdd").unwrap();
+    // A landing keeps its plan and its journal under the state root, so
+    // this case gets its own rather than the invoking user's.
+    command
+        .env("XDG_STATE_HOME", home.path().join("state"))
+        .env("XDG_CACHE_HOME", home.path().join("cache"))
+        .env("SDD_OFFLINE", "1");
+    command
         .args([
             "init",
             "--target",

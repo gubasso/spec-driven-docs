@@ -631,6 +631,26 @@ fn plan_lock(store: &Store, fingerprint: &str) -> Result<Lock, AppError> {
     Lock::exclusive_waiting(&store.plan_lock_path(fingerprint)?, "landing", STORE_WAIT)
 }
 
+/// Say what a refusal to write under the state root actually means.
+///
+/// A landing is a journalled transaction, so it needs somewhere to keep
+/// its lock, its plan, and the bytes it will write. A state root this user
+/// cannot write is therefore a refusal, and the message names the root and
+/// the variable that moves it rather than reporting a bare errno.
+fn unwritable_state(cause: AppError) -> AppError {
+    let AppError::Io(ref source) = cause else {
+        return cause;
+    };
+    if source.kind() != std::io::ErrorKind::PermissionDenied {
+        return cause;
+    }
+    let root = state_root().map_or_else(|_| "the state root".to_string(), |path| path.to_string());
+    AppError::Refused(format!(
+        "{root} cannot be written: {source}; every landing keeps its lock, its plan, and its journal there, so set {} to a directory this user owns",
+        crate::domain::paths::XDG_STATE_HOME_VAR
+    ))
+}
+
 /// Compute the plan one landing would run, and write nothing.
 ///
 /// What a preview owes its reader is the plan, not a list of paths. A
@@ -642,7 +662,8 @@ fn plan_lock(store: &Store, fingerprint: &str) -> Result<Lock, AppError> {
 /// [`AppError::Busy`] when a writer holds the target, and whatever the
 /// planner refuses.
 pub(crate) fn preview(request: &Landing<'_>) -> Result<Plan, AppError> {
-    let _lock = Lock::shared(&target_lock(request.target)?, "landing preview")?;
+    let _lock =
+        Lock::shared(&target_lock(request.target)?, "landing preview").map_err(unwritable_state)?;
     let mut answers = request.carried.clone();
     answers.extend(request.selections.clone());
     let (plan, _) = compute_plan(
@@ -696,7 +717,8 @@ pub(crate) fn preview_lines(plan: &Plan) -> Vec<String> {
 /// [`AppError::Busy`] when another writer holds the target, and whatever
 /// the planner, the store, or the executor refuses.
 pub(crate) fn land(request: &Landing<'_>) -> Result<ApplyResult, AppError> {
-    let _lock = Lock::exclusive(&target_lock(request.target)?, "landing")?;
+    let _lock =
+        Lock::exclusive(&target_lock(request.target)?, "landing").map_err(unwritable_state)?;
     let release = &request.release;
     let mut answers = request.carried.clone();
     answers.extend(request.selections.clone());
@@ -717,7 +739,11 @@ pub(crate) fn land(request: &Landing<'_>) -> Result<ApplyResult, AppError> {
         .map_err(|error| AppError::Usage(error.to_string()))?;
 
     let store = Store::new(&state_root()?);
-    store.create()?;
+    // A landing is a journalled transaction, so it needs somewhere to keep
+    // the journal and the bytes it will write. A state root this user
+    // cannot write is therefore a refusal, and the message names the root
+    // and the variable that moves it rather than reporting a bare errno.
+    store.create().map_err(unwritable_state)?;
     let _store_lock = plan_lock(&store, &plan.identity.plan_id)?;
     if !store.holds(&plan.identity.plan_id) {
         let mut blobs = blobs;
