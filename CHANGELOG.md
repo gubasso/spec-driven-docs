@@ -13,6 +13,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - *(reconcile)* [**breaking**] Land every write through one typed plan ([#90](https://github.com/gubasso/spec-driven-docs/pull/90))
 
+`sdd reconcile plan` computes one typed plan and writes nothing. `sdd reconcile apply` executes exactly that plan by its id, refusing when any input moved. `sdd init` and `sdd upgrade` are short forms over the same engine, so every landing now leaves a plan id, a journal that can take it back, and a recorded result.
+
+A release declares what it asks of its operator: the lowest engine that can land it, the versions an interval may not skip, and the steps only a person can take. The plan raises a breaking step as a decision, and `sdd upgrade --set` answers it.
+
+`sdd docs` describes the corpus the binary carries, and one line in the managed documentation block routes an agent to it.
+
+### Breaking
+
+- A landing needs a writable state root. It keeps its lock, its plan, and its journal there, so a container or a read-only home that used to run `sdd init` refuses until `XDG_STATE_HOME` names a writable directory. The refusal says so.
+- A skill installs as a directory holding `SKILL.md` and `references/`. A home installed before this loses the two files under the retired shared root on its first `sdd skill install --apply`.
+- `sdd-migrate` is gone. `sdd-setup` absorbs it, and the same apply sweeps the retired package.
+- `sdd init` refuses a target that already documents itself, naming `sdd reconcile plan` rather than landing seeds beside the corpus.
+
 ## [0.8.1](https://github.com/gubasso/spec-driven-docs/compare/v0.8.0...v0.8.1) - 2026-09-12
 
 ### Other
