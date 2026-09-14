@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0](https://github.com/gubasso/spec-driven-docs/compare/v0.9.3...v0.10.0) - 2026-09-14
+
+### Added
+
+- *(distribution/platform)* [**breaking**] Make x86_64 Linux the only supported target ([#99](https://github.com/gubasso/spec-driven-docs/pull/99))
+
 ## [0.9.3](https://github.com/gubasso/spec-driven-docs/compare/v0.9.2...v0.9.3) - 2026-09-14
 
 ### Fixed
