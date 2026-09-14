@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.2](https://github.com/gubasso/spec-driven-docs/compare/v0.10.1...v0.10.2) - 2026-09-14
+
+### Fixed
+
+- *(release)* Hold the support boundary where each half can be held ([#101](https://github.com/gubasso/spec-driven-docs/pull/101))
+
 ## [0.10.1](https://github.com/gubasso/spec-driven-docs/compare/v0.10.0...v0.10.1) - 2026-09-14
 
 ### Fixed
