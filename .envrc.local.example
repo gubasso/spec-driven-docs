@@ -12,6 +12,3 @@ export RK_BOT_APP_ID=''
 # Absolute path to the private key downloaded from the same page, e.g.
 # /home/you/Downloads/gubasso-ci-bot.2026-08-26.private-key.pem
 export RK_BOT_PRIVATE_KEY_FILE=''
-
-# Set to 0 to stop `rk devshell sync` from moving the rk pin on entry.
-export RK_DEVSHELL_SYNC=0

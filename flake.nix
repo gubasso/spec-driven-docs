@@ -9,14 +9,14 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     release-kit = {
-      # Moved by `rk devshell sync`, invoked from .envrc: the tag in this URL
+      # Moved by `rk self-depend sync`, invoked from .envrc: the tag in this URL
       # is the version, flake.lock is the content pin, and nothing else in
       # this repository names an rk version.
       url = "github:gubasso/release-kit/v0.4.0";
       # A deliberate deal, not a tidy-up: with follows, rk rebuilds against
       # this repository's nixpkgs rather than the revision it tested
       # upstream, so this consumer owns that compatibility — proven by the
-      # devshell build `rk devshell sync` runs and CI's nix develop. The
+      # devshell build `rk self-depend sync` runs and CI's nix develop. The
       # alternative is a second nixpkgs node in the lock.
       inputs.nixpkgs.follows = "nixpkgs";
     };
@@ -49,7 +49,7 @@
         # through the overlay so CI and local development share one compiler.
         # curl is named because the source check in comparison-docs/SOURCES.md
         # calls it. rk comes from the release-kit flake input, pinned by its
-        # tag, and `rk devshell sync` moves that pin from .envrc.
+        # tag, and `rk self-depend sync` moves that pin from .envrc.
         devShells.default = pkgs.mkShell {
           packages = [
             toolchain
