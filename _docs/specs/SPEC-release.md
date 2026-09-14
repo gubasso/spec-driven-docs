@@ -15,6 +15,7 @@
   - [`release:the-rk-pin-has-two-facts-and-one-mover` — The rk pin has two facts and one mover](#releasethe-rk-pin-has-two-facts-and-one-mover--the-rk-pin-has-two-facts-and-one-mover)
   - [`release:third-party-notices-travel-with-the-payload` — Third-party notices travel with the payload](#releasethird-party-notices-travel-with-the-payload--third-party-notices-travel-with-the-payload)
   - [`release:every-release-declares-what-it-asks` — Every release declares what it asks](#releaseevery-release-declares-what-it-asks--every-release-declares-what-it-asks)
+  - [`release:the-binary-builds-for-every-declared-target` — The binary builds for every declared target](#releasethe-binary-builds-for-every-declared-target--the-binary-builds-for-every-declared-target)
 
 <!--TOC-->
 
@@ -159,5 +160,17 @@ Every release MUST add exactly one entry to the guidance ledger, selecting a gui
 - GIVEN a release whose diff retires a rule ID and whose ledger entry reads `none`
 - WHEN the canon test suite runs
 - THEN it fails naming the change, because an instance that takes the release has work the release did not describe
+
+Verify: `cargo nextest run -E 'binary(canon)'`
+
+### `release:the-binary-builds-for-every-declared-target` — The binary builds for every declared target
+
+Production code MUST NOT name a platform module without a `#[cfg]` guarding it, for every target `dist-workspace.toml` declares. Test code is exempt: the suite runs on the platforms that develop this tool, and the installer build carries the binary rather than the tests.
+
+#### Scenario: A Unix-only call reaches a shared code path
+
+- GIVEN a function using `std::os::unix` with no `#[cfg(unix)]` above it
+- WHEN the canon test suite runs
+- THEN it fails naming the file and line, because the only job that compiles for Windows runs on a tag, which is after the release decision
 
 Verify: `cargo nextest run -E 'binary(canon)'`
