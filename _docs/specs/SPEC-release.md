@@ -166,15 +166,36 @@ Verify: `cargo nextest run -E 'binary(canon)'`
 
 ### `release:the-binary-builds-for-every-declared-target` — The binary builds for every declared target
 
-`dist-workspace.toml` MUST declare exactly one target, `x86_64-unknown-linux-gnu`, and exactly one installer, `shell`. The crate root MUST refuse a build for another operating system at compile time. No live document outside the decision records and the changelog MUST name a target triple or an installer artifact the project does not build. The ordinary required pull-request job compiles the declared target, so that compilation is the evidence this rule rests on, and no lexical scan of source text substitutes for it.
+`dist-workspace.toml` MUST declare exactly one target, `x86_64-unknown-linux-gnu`, and exactly one installer, `shell`. `flake.nix` MUST bind exactly one Nix system, `x86_64-linux`, MUST map no output over a system set, and MUST key every system-keyed output by that one binding. The crate root MUST carry a `compile_error!` whose `#[cfg]` attribute refuses every operating system but Linux. No live document outside the decision records and the changelog MUST name a retired target triple or a retired installer artifact.
+
+The ordinary required pull-request job compiles the declared target, so that compilation is the evidence this rule rests on, and no lexical scan of source text substitutes for it.
+
+Each check below states what it holds, because a check that overstates its reach is the defect this rule was rewritten to remove.
+
+- The release declaration is read as parsed data. A comment can carry a string a substring search accepts, so text matching cannot hold a declared list.
+- The flake is read as authored text, and holds its shape rather than its evaluation. Evaluating it needs Nix on the test host, which the suite does not assume, so CI's `nix flake check` owns the evaluation and this check owns the shape.
+- The crate refusal is matched as adjacent live lines, because `#[cfg]` governs the item that follows it and a commented-out block keeps its text.
+- The retired-artifact list is finite and closed. It holds every artifact this project shipped and no longer ships. A document inventing support for a target the project never built is a different defect, and review catches that one.
 
 #### Scenario: The declaration grows a second target
 
 - GIVEN `dist-workspace.toml` declaring a target beside `x86_64-unknown-linux-gnu`
 - WHEN the canon test suite runs
-- THEN it fails naming the declaration, because no job in the ordinary required path compiles the added target
+- THEN it fails naming the declaration, whatever the added triple is, because it compares the parsed target list rather than searching the file for a string
 
-#### Scenario: A document keeps advertising a retired platform
+#### Scenario: The flake exposes a second system
+
+- GIVEN `flake.nix` mapping its outputs over a system set, or keying an output by anything but the one system binding
+- WHEN the canon test suite runs
+- THEN it fails naming the key it found, because `nix flake check` without `--all-systems` checks the system it runs on and proves nothing about the others
+
+#### Scenario: The crate refusal is commented out
+
+- GIVEN `src/lib.rs` whose `compile_error!` block is prefixed with `//`
+- WHEN the canon test suite runs
+- THEN it fails, because the attribute no longer sits on a live macro invocation, even though both strings remain in the file
+
+#### Scenario: A document keeps advertising a retired artifact
 
 - GIVEN a README line naming a retired target triple or a retired installer artifact
 - WHEN the canon test suite runs

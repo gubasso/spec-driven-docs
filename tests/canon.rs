@@ -2021,29 +2021,134 @@ fn the_managed_documentation_block_names_the_index_verb_and_stays_within_its_bud
 /// (ADR-linux-is-the-only-supported-target).
 #[test]
 fn the_declaration_names_one_target_and_the_crate_refuses_the_rest() {
-    let declaration = std::fs::read_to_string(canon().join("dist-workspace.toml")).unwrap();
-    assert!(
-        declaration.contains(r#"targets = ["x86_64-unknown-linux-gnu"]"#),
+    let text = std::fs::read_to_string(canon().join("dist-workspace.toml")).unwrap();
+    let declaration: toml::Value = toml::from_str(&text).unwrap();
+    let dist = declaration
+        .get("dist")
+        .expect("dist-workspace.toml carries no [dist] table");
+
+    let list = |key: &str| -> Vec<String> {
+        dist.get(key)
+            .and_then(toml::Value::as_array)
+            .unwrap_or_else(|| panic!("dist-workspace.toml declares no {key}"))
+            .iter()
+            .map(|held| held.as_str().unwrap_or_default().to_string())
+            .collect()
+    };
+
+    assert_eq!(
+        list("targets"),
+        vec!["x86_64-unknown-linux-gnu".to_string()],
         "dist-workspace.toml declares a target set other than the one supported target"
     );
-    assert!(
-        declaration.contains(r#"installers = ["shell"]"#),
-        "dist-workspace.toml declares an installer for a platform this project does not support"
+    assert_eq!(
+        list("installers"),
+        vec!["shell".to_string()],
+        "dist-workspace.toml declares an installer set other than the one supported installer"
     );
 
+    // Two independent substring searches used to stand here, and both stayed
+    // true when the whole refusal was commented out: `//` in front of a line
+    // does not remove its text. The attribute and the macro are therefore
+    // matched as adjacent live lines, which is what `#[cfg]` actually means —
+    // it governs the item that follows it.
     let root = std::fs::read_to_string(canon().join("src/lib.rs")).unwrap();
+    let live: Vec<&str> = root
+        .lines()
+        .map(str::trim_start)
+        .filter(|line| !line.is_empty())
+        .collect();
+    let attached = live.windows(2).any(|pair| {
+        pair[0] == r#"#[cfg(not(target_os = "linux"))]"# && pair[1].starts_with("compile_error!")
+    });
     assert!(
-        root.contains(r#"#[cfg(not(target_os = "linux"))]"#) && root.contains("compile_error!"),
-        "src/lib.rs carries no compile-time refusal for an unsupported operating system"
+        attached,
+        "src/lib.rs carries no live compile-time refusal for an unsupported \
+         operating system: the #[cfg(not(target_os = \"linux\"))] attribute \
+         must sit directly on a compile_error! invocation"
+    );
+}
+
+/// SATISFIES release:the-binary-builds-for-every-declared-target
+///
+/// The Nix output set is the second half of the support boundary, and the
+/// document scan cannot hold it: a reintroduced `eachDefaultSystem` names no
+/// triple, and `packages.aarch64-linux.default` spells its system
+/// differently from any Rust target. `nix flake check` does not close the
+/// gap either, because without `--all-systems` it checks the system it runs
+/// on and says nothing about the others the flake exposes.
+///
+/// So the flake is read here. One system, bound once, named on every output
+/// through that one binding, and no mapping over a system set.
+///
+/// This holds the flake's authored shape and not its evaluation. Evaluating
+/// it would need Nix on the test host, which this suite does not assume. The
+/// division is deliberate and the specification states it: this test owns the
+/// shape, and CI's `nix flake check` owns the evaluation.
+#[test]
+fn the_flake_declares_one_system() {
+    /// The output families whose first key is a system.
+    const FAMILIES: [&str; 5] = ["packages.", "devShells.", "checks.", "formatter.", "apps."];
+    /// The one key any of those families may carry.
+    const ONLY: &str = "${system}";
+
+    let flake = std::fs::read_to_string(canon().join("flake.nix")).unwrap();
+
+    assert!(
+        flake.contains(r#"system = "x86_64-linux";"#),
+        "flake.nix does not bind the one supported Nix system"
+    );
+    for mapping in [
+        "eachDefaultSystem",
+        "eachSystem",
+        "forAllSystems",
+        "genAttrs",
+    ] {
+        assert!(
+            !flake.contains(mapping),
+            "flake.nix maps its outputs over a system set through {mapping}; \
+             one system is declared, so the outputs name it directly"
+        );
+    }
+
+    // Every system key is compared against the one binding, rather than
+    // filtered for literals. An interpolation used to be skipped outright,
+    // so `packages.${otherSystem}.default` passed while exposing a second
+    // system; Nix takes an interpolated attribute name as ordinary syntax.
+    // A key ends at the next `.`, at whitespace, or at the `=` that opens its
+    // value, so `checks.${system} = {` yields `${system}` and not the rest of
+    // the line.
+    let keys: std::collections::BTreeSet<&str> = FAMILIES
+        .iter()
+        .flat_map(|family| flake.match_indices(family))
+        .map(|(at, family)| {
+            let rest = &flake[at + family.len()..];
+            let end = rest
+                .find(['.', ' ', '\t', '\n', '=', ';'])
+                .unwrap_or(rest.len());
+            &rest[..end]
+        })
+        .filter(|held| *held != ONLY)
+        .collect();
+    assert!(
+        keys.is_empty(),
+        "flake.nix keys an output by something other than {ONLY}, so it can \
+         expose a system beside the declared one: {keys:?}"
     );
 }
 
 /// SATISFIES release:the-binary-builds-for-every-declared-target
 ///
 /// The support boundary is also a claim, and a claim outlives the code that
-/// made it. This walks the live product surface for a platform the project
-/// no longer supports, so a README line or a spec sentence cannot keep
-/// advertising one after the target left.
+/// made it. This walks the live product surface for an artifact the project
+/// used to build, so a README line or a spec sentence cannot keep
+/// advertising one after its target left.
+///
+/// The list is finite and closed, and the name says so. It holds the four
+/// retired triples and the two spellings of the retired installer, which is
+/// every artifact this project ever shipped and no longer does. A document
+/// inventing support for a target the project never built is a different
+/// defect, which no list of retired names can catch and which review does.
 ///
 /// The exemptions each have their own reason. Decision records and the
 /// changelog are history, and are the only zones allowed to name what was
@@ -2052,7 +2157,7 @@ fn the_declaration_names_one_target_and_the_crate_refuses_the_rest() {
 /// it. This file names the claims it searches for. The generated workflow
 /// has its own check below.
 #[test]
-fn no_live_document_advertises_an_unsupported_platform() {
+fn no_live_document_advertises_a_retired_artifact() {
     const CLAIMS: [&str; 6] = [
         "aarch64-apple-darwin",
         "x86_64-apple-darwin",
