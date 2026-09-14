@@ -125,6 +125,7 @@ rule_ids! {
     ApplyResolvesNothing => "reconcile:an-apply-resolves-nothing",
     TargetRecordsTheReleaseItHolds => "reconcile:a-target-records-the-release-it-holds",
     ReleaseDeclaresWhatItAsksOfItsOperator => "reconcile:a-release-declares-what-it-asks-of-its-operator",
+    BinaryBuildsForEveryDeclaredTarget => "release:the-binary-builds-for-every-declared-target",
     OneCatalogDescribesEveryServedDocument => "docs-discovery:one-catalog-describes-every-served-document",
     InstanceIsRoutedToTheIndex => "docs-discovery:an-instance-is-routed-to-the-index",
     AuthorInstructionsStayWithinBudget => "docs-format:author-instructions-stay-within-budget",

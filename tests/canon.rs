@@ -2005,3 +2005,62 @@ fn the_managed_documentation_block_names_the_index_verb_and_stays_within_its_bud
         "the managed documentation block runs {lines} lines against its 10-line budget"
     );
 }
+
+/// SATISFIES release:the-binary-builds-for-every-declared-target
+///
+/// `dist-workspace.toml` declares a Windows target, so the binary has to
+/// compile there. Nothing in the ordinary CI run builds it: the only job
+/// that does runs on a tag, which is after the release decision. So a
+/// platform-only call reaching production code is caught here instead,
+/// where every run sees it.
+///
+/// Test code is exempt. The suite runs on the platforms that develop this
+/// tool, and `cargo dist` builds the binary rather than the tests.
+#[test]
+fn no_production_code_names_a_platform_module_unguarded() {
+    /// How far above a call a `#[cfg]` still covers it.
+    ///
+    /// A guard sits on the item, and an item's signature and doc comment
+    /// separate the two. This is a heuristic rather than a parse, and it
+    /// errs toward asking for a guard nearby.
+    const REACH: usize = 20;
+
+    for entry in walkdir::WalkDir::new(canon().join("src"))
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|entry| entry.path().extension().is_some_and(|held| held == "rs"))
+    {
+        let relative = entry
+            .path()
+            .strip_prefix(canon())
+            .unwrap_or_else(|_| entry.path())
+            .to_string_lossy()
+            .to_string();
+        let text = std::fs::read_to_string(entry.path()).unwrap_or_default();
+        // Everything from the test module down is this platform's business.
+        let production: Vec<&str> = text
+            .split("#[cfg(test)]")
+            .next()
+            .unwrap_or_default()
+            .lines()
+            .collect();
+        for (index, line) in production.iter().enumerate() {
+            if !line.contains("os::unix") && !line.contains("os::windows") {
+                continue;
+            }
+            let guarded = production[index.saturating_sub(REACH)..=index]
+                .iter()
+                .any(|above| {
+                    let held = above.trim_start();
+                    held.starts_with("#[cfg(unix)]")
+                        || held.starts_with("#[cfg(windows)]")
+                        || held.starts_with("#[cfg(target_family")
+                });
+            assert!(
+                guarded,
+                "{relative}:{}: production code names a platform module with no #[cfg] above it",
+                index + 1
+            );
+        }
+    }
+}
