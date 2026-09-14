@@ -99,6 +99,7 @@ rule_ids! {
     UpgradeConflictsAreAtomic => "distribution:upgrade-conflicts-are-atomic",
     UserScopeFilesStayUnrecorded => "distribution:user-scope-files-stay-unrecorded",
     UserScopeReceiptIsRequiredState => "distribution:a-user-scope-receipt-is-required-state",
+    MachineScopeRecipeDropsASessionVariable => "release:a-machine-scope-recipe-drops-a-session-variable",
     PlanIsStoredAndAppliedByItsId => "reconcile:a-plan-is-stored-and-applied-by-its-id",
     ApplyRefusesAPlanWhoseInputsMoved => "reconcile:an-apply-refuses-a-plan-whose-inputs-moved",
     OneWriterHoldsATarget => "reconcile:one-writer-holds-a-target",

@@ -16,6 +16,7 @@
   - [`release:third-party-notices-travel-with-the-payload` — Third-party notices travel with the payload](#releasethird-party-notices-travel-with-the-payload--third-party-notices-travel-with-the-payload)
   - [`release:every-release-declares-what-it-asks` — Every release declares what it asks](#releaseevery-release-declares-what-it-asks--every-release-declares-what-it-asks)
   - [`release:the-binary-builds-for-every-declared-target` — The binary builds for every declared target](#releasethe-binary-builds-for-every-declared-target--the-binary-builds-for-every-declared-target)
+  - [`release:a-machine-scope-recipe-drops-a-session-variable` — A machine-scope recipe drops a session variable](#releasea-machine-scope-recipe-drops-a-session-variable--a-machine-scope-recipe-drops-a-session-variable)
 
 <!--TOC-->
 
@@ -178,5 +179,17 @@ Verify: `cargo nextest run -E 'binary(canon)'`
 - GIVEN a README line naming a retired target triple or a retired installer artifact
 - WHEN the canon test suite runs
 - THEN it fails naming the file and the claim, because a support claim outlives the code that made it
+
+Verify: `cargo nextest run -E 'binary(canon)'`
+
+### `release:a-machine-scope-recipe-drops-a-session-variable` — A machine-scope recipe drops a session variable
+
+The `install` and `uninstall` recipes install this checkout for the machine, so their skill step MUST run without the variable that relocates the Claude configuration directory. A session wrapper sets that variable per terminal, to an isolated directory it owns and seats its own links in, so an inherited value aims a machine-scope install at one terminal and refuses at the wrapper's link on the way. The verb itself MUST keep honouring the variable, which is what installing into a relocated directory needs.
+
+#### Scenario: The recipe stops dropping the variable
+
+- GIVEN an `install` or `uninstall` recipe whose skill step no longer drops the variable
+- WHEN the canon test suite runs
+- THEN it fails naming the recipe, because every other test proves the verb's relocation default on purpose and none of them would notice
 
 Verify: `cargo nextest run -E 'binary(canon)'`

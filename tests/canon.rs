@@ -2128,3 +2128,30 @@ fn the_generated_workflow_names_no_unsupported_artifact() {
         );
     }
 }
+
+/// SATISFIES release:a-machine-scope-recipe-drops-a-session-variable
+///
+/// The whole behavior is two words in a recipe, so a refactor that tidies the
+/// recipe removes it silently and every other test stays green: the binary
+/// tests prove the opposite default on purpose, because the verb honours the
+/// variable everywhere else. This is the only thing standing between a
+/// machine-scope install and one terminal's isolated configuration directory.
+///
+/// The variable is matched by name rather than by the whole `env` prefix, so
+/// a later recipe that drops it another way still passes. What must not
+/// happen is the skill step reaching `sdd` with the value inherited.
+#[test]
+fn the_install_recipes_drop_the_session_configuration_variable() {
+    let justfile = read("justfile");
+    for verb in ["install", "uninstall"] {
+        let line = justfile
+            .lines()
+            .find(|line| line.contains(&format!("sdd skill {verb}")))
+            .unwrap_or_else(|| panic!("the {verb} recipe no longer runs sdd skill {verb}"));
+        assert!(
+            line.contains("CLAUDE_CONFIG_DIR"),
+            "the {verb} recipe inherits CLAUDE_CONFIG_DIR, so a run inside a session \
+             wrapper would target that one terminal rather than the user's own roots: {line}"
+        );
+    }
+}
