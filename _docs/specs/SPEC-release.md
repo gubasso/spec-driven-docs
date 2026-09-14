@@ -165,12 +165,18 @@ Verify: `cargo nextest run -E 'binary(canon)'`
 
 ### `release:the-binary-builds-for-every-declared-target` — The binary builds for every declared target
 
-Production code MUST NOT name a platform module without a `#[cfg]` guarding it, for every target `dist-workspace.toml` declares. Test code is exempt: the suite runs on the platforms that develop this tool, and the installer build carries the binary rather than the tests.
+`dist-workspace.toml` MUST declare exactly one target, `x86_64-unknown-linux-gnu`, and exactly one installer, `shell`. The crate root MUST refuse a build for another operating system at compile time. No live document outside the decision records and the changelog MUST name a target triple or an installer artifact the project does not build. The ordinary required pull-request job compiles the declared target, so that compilation is the evidence this rule rests on, and no lexical scan of source text substitutes for it.
 
-#### Scenario: A Unix-only call reaches a shared code path
+#### Scenario: The declaration grows a second target
 
-- GIVEN a function using `std::os::unix` with no `#[cfg(unix)]` above it
+- GIVEN `dist-workspace.toml` declaring a target beside `x86_64-unknown-linux-gnu`
 - WHEN the canon test suite runs
-- THEN it fails naming the file and line, because the only job that compiles for Windows runs on a tag, which is after the release decision
+- THEN it fails naming the declaration, because no job in the ordinary required path compiles the added target
+
+#### Scenario: A document keeps advertising a retired platform
+
+- GIVEN a README line naming a retired target triple or a retired installer artifact
+- WHEN the canon test suite runs
+- THEN it fails naming the file and the claim, because a support claim outlives the code that made it
 
 Verify: `cargo nextest run -E 'binary(canon)'`

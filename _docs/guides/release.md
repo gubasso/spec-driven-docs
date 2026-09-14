@@ -32,7 +32,7 @@ gh run watch --repo <repo> --exit-status <release.yml run>
 # 6. verify
 ```
 
-Two of these are easy to skip and both have bitten this repository. Step 2 is the only point a changelog correction still reaches the release. release-plz rewrites its branch, corrections included, whenever work lands on `master` while the request is open. Step 5 is why a check run straight after the merge reports the release as not found: cargo-dist creates it after every platform builds, about six minutes later.
+Two of these are easy to skip and both have bitten this repository. Step 2 is the only point a changelog correction still reaches the release. release-plz rewrites its branch, corrections included, whenever work lands on `master` while the request is open. Step 5 is why a check run straight after the merge reports the release as not found: cargo-dist creates it after the x86_64 Linux build finishes, a few minutes later.
 
 1. Land the work on `master` through its one path: a short-lived branch in its worktree, a pull request whose title is a scoped Conventional Commit, a squash merge. Each landing makes release-plz refresh the release pull request so it always proposes releasing the trunk's tip:
 
@@ -74,7 +74,7 @@ Two of these are easy to skip and both have bitten this repository. Step 2 is th
    # check: the newest run on master concluded success
    ```
 
-5. Wait for the installer build before verifying anything. cargo-dist creates the GitHub release in its host job, after every platform has built and its artifacts are attested. As a result, no release exists for about six minutes after the merge, and `gh release view` reports that it is not found:
+5. Wait for the installer build before verifying anything. cargo-dist creates the GitHub release in its host job, after the x86_64 Linux build finishes and its artifacts are attested. As a result, no release exists for a few minutes after the merge, and `gh release view` reports that it is not found:
 
    ```bash
    gh run watch --repo gubasso/spec-driven-docs --exit-status \

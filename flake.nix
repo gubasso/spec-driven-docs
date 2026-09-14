@@ -3,7 +3,6 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    flake-utils.url = "github:numtide/flake-utils";
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -26,78 +25,82 @@
     {
       self,
       nixpkgs,
-      flake-utils,
       rust-overlay,
       release-kit,
     }:
-    flake-utils.lib.eachDefaultSystem (
-      system:
-      let
-        pkgs = import nixpkgs {
-          inherit system;
-          overlays = [ (import rust-overlay) ];
+    let
+      # One system, declared here rather than mapped over a default set.
+      # x86_64 Linux is the only target this project releases and the only
+      # one its required check compiles, so a flake that offered more would
+      # advertise support nothing proves
+      # (ADR-linux-is-the-only-supported-target).
+      system = "x86_64-linux";
+      pkgs = import nixpkgs {
+        inherit system;
+        overlays = [ (import rust-overlay) ];
+      };
+      toolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+      rk = release-kit.packages.${system}.default;
+    in
+    {
+      # What belongs here: a tool this project pins, a runtime pre-commit
+      # needs to build a hook environment, and a command this project's own
+      # documents tell a reader to run. What does not: the host baseline.
+      # git is assumed present, because a pre-commit hook has no meaning
+      # without it; the Rust toolchain comes from rust-toolchain.toml
+      # through the overlay so CI and local development share one compiler.
+      # curl is named because the source check in comparison-docs/SOURCES.md
+      # calls it. rk comes from the release-kit flake input, pinned by its
+      # tag, and `rk self-depend sync` moves that pin from .envrc.
+      devShells.${system}.default = pkgs.mkShell {
+        packages = [
+          toolchain
+          rk
+          pkgs.cargo-nextest
+          pkgs.cargo-deny
+          pkgs.just
+          pkgs.pre-commit
+          pkgs.dprint
+          pkgs.editorconfig-checker
+          pkgs.nodejs
+          pkgs.ripgrep
+          pkgs.python3Packages.md-toc
+          pkgs.typos
+          pkgs.committed
+          pkgs.markdownlint-cli2
+          pkgs.lychee
+          pkgs.ripsecrets
+          pkgs.shellcheck
+          pkgs.shfmt
+          pkgs.jq
+          pkgs.check-jsonschema
+          pkgs.curl
+        ];
+      };
+      # The binary this repository publishes, built under Nix from the
+      # committed lock. nix/package.nix is release-kit's seed, tuned here;
+      # the rustPlatform argument is the override that matters, so the
+      # package and the devshell compile with the one pinned toolchain
+      # rather than whatever nixpkgs carries.
+      packages.${system}.default = pkgs.callPackage ./nix/package.nix {
+        rustPlatform = pkgs.makeRustPlatform {
+          cargo = toolchain;
+          rustc = toolchain;
         };
-        toolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
-        rk = release-kit.packages.${system}.default;
-      in
-      {
-        # What belongs here: a tool this project pins, a runtime pre-commit
-        # needs to build a hook environment, and a command this project's own
-        # documents tell a reader to run. What does not: the host baseline.
-        # git is assumed present, because a pre-commit hook has no meaning
-        # without it; the Rust toolchain comes from rust-toolchain.toml
-        # through the overlay so CI and local development share one compiler.
-        # curl is named because the source check in comparison-docs/SOURCES.md
-        # calls it. rk comes from the release-kit flake input, pinned by its
-        # tag, and `rk self-depend sync` moves that pin from .envrc.
-        devShells.default = pkgs.mkShell {
-          packages = [
-            toolchain
-            rk
-            pkgs.cargo-nextest
-            pkgs.cargo-deny
-            pkgs.just
-            pkgs.pre-commit
-            pkgs.dprint
-            pkgs.editorconfig-checker
-            pkgs.nodejs
-            pkgs.ripgrep
-            pkgs.python3Packages.md-toc
-            pkgs.typos
-            pkgs.committed
-            pkgs.markdownlint-cli2
-            pkgs.lychee
-            pkgs.ripsecrets
-            pkgs.shellcheck
-            pkgs.shfmt
-            pkgs.jq
-            pkgs.check-jsonschema
-            pkgs.curl
-          ];
-        };
-        # The binary this repository publishes, built under Nix from the
-        # committed lock. nix/package.nix is release-kit's seed, tuned here;
-        # the rustPlatform argument is the override that matters, so the
-        # package and the devshell compile with the one pinned toolchain
-        # rather than whatever nixpkgs carries.
-        packages.default = pkgs.callPackage ./nix/package.nix {
-          rustPlatform = pkgs.makeRustPlatform {
-            cargo = toolchain;
-            rustc = toolchain;
-          };
-        };
-        checks.package = self.packages.${system}.default;
+      };
+      checks.${system} = {
+        package = self.packages.${system}.default;
         # The built binary answers at all. nix flake check builds only the
         # checks output, so the package is named there as well.
-        checks.smoke = pkgs.runCommand "spec-driven-docs-smoke" { } ''
+        smoke = pkgs.runCommand "spec-driven-docs-smoke" { } ''
           ${pkgs.lib.getExe self.packages.${system}.default} --version
           touch $out
         '';
-        checks.shell = pkgs.runCommand "spec-driven-docs-shell" { } ''
+        shell = pkgs.runCommand "spec-driven-docs-shell" { } ''
           test -x ${pkgs.bash}/bin/bash
           touch $out
         '';
-        formatter = pkgs.nixfmt-rfc-style;
-      }
-    );
+      };
+      formatter.${system} = pkgs.nixfmt-rfc-style;
+    };
 }

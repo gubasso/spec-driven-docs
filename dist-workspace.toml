@@ -7,12 +7,16 @@ members = ["cargo:."]
 cargo-dist-version = "0.32.0"
 # CI backends to support
 ci = "github"
-# The installers to generate for each app. A homebrew installer would need
-# a tap repository plus a HOMEBREW_TAP_TOKEN secret; shell, powershell, and
-# cargo-binstall cover every platform without that infrastructure.
-installers = ["shell", "powershell"]
-# Target platforms to build apps for (Rust target-triple syntax)
-targets = ["aarch64-apple-darwin", "aarch64-unknown-linux-gnu", "x86_64-apple-darwin", "x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc"]
+# The installers to generate for each app. The shell installer and
+# cargo-binstall cover the one target this project releases
+# (ADR-linux-is-the-only-supported-target). A homebrew installer would need
+# a tap repository plus a HOMEBREW_TAP_TOKEN secret, and it serves a
+# platform this project does not support.
+installers = ["shell"]
+# Target platforms to build apps for (Rust target-triple syntax). One entry,
+# and the ordinary required pull-request job compiles it, so the build is
+# the whole evidence that every declared target builds.
+targets = ["x86_64-unknown-linux-gnu"]
 # Which actions to run on pull requests. The generated workflow triggers on
 # a pull request under any other mode, and no gate in another file can need a
 # job declared there, so the one required check does not hold what it reports.
