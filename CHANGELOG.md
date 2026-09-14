@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.1](https://github.com/gubasso/spec-driven-docs/compare/v0.10.0...v0.10.1) - 2026-09-14
+
+### Fixed
+
+- *(distribution/install)* Install for the machine, not for one terminal ([#102](https://github.com/gubasso/spec-driven-docs/pull/102))
+
 ## [0.10.0](https://github.com/gubasso/spec-driven-docs/compare/v0.9.3...v0.10.0) - 2026-09-14
 
 ### Added
