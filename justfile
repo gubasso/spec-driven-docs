@@ -35,14 +35,24 @@ build:
 check: lint test build
 
 # Install this checkout as the user's sdd, plus the user-scope agent skills.
+#
+# `CLAUDE_CONFIG_DIR` is dropped for the skill step alone, because these two
+# recipes install for the machine and that variable names one session. A
+# session wrapper sets it per terminal to an isolated directory it owns, so an
+# install inheriting it would write that terminal's directory instead of the
+# user's, and would refuse at the wrapper's own declared link on the way. The
+# verb still honours the variable everywhere else, which is what an install
+# into a relocated configuration directory needs.
 install:
     cargo install --path . --locked
-    sdd skill install --apply
+    env -u CLAUDE_CONFIG_DIR sdd skill install --apply
 
 # Remove the user-scope skills, then the binary; the binary owns the file
-# list, so the skills go first, while it still exists.
+# list, so the skills go first, while it still exists. The variable is dropped
+# for the same reason as the install above: the removal must reach the files
+# the install wrote.
 uninstall:
-    sdd skill uninstall --apply
+    env -u CLAUDE_CONFIG_DIR sdd skill uninstall --apply
     cargo uninstall spec-driven-docs
 
 instantiate target profile="knowledge-base":
