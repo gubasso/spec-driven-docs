@@ -129,7 +129,7 @@ Verify: `pre-commit run cargo-test --all-files`
 
 ### `release:the-rk-pin-has-two-facts-and-one-mover` — The rk pin has two facts and one mover
 
-The devshell's pinned release-workflow CLI MUST have two facts and one mover: its version is the tag in its flake input URL in `flake.nix`, and its content is that input's node in `flake.lock`. `rk devshell sync`, invoked from `.envrc`, is the only thing that moves either. This project MUST carry no second mechanism over those files, because their transaction belongs to the CLI's own verb and two movers undo each other.
+The devshell's pinned release-workflow CLI MUST have two facts and one mover: its version is the tag in its flake input URL in `flake.nix`, and its content is that input's node in `flake.lock`. `rk self-depend sync`, invoked from `.envrc`, is the only thing that moves either. This project MUST carry no second mechanism over those files, because their transaction belongs to the CLI's own verb and two movers undo each other.
 
 #### Scenario: A second mechanism rewrites the pin
 
@@ -137,7 +137,7 @@ The devshell's pinned release-workflow CLI MUST have two facts and one mover: it
 - WHEN the devshell wiring is judged
 - THEN it is reported as a leftover of a predecessor mechanism, because one project runs one mover
 
-Verify: `rk devshell status --target . --json` reports `ready` and an empty `leftovers` list
+Verify: `rk self-depend status --target . --json` reports `ready` and an empty `leftovers` list
 
 ### `release:third-party-notices-travel-with-the-payload` — Third-party notices travel with the payload
 
