@@ -173,8 +173,8 @@ The ordinary required pull-request job compiles the declared target, so that com
 Each check below states what it holds, because a check that overstates its reach is the defect this rule was rewritten to remove.
 
 - The release declaration is read as parsed data. A comment can carry a string a substring search accepts, so text matching cannot hold a declared list.
-- The flake is read as authored text, and holds its shape rather than its evaluation. Evaluating it needs Nix on the test host, which the suite does not assume, so CI's `nix flake check` owns the evaluation and this check owns the shape.
-- The crate refusal is matched as adjacent live lines, because `#[cfg]` governs the item that follows it and a commented-out block keeps its text.
+- The flake's system set is held by evaluation, in the required job, by `scripts/check-one-system.sh`. The canon test reads `flake.nix` as text and holds one canonical authored form only: Nix spells the same tree several ways, so a nested attribute set declares an output no text scan sees. The cargo test keeps the authored file readable and fails fast without Nix; the evaluated assertion is what holds the boundary. That assertion reads the flake's own outputs rather than the JSON `nix flake show` prints, whose schema differs between Nix versions.
+- The crate refusal is matched as adjacent live lines, with no further `cfg` above them. A commented-out block keeps its text, and a form carrying several `cfg` attributes is removed when any predicate is false.
 - The retired-artifact list is finite and closed. It holds every artifact this project shipped and no longer ships. A document inventing support for a target the project never built is a different defect, and review catches that one.
 
 #### Scenario: The declaration grows a second target
@@ -185,15 +185,15 @@ Each check below states what it holds, because a check that overstates its reach
 
 #### Scenario: The flake exposes a second system
 
-- GIVEN `flake.nix` mapping its outputs over a system set, or keying an output by anything but the one system binding
-- WHEN the canon test suite runs
-- THEN it fails naming the key it found, because `nix flake check` without `--all-systems` checks the system it runs on and proves nothing about the others
+- GIVEN `flake.nix` exposing an output for a system beside `x86_64-linux`, however it is spelled
+- WHEN the required job runs
+- THEN `scripts/check-one-system.sh` names the systems it found and the job fails, because `nix flake check` without `--all-systems` checks the system it runs on and proves nothing about the others
 
-#### Scenario: The crate refusal is commented out
+#### Scenario: The crate refusal is disabled
 
-- GIVEN `src/lib.rs` whose `compile_error!` block is prefixed with `//`
+- GIVEN `src/lib.rs` whose `compile_error!` block is commented out, or carries a second `cfg` above the negated-Linux one
 - WHEN the canon test suite runs
-- THEN it fails, because the attribute no longer sits on a live macro invocation, even though both strings remain in the file
+- THEN it fails, because the attribute no longer governs a live macro invocation, even though every string remains in the file
 
 #### Scenario: A document keeps advertising a retired artifact
 

@@ -2049,23 +2049,35 @@ fn the_declaration_names_one_target_and_the_crate_refuses_the_rest() {
 
     // Two independent substring searches used to stand here, and both stayed
     // true when the whole refusal was commented out: `//` in front of a line
-    // does not remove its text. The attribute and the macro are therefore
-    // matched as adjacent live lines, which is what `#[cfg]` actually means —
-    // it governs the item that follows it.
+    // does not remove its text. The attribute and the macro are matched as
+    // adjacent live lines instead, which is what `#[cfg]` means — it governs
+    // the item that follows it.
+    //
+    // The line above the attribute is checked too. A form may carry several
+    // `cfg` attributes and Rust removes it when any predicate is false, so a
+    // `#[cfg(target_os = "linux")]` stacked on top would delete the refusal
+    // on every operating system while leaving the pair below it intact.
     let root = std::fs::read_to_string(canon().join("src/lib.rs")).unwrap();
     let live: Vec<&str> = root
         .lines()
         .map(str::trim_start)
         .filter(|line| !line.is_empty())
         .collect();
-    let attached = live.windows(2).any(|pair| {
-        pair[0] == r#"#[cfg(not(target_os = "linux"))]"# && pair[1].starts_with("compile_error!")
+    let attached = live.windows(2).enumerate().any(|(at, pair)| {
+        let stacked = at
+            .checked_sub(1)
+            .and_then(|above| live.get(above))
+            .is_some_and(|above| above.starts_with("#[cfg"));
+        pair[0] == r#"#[cfg(not(target_os = "linux"))]"#
+            && pair[1].starts_with("compile_error!")
+            && !stacked
     });
     assert!(
         attached,
         "src/lib.rs carries no live compile-time refusal for an unsupported \
          operating system: the #[cfg(not(target_os = \"linux\"))] attribute \
-         must sit directly on a compile_error! invocation"
+         must sit directly on a compile_error! invocation, with no further \
+         cfg above it that could remove the item"
     );
 }
 
@@ -2081,10 +2093,16 @@ fn the_declaration_names_one_target_and_the_crate_refuses_the_rest() {
 /// So the flake is read here. One system, bound once, named on every output
 /// through that one binding, and no mapping over a system set.
 ///
-/// This holds the flake's authored shape and not its evaluation. Evaluating
-/// it would need Nix on the test host, which this suite does not assume. The
-/// division is deliberate and the specification states it: this test owns the
-/// shape, and CI's `nix flake check` owns the evaluation.
+/// This holds one canonical authored form and nothing more. It reads text,
+/// so a nested attribute set — `packages = { ${other}.default = ...; }` —
+/// declares an output this scan never sees, and no amount of text matching
+/// closes that, because Nix has more than one spelling for the same tree.
+///
+/// The evaluated guarantee lives in CI, where Nix exists:
+/// `scripts/check-one-system.sh` asks the evaluator which systems the flake
+/// exposes and refuses any set but the one supported system. That is the
+/// check that holds the boundary. This one keeps the authored file in the
+/// shape a reader expects, and fails fast without Nix installed.
 #[test]
 fn the_flake_declares_one_system() {
     /// The output families whose first key is a system.
