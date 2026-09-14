@@ -1698,8 +1698,41 @@ fn every_landing_verb_takes_a_release_bundle() {
 }
 
 /// SATISFIES bundle:a-pre-schema-release-is-cataloged-or-unavailable
+///
+/// The packaging configuration is what decides this, and it is readable
+/// without running anything: a path the manifest excludes is a path the
+/// published crate does not carry. `cargo package --list` answers the same
+/// question and is consulted where it can, which is a checkout with its
+/// git directory. Without one, cargo walks the filesystem instead and
+/// skips every hidden entry, so it would report `.markdownlint` missing
+/// from a crate that carries it.
 #[test]
 fn the_published_crate_carries_the_payload_and_the_release_catalog() {
+    let wanted: Vec<String> = PAYLOAD_ROOTS
+        .iter()
+        .map(|root| (*root).to_string())
+        .chain(["release-compat".to_string()])
+        .collect();
+
+    let manifest = read("Cargo.toml");
+    let excluded: Vec<&str> = manifest
+        .lines()
+        .skip_while(|line| !line.starts_with("exclude = ["))
+        .skip(1)
+        .take_while(|line| !line.starts_with(']'))
+        .map(|line| line.trim().trim_matches(|held| held == '"' || held == ','))
+        .collect();
+    for root in &wanted {
+        let named = format!("/{root}");
+        assert!(
+            !excluded.contains(&named.as_str()),
+            "Cargo.toml excludes {root}, so the published crate would not carry it"
+        );
+    }
+
+    if !canon().join(".git").exists() {
+        return;
+    }
     let listed = std::process::Command::new(env!("CARGO"))
         .args(["package", "--list", "--allow-dirty", "--quiet"])
         .current_dir(canon())
@@ -1711,7 +1744,7 @@ fn the_published_crate_carries_the_payload_and_the_release_catalog() {
         String::from_utf8_lossy(&listed.stderr)
     );
     let files = String::from_utf8_lossy(&listed.stdout);
-    for root in PAYLOAD_ROOTS {
+    for root in &wanted {
         assert!(
             files
                 .lines()
