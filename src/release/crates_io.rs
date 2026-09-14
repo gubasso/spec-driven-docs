@@ -126,7 +126,11 @@ impl CratesIoResolver {
     pub fn new(cache: &Utf8Path) -> Self {
         Self {
             cache: cache.to_owned(),
-            offline: false,
+            // The variable is the host saying the network is not there,
+            // which is a stronger statement than a flag nobody passed.
+            // The doctor already reads it; so does every read that would
+            // otherwise fail slowly at a name it cannot resolve.
+            offline: crate::domain::paths::variable(crate::domain::paths::OFFLINE_VAR).is_some(),
             index_root: INDEX_ROOT.to_string(),
             catalog: LegacyCatalog::embedded(),
         }
@@ -135,7 +139,7 @@ impl CratesIoResolver {
     /// The same resolver, forbidden to reach the network.
     #[must_use]
     pub const fn offline(mut self, offline: bool) -> Self {
-        self.offline = offline;
+        self.offline = self.offline || offline;
         self
     }
 
@@ -360,6 +364,18 @@ impl ReleaseResolver for CratesIoResolver {
                 ));
             }
             Selector::Exact(version) => {
+                // A release the audit already classified unavailable is
+                // answered from the catalog, before anything is fetched.
+                // Its identity would cost an index read that only ever
+                // leads to the same refusal, and on a host with no network
+                // that read fails at the name rather than at the verdict.
+                if self
+                    .catalog
+                    .entry(&version.to_string())
+                    .is_some_and(|entry| !entry.eligible)
+                {
+                    self.catalog.descriptor(&version.to_string())?;
+                }
                 // An exact selector may be answered from a verified cache,
                 // because the identity of an exact version cannot change.
                 if let Some(held) = self.cached_identity(&version.to_string()) {
