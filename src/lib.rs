@@ -21,6 +21,25 @@
 //!   multi-file write runs through.
 //! - [`cli`] / [`commands`] — clap parse shapes and their handlers.
 //! - [`error`] — [`error::AppError`] and the exit-code matrix.
+//!
+//! # The supported target
+//!
+//! Linux is the only target this crate supports
+//! (ADR-linux-is-the-only-supported-target). The refusal below states that
+//! boundary to the compiler rather than to a reader, because the source is
+//! otherwise portable enough that a build elsewhere would succeed and then
+//! keep promises nothing here proves. The guard names the operating system
+//! and not the architecture: no source in this crate varies by
+//! architecture, and `dist-workspace.toml` states which architecture the
+//! release builds.
+
+#[cfg(not(target_os = "linux"))]
+compile_error!(
+    "spec-driven-docs supports Linux only. Its permission, path, and \
+     filesystem behavior is written and tested against one target, and a \
+     build for another would carry promises this project does not keep. \
+     See _docs/decisions/ADR-linux-is-the-only-supported-target.md."
+);
 
 pub mod adapters;
 pub mod cli;

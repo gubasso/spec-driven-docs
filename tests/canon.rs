@@ -2008,27 +2008,75 @@ fn the_managed_documentation_block_names_the_index_verb_and_stays_within_its_bud
 
 /// SATISFIES release:the-binary-builds-for-every-declared-target
 ///
-/// `dist-workspace.toml` declares a Windows target, so the binary has to
-/// compile there. Nothing in the ordinary CI run builds it: the only job
-/// that does runs on a tag, which is after the release decision. So a
-/// platform-only call reaching production code is caught here instead,
-/// where every run sees it.
+/// One target is declared, and the ordinary required pull-request job
+/// compiles it, so the compiler is the evidence that every declared target
+/// builds. What this test holds is the premise that argument rests on: the
+/// declaration still names one target and one installer, and the crate root
+/// still refuses a build for another operating system.
 ///
-/// Test code is exempt. The suite runs on the platforms that develop this
-/// tool, and `cargo dist` builds the binary rather than the tests.
+/// A lexical scan used to stand in for the compiler here, looking 20 lines
+/// above a `std::os::*` call for a `#[cfg]`. It proved no compilation: a
+/// guarded call that would not build still passed, and a correct call whose
+/// guard sat 21 lines up still failed. It is gone
+/// (ADR-linux-is-the-only-supported-target).
 #[test]
-fn no_production_code_names_a_platform_module_unguarded() {
-    /// How far above a call a `#[cfg]` still covers it.
-    ///
-    /// A guard sits on the item, and an item's signature and doc comment
-    /// separate the two. This is a heuristic rather than a parse, and it
-    /// errs toward asking for a guard nearby.
-    const REACH: usize = 20;
+fn the_declaration_names_one_target_and_the_crate_refuses_the_rest() {
+    let declaration = std::fs::read_to_string(canon().join("dist-workspace.toml")).unwrap();
+    assert!(
+        declaration.contains(r#"targets = ["x86_64-unknown-linux-gnu"]"#),
+        "dist-workspace.toml declares a target set other than the one supported target"
+    );
+    assert!(
+        declaration.contains(r#"installers = ["shell"]"#),
+        "dist-workspace.toml declares an installer for a platform this project does not support"
+    );
 
-    for entry in walkdir::WalkDir::new(canon().join("src"))
+    let root = std::fs::read_to_string(canon().join("src/lib.rs")).unwrap();
+    assert!(
+        root.contains(r#"#[cfg(not(target_os = "linux"))]"#) && root.contains("compile_error!"),
+        "src/lib.rs carries no compile-time refusal for an unsupported operating system"
+    );
+}
+
+/// SATISFIES release:the-binary-builds-for-every-declared-target
+///
+/// The support boundary is also a claim, and a claim outlives the code that
+/// made it. This walks the live product surface for a platform the project
+/// no longer supports, so a README line or a spec sentence cannot keep
+/// advertising one after the target left.
+///
+/// The exemptions each have their own reason. Decision records and the
+/// changelog are history, and are the only zones allowed to name what was
+/// retired. `Cargo.lock` and `flake.lock` record a resolved graph rather
+/// than a support claim, and `deny.toml` names a transitive crate inside
+/// it. This file names the claims it searches for. The generated workflow
+/// has its own check below.
+#[test]
+fn no_live_document_advertises_an_unsupported_platform() {
+    const CLAIMS: [&str; 6] = [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "aarch64-unknown-linux-gnu",
+        "installer.ps1",
+        "powershell",
+    ];
+    const EXEMPT: [&str; 5] = [
+        "CHANGELOG.md",
+        "Cargo.lock",
+        "flake.lock",
+        "deny.toml",
+        "tests/canon.rs",
+    ];
+
+    for entry in walkdir::WalkDir::new(canon())
         .into_iter()
+        .filter_entry(|entry| {
+            let name = entry.file_name().to_string_lossy();
+            name != ".git" && name != "target" && name != ".direnv" && name != ".docs-scratch"
+        })
         .filter_map(Result::ok)
-        .filter(|entry| entry.path().extension().is_some_and(|held| held == "rs"))
+        .filter(|entry| entry.file_type().is_file())
     {
         let relative = entry
             .path()
@@ -2036,31 +2084,47 @@ fn no_production_code_names_a_platform_module_unguarded() {
             .unwrap_or_else(|_| entry.path())
             .to_string_lossy()
             .to_string();
-        let text = std::fs::read_to_string(entry.path()).unwrap_or_default();
-        // Everything from the test module down is this platform's business.
-        let production: Vec<&str> = text
-            .split("#[cfg(test)]")
-            .next()
-            .unwrap_or_default()
-            .lines()
-            .collect();
-        for (index, line) in production.iter().enumerate() {
-            if !line.contains("os::unix") && !line.contains("os::windows") {
-                continue;
-            }
-            let guarded = production[index.saturating_sub(REACH)..=index]
-                .iter()
-                .any(|above| {
-                    let held = above.trim_start();
-                    held.starts_with("#[cfg(unix)]")
-                        || held.starts_with("#[cfg(windows)]")
-                        || held.starts_with("#[cfg(target_family")
-                });
+        if relative.starts_with("_docs/decisions/")
+            || relative.starts_with(".github/workflows/release.yml")
+            || EXEMPT.contains(&relative.as_str())
+        {
+            continue;
+        }
+        let Ok(text) = std::fs::read_to_string(entry.path()) else {
+            continue;
+        };
+        let lowered = text.to_lowercase();
+        for claim in CLAIMS {
             assert!(
-                guarded,
-                "{relative}:{}: production code names a platform module with no #[cfg] above it",
-                index + 1
+                !lowered.contains(claim),
+                "{relative} names {claim}, a platform this project does not support"
             );
         }
+    }
+}
+
+/// SATISFIES release:the-binary-builds-for-every-declared-target
+///
+/// The generated workflow is the file the forge executes, so it gets its own
+/// check rather than an exemption. The pinned generator computes the build
+/// matrix at run time from the committed declaration, so the workflow names
+/// no triple and no installer artifact of its own, and the platform words
+/// its boilerplate does carry — a `core.longpaths` git config and a comment
+/// about GitHub's env-var syntax — advertise nothing. A regenerated file
+/// that named an artifact below would mean the declaration grew a target.
+#[test]
+fn the_generated_workflow_names_no_unsupported_artifact() {
+    let workflow = std::fs::read_to_string(canon().join(".github/workflows/release.yml")).unwrap();
+    for claim in [
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "aarch64-unknown-linux-gnu",
+        "installer.ps1",
+    ] {
+        assert!(
+            !workflow.contains(claim),
+            ".github/workflows/release.yml names {claim}; regenerate it from dist-workspace.toml"
+        );
     }
 }

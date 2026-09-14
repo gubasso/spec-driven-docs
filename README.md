@@ -12,7 +12,9 @@ Two products in one repository. The method is what a reader loads: `method/`, `c
 cargo install spec-driven-docs
 ```
 
-Prebuilt installers ship with each GitHub release, and `cargo binstall spec-driven-docs` resolves them.
+A prebuilt x86_64 Linux archive and a shell installer ship with each GitHub release, and `cargo binstall spec-driven-docs` resolves them.
+
+Linux is the only supported target. A build for another operating system is refused at compile time, and [ADR-linux-is-the-only-supported-target](./_docs/decisions/ADR-linux-is-the-only-supported-target.md) says why.
 
 ## Quick paths
 

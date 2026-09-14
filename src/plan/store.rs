@@ -529,26 +529,17 @@ fn older_than(path: &Utf8Path, now: jiff::Timestamp, days: i64) -> bool {
 /// A plan carries bytes out of a target, and some of those are not the
 /// world's business, so the mode says so on the filesystem rather than
 /// only in a document.
-#[cfg(unix)]
+///
+/// There is one implementation and no `#[cfg]` above it. A second branch
+/// used to return `Ok` off Unix, which made the owner-only promise a
+/// statement the code did not keep on every target the release declared.
+/// Linux is the only supported target now
+/// (ADR-linux-is-the-only-supported-target), so the mode call is the whole
+/// implementation and the executable test below is the whole evidence.
 fn owner_only(path: &Utf8Path) -> std::result::Result<(), AppError> {
     let mut permissions = std::fs::metadata(path)?.permissions();
     std::os::unix::fs::PermissionsExt::set_mode(&mut permissions, 0o700);
     std::fs::set_permissions(path, permissions)?;
-    Ok(())
-}
-
-/// Restrict a directory to its owner, where the platform says how.
-///
-/// Windows carries an access-control list rather than a mode, and the two
-/// are not the same statement. Setting the wrong one would be a claim this
-/// code cannot keep, so it makes none: the store inherits what the parent
-/// grants, which on a user profile directory is already the user's own.
-#[cfg(not(unix))]
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "the signature is the platform-independent one its callers use"
-)]
-const fn owner_only(_path: &Utf8Path) -> std::result::Result<(), AppError> {
     Ok(())
 }
 
