@@ -22,3 +22,12 @@ jobs:
       # unnoticed.
       - run: nix build .#default
       - run: nix flake check
+      # The evaluated half of the support boundary
+      # (release:the-binary-builds-for-every-declared-target). The canon test
+      # reads flake.nix as text and holds one canonical authored form; only an
+      # evaluation says which systems the flake really exposes. `nix flake
+      # check` does not answer it, because without --all-systems it checks the
+      # system it runs on. The script reads the flake's own outputs rather
+      # than the JSON `nix flake show` prints, whose schema differs between
+      # Nix versions; nix/systems.nix carries the reasoning.
+      - run: nix develop --command ./scripts/check-one-system.sh

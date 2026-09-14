@@ -166,15 +166,36 @@ Verify: `cargo nextest run -E 'binary(canon)'`
 
 ### `release:the-binary-builds-for-every-declared-target` — The binary builds for every declared target
 
-`dist-workspace.toml` MUST declare exactly one target, `x86_64-unknown-linux-gnu`, and exactly one installer, `shell`. The crate root MUST refuse a build for another operating system at compile time. No live document outside the decision records and the changelog MUST name a target triple or an installer artifact the project does not build. The ordinary required pull-request job compiles the declared target, so that compilation is the evidence this rule rests on, and no lexical scan of source text substitutes for it.
+`dist-workspace.toml` MUST declare exactly one target, `x86_64-unknown-linux-gnu`, and exactly one installer, `shell`. `flake.nix` MUST bind exactly one Nix system, `x86_64-linux`, MUST map no output over a system set, and MUST key every system-keyed output by that one binding. The crate root MUST carry a `compile_error!` whose `#[cfg]` attribute refuses every operating system but Linux. No live document outside the decision records and the changelog MUST name a retired target triple or a retired installer artifact.
+
+The ordinary required pull-request job compiles the declared target, so that compilation is the evidence this rule rests on, and no lexical scan of source text substitutes for it.
+
+Each check below states what it holds, because a check that overstates its reach is the defect this rule was rewritten to remove.
+
+- The release declaration is read as parsed data. A comment can carry a string a substring search accepts, so text matching cannot hold a declared list.
+- The flake's system set is held by evaluation, in the required job, by `scripts/check-one-system.sh`. The canon test reads `flake.nix` as text and holds one canonical authored form only: Nix spells the same tree several ways, so a nested attribute set declares an output no text scan sees. The cargo test keeps the authored file readable and fails fast without Nix; the evaluated assertion is what holds the boundary. That assertion reads the flake's own outputs rather than the JSON `nix flake show` prints, whose schema differs between Nix versions.
+- The crate refusal is matched as adjacent live lines, with no further `cfg` above them. A commented-out block keeps its text, and a form carrying several `cfg` attributes is removed when any predicate is false.
+- The retired-artifact list is finite and closed. It holds every artifact this project shipped and no longer ships. A document inventing support for a target the project never built is a different defect, and review catches that one.
 
 #### Scenario: The declaration grows a second target
 
 - GIVEN `dist-workspace.toml` declaring a target beside `x86_64-unknown-linux-gnu`
 - WHEN the canon test suite runs
-- THEN it fails naming the declaration, because no job in the ordinary required path compiles the added target
+- THEN it fails naming the declaration, whatever the added triple is, because it compares the parsed target list rather than searching the file for a string
 
-#### Scenario: A document keeps advertising a retired platform
+#### Scenario: The flake exposes a second system
+
+- GIVEN `flake.nix` exposing an output for a system beside `x86_64-linux`, however it is spelled
+- WHEN the required job runs
+- THEN `scripts/check-one-system.sh` names the systems it found and the job fails, because `nix flake check` without `--all-systems` checks the system it runs on and proves nothing about the others
+
+#### Scenario: The crate refusal is disabled
+
+- GIVEN `src/lib.rs` whose `compile_error!` block is commented out, or carries a second `cfg` above the negated-Linux one
+- WHEN the canon test suite runs
+- THEN it fails, because the attribute no longer governs a live macro invocation, even though every string remains in the file
+
+#### Scenario: A document keeps advertising a retired artifact
 
 - GIVEN a README line naming a retired target triple or a retired installer artifact
 - WHEN the canon test suite runs
