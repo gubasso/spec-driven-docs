@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - *(distribution/platform)* Compile the store for every declared target ([#92](https://github.com/gubasso/spec-driven-docs/pull/92))
 
+v0.9.0 published to crates.io with no installers and no GitHub release behind it: the plan store used a Unix mode with no `#[cfg]` guarding it, so the Windows build failed, and the only job that builds for Windows runs on the tag. Install v0.9.1 rather than v0.9.0 wherever an installer or a prebuilt binary is used. `cargo install spec-driven-docs` worked for v0.9.0 on Unix and works for v0.9.1 everywhere.
+
 ## [0.9.0](https://github.com/gubasso/spec-driven-docs/compare/v0.8.1...v0.9.0) - 2026-09-14
 
 ### Added
