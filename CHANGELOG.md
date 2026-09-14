@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.2](https://github.com/gubasso/spec-driven-docs/compare/v0.9.1...v0.9.2) - 2026-09-14
+
+### Other
+
+- *(release-kit)* Take the 0.4.0 landed payload ([#95](https://github.com/gubasso/spec-driven-docs/pull/95))
+
 ## [0.9.1](https://github.com/gubasso/spec-driven-docs/compare/v0.9.0...v0.9.1) - 2026-09-14
 
 ### Fixed
