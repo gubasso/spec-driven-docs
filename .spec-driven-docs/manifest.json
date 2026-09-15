@@ -53,8 +53,8 @@
     {
       "source": "_docs/specs/SPEC-budget-debt.md",
       "destination": "_docs/specs/SPEC-budget-debt.md",
-      "sha256": "1b652c9984683d4732b748ad363d56232095dd5fe9c2d048fd4dab59a468d684",
-      "baseline_sha256": "1b652c9984683d4732b748ad363d56232095dd5fe9c2d048fd4dab59a468d684"
+      "sha256": "9457b1b3a2645b92e34549cc6a28e62c10981b12813c8d1022cc9e519a817e0a",
+      "baseline_sha256": "9457b1b3a2645b92e34549cc6a28e62c10981b12813c8d1022cc9e519a817e0a"
     },
     {
       "source": "_docs/specs/SPEC-bundle.md",
@@ -77,8 +77,8 @@
     {
       "source": "_docs/specs/SPEC-distribution.md",
       "destination": "_docs/specs/SPEC-distribution.md",
-      "sha256": "2a0ca7bde7920bedc184c9142204ed7808af29f2b4d2b6abd5efefe27678c46c",
-      "baseline_sha256": "2a0ca7bde7920bedc184c9142204ed7808af29f2b4d2b6abd5efefe27678c46c"
+      "sha256": "2ea2f1ecce0c60963d59371c3b8df40f2606debead24827af9dfbfee764ba285",
+      "baseline_sha256": "2ea2f1ecce0c60963d59371c3b8df40f2606debead24827af9dfbfee764ba285"
     },
     {
       "source": "_docs/specs/SPEC-docs-discovery.md",
@@ -113,8 +113,8 @@
     {
       "source": "_docs/specs/SPEC-instance.md",
       "destination": "_docs/specs/SPEC-instance.md",
-      "sha256": "f86aa3d3d48dc2028b5baf18bb45f1a7bf5ce0300bbfef39b4d0431919b6aeb9",
-      "baseline_sha256": "f86aa3d3d48dc2028b5baf18bb45f1a7bf5ce0300bbfef39b4d0431919b6aeb9"
+      "sha256": "d1847d3a99810524ded61e0814355632ee2cade0ddc77ccd843f7e852606a9c5",
+      "baseline_sha256": "d1847d3a99810524ded61e0814355632ee2cade0ddc77ccd843f7e852606a9c5"
     },
     {
       "source": "_docs/specs/SPEC-known-issues.md",
@@ -131,14 +131,20 @@
     {
       "source": "_docs/specs/SPEC-release.md",
       "destination": "_docs/specs/SPEC-release.md",
-      "sha256": "fd60d007de4f3abe53992112e1ab5c47e8b5f7638881c19d3f669161d78fa2b8",
-      "baseline_sha256": "fd60d007de4f3abe53992112e1ab5c47e8b5f7638881c19d3f669161d78fa2b8"
+      "sha256": "10d4c728f6831c8e9063e4ac1708de3a6540a1005e0e9247818616312adedde3",
+      "baseline_sha256": "10d4c728f6831c8e9063e4ac1708de3a6540a1005e0e9247818616312adedde3"
     },
     {
       "source": "_docs/specs/SPEC-spec-to-code.md",
       "destination": "_docs/specs/SPEC-spec-to-code.md",
       "sha256": "9dbc4cf57855073b75832342b85e0fd9865d14492e5af66c76b137199f795e6b",
       "baseline_sha256": "9dbc4cf57855073b75832342b85e0fd9865d14492e5af66c76b137199f795e6b"
+    },
+    {
+      "source": "_docs/specs/SPEC-staging.md",
+      "destination": "_docs/specs/SPEC-staging.md",
+      "sha256": "56885d471a2d7e5dcbdd7c081aaa64e16df5d76238cc12412e36e94d3fd738f9",
+      "baseline_sha256": "56885d471a2d7e5dcbdd7c081aaa64e16df5d76238cc12412e36e94d3fd738f9"
     },
     {
       "source": "_docs/specs/SPEC-tracking.md",

@@ -369,6 +369,14 @@ aliases = ["release rules", "versioning"]
 target = { document = { shelf = "spec", name = "release" } }
 
 [[topic]]
+id = "spec-staging"
+title = "Staging and direct landing"
+summary = "The candidate this binary renders, the stage an agent reads, and how a landing writes."
+kind = "spec-seed"
+aliases = ["staging rules", "landing rules"]
+target = { document = { shelf = "spec", name = "staging" } }
+
+[[topic]]
 id = "spec-spec-to-code"
 title = "Rule-to-code rules"
 summary = "Writing a requirement before its behavior, and citing the rule the work enacts."

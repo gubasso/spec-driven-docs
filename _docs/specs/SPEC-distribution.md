@@ -62,7 +62,7 @@ Verify: `cargo nextest run -E 'binary(cmd_init)'`
 
 ### `distribution:instances-operate-offline` — Instances operate offline
 
-The installed binary MUST verify and upgrade an instance without a network or canon checkout, reading the release it carries. A verb that reaches the registry MUST be one the operator asked for by naming another release, and `SPEC-bundle.md` states what that read owes. The readers `sdd docs`, `sdd method`, `sdd spec`, and `sdd template` serve the corpus the binary carries and MUST touch no network, and `SPEC-docs-discovery.md` states what describes that corpus.
+The installed binary MUST verify and upgrade an instance without a network or canon checkout, reading the release it carries. Every verb reads that one release, and `SPEC-staging.md` states why the operator selects it rather than a selector. The readers `sdd docs`, `sdd method`, `sdd spec`, and `sdd template` serve the corpus the binary carries and touch no network, and `SPEC-docs-discovery.md` states what describes that corpus.
 
 #### Scenario: The canon repository is unreachable
 
@@ -74,7 +74,7 @@ Verify: `cargo nextest run -E 'binary(cmd_verify) + binary(cmd_upgrade)'`
 
 ### `distribution:upgrade-conflicts-are-atomic` — Upgrade conflicts are atomic
 
-If a managed file differs from its installed hash, then the upgrader MUST abort without changing the target. Through the engine the same rule is the plan's revalidation: the apply refuses and names what moved, in one pass, with the target byte-identical.
+If a managed file differs from its installed hash, then the upgrader MUST abort without changing the target. It names every conflict in one pass, and it decides before its first write, which `SPEC-staging.md` states as the rule a landing holds for any destination it cannot account for.
 
 #### Scenario: One managed configuration is edited locally
 
@@ -122,15 +122,15 @@ Verify: `cargo nextest run -E 'binary(canon)'`
 
 ### `distribution:a-landing-classifies-its-target-first` — A landing classifies its target first
 
-The planner MUST read a target's classification from the target alone, never from the verb the caller ran, and each front verb MUST refuse a classification it does not serve, naming what was found and the verb that serves it. After the shared pre-flight gate, a skill MUST request a plan rather than route by verb. `sdd assess` MUST keep its three-verdict projection for compatibility: it reports its evidence and exactly one of `brownfield`, `greenfield`, or `needs-decision`, writes nothing, and exits 0.
+The landing MUST read a target's classification from the target alone, never from the verb the caller ran, and each front verb MUST refuse a classification it does not serve, naming what was found and what serves it. After the shared pre-flight gate, a skill reads the classification rather than routing by verb. `sdd assess` MUST keep its three-verdict projection: it reports its evidence and exactly one of `brownfield`, `greenfield`, or `needs-decision`, writes nothing, and exits 0.
 
 #### Scenario: A landing verb meets a target it does not serve
 
 - GIVEN a repository holding a populated documentation root and no instance manifest
 - WHEN `sdd init --target . --profile codebase --apply` runs
-- THEN the command refuses, names the target as a migration, and points at `sdd reconcile plan`, so no seed lands beside the corpus
+- THEN the command refuses, names the target as a migration, and points at `sdd stage` and the setup skill, so no seed lands beside the corpus
 
-Verify: `cargo nextest run -E 'binary(cmd_assess) + binary(cmd_reconcile) + binary(canon)'`
+Verify: `cargo nextest run -E 'binary(cmd_assess) + binary(cmd_stage) + binary(canon)'`
 
 ### `distribution:a-skill-checks-its-host-before-it-plans` — A skill checks its host before it plans
 

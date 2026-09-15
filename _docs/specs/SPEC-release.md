@@ -154,13 +154,15 @@ Verify: `pre-commit run cargo-test --all-files`
 
 ### `release:every-release-declares-what-it-asks` — Every release declares what it asks
 
-Every release MUST add exactly one entry to the guidance ledger, selecting a guidance file or `none`. A release that changes a managed projection's bytes, drops an adopted seed, retires a rule ID, adds a declaration key, or widens a gate's judged set MUST NOT select `none`. Every step MUST name its kind, its destinations, its actor, and a prose body the payload carries, and every release MUST carry its compatibility declaration.
+A release that changes a managed projection's bytes, drops an adopted seed, retires a rule ID, adds a declaration key, or widens a gate's judged set MUST say so in its changelog entry, and the setup skill MUST carry the migration procedure that lands it.
 
-#### Scenario: A release retires a rule and declares nothing
+The instruction an instance takes travels in two places a reader already opens: the changelog says what changed, and the skill says what to do about it. Neither is a protocol one release writes for another to parse.
 
-- GIVEN a release whose diff retires a rule ID and whose ledger entry reads `none`
-- WHEN the canon test suite runs
-- THEN it fails naming the change, because an instance that takes the release has work the release did not describe
+#### Scenario: A release retires a rule ID
+
+- GIVEN a release whose diff retires a rule ID
+- WHEN an operator upgrades an instance onto it
+- THEN the changelog entry names the retirement and the setup skill carries the step that lands it, because an instance that takes a release has work somebody must describe
 
 Verify: `cargo nextest run -E 'binary(canon)'`
 
