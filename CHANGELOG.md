@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.1](https://github.com/gubasso/spec-driven-docs/compare/v0.12.0...v0.12.1) - 2026-09-15
+
+### Fixed
+
+- *(landing)* Leave a target that commits and that holds its pin ([#117](https://github.com/gubasso/spec-driven-docs/pull/117))
+
 ## [0.12.0](https://github.com/gubasso/spec-driven-docs/compare/v0.11.2...v0.12.0) - 2026-09-15
 
 ### Added
