@@ -193,6 +193,52 @@ fn status_exits_zero_for_every_state_it_reports() {
     assert_eq!(report["managers"][0]["version"], "0.10.1");
 }
 
+/// The setup skill offers the wire from `wired` and `envrc_sync` alone, so
+/// the three states it branches on are held here: nothing wired, wired
+/// with the line absent, and wired with the line landed.
+///
+/// VERIFIES acquisition:the-setup-path-offers-the-wire
+#[test]
+fn the_setup_offer_follows_the_wiring_state() {
+    let fixture = Fixture::new();
+    let status = |fixture: &Fixture| {
+        json(sdd(fixture).args([
+            "self-depend",
+            "status",
+            "--target",
+            &fixture.target(),
+            "--json",
+        ]))
+    };
+
+    // No wired manager: nothing to keep fresh, so no offer.
+    let report = status(&fixture);
+    assert_eq!(report["state"], "unwired");
+    assert_eq!(report["wired"], serde_json::Value::Null);
+    assert_eq!(report["envrc_sync"], false);
+
+    // Wired with the line absent: the one state that produces the offer,
+    // and the next line names the verb that serves the line.
+    fixture.write(
+        "mise.toml",
+        "[tools]\n\"cargo:spec-driven-docs\" = \"0.10.1\"\n",
+    );
+    let report = status(&fixture);
+    assert_eq!(report["state"], "line-absent");
+    assert_eq!(report["wired"], "mise");
+    assert_eq!(report["envrc_sync"], false);
+    let next = report["next"][0].as_str().unwrap();
+    assert!(next.contains(SYNC_LINE), "{next}");
+    assert!(next.contains("sdd self-depend add"), "{next}");
+
+    // The line already landed: no offer.
+    fixture.write(".envrc", &format!("{SYNC_LINE}\n"));
+    let report = status(&fixture);
+    assert_eq!(report["state"], "ready");
+    assert_eq!(report["wired"], "mise");
+    assert_eq!(report["envrc_sync"], true);
+}
+
 #[test]
 fn status_reports_the_pin_against_this_binary() {
     let fixture = Fixture::new();

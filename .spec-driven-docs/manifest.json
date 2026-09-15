@@ -25,7 +25,7 @@
     {
       "source": "skills/sdd-setup/SKILL.md",
       "destination": "skills/sdd-setup/SKILL.md",
-      "sha256": "fc686ac60e531afea790d649840a7d095cc0fabfdfde459f66103d9b4e7277ae"
+      "sha256": "5f76309474a4138e72d0fc1f268a623fcc74e0d5b81d2df2ab1a8013449d7ca1"
     },
     {
       "source": "skills/sdd-write-docs/SKILL.md",
@@ -47,8 +47,8 @@
     {
       "source": "_docs/specs/SPEC-acquisition.md",
       "destination": "_docs/specs/SPEC-acquisition.md",
-      "sha256": "bd3e006861f204e2f4435ee2c5a3036b62681f5f66519f2638c6958ee0de0c90",
-      "baseline_sha256": "bd3e006861f204e2f4435ee2c5a3036b62681f5f66519f2638c6958ee0de0c90"
+      "sha256": "81eb9117325f0be0579936f17e14d88fa7e12041b37ebd8f946e032305c6defc",
+      "baseline_sha256": "81eb9117325f0be0579936f17e14d88fa7e12041b37ebd8f946e032305c6defc"
     },
     {
       "source": "_docs/specs/SPEC-budget-debt.md",

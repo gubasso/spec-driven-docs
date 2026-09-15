@@ -14,6 +14,7 @@
   - [`acquisition:the-operator-caller-reports-every-outcome` — The operator caller reports every outcome](#acquisitionthe-operator-caller-reports-every-outcome--the-operator-caller-reports-every-outcome)
   - [`acquisition:the-sync-leaves-a-diff-nobody-committed` — The sync leaves a diff nobody committed](#acquisitionthe-sync-leaves-a-diff-nobody-committed--the-sync-leaves-a-diff-nobody-committed)
   - [`acquisition:clean-removes-only-a-named-leftover` — Clean removes only a named leftover](#acquisitionclean-removes-only-a-named-leftover--clean-removes-only-a-named-leftover)
+  - [`acquisition:the-setup-path-offers-the-wire` — The setup path offers the wire](#acquisitionthe-setup-path-offers-the-wire--the-setup-path-offers-the-wire)
 
 <!--TOC-->
 
@@ -144,3 +145,15 @@ Verify: `cargo nextest run -E 'binary(cmd_self_depend)'`
 - THEN the script is listed as a leftover, the sync line is listed as kept, and nothing is removed
 
 Verify: `cargo nextest run -E 'binary(cmd_self_depend)'`
+
+### `acquisition:the-setup-path-offers-the-wire` — The setup path offers the wire
+
+Where a target is wired to one manager and carries no sync line, the setup skill MUST raise the wire as a decision the operator answers before the task closes, stating what the line does, that it attempts at most one bump a day, and that it leaves a diff for review. Where no manager is wired, the skill MUST say nothing. An answer of no MUST leave the landing complete and be recorded in the task's close.
+
+#### Scenario: A landing ends with the wire absent
+
+- GIVEN a target whose manager file pins this tool and whose shell loader carries no sync line
+- WHEN the setup skill reaches its close
+- THEN the operator has been asked about the wire, and the status verb reports `line-absent` until the line lands or the answer is recorded
+
+Verify: `cargo nextest run -E 'test(the_setup_skill_offers_the_freshness_wire) | test(the_setup_offer_follows_the_wiring_state)'`
