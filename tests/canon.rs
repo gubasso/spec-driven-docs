@@ -1023,20 +1023,27 @@ fn absent_terms() -> Vec<String> {
         .collect()
 }
 
-/// Every tracked file, with its repository-relative path, that is UTF-8.
+/// Every file the tree carries, with its repository-relative path, that is
+/// UTF-8. The walk skips what git ignores here, because the Nix build
+/// sandbox this test also runs in has no git to ask.
 fn tracked_text_files() -> Vec<(String, String)> {
-    let output = std::process::Command::new("git")
-        .args(["ls-files", "-z"])
-        .current_dir(canon())
-        .output()
-        .expect("git ls-files runs in the canon checkout");
-    assert!(output.status.success(), "git ls-files failed");
-    String::from_utf8_lossy(&output.stdout)
-        .split('\0')
-        .filter(|path| !path.is_empty())
-        .filter_map(|path| {
-            let text = std::fs::read_to_string(canon().join(path)).ok()?;
-            Some((path.to_string(), text))
+    walkdir::WalkDir::new(canon())
+        .into_iter()
+        .filter_entry(|entry| {
+            let name = entry.file_name().to_string_lossy();
+            name != ".git" && name != "target" && name != ".direnv" && name != ".docs-scratch"
+        })
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_type().is_file())
+        .filter_map(|entry| {
+            let relative = entry
+                .path()
+                .strip_prefix(canon())
+                .ok()?
+                .to_string_lossy()
+                .to_string();
+            let text = std::fs::read_to_string(entry.path()).ok()?;
+            Some((relative, text))
         })
         .collect()
 }
