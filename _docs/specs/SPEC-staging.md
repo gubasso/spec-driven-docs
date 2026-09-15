@@ -59,7 +59,9 @@ Verify: `cargo nextest run -E 'binary(cmd_stage)'`
 
 A stage MUST hold every instance destination the candidate would land, the canon references of the exact installed version, and a receipt naming the candidate version, the resolved configuration, and the destinations it rendered.
 
-The candidate a stage renders takes the same choices the landing will: the profile, the documentation root, the documentation scratch, the reserved paths, and the writing-style selection. A stage rendered under other choices is evidence about a candidate nobody is going to write. The canon references are every payload root the binary carries that an adopting project reads while it migrates.
+The candidate a stage renders takes the same choices the landing will: the profile, the documentation root, the documentation scratch, the reserved paths, and the writing-style selection. A stage rendered under other choices is evidence about a candidate nobody is going to write.
+
+The canon references are every payload root the binary carries that an adopting project reads while it migrates, plus this version's release notes. A skill is copied as the package an agent resolves rather than as the authored tree, because a skill names its own supporting files relative to its own root.
 
 #### Scenario: An agent prepares a migration
 
@@ -137,9 +139,9 @@ Verify: `cargo nextest run -E 'binary(cmd_init) + binary(cmd_upgrade)'`
 
 ### `staging:one-writer-holds-the-target` — One writer holds the target
 
-A landing MUST take one exclusive lock on the target before it observes anything, MUST hold it for the whole run, and MUST refuse at once naming the holder where another process holds it.
+A landing MUST take one exclusive lock on the target before it reads the bytes it will write from, MUST hold it for the whole run, and MUST refuse at once naming the holder where another process holds it.
 
-The lock comes first so that every observation the run acts on describes a target no other run of this tool is changing underneath it. It bounds cooperating processes and nothing else.
+The lock precedes the observation the run acts on, so the bytes a marked region splices into cannot move between the read and the write. A report computed before the lock, such as the drift a verb prints before it decides to land, is advice rather than authority: the writer re-checks under the lock and refuses there. The lock bounds cooperating processes and nothing else.
 
 #### Scenario: Two landings start against one target
 

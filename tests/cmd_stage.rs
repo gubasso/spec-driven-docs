@@ -99,6 +99,20 @@ fn the_stage_holds_every_destination_and_the_installed_reference_material() {
     assert!(!staged.is_empty());
     assert!(!served.is_empty());
 
+    // The staged skill is a package: it names its gates relative to its
+    // own root, so a copy that split them would carry two dead references.
+    for gate in ["pre-flight-gate.md", "plan-gate.md"] {
+        assert!(
+            root.join("reference/skills/sdd-setup/references")
+                .join(gate)
+                .is_file(),
+            "the staged skill package is missing {gate}"
+        );
+    }
+    // The release notes of this exact version, which is where a migration
+    // reads what the release asked of an instance.
+    assert!(root.join("reference/CHANGELOG.md").is_file());
+
     // Every relative link the staged method carries resolves inside the
     // stage. A reference shelf that told a reader to open a file it did
     // not copy would send them back to a checkout.

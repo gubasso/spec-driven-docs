@@ -68,8 +68,17 @@ pub fn land(
         if std::fs::read(&path).is_ok_and(|held| held == destination.bytes) {
             continue;
         }
-        write_one(target, &destination.path, &destination.bytes)
-            .map_err(|error| stopped(&error, &outcome))?;
+        if let Err(error) = write_one(target, &destination.path, &destination.bytes) {
+            // A reported rename failure is re-observed before it is
+            // believed. A remote filesystem may have completed the rename
+            // it reported as failed, and a report that called that
+            // destination unwritten would send the operator looking for
+            // bytes that are already there.
+            if std::fs::read(&path).is_ok_and(|held| held == destination.bytes) {
+                outcome.written.push(destination.path.clone());
+            }
+            return Err(stopped(&error, &outcome));
+        }
         outcome.written.push(destination.path.clone());
     }
 
@@ -103,8 +112,12 @@ pub fn land(
     // The record is last. Until it lands, the previous one describes the
     // target, which is what the next run reads.
     let record = candidate.manifest.to_json().into_bytes();
-    write_one(target, Utf8Path::new(MANIFEST_PATH), &record)
-        .map_err(|error| stopped(&error, &outcome))?;
+    if let Err(error) = write_one(target, Utf8Path::new(MANIFEST_PATH), &record) {
+        if std::fs::read(target.join(MANIFEST_PATH)).is_ok_and(|held| held == record) {
+            outcome.written.push(Utf8PathBuf::from(MANIFEST_PATH));
+        }
+        return Err(stopped(&error, &outcome));
+    }
     outcome.written.push(Utf8PathBuf::from(MANIFEST_PATH));
     Ok(outcome)
 }

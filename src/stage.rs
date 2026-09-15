@@ -38,11 +38,9 @@ pub const REFERENCE_DIR: &str = "reference";
 /// migrates. The repository's own decision records and tests are not here:
 /// they are this project's history and its proof, and neither is knowledge
 /// an adopting project reads.
-const REFERENCE_ROOTS: [&str; 10] = [
+const REFERENCE_ROOTS: [&str; 8] = [
     "method",
     "templates",
-    "skills",
-    "skill-shared",
     "_docs/specs",
     "instance",
     "comparison-docs",
@@ -162,6 +160,28 @@ pub fn resolve_root(
     Ok((root, source))
 }
 
+/// The nearest existing ancestor of a path, resolved through every link.
+///
+/// A path that does not exist yet still has an ancestor that does, and
+/// that is what says where it will really be created.
+fn resolved_ancestor(path: &Utf8Path) -> Utf8PathBuf {
+    let mut walked = path.to_owned();
+    loop {
+        if let Ok(canonical) = std::fs::canonicalize(walked.as_std_path())
+            && let Ok(canonical) = Utf8PathBuf::from_path_buf(canonical)
+        {
+            let rest = path
+                .strip_prefix(&walked)
+                .unwrap_or_else(|_| Utf8Path::new(""));
+            return canonical.join(rest);
+        }
+        let Some(parent) = walked.parent() else {
+            return path.to_owned();
+        };
+        walked = parent.to_owned();
+    }
+}
+
 /// The writing source a declaration selects, as one word a reader keeps.
 fn writing_style_of(declaration: &crate::domain::instance_config::InstanceConfig) -> String {
     use crate::domain::instance_config::WritingSource;
@@ -225,8 +245,11 @@ pub fn create(request: &Request, state_root: &Utf8Path) -> Result<Receipt, AppEr
 
     // A stage inside the target would be the one thing this command
     // promises not to do: put the candidate and its reference corpus into
-    // the repository it is supposed to leave alone.
-    if root == target || root.starts_with(&target) {
+    // the repository it is supposed to leave alone. The comparison is
+    // between resolved paths, because a link in the output's ancestry
+    // would otherwise carry it back inside.
+    let resolved = resolved_ancestor(&root);
+    if resolved == target || resolved.starts_with(&target) {
         return Err(AppError::Refused(format!(
             "{root} is inside {target}, and a stage is written outside the target it describes"
         )));
@@ -320,6 +343,35 @@ fn render(
     });
 
     let mut reference = Vec::new();
+
+    // The skills are copied as the packages an agent resolves, not as the
+    // authored tree: a skill names its gates relative to its own root, and
+    // a copy that split them would carry two broken references.
+    for name in crate::embedded::skill_names() {
+        let Some(package) = crate::embedded::skill_package(name) else {
+            continue;
+        };
+        for (relative, bytes) in package {
+            crate::adapters::fs::write_file(
+                &partial
+                    .join(REFERENCE_DIR)
+                    .join("skills")
+                    .join(name)
+                    .join(&relative),
+                bytes,
+            )?;
+        }
+    }
+    reference.push(format!("{REFERENCE_DIR}/skills"));
+
+    // The release notes of the exact installed version, which is where a
+    // migration reads what this release asked of an instance.
+    crate::adapters::fs::write_file(
+        &partial.join(REFERENCE_DIR).join("CHANGELOG.md"),
+        crate::embedded::CHANGELOG.as_bytes(),
+    )?;
+    reference.push(format!("{REFERENCE_DIR}/CHANGELOG.md"));
+
     for root_name in REFERENCE_ROOTS {
         let mut carried = false;
         for (path, bytes) in crate::embedded::assets_under(root_name) {
@@ -449,7 +501,13 @@ pub fn clean(path: &Utf8Path) -> Result<Vec<String>, AppError> {
         )));
     }
 
-    std::fs::remove_dir_all(path)?;
+    // Move the validated directory aside under a name this run owns, then
+    // remove that. A directory swapped in after the checks is left where
+    // it is, because what this removes is the thing it just moved.
+    let aside = scratch_beside(path)?;
+    let _ = std::fs::remove_dir(&aside);
+    std::fs::rename(path, &aside)?;
+    std::fs::remove_dir_all(&aside)?;
     Ok(vec![format!("removed {path}")])
 }
 

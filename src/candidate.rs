@@ -191,9 +191,11 @@ pub fn project(input: &Input) -> Result<Candidate, AppError> {
         let mut bytes = held.cloned().unwrap_or_else(|| seed.clone());
         // `--reserve` and `--writing-style` record into the declaration,
         // keeping its comments and whatever the project already wrote there.
-        if path == crate::domain::instance_config::CONFIG_PATH
-            && let Ok(text) = std::str::from_utf8(&bytes)
-        {
+        // What is already there is read first: a transformation applied to
+        // bytes nobody validated would repair a malformed declaration into
+        // a valid one and overwrite the file the operator has to fix.
+        if path == crate::domain::instance_config::CONFIG_PATH {
+            let text = readable(&path, &bytes)?;
             let mut text = text.to_string();
             if !input.reserve.is_empty() {
                 text = crate::domain::instance_config::with_reserved(&text, &input.reserve);
@@ -228,21 +230,14 @@ pub fn project(input: &Input) -> Result<Candidate, AppError> {
     // Render from the declaration this landing is writing, not from the one
     // on disk. With `--reserve` they differ, and a block rendered from the
     // old one would disagree with the file the same landing writes.
-    // A declaration that cannot be read is a refusal, never a default. The
-    // landing would otherwise keep the project's bytes and wire the block
-    // from something else, and the two would disagree from the first
-    // commit onward.
+    // The declaration the block is rendered from is the one this landing
+    // writes, already validated above.
     let declared = destinations
         .iter()
         .find(|destination| destination.path == crate::domain::instance_config::CONFIG_PATH);
     let declaration = match declared {
         Some(destination) => {
-            let text = std::str::from_utf8(&destination.bytes).map_err(|source| {
-                AppError::Refused(format!(
-                    "{} is not UTF-8, so what the gates judge cannot be read: {source}",
-                    destination.path
-                ))
-            })?;
+            let text = readable(&destination.path, &destination.bytes)?;
             InstanceConfig::parse(text).map_err(|error| {
                 AppError::Refused(format!("{} does not parse: {error}", destination.path))
             })?
@@ -343,6 +338,23 @@ pub fn docs_root_of(profile: ProfileId) -> Result<DocsRoot, AppError> {
                 "this release declares no {profile} profile, so it cannot land one"
             ))
         })
+}
+
+/// One declaration's text, refusing bytes no reader can take.
+///
+/// A declaration that cannot be read is a refusal, never a default and
+/// never something a flag repairs on the way past: the landing would
+/// otherwise keep the project's bytes and wire the block from something
+/// else, and the two would disagree from the first commit onward.
+fn readable<'a>(path: &Utf8PathBuf, bytes: &'a [u8]) -> Result<&'a str, AppError> {
+    let text = std::str::from_utf8(bytes).map_err(|source| {
+        AppError::Refused(format!(
+            "{path} is not UTF-8, so what the gates judge cannot be read: {source}"
+        ))
+    })?;
+    InstanceConfig::parse(text)
+        .map_err(|error| AppError::Refused(format!("{path} does not parse: {error}")))?;
+    Ok(text)
 }
 
 /// The bytes one payload source carries, from this binary's own sources.
@@ -522,6 +534,13 @@ mod tests {
             Utf8PathBuf::from(crate::domain::paths::CONFIG_PATH),
             b"reserved: [".to_vec(),
         );
+        let error = project(&held).unwrap_err();
+        assert!(error.to_string().contains("does not parse"), "{error}");
+
+        // And a flag does not repair it on the way past. A transformation
+        // over bytes nobody validated would rewrite the file the operator
+        // has to fix and call the result a landing.
+        held.reserve = vec!["vendor/**".to_string()];
         let error = project(&held).unwrap_err();
         assert!(error.to_string().contains("does not parse"), "{error}");
     }

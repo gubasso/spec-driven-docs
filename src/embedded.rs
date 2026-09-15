@@ -47,6 +47,8 @@ pub static LICENSE_MIT: &str = include_str!("../LICENSE-MIT");
 pub static LICENSE_CC_BY: &str = include_str!("../LICENSE-CC-BY-4.0");
 /// The attribution notice for every third-party source the payload derives from.
 pub static THIRD_PARTY_NOTICES: &str = include_str!("../THIRD_PARTY_NOTICES.md");
+/// The release notes, which a stage carries as this version's own history.
+pub static CHANGELOG: &str = include_str!("../CHANGELOG.md");
 
 /// Every embedded root paired with the authored path it came from, in
 /// [`PAYLOAD_ROOTS`] order. A unit test holds the two equal, so a root

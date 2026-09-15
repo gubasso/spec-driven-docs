@@ -628,6 +628,10 @@ fn run_transaction(
 
     let mut passed = 0usize;
     let mut completed: Vec<Utf8PathBuf> = Vec::new();
+    // What the run meant to remove and did not, because the bytes there
+    // are no longer the ones the receipt vouches for. The record keeps
+    // them, so the doctor can still name what is left behind.
+    let mut kept: Vec<Utf8PathBuf> = Vec::new();
 
     for entry in writes {
         replace_one(layout, &entry.destination, entry.bytes)
@@ -636,13 +640,27 @@ fn run_transaction(
         reached(&mut passed, interrupt)?;
     }
     for (destination, vouched) in removals {
+        // A component swapped since the run was planned is refused rather
+        // than followed: a removal through a link would unlink somebody
+        // else's file.
+        if let Some(root) = owning_root(layout, destination)
+            && let Some(one) = blocked_by(root, destination)
+        {
+            return Err(stopped(
+                Failure::Error(refuse_blocked(std::slice::from_ref(&one))),
+                &completed,
+            ));
+        }
         // The receipt authorizes these bytes, not this path. Re-read them
         // here rather than trusting the read that planned the run: a file
         // edited since then is the user's, and a removal would be a silent
         // loss.
         match std::fs::read(destination) {
             Ok(held) if &Sha256::of(&held) == vouched => {}
-            _ => continue,
+            _ => {
+                kept.push(destination.clone());
+                continue;
+            }
         }
         match std::fs::remove_file(destination) {
             Ok(()) => crate::transaction::sync_parent(destination)?,
@@ -671,6 +689,19 @@ fn run_transaction(
     let mut stop = layout.roots.clone();
     stop.push(layout.state_root.clone());
     prune_empty(&directories, &stop, lines);
+
+    // A removal the byte check skipped leaves a file behind, so the record
+    // keeps vouching for it. Dropping it would make the leftover
+    // unrecorded, and the doctor could no longer name what is there.
+    let mut receipt = receipt.clone();
+    for destination in &kept {
+        if let Some((_, digest)) = removals.iter().find(|(path, _)| path == destination) {
+            receipt.written.insert(destination.clone(), digest.clone());
+        }
+        lines.push(format!("kept (changed since the record): {destination}"));
+    }
+    let empty = receipt.written.is_empty();
+    let receipt_bytes = receipt.to_json().into_bytes();
 
     // The receipt is last. Until it lands, the previous one still describes
     // the home, and what this run wrote is reported rather than vouched for.
@@ -720,12 +751,22 @@ fn stopped(failure: Failure, completed: &[Utf8PathBuf]) -> Failure {
 /// substituted between the plan and the write is refused rather than
 /// followed.
 fn replace_one(layout: &Layout, destination: &Utf8Path, bytes: &[u8]) -> Result<(), Failure> {
+    let refuse = || {
+        owning_root(layout, destination)
+            .and_then(|root| blocked_by(root, destination))
+            .map(|one| Failure::Error(refuse_blocked(std::slice::from_ref(&one))))
+    };
+    // Before the scratch file is created, so nothing is written through a
+    // component that already refuses.
+    if let Some(refusal) = refuse() {
+        return Err(refusal);
+    }
     let scratch = Stage::write(destination, bytes)?;
-    if let Some(root) = owning_root(layout, destination)
-        && let Some(one) = blocked_by(root, destination)
-    {
+    // And again before the rename, so a component swapped in between is
+    // refused rather than followed.
+    if let Some(refusal) = refuse() {
         Stage::discard(&scratch);
-        return Err(Failure::Error(refuse_blocked(std::slice::from_ref(&one))));
+        return Err(refusal);
     }
     Stage::replace(&scratch, destination)?;
     Ok(())
