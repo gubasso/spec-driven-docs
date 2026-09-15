@@ -377,15 +377,12 @@ struct Derivation<'a> {
 /// # Errors
 ///
 /// Whatever the installer or the derivation refuses.
-fn derive_landing(
-    from: &Derivation<'_>,
-    release: &ReleaseRef<'_>,
-) -> Result<crate::plan::derive::Derived, AppError> {
+fn derive_landing(from: &Derivation<'_>) -> Result<crate::plan::derive::Derived, AppError> {
     let options = match from.declared {
         Some(held) => held.clone(),
         None => landing_options(from.target, from.profile, from.selections, from.reserve)?,
     };
-    let state = compute_target_state(from.target, &options, release.bundle)?;
+    let state = compute_target_state(from.target, &options)?;
     let mut derived = crate::plan::derive::operations_for(
         from.target,
         &state.files,
@@ -480,8 +477,8 @@ pub(crate) fn compute_plan(
     let budget = crate::services::budget::measure_all(target).unwrap_or_default();
 
     let landing = match profile {
-        Some(profile) if answered && observation.invalid.is_none() => Some(derive_landing(
-            &Derivation {
+        Some(profile) if answered && observation.invalid.is_none() => {
+            Some(derive_landing(&Derivation {
                 target,
                 profile,
                 declaration: &declaration,
@@ -490,9 +487,8 @@ pub(crate) fn compute_plan(
                 reserve,
                 declared,
                 budget: &budget,
-            },
-            release,
-        )?),
+            })?)
+        }
         _ => None,
     };
     let (proposed, blobs) = landing.map_or_else(

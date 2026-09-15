@@ -44,6 +44,7 @@ compile_error!(
 );
 
 pub mod adapters;
+pub mod candidate;
 pub mod cli;
 pub mod commands;
 pub mod context;
