@@ -27,7 +27,7 @@ When the request carries `--no-plan`, replace this phase's approval turn: do not
 
 The plan is a claim about what will happen. Check it against something that knows, never against your own confidence.
 
-1. Preview every verb that has one. `sdd reconcile plan` is the preview every landing validates against: it reads the target, writes nothing into it, and states every operation an apply would run. `sdd init` and `sdd skill install` write nothing without `--apply`. `sdd upgrade` writes by default, so its preview is `sdd upgrade --dry-run`, and the flag stays on until the plan is approved.
+1. Preview every verb that has one. `sdd stage --target .` renders the candidate this binary carries into a directory beside the target and writes nothing into it, so the comparison is bytes rather than a claim. `sdd init` and `sdd skill install` write nothing without `--apply`. `sdd upgrade` writes by default, so its preview is `sdd upgrade --dry-run`, and the flag stays on until the plan is approved.
 2. Validate every action that has no preview (rewriting a document, retiring a file the project authored) against what states it instead: the placement chapter for where each fact belongs, and a read-only observation of the current state. `sdd status --target .` and `sdd verify --target .` observe and never write.
 3. Compare both against the plan: the destinations, their count, and the steps in their order.
 4. Where they disagree, stop. Say what differs, and return to phase 1. Never reconcile a surprise by widening the plan silently.
@@ -38,4 +38,5 @@ The plan is a claim about what will happen. Check it against something that know
 2. Re-observe after each one, and report what the command returned rather than that it succeeded.
 3. Gate every step the operator must run by hand: print the exact command, say what it changes and why, wait, then re-observe before continuing.
 4. Close on the verification command the plan named. `sdd verify --target .` judges the instance, and the delivered gates judge the tree.
-5. Where execution shows the plan was wrong, stop and re-plan. Do not expand the scope of an approved plan. `sdd reconcile apply` revalidates before it writes and refuses when any semantic input moved, naming each one. That refusal is the check failing the run, not an obstacle to work around.
+5. Where execution shows the plan was wrong, stop and re-plan. Do not expand the scope of an approved plan. A landing refuses before its first write when a destination holds bytes no record accounts for, naming each one. That refusal is the check failing the run, not an obstacle to work around.
+6. Where a landing stops partway, read what it reported: the destinations that hold candidate bytes, and the record that still stands. Run it again rather than repairing by hand, and compare the result against the stage.

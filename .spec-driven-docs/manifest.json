@@ -25,7 +25,7 @@
     {
       "source": "skills/sdd-setup/SKILL.md",
       "destination": "skills/sdd-setup/SKILL.md",
-      "sha256": "5f76309474a4138e72d0fc1f268a623fcc74e0d5b81d2df2ab1a8013449d7ca1"
+      "sha256": "75ec19dbca28d09fe83850b9594eb6dcd8f6266b5edda99ba7bffad997662cb6"
     },
     {
       "source": "skills/sdd-write-docs/SKILL.md",
@@ -35,7 +35,7 @@
     {
       "source": "skill-shared/plan-gate.md",
       "destination": "skill-shared/plan-gate.md",
-      "sha256": "030126f8ef525ffb2d06202ec694584471773f2ed914a38174f004d9d938c0a0"
+      "sha256": "53bd2590cee4f28b3bb10dafafbf9a67be89288c10b26af5f3a7287071b63320"
     },
     {
       "source": "skill-shared/pre-flight-gate.md",

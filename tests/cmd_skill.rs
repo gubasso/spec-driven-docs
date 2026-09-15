@@ -64,7 +64,9 @@ fn show_prints_the_frontmatter_and_body() {
         .assert()
         .success()
         .stdout(predicate::str::contains("name: sdd-setup"))
-        .stdout(predicate::str::contains("## 2. Request a plan"));
+        .stdout(predicate::str::contains(
+            "## 2. Acquire the version, then stage it",
+        ));
 }
 
 #[test]

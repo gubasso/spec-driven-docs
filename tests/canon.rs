@@ -752,22 +752,38 @@ fn the_pre_flight_gate_invokes_no_planner_or_skill() {
     }
 }
 
-/// SATISFIES distribution:a-landing-classifies-its-target-first
+/// SATISFIES staging:a-stage-writes-only-the-stage
 #[test]
-fn the_setup_skill_requests_exactly_one_initial_plan() {
+fn the_setup_skill_stages_before_it_compares() {
     let setup = read("skills/sdd-setup/SKILL.md");
     assert!(
-        setup.contains("sdd reconcile plan --target . --json"),
-        "the router does not request a plan"
+        setup.contains("sdd stage --target . --json"),
+        "the router does not stage the candidate"
     );
     assert!(
-        setup.contains("Request exactly one initial plan"),
-        "the router does not bound its initial plan request"
+        setup.contains("The stage writes nothing into the target"),
+        "the router does not say that staging leaves the target alone"
     );
     assert!(
         !setup.contains("sdd assess"),
-        "the router classifies for itself instead of reading the plan's classification"
+        "the router classifies for itself instead of letting the verb refuse"
     );
+}
+
+/// SATISFIES staging:the-operator-owns-acquisition
+#[test]
+fn the_setup_skill_leaves_acquisition_to_the_operator() {
+    let setup = read("skills/sdd-setup/SKILL.md");
+    assert!(
+        setup.contains("Acquisition is the operator's"),
+        "the router does not say who installs the version"
+    );
+    for absent in ["--to <version>", "--to latest", "sdd payload", "plan-id"] {
+        assert!(
+            !setup.contains(absent),
+            "the router still names {absent}, which no verb offers"
+        );
+    }
 }
 
 /// SATISFIES distribution:a-landing-classifies-its-target-first
@@ -800,10 +816,10 @@ fn the_setup_skill_names_the_five_steps() {
     let setup = read("skills/sdd-setup/SKILL.md");
     for step in [
         "## 1. Observe",
-        "## 2. Request a plan",
-        "## 3. Present the plan",
-        "## 4. Decide and apply",
-        "## 5. Read the result",
+        "## 2. Acquire the version, then stage it",
+        "## 3. Compare and prepare",
+        "## 4. Land",
+        "## 5. Verify, then clean",
     ] {
         assert!(setup.contains(step), "the router has no '{step}' section");
     }
@@ -815,7 +831,7 @@ fn the_setup_skill_declares_its_gated_steps() {
     assert!(setup.contains("## What waits for the operator"));
     for gated in [
         "ignore entry for the docs scratch",
-        "sdd reconcile apply <plan-id> --target .",
+        "sdd stage clean <path>",
         "before its entry retires anything",
         "Every retirement of a file the project authored",
         "Every disposition question",
@@ -877,7 +893,7 @@ fn the_setup_skill_offers_the_freshness_wire() {
 fn the_setup_skill_offers_incremental_only_as_the_plan_does() {
     let setup = read("skills/sdd-setup/SKILL.md");
     assert!(
-        setup.contains("never offer it where the plan does not"),
+        setup.contains("Author no checklist, because nothing retires"),
         "the router states a scope rule of its own instead of deferring to the plan"
     );
 }
