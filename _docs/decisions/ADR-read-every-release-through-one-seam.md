@@ -28,4 +28,4 @@ Enforced by `bundle:a-release-is-read-through-one-seam` and `bundle:resolution-h
 
 ## Status
 
-Accepted
+Superseded by [ADR-render-the-candidate-this-binary-carries](./ADR-render-the-candidate-this-binary-carries.md)

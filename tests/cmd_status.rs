@@ -116,7 +116,7 @@ fn text_mode_prints_a_summary() {
 #[test]
 fn status_json_declares_sdd_status_schema_two() {
     let fixture = Fixture::new();
-    assert_eq!(status_json(&fixture)["schema"], "sdd.status/2");
+    assert_eq!(status_json(&fixture)["schema"], "sdd.status/3");
 }
 
 #[test]

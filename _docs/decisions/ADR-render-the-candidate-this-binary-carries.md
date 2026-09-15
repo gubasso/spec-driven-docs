@@ -29,4 +29,4 @@ Enforced by `staging:the-operator-owns-acquisition`, `staging:production-reads-n
 
 Accepted
 
-Supersedes `ADR-read-every-release-through-one-seam`, `ADR-declare-the-projection-in-the-bundle`, `ADR-apply-only-a-stored-plan`, and `ADR-ship-guidance-in-the-bundle-per-release-that-needs-it`, all unedited.
+Supersedes `ADR-read-every-release-through-one-seam`, `ADR-declare-the-projection-in-the-bundle`, `ADR-apply-only-a-stored-plan`, `ADR-plan-every-landing-write-as-one-typed-document`, `ADR-read-a-migrations-scope-from-its-findings`, and `ADR-ship-guidance-in-the-bundle-per-release-that-needs-it`. Each argued from a cross-release engine, and none is edited beyond its successor link.

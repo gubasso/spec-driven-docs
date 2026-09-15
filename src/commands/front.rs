@@ -9,8 +9,8 @@
 use camino::Utf8Path;
 
 use crate::error::AppError;
-use crate::plan::classify::Intent;
-use crate::plan::observe::observe;
+use crate::landing::classify::Intent;
+use crate::landing::observe::observe;
 
 /// Refuse where this verb does not serve what the target turned out to be.
 ///
@@ -24,7 +24,7 @@ pub fn serves(intent: Intent, target: &Utf8Path) -> Result<(), AppError> {
         return Ok(());
     }
     let observation = observe(target)?;
-    let found = crate::plan::classify::classify(crate::plan::classify::Signals {
+    let found = crate::landing::classify::classify(crate::landing::classify::Signals {
         invalid: observation.invalid.is_some(),
         installed: observation.installation.is_some(),
         // The destination is this binary's own release for every front.
@@ -34,7 +34,7 @@ pub fn serves(intent: Intent, target: &Utf8Path) -> Result<(), AppError> {
         drifted: observation
             .installation
             .as_ref()
-            .is_some_and(crate::plan::observe::Installation::drifted),
+            .is_some_and(crate::landing::observe::Installation::drifted),
         settled: observation.corpus.settled(),
     });
     intent

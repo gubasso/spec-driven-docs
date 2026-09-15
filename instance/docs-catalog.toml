@@ -22,19 +22,11 @@ target = { command = ["init", "--help"] }
 
 [[topic]]
 id = "upgrade"
-title = "Move an instance to a newer release"
-summary = "Ask for the plan that closes the gap between a landed instance and a chosen release."
+title = "Move an instance to the installed version"
+summary = "Refresh what this tool owns in a landed instance, and take back what it stopped owning."
 kind = "operator-task"
-aliases = ["new version", "stay current", "plan"]
-target = { command = ["reconcile", "plan", "--help"] }
-
-[[topic]]
-id = "apply"
-title = "Execute one approved plan"
-summary = "Run exactly the plan that was approved, or learn which input moved since."
-kind = "operator-task"
-aliases = ["land a plan", "execute"]
-target = { command = ["reconcile", "apply", "--help"] }
+aliases = ["new version", "stay current"]
+target = { command = ["upgrade", "--help"] }
 
 [[topic]]
 id = "stage"
@@ -239,12 +231,12 @@ aliases = ["brownfield", "existing docs", "migration checklist"]
 target = { document = { shelf = "method", name = "migration" } }
 
 [[topic]]
-id = "reconcile"
-title = "The plan every landing comes from"
-summary = "One plan, one decision, one apply, and the three reconciliations that are not single verbs."
+id = "landing"
+title = "How a candidate reaches a target"
+summary = "One candidate, one comparison, one write, and the three reconciliations that are not single verbs."
 kind = "method-chapter"
-aliases = ["landing", "managed drift", "what is a plan"]
-target = { document = { shelf = "method", name = "reconcile" } }
+aliases = ["reconcile", "managed drift", "what lands"]
+target = { document = { shelf = "method", name = "landing" } }
 
 [[topic]]
 id = "checklist"
@@ -279,14 +271,6 @@ summary = "How a project records the violations it arrived with, and how each ce
 kind = "spec-seed"
 aliases = ["debt rules"]
 target = { document = { shelf = "spec", name = "budget-debt" } }
-
-[[topic]]
-id = "spec-bundle"
-title = "Reading another release"
-summary = "The content seam, the projection declaration, and the protocol between engine and bundle."
-kind = "spec-seed"
-aliases = ["release bundle", "payload schema"]
-target = { document = { shelf = "spec", name = "bundle" } }
 
 [[topic]]
 id = "spec-comparison-docs"
@@ -367,14 +351,6 @@ summary = "The case id, the two state axes, the retirement condition, and the wa
 kind = "spec-seed"
 aliases = ["known-issue rules"]
 target = { document = { shelf = "spec", name = "known-issues" } }
-
-[[topic]]
-id = "spec-reconcile"
-title = "The plan's rules"
-summary = "What a plan is, where its classification comes from, and what binds an approval."
-kind = "spec-seed"
-aliases = ["plan rules", "fingerprint"]
-target = { document = { shelf = "spec", name = "reconcile" } }
 
 [[topic]]
 id = "spec-release"

@@ -33,8 +33,6 @@ fn run(cli: Cli) -> Result<(), AppError> {
         Commands::Init(args) => commands::init::run(&ctx, args),
         Commands::Verify(args) => commands::verify::run(&ctx, args),
         Commands::Upgrade(args) => commands::upgrade::run(&ctx, args),
-        Commands::Reconcile(args) => commands::reconcile::run(&ctx, args),
-        Commands::Payload(args) => commands::payload::run(&ctx, &args),
         Commands::Gate(args) => commands::gate::run(&ctx, args),
         Commands::Hooks(args) => commands::hooks::run(&ctx, args),
         Commands::Debt(args) => commands::debt::run(&ctx, args),

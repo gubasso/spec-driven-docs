@@ -31,7 +31,7 @@ Load this digest, then the one chapter that owns the question. Load `_docs/specs
 | Procedures                        | `procedures.md`    |
 | Operational documents             | `operational.md`   |
 | Migrating an existing corpus      | `migration.md`     |
-| Landing, upgrading, and drift     | `reconcile.md`     |
+| Landing, upgrading, and drift     | `landing.md`       |
 | Reaching the corpus offline       | `sdd docs`         |
 | Writing prose                     | `writing-style.md` |
 | Review                            | `checklist.md`     |

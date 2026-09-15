@@ -5,6 +5,11 @@
 //! each one a decision rather than a chapter. The record set is read from
 //! the documentation root — filename shape and heading structure belong to
 //! other gates.
+//!
+//! The status section is not the body. It carries the record's standing and
+//! its successor link, both of which are written after the argument is
+//! frozen, and counting them would mean a record near the cap could never be
+//! superseded.
 
 use camino::Utf8PathBuf;
 
@@ -45,6 +50,11 @@ fn records(ctx: &GateCtx) -> Vec<Utf8PathBuf> {
     names.into_iter().map(|name| decisions.join(name)).collect()
 }
 
+/// The argument a record makes, without the status that outlives it.
+fn body_of(text: &str) -> &str {
+    text.find("\n## Status").map_or(text, |at| &text[..at])
+}
+
 /// Measure every judged record: one `words` count per record.
 ///
 /// # Errors
@@ -55,7 +65,7 @@ pub fn measure(ctx: &GateCtx) -> Result<Vec<Measurement>, GateError> {
     // The records are this gate's subjects, so a reserved one leaves the
     // list before it is read.
     for path in ctx.retained(records(ctx)) {
-        let words = read_text(ctx, &path)?.split_whitespace().count();
+        let words = body_of(&read_text(ctx, &path)?).split_whitespace().count();
         measurements.push(Measurement::count(
             GateId::AdrWordCap,
             path.as_str(),
@@ -117,6 +127,12 @@ mod tests {
             .iter()
             .map(ToString::to_string)
             .collect()
+    }
+
+    #[test]
+    fn the_status_section_is_not_the_body() {
+        let text = "# A\n\nOne two three.\n\n## Status\n\nSuperseded by [B](./B.md)\n";
+        assert_eq!(body_of(text).split_whitespace().count(), 5);
     }
 
     #[test]

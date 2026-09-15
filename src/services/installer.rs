@@ -290,7 +290,7 @@ fn gather(target: &Utf8Path, options: &InitOptions) -> Result<crate::candidate::
 /// target, holds bytes no record accounts for, or cannot be written.
 pub fn init(
     options: &InitOptions,
-    intent: crate::plan::classify::Intent,
+    intent: crate::landing::classify::Intent,
 ) -> Result<InitOutcome, AppError> {
     let target = canonical_target(&options.target)?;
     // The target is known-good before it is classified, so an argument

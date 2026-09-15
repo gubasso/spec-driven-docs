@@ -48,15 +48,12 @@ Terms this framework fixes, each resolved at the chapter that owns it. A term is
 | Managed file             | a file the canon owns in an instance; an edit is a conflict             | `instance/README.md` |
 | Adopted file             | a file the canon seeds and the instance then owns                       | `instance/README.md` |
 | Integration block        | a marked region the canon owns inside a file the instance owns          | `instance/README.md` |
-| Plan                     | one typed document holding every write a landing would make             | `reconcile.md`       |
-| Classification           | what a target is, read from the target and never from the verb          | `reconcile.md`       |
-| Operation                | one write a plan describes, of one kind                                 | `reconcile.md`       |
-| Finding                  | a structural or budget difference the engine proved                     | `reconcile.md`       |
-| Style candidate          | prose the writing convention would change, raised unjudged              | `reconcile.md`       |
-| Precondition             | what must hold before a plan applies, with its requirement              | `reconcile.md`       |
-| Readiness                | a plan's verdict: ready, needs-decision, or blocked                     | `reconcile.md`       |
-| Fingerprint              | the digest over a plan's semantic inputs, which is its id               | `reconcile.md`       |
-| Front                    | a verb that reaches a plan and serves some classifications              | `reconcile.md`       |
-| Guidance step            | one thing a release asks a person to do, carried in the bundle          | `reconcile.md`       |
+| Candidate                | what the installed binary would put in a target, rendered from itself   | `landing.md`         |
+| Classification           | what a target is, read from the target and never from the verb          | `landing.md`         |
+| Destination              | one path a candidate carries, with its ownership and its placement      | `landing.md`         |
+| Stage                    | a directory holding one rendered candidate, read and never applied      | `landing.md`         |
+| Attribution              | the record accounting for the bytes a destination holds                 | `landing.md`         |
+| Containment              | every destination resolving beneath the opened target                   | `landing.md`         |
+| Front                    | a verb that serves some classifications and refuses the rest            | `landing.md`         |
 
 Terms this framework deliberately does not use, because each is a synonym that weakens retrieval for the one it duplicates: specification document, contract, requirements doc, ADR log, decision log, constitution, steering file, policy.

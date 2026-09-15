@@ -18,10 +18,10 @@ use crate::context::AppContext;
 use crate::domain::paths::{CI_VAR, SELF_DEPEND_OFF_VAR, UserEnv};
 use crate::error::AppError;
 use crate::output;
-use crate::release::crates_io::CratesIoResolver;
 use crate::self_depend::fragments::{self, Fragment};
 use crate::self_depend::leftovers::{self, Kept, Leftover};
 use crate::self_depend::manager::{self, Detected, Manager};
+use crate::self_depend::registry::Index;
 use crate::self_depend::status::{self, Freshness, Presence, Report, State};
 use crate::self_depend::txn::{self, Moved};
 use crate::self_depend::venue::{self, Venue, Verdict};
@@ -472,7 +472,7 @@ fn sync_inner(ctx: &AppContext, args: SyncArgs) -> Result<SyncReport, AppError> 
 
     let to = match args.tag.as_deref() {
         Some(tag) => parse_tag(tag).map_err(AppError::Usage)?,
-        None => latest(&env)?,
+        None => latest()?,
     };
     let spelled_to = if pin.spelled.starts_with('v') {
         format!("v{to}")
@@ -515,13 +515,8 @@ fn sync_inner(ctx: &AppContext, args: SyncArgs) -> Result<SyncReport, AppError> 
 }
 
 /// The latest stable release the registry serves.
-fn latest(env: &UserEnv) -> Result<Version, AppError> {
-    let cache = env
-        .user_paths()
-        .ok_or_else(|| AppError::Usage("no cache root resolves".to_string()))?
-        .bundle_cache
-        .path;
-    CratesIoResolver::new(&cache)
+fn latest() -> Result<Version, AppError> {
+    Index::new()
         .latest_version()
         .map_err(|error| anyhow::anyhow!("the latest release could not be read: {error}").into())
 }

@@ -127,7 +127,7 @@ fn an_upgrade_succeeds_while_the_stage_is_unreadable() {
     std::os::unix::fs::PermissionsExt::set_mode(&mut permissions, 0o000);
     std::fs::set_permissions(&root, permissions.clone()).unwrap();
 
-    let result = fixture.upgrade_bare().assert().try_success();
+    let result = fixture.upgrade().assert().try_success();
 
     std::os::unix::fs::PermissionsExt::set_mode(&mut permissions, 0o700);
     std::fs::set_permissions(&root, permissions).unwrap();
@@ -142,7 +142,7 @@ fn the_stage_survives_the_landing_it_informed() {
     stage(&fixture);
     let root = stage_path(&fixture);
 
-    fixture.upgrade_bare().assert().success();
+    fixture.upgrade().assert().success();
     assert!(root.join("stage.json").is_file(), "the stage was removed");
 }
 

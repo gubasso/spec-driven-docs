@@ -5,4 +5,8 @@
 //! one lock a target takes, and the order the writes happen in.
 
 pub mod apply;
+pub mod classify;
+pub mod finding;
 pub mod lock;
+pub mod observe;
+pub mod path;

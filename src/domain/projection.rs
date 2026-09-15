@@ -1,29 +1,16 @@
-//! What a release lands, read as data rather than compiled in.
+//! What this release lands, read as data rather than compiled in.
 //!
-//! A release declares its own projection in `instance/projection.toml`.
-//! The engine reads the declaration of whichever release it was asked
-//! about, so a plan toward an older release lands exactly that release's
-//! set. While the projection lived in Rust constants, the only witness of
-//! what a release landed was that release's own binary, and a plan toward
-//! an intermediate version could only ever be an approximation.
-//!
-//! Parsing lives here, in the domain, rather than on the bundle boundary.
-//! The boundary answers with bytes; what those bytes mean is this layer's
-//! business, and a transport that understood the projection would be a
-//! second place to change when the projection grows.
+//! The release declares its own projection in `instance/projection.toml`,
+//! which the binary carries. Selection stays in data because the
+//! declaration is simpler to read, to diff, and to review than the Rust
+//! constants it replaced.
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::domain::profile::{DocsRoot, ProfileId};
 
-/// The protocol version this engine writes.
-pub const PAYLOAD_SCHEMA: u32 = 1;
-
-/// The lowest protocol version this engine decodes.
-pub const OLDEST_PAYLOAD_SCHEMA: u32 = 1;
-
-/// Where the declaration sits inside a bundle.
+/// Where the declaration sits inside the payload.
 pub const DECLARATION_PATH: &str = "instance/projection.toml";
 
 /// A declaration this engine cannot read.
@@ -32,17 +19,6 @@ pub enum DeclarationError {
     /// The bytes are not the declaration's shape.
     #[error("{DECLARATION_PATH} does not parse: {0}")]
     Malformed(String),
-
-    /// The declaration is written in a protocol this engine does not carry.
-    #[error(
-        "{DECLARATION_PATH} declares payload schema {found}, and this engine decodes {OLDEST_PAYLOAD_SCHEMA} to {PAYLOAD_SCHEMA}; install {advice}"
-    )]
-    UnsupportedSchema {
-        /// The schema the bundle declares.
-        found: u32,
-        /// Which engine to install instead.
-        advice: String,
-    },
 
     /// The declaration is internally inconsistent.
     #[error("{DECLARATION_PATH} is inconsistent: {0}")]
@@ -90,8 +66,6 @@ pub struct SentinelDeclaration {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Declaration {
-    /// The protocol version between this engine and the bundle.
-    pub payload_schema: u32,
     /// The template copies the canon keeps in its own documentation tree.
     #[serde(default)]
     pub canon_templates: Vec<String>,
@@ -113,36 +87,15 @@ impl Declaration {
     ///
     /// # Errors
     ///
-    /// [`DeclarationError`] when the bytes do not parse, when the schema is
-    /// outside the supported range, or when the declaration contradicts
-    /// itself.
+    /// [`DeclarationError`] when the bytes do not parse or when the
+    /// declaration contradicts itself.
     pub fn parse(bytes: &[u8]) -> Result<Self, DeclarationError> {
         let text = std::str::from_utf8(bytes)
             .map_err(|source| DeclarationError::Malformed(source.to_string()))?;
         let held: Self = toml::from_str(text)
             .map_err(|source| DeclarationError::Malformed(source.to_string()))?;
-        held.supported()?;
         held.consistent()?;
         Ok(held)
-    }
-
-    /// Whether this engine carries a decoder for the declared schema.
-    fn supported(&self) -> Result<(), DeclarationError> {
-        if (OLDEST_PAYLOAD_SCHEMA..=PAYLOAD_SCHEMA).contains(&self.payload_schema) {
-            return Ok(());
-        }
-        let advice = if self.payload_schema > PAYLOAD_SCHEMA {
-            "a newer sdd".to_string()
-        } else {
-            format!(
-                "an sdd that still decodes payload schema {}",
-                self.payload_schema
-            )
-        };
-        Err(DeclarationError::UnsupportedSchema {
-            found: self.payload_schema,
-            advice,
-        })
     }
 
     /// Whether the declaration says one thing.
@@ -204,7 +157,6 @@ mod tests {
     use super::*;
 
     const MINIMAL: &str = r#"
-payload_schema = 1
 [[profiles]]
 id = "codebase"
 docs_root = "docs"
@@ -213,30 +165,8 @@ docs_root = "docs"
     #[test]
     fn a_minimal_declaration_parses() {
         let held = Declaration::parse(MINIMAL.as_bytes()).unwrap();
-        assert_eq!(held.payload_schema, 1);
         assert_eq!(held.docs_root(ProfileId::Codebase), Some(DocsRoot::Docs));
         assert_eq!(held.docs_root(ProfileId::KnowledgeBase), None);
-    }
-
-    #[test]
-    fn a_newer_schema_names_an_engine_to_install() {
-        let text = MINIMAL.replace("payload_schema = 1", "payload_schema = 2");
-        let error = Declaration::parse(text.as_bytes()).unwrap_err();
-        assert_eq!(
-            error,
-            DeclarationError::UnsupportedSchema {
-                found: 2,
-                advice: "a newer sdd".to_string()
-            }
-        );
-        assert!(error.to_string().contains("a newer sdd"));
-    }
-
-    #[test]
-    fn a_retired_schema_names_the_engine_that_still_decodes_it() {
-        let text = MINIMAL.replace("payload_schema = 1", "payload_schema = 0");
-        let error = Declaration::parse(text.as_bytes()).unwrap_err();
-        assert!(error.to_string().contains("still decodes payload schema 0"));
     }
 
     #[test]
@@ -244,11 +174,11 @@ docs_root = "docs"
         // Absent is a parse failure and empty is an inconsistency. Both
         // refuse, because a release that offers no profile lands nothing.
         assert!(matches!(
-            Declaration::parse(b"payload_schema = 1\n").unwrap_err(),
+            Declaration::parse(b"").unwrap_err(),
             DeclarationError::Malformed(_)
         ));
         assert!(matches!(
-            Declaration::parse(b"payload_schema = 1\nprofiles = []\n").unwrap_err(),
+            Declaration::parse(b"profiles = []\n").unwrap_err(),
             DeclarationError::Inconsistent(_)
         ));
     }

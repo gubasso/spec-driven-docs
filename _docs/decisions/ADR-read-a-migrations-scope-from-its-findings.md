@@ -28,4 +28,4 @@ Enforced by `reconcile:a-finding-is-something-the-program-proved` and `reconcile
 
 ## Status
 
-Accepted
+Superseded by [ADR-render-the-candidate-this-binary-carries](./ADR-render-the-candidate-this-binary-carries.md)

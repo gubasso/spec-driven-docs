@@ -326,7 +326,11 @@ pub fn docs_root_of(profile: ProfileId) -> Result<DocsRoot, AppError> {
 }
 
 /// The bytes one payload source carries, from this binary's own sources.
-fn source_bytes(source: &str) -> Result<Vec<u8>, AppError> {
+///
+/// # Errors
+///
+/// [`AppError::Refused`] where this release does not carry the source.
+pub fn source_bytes(source: &str) -> Result<Vec<u8>, AppError> {
     crate::embedded::asset(source)
         .map(<[u8]>::to_vec)
         .ok_or_else(|| {

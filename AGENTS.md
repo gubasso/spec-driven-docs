@@ -46,7 +46,7 @@ This repository is the canonical knowledge product for spec-driven documentation
 
 - The whole corpus this binary carries, described: `sdd docs`, then `sdd docs <topic>`.
 - Method-specific routing: `method/AGENTS.md`.
-- Landing, upgrading, and drift in an instance: `method/reconcile.md`.
+- Landing, upgrading, and drift in an instance: `method/landing.md`.
 - Comparison-document routing: `comparison-docs/AGENTS.md`.
 - Distribution and ownership: `_docs/specs/SPEC-distribution.md`.
 - Pinning this tool from a consumer: `_docs/specs/SPEC-acquisition.md`.

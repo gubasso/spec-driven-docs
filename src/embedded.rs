@@ -25,8 +25,6 @@ pub static MARKDOWNLINT: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/.markd
 /// subdirectory would make the declaration a one-file exception to the
 /// payload inventory.
 pub static INSTANCE: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/instance");
-/// What each release asks of an instance that takes it.
-pub static GUIDANCE: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/guidance");
 /// The method chapters and glossary.
 pub static METHOD: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/method");
 /// The cross-agent skills, one `SKILL.md` per directory.
@@ -52,7 +50,6 @@ const EMBEDDED_ROOTS: &[(&str, &Dir<'static>)] = &[
     ("templates", &TEMPLATES),
     (".markdownlint", &MARKDOWNLINT),
     ("instance", &INSTANCE),
-    ("guidance", &GUIDANCE),
     ("method", &METHOD),
     ("skills", &SKILLS),
     ("skill-shared", &SKILL_SHARED),
@@ -60,8 +57,8 @@ const EMBEDDED_ROOTS: &[(&str, &Dir<'static>)] = &[
 
 /// Every embedded root paired with the authored path it came from.
 ///
-/// The release bundle walks this to build a manifest, so a root added to
-/// the declaration reaches the bundle without a second list.
+/// The candidate reads its sources through this, so a root added to the
+/// declaration reaches the projection without a second list.
 #[must_use]
 pub const fn roots() -> &'static [(&'static str, &'static Dir<'static>)] {
     EMBEDDED_ROOTS

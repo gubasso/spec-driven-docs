@@ -22,8 +22,8 @@ use crate::domain::paths::UserEnv;
 use crate::domain::profile::{DocsRoot, ProfileId};
 use crate::domain::version::CanonVersion;
 use crate::error::AppError;
-use crate::plan::finding::{is_ordinal_name, is_record_shaped, is_spec_shaped};
-use crate::plan::operation::TargetPath;
+use crate::landing::finding::{is_ordinal_name, is_record_shaped, is_spec_shaped};
+use crate::landing::path::TargetPath;
 
 /// The documentation roots a corpus conventionally lives under.
 const DOC_ROOTS: &[&str] = &["docs", "_docs", "doc", "documentation"];
@@ -202,7 +202,7 @@ pub fn observe(target: &Utf8Path) -> Result<Observation, AppError> {
     let env = UserEnv::from_process();
     let host = Host {
         offline: crate::domain::paths::variable(crate::domain::paths::OFFLINE_VAR).is_some(),
-        cache_root: env.user_paths().map(|paths| paths.bundle_cache.path),
+        cache_root: env.user_paths().map(|paths| paths.cache_root.path),
     };
 
     let (installation, invalid) = read_installation(target);

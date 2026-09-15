@@ -7,8 +7,8 @@
 use semver::Version;
 use serde::Serialize;
 
-use crate::release::crates_io::CRATE_NAME;
 use crate::self_depend::manager::Manager;
+use crate::self_depend::registry::CRATE_NAME;
 use crate::self_depend::venue::{Venue, Verdict, verdict};
 use crate::self_depend::{BINARY_NAME, ENVRC, SYNC_LINE, slug};
 

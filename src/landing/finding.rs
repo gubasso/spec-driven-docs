@@ -9,7 +9,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::plan::operation::TargetPath;
+use crate::landing::path::TargetPath;
 
 /// Which kind of debt a finding is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

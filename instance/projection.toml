@@ -1,14 +1,9 @@
 # What this release lands, declared as data.
 #
-# The engine reads this file from whichever release bundle it was asked
-# about, so a plan toward an older release lands exactly that release's
-# set rather than this binary's. It is embedded and never landed into a
-# target: it describes the projection rather than being part of it.
-
-# The protocol version between an engine and a bundle. An engine
-# declares the inclusive range it decodes and carries one decoder per
-# schema in it.
-payload_schema = 1
+# The binary reads this file from the payload it carries, so what a
+# release lands is what that release declares. It is embedded and never
+# landed into a target: it describes the projection rather than being
+# part of it.
 
 # The template copies this repository keeps in its own documentation
 # tree. A canon-side copy exists only for a class this repository

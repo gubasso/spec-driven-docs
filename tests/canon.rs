@@ -1731,7 +1731,6 @@ fn every_skill_names_its_gates_relative_to_its_own_root() {
 fn the_declaration_is_the_projection_this_release_lands() {
     use spec_driven_docs::domain::profile::{DECLARATION, DocsRoot, ProfileId};
 
-    assert_eq!(DECLARATION.payload_schema, 1);
     assert_eq!(
         DECLARATION.docs_root(ProfileId::Codebase),
         Some(DocsRoot::Docs)
@@ -1844,11 +1843,10 @@ fn only_the_candidate_renders_the_bytes_a_landing_writes() {
 /// skips every hidden entry, so it would report `.markdownlint` missing
 /// from a crate that carries it.
 #[test]
-fn the_published_crate_carries_the_payload_and_the_release_catalog() {
+fn the_published_crate_carries_the_payload() {
     let wanted: Vec<String> = PAYLOAD_ROOTS
         .iter()
         .map(|root| (*root).to_string())
-        .chain(["release-compat".to_string()])
         .collect();
 
     let manifest = read("Cargo.toml");
@@ -1889,124 +1887,31 @@ fn the_published_crate_carries_the_payload_and_the_release_catalog() {
             "the published crate carries no {root}"
         );
     }
+}
+
+/// SATISFIES distribution:a-landing-classifies-its-target-first
+#[test]
+fn the_reading_order_and_the_digest_route_to_landing() {
     assert!(
-        files
-            .lines()
-            .any(|line| line == "release-compat/index.toml"),
-        "the published crate carries no release catalog"
+        read("method/README.md").contains("[Landing](./landing.md)"),
+        "the reading order does not name the landing chapter"
     );
     assert!(
-        files
-            .lines()
-            .any(|line| line.starts_with("release-compat/legacy/")),
-        "the published crate carries no legacy descriptor"
+        read("method/AGENTS.md").contains("`landing.md`"),
+        "the method digest routes nothing to the landing chapter"
     );
-}
-
-/// SATISFIES release:every-release-declares-what-it-asks
-///
-/// One entry per release from the capability floor. Absence never means
-/// two things: `none` says there is nothing to do, and a missing entry is
-/// a release-time failure rather than a silent gap.
-#[test]
-fn every_covered_release_has_exactly_one_guidance_entry() {
-    use spec_driven_docs::plan::guidance::{Index, NONE};
-
-    let index = Index::parse(read("guidance/index.toml").as_bytes()).expect("the ledger parses");
-    let catalog = spec_driven_docs::release::legacy::LegacyCatalog::embedded();
-    for entry in &catalog.index().releases {
-        if !entry.eligible {
-            continue;
-        }
-        let version = entry.version.parse().expect("a released triple");
-        assert!(
-            index.entry(version).is_some(),
-            "{} is eligible and the guidance ledger does not cover it",
-            entry.version
-        );
-    }
-    for entry in &index.releases {
-        if entry.guidance == NONE {
-            continue;
-        }
-        let path = format!("guidance/{}", entry.guidance);
-        assert!(
-            canon().join(&path).is_file(),
-            "{} selects {path}, which is not on disk",
-            entry.version
-        );
-    }
-}
-
-/// SATISFIES release:every-release-declares-what-it-asks
-#[test]
-fn every_guidance_step_names_a_body_the_payload_carries() {
-    use spec_driven_docs::plan::guidance::{Guidance, Index, NONE};
-
-    let index = Index::parse(read("guidance/index.toml").as_bytes()).expect("the ledger parses");
-    let bodies: Vec<String> = walkdir::WalkDir::new(canon().join("guidance"))
-        .into_iter()
-        .filter_map(Result::ok)
-        .filter(|entry| entry.file_type().is_file())
-        .filter_map(|entry| {
-            let path = entry.path().strip_prefix(canon()).ok()?;
-            Some(path.to_str()?.to_string())
-        })
-        .collect();
-    let mut files = 0usize;
-    for entry in &index.releases {
-        if entry.guidance == NONE {
-            continue;
-        }
-        let path = format!("guidance/{}", entry.guidance);
-        // The parser is what holds a step to its kind, its destinations,
-        // its actor, and a body the bundle carries.
-        Guidance::parse(&path, read(&path).as_bytes(), &bodies)
-            .unwrap_or_else(|error| panic!("{path}: {error}"));
-        files += 1;
-    }
-    assert!(files > 0, "the ledger selects no guidance file");
-}
-
-/// SATISFIES bundle:a-release-declares-what-it-lands
-#[test]
-fn the_compatibility_declaration_is_present_and_true() {
-    use spec_driven_docs::plan::compatibility::Compatibility;
-
-    let held = Compatibility::parse(read("instance/compatibility.toml").as_bytes())
-        .expect("the declaration parses");
-    let version: spec_driven_docs::domain::version::CanonVersion = env!("CARGO_PKG_VERSION")
-        .parse()
-        .expect("the crate version is a triple");
     assert!(
-        held.minimum_engine <= version,
-        "the declaration needs an engine newer than the one that carries it"
+        read("AGENTS.md").contains("method/landing.md"),
+        "the root digest routes nothing to the landing chapter"
     );
 }
 
 /// SATISFIES distribution:a-landing-classifies-its-target-first
 #[test]
-fn the_reading_order_and_the_digest_route_to_reconcile() {
-    assert!(
-        read("method/README.md").contains("[Reconcile](./reconcile.md)"),
-        "the reading order does not name the reconcile chapter"
-    );
-    assert!(
-        read("method/AGENTS.md").contains("`reconcile.md`"),
-        "the method digest routes nothing to the reconcile chapter"
-    );
-    assert!(
-        read("AGENTS.md").contains("method/reconcile.md"),
-        "the root digest routes nothing to the reconcile chapter"
-    );
-}
-
-/// SATISFIES distribution:a-landing-classifies-its-target-first
-#[test]
-fn the_migration_chapter_sends_an_installed_instance_to_the_reconcile_chapter() {
+fn the_migration_chapter_sends_an_installed_instance_to_the_landing_chapter() {
     let chapter = read("method/migration.md");
     assert!(
-        chapter.contains("[Reconcile](./reconcile.md)"),
+        chapter.contains("[Landing](./landing.md)"),
         "the migration chapter keeps an installed instance to itself"
     );
 }
@@ -2029,12 +1934,17 @@ fn the_migration_chapter_names_the_two_proved_finding_kinds_the_unjudged_style_c
     }
 }
 
+/// SATISFIES staging:production-reads-no-staged-byte
 #[test]
-fn the_reconcile_chapter_states_the_plan_handling_rule() {
-    let chapter = read("method/reconcile.md");
+fn the_landing_chapter_states_what_a_stage_is_for() {
+    let chapter = read("method/landing.md");
     assert!(
-        chapter.contains("never committed") && chapter.contains("never pasted"),
-        "the reconcile chapter does not state how a plan is handled"
+        chapter.contains("The stage is for reading"),
+        "the landing chapter does not say what a stage is for"
+    );
+    assert!(
+        chapter.contains("renders the candidate again from scratch"),
+        "the landing chapter does not say that production re-renders"
     );
 }
 

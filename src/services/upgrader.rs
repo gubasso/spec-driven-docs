@@ -22,10 +22,8 @@ use crate::services::installer::{InitOptions, init};
 pub struct UpgradeOptions {
     /// The absolute target instance.
     pub target: Utf8PathBuf,
-    /// Report the plan and change nothing.
+    /// Report what would change and change nothing.
     pub dry_run: bool,
-    /// Every decision the operator answered on the command line.
-    pub selections: crate::plan::decision::Selections,
 }
 
 /// What an upgrade did.
@@ -120,11 +118,6 @@ fn read_installed(target: &Utf8Path) -> Result<Installed, AppError> {
 /// # Errors
 ///
 /// [`AppError::Usage`] naming the decision nothing offered.
-fn unanswerable(selections: &crate::plan::decision::Selections) -> Result<(), AppError> {
-    crate::plan::decision::validate(&[], selections)
-        .map_err(|error| AppError::Usage(error.to_string()))
-}
-
 /// Every managed file and region the target no longer holds as recorded.
 ///
 /// A reinstall replaces a managed file and re-splices a managed region, so
@@ -223,7 +216,6 @@ pub fn upgrade(options: &UpgradeOptions) -> Result<UpgradeOutcome, AppError> {
     let mut outcome = UpgradeOutcome::default();
 
     if old == new && installed.schema_current {
-        unanswerable(&options.selections)?;
         outcome.lines.push(format!("OK already at {new}"));
         return Ok(outcome);
     }
@@ -235,13 +227,6 @@ pub fn upgrade(options: &UpgradeOptions) -> Result<UpgradeOutcome, AppError> {
 
     let conflicts = conflicts_at(&target, &installed)?;
     if !conflicts.is_empty() {
-        // The conflict is what the operator needs to see. An answer to a
-        // decision that never got offered is reported beside it rather
-        // than instead of it: turning it into the exit reason would hide
-        // the edited file behind a complaint about a flag.
-        if let Err(refused) = unanswerable(&options.selections) {
-            outcome.lines.push(format!("note: {refused}"));
-        }
         let count = conflicts.len();
         outcome.lines.extend(conflicts);
         outcome.failures += count;
@@ -264,7 +249,7 @@ pub fn upgrade(options: &UpgradeOptions) -> Result<UpgradeOutcome, AppError> {
         // for, are what a dry run exists to show.
         let preview = init(
             &reinstall_options(&target, installed.profile),
-            crate::plan::classify::Intent::Reconcile,
+            crate::landing::classify::Intent::Reconcile,
         )
         .map_err(|error| {
             AppError::Refused(format!(
@@ -288,7 +273,7 @@ pub fn upgrade(options: &UpgradeOptions) -> Result<UpgradeOutcome, AppError> {
         },
         // The upgrade already classified the target; the reinstall is its
         // own act rather than a second landing decision.
-        crate::plan::classify::Intent::Reconcile,
+        crate::landing::classify::Intent::Reconcile,
     )
     .map_err(|error| {
         AppError::Refused(format!(

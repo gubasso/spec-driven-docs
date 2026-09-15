@@ -61,11 +61,7 @@ fn print_plan(plan: &Plan) {
 fn reconcile(ctx: &AppContext, args: &ReconcileArgs) -> Result<(), AppError> {
     let target = resolve_target(ctx, &args.target)?;
     let manifest = crate::services::verifier::read_manifest(&target)?;
-    let plans = crate::services::policy::plan(
-        &target,
-        manifest.docs_root,
-        &crate::release::embedded::EmbeddedReleaseBundle::new(),
-    )?;
+    let plans = crate::services::policy::plan(&target, manifest.docs_root)?;
     if plans.is_empty() {
         output::line("OK every active declaration is authorized by a local specification");
         return Ok(());
@@ -94,11 +90,7 @@ fn reconcile(ctx: &AppContext, args: &ReconcileArgs) -> Result<(), AppError> {
             checklist.join(", ")
         )));
     }
-    for written in crate::services::policy::apply_all(
-        &target,
-        &plans,
-        &crate::release::embedded::EmbeddedReleaseBundle::new(),
-    )? {
+    for written in crate::services::policy::apply_all(&target, &plans)? {
         output::line(format!("OK wrote {written}"));
     }
     Ok(())

@@ -96,18 +96,20 @@ fn completions_and_man_render() {
 }
 
 #[test]
-fn the_reconcile_chapter_renders() {
+fn the_landing_chapter_renders() {
     let fixture = Fixture::new();
     fixture
         .cmd()
         .args(["method", "--list"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("reconcile"));
+        .stdout(predicate::str::contains("landing"));
     fixture
         .cmd()
-        .args(["method", "reconcile"])
+        .args(["method", "landing"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("Every write comes from a plan"));
+        .stdout(predicate::str::contains(
+            "The candidate is the version you installed",
+        ));
 }
