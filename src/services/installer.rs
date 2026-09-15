@@ -11,8 +11,7 @@
 use camino::{Utf8Path, Utf8PathBuf};
 
 use crate::domain::manifest::{
-    CANON_SOURCE, MANIFEST_PATH, Manifest, PlanZone, SCHEMA_VERSION, validate_docs_scratch_path,
-    validate_plan_zone_path,
+    CANON_SOURCE, MANIFEST_PATH, Manifest, SCHEMA_VERSION, validate_docs_scratch_path,
 };
 use crate::domain::ownership::{AdoptedEntry, IntegrationBlock, ManagedEntry, Sha256};
 use crate::domain::paths::{AGENTS_DIGEST_PATH, HOOKS_CONFIG_PATH};
@@ -33,8 +32,6 @@ pub struct InitOptions {
     pub apply: bool,
     /// Preview only, regardless of the target's state.
     pub dry_run: bool,
-    /// The plan zone to record; `None` keeps whatever is recorded.
-    pub plan_zone: Option<PlanZone>,
     /// The docs scratch to record. `None` keeps whatever is recorded, and
     /// `Some(None)` clears it.
     pub docs_scratch: Option<Option<Utf8PathBuf>>,
@@ -117,54 +114,13 @@ fn installed_at(target: &Utf8Path) -> String {
         })
 }
 
-/// The plan zone to record: the flag, else the recorded value, else none.
+/// The docs scratch to record: the flag, else the recorded value, else none.
 ///
 /// An omitted flag never clears a declared value. `sdd upgrade` reinstalls
 /// with no flag at all, so "absent means the default" would erase the
-/// operator's declaration on every upgrade.
-///
-/// A recorded value this binary cannot decode refuses rather than defaults,
-/// for the same reason: writing the default over it would erase a
-/// declaration silently, which is the failure the preservation exists to
-/// prevent.
-///
-/// # Errors
-///
-/// [`AppError::ManifestInvalid`] when a value is recorded in a shape this
-/// binary does not understand.
-pub(crate) fn resolved_plan_zone(
-    target: &Utf8Path,
-    flag: Option<&PlanZone>,
-) -> Result<PlanZone, AppError> {
-    if let Some(zone) = flag {
-        return Ok(zone.clone());
-    }
-    let Some(recorded) = recorded_field(target, "plan_zone") else {
-        return Ok(PlanZone::default());
-    };
-    let zone: PlanZone = serde_json::from_value(recorded).map_err(|source| {
-        AppError::ManifestInvalid(format!(
-            "the recorded plan_zone is in a shape this sdd does not read ({source}); \
-             upgrade sdd, or re-declare it with --plan-zone"
-        ))
-    })?;
-    // The same invariants the argument enforces. Carried forward unchecked,
-    // a hand-edited path fails the post-write verification instead, which
-    // rolls the whole target back and names no repair.
-    if let Some(path) = zone.path()
-        && let Err(error) = validate_plan_zone_path(path)
-    {
-        return Err(AppError::ManifestInvalid(format!(
-            "the recorded plan_zone is not usable ({error}); re-declare it with --plan-zone"
-        )));
-    }
-    Ok(zone)
-}
-
-/// The docs scratch to record: the flag, else the recorded value, else none.
-///
-/// The flag is two-level on purpose: absent keeps what is recorded, and
-/// `--docs-scratch none` clears it.
+/// operator's declaration on every upgrade. The flag is two-level on
+/// purpose: absent keeps what is recorded, and `--docs-scratch none` clears
+/// it.
 ///
 /// # Errors
 ///
@@ -404,7 +360,6 @@ pub fn compute_target_state(
         profile,
         docs_root: declaration.docs_root,
         installed_at: installed_at(target),
-        plan_zone: resolved_plan_zone(target, options.plan_zone.as_ref())?,
         docs_scratch: resolved_docs_scratch(target, options.docs_scratch.as_ref())?,
         managed_files: managed_entries,
         adopted_files: adopted_entries,

@@ -1,6 +1,6 @@
 # Reconcile
 
-How a target moves from what it is to what a release says it should be. The subject is one repository and one destination release, and the unit of work is a plan. Migrating a corpus onto the method is the question of [Migration](./migration.md). Installing and owning the files is the question of the [instance guide](../instance/README.md). This chapter owns what every landing shares: one plan, one decision, one apply.
+How a target moves from what it is to what a release says it should be. The subject is one repository and one destination release, and the artifact is a plan. Migrating a corpus onto the method is the question of [Migration](./migration.md). Installing and owning the files is the question of the [instance guide](../instance/README.md). This chapter owns what every landing shares: one plan, one decision, one apply.
 
 ## Every write comes from a plan
 
@@ -105,7 +105,7 @@ An operator who already authorized the upgrade has authorized it. Ask a second q
 
 A profile change or a documentation-root move is a named migration, not a consequence of a new release arriving. It is a plan under new parameters, gated by its own decision, and an operator asks for it deliberately.
 
-A migration checklist is authored from the plan's findings into the plan zone, by whoever runs the migration. The engine never writes there. [Migration](./migration.md) owns the checklist's shape.
+A migration checklist is authored from the plan's findings, by whoever runs the migration, into a location the operator names. The engine never writes it. [Migration](./migration.md) owns the checklist's shape.
 
 ## Handling a plan
 

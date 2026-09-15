@@ -56,7 +56,7 @@ The docs scratch holds material that is not a statement yet. The project declare
 
 Promotion is a rewrite because a draft contains uncertainty, repeated facts, and abandoned options, and the durable document must contain only the result. Keeping the draft afterwards leaves a second place for a reader to mistake for truth.
 
-If a draft tangles exploration with something the project is already working under, split it: the binding part goes to the plan zone under version control, and the rest stays in the docs scratch until it resolves.
+If a draft tangles exploration with something the project is already working under, split it: the binding part is promoted into its owning zone under version control, and the rest stays in the docs scratch until it resolves.
 
 Promotion also strips project-private context when the target is project-agnostic material. Replace local people, hosts, incidents, and workspace paths with placeholders. Keep concrete public names only where they are necessary examples.
 

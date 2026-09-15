@@ -145,9 +145,9 @@ target = { document = { shelf = "method", name = "decisions" } }
 [[topic]]
 id = "agent-context"
 title = "What an agent loads"
-summary = "The digests, the entry document, and the budget an always-loaded file pays."
+summary = "The digests, the context entrypoints, and the budget an always-loaded file pays."
 kind = "method-chapter"
-aliases = ["context budget", "always loaded", "entry document"]
+aliases = ["context budget", "always loaded", "context entrypoint"]
 target = { document = { shelf = "method", name = "agent-context" } }
 
 [[topic]]

@@ -25,7 +25,7 @@ The other two kinds of debt take the marginal path.
 
 Narrowing the scope is the `migration-scope` decision, and the plan offers the incremental answer only where the structural count is zero. Taking it costs one thing, stated plainly: nothing retires. Every document converts on its next edit, and the checklist below holds the recorded debt rather than a source-by-source inventory.
 
-The plan's body is a migration checklist: one entry per source document, written before the first destination write and kept under version control in the plan zone. A ranked plan with declared scope is binding, however early, per [Placement](./placement.md). Each entry carries:
+The plan's body is a migration checklist: one entry per source document, written before the first destination write and kept under version control where the operator names. Each entry carries:
 
 ```markdown
 - [ ] `old-docs/deploy-and-why.md`

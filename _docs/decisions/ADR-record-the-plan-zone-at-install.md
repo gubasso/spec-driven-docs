@@ -17,8 +17,6 @@ Chosen option: `record the location in the instance manifest at install` — the
 
 The value carries a kind rather than a bare path, because the three absent cases are not one case. A `tracked` zone is in every clone, so the gate checks it and an absent directory is drift. An `untracked` zone and an `env` zone are absent on a fresh clone, so the gate reports nothing and a reviewer holds the rule.
 
-Enforced by `spec-to-code:a-spec-change-is-typed`.
-
 ## Consequences
 
 - Good: no adopter edits a seeded spec, so the seed stays byte-exact and `sdd verify` stays quiet.
@@ -28,4 +26,4 @@ Enforced by `spec-to-code:a-spec-change-is-typed`.
 
 ## Status
 
-Accepted
+Superseded by [ADR-carry-no-plan-zone](./ADR-carry-no-plan-zone.md)

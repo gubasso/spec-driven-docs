@@ -19,10 +19,9 @@ Terms this framework fixes, each resolved at the chapter that owns it. A term is
 | Kind prefix              | the uppercase `SPEC-`, `ADR-`, `KI-`, or `TEMPLATE-` leading a name     | `placement.md`       |
 | Companion directory      | `SPEC-<domain>/`, holding artifacts a requirement names                 | `specs.md`           |
 | Docs root                | `docs/` for a codebase, `_docs/` for a content tree                     | `placement.md`       |
-| Plan zone                | the declared place the planning tool writes entry documents to          | `placement.md`       |
 | Zone                     | a directory under the docs root serving one reader need                 | `placement.md`       |
 | Author-instructions file | the always-loaded digest and router at a directory                      | `agent-context.md`   |
-| Entry document           | the one document a unit of work loads, which names its sources          | `agent-context.md`   |
+| Context entrypoint       | the document a session loads for a domain, linking its sources by path  | `agent-context.md`   |
 | Docs scratch             | the declared place for material that is not a statement yet             | `lifecycle.md`       |
 | Draft                    | exploratory material in the docs scratch                                | `lifecycle.md`       |
 | Promotion                | rewriting a draft into its owning zone and deleting the draft           | `lifecycle.md`       |

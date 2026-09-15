@@ -71,10 +71,10 @@ pub struct Inputs<'a> {
     /// The declarations a front carries, rendered for the fingerprint.
     ///
     /// A front's flags reach the record and no other operation, so a plan
-    /// that recorded a different plan zone would otherwise share an id
+    /// that recorded a different docs scratch would otherwise share an id
     /// with one that did not.
     pub declared: Option<&'a str>,
-    /// Whether the caller already settled the three declarations.
+    /// Whether the caller already settled the two declarations.
     ///
     /// A front carries them as flags, and an omitted flag keeps whatever
     /// is recorded. So the questions are answered before the plan is
@@ -429,19 +429,6 @@ fn decisions_of(
             } else {
                 Vec::new()
             };
-            decisions.push(Decision {
-                id: decision::id::PLAN_ZONE.to_string(),
-                question: "where does the planning tool write its entry documents?".to_string(),
-                schema: AnswerSchema::ChoiceOrValue {
-                    choices: vec![
-                        choice("env", "wherever the plan-zone variable points"),
-                        choice("none", "the project keeps no plan zone"),
-                    ],
-                    prefixes: vec!["project:".to_string(), "untracked:".to_string()],
-                },
-                depends_on: depends.clone(),
-                selected: selected(decision::id::PLAN_ZONE),
-            });
             decisions.push(Decision {
                 id: decision::id::DOCS_SCRATCH.to_string(),
                 question: "where does material that is not a statement yet stage?".to_string(),

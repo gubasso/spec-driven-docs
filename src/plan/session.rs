@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 
 use camino::{Utf8Path, Utf8PathBuf};
 
-use crate::domain::manifest::{PlanZone, parse_docs_scratch};
+use crate::domain::manifest::parse_docs_scratch;
 use crate::domain::ownership::Sha256;
 use crate::domain::paths::UserEnv;
 use crate::domain::profile::ProfileId;
@@ -232,11 +232,6 @@ fn landing_options(
     selections: &decision::Selections,
     reserve: &[String],
 ) -> Result<InitOptions, AppError> {
-    let plan_zone = selections
-        .get(decision::id::PLAN_ZONE)
-        .map(|answer| PlanZone::parse(answer.strip_prefix("project:").unwrap_or(answer)))
-        .transpose()
-        .map_err(|error| AppError::Usage(format!("--set plan-zone: {error}")))?;
     let docs_scratch = selections
         .get(decision::id::DOCS_SCRATCH)
         .map(|answer| {
@@ -258,7 +253,6 @@ fn landing_options(
         profile,
         apply: false,
         dry_run: true,
-        plan_zone,
         docs_scratch,
         reserve: reserve.to_vec(),
         writing_style,
@@ -357,8 +351,8 @@ fn payload_digests(manifest: &crate::release::ReleaseManifest) -> BTreeMap<Strin
 /// fingerprint, and no other operation carries a declared location.
 fn declared_summary_of(options: &InitOptions) -> String {
     format!(
-        "plan-zone={:?};docs-scratch={:?};writing-style={:?}",
-        options.plan_zone, options.docs_scratch, options.writing_style
+        "docs-scratch={:?};writing-style={:?}",
+        options.docs_scratch, options.writing_style
     )
 }
 
@@ -460,13 +454,9 @@ pub(crate) fn compute_plan(
     // question the planner would otherwise ask for them.
     let answered = declared.is_some()
         || observation.installation.is_some()
-        || [
-            decision::id::PLAN_ZONE,
-            decision::id::DOCS_SCRATCH,
-            decision::id::WRITING_STYLE,
-        ]
-        .iter()
-        .all(|id| selections.contains_key(*id));
+        || [decision::id::DOCS_SCRATCH, decision::id::WRITING_STYLE]
+            .iter()
+            .all(|id| selections.contains_key(*id));
     // A profile change is a named migration, not something a landing verb
     // does because a flag said so. The record decides for an installed
     // target, and a caller asking for another one is refused rather than

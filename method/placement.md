@@ -21,20 +21,19 @@ A code project's product is its source tree, so `docs/` at the root is unambiguo
 
 ## The zones
 
-| Zone           | Path                         | Reader question                  | Lifecycle  |
-| -------------- | ---------------------------- | -------------------------------- | ---------- |
-| Specifications | `<root>/specs/`              | what is true now                 | living     |
-| Decisions      | `<root>/decisions/`          | why, at the time                 | frozen     |
-| Guides         | `<root>/guides/<topic>/`     | how do I finish this task        | living     |
-| Reference      | `<root>/reference/<topic>/`  | what is the exact value          | living     |
-| Explanation    | `<root>/explanation/<topic>` | how do I understand this         | living     |
-| Plan           | declared by the project      | what is next, and what bounds it | perishable |
+| Zone           | Path                         | Reader question           | Lifecycle |
+| -------------- | ---------------------------- | ------------------------- | --------- |
+| Specifications | `<root>/specs/`              | what is true now          | living    |
+| Decisions      | `<root>/decisions/`          | why, at the time          | frozen    |
+| Guides         | `<root>/guides/<topic>/`     | how do I finish this task | living    |
+| Reference      | `<root>/reference/<topic>/`  | what is the exact value   | living    |
+| Explanation    | `<root>/explanation/<topic>` | how do I understand this  | living    |
 
 Create a zone when it has real content. An empty zone is a promise the project has not kept.
 
-The plan zone's exact path is declared by the project. The instance records it, and `SDD_PLAN_ZONE` overrides the record where it is set. The zone can sit under the docs root, elsewhere in the repository, or outside the repository, because the planning tool owns the record. This framework fixes the zone's existence and reader question, never its path.
+Specifications and decisions are the two zones this shelf owns. [Specs](./specs.md) and [Decisions](./decisions.md) hold their rules. The other three are ordinary reader-need zones and need no chapter of their own.
 
-Specifications and decisions are the two zones this shelf owns. [Specs](./specs.md) and [Decisions](./decisions.md) hold their rules. The other four are ordinary reader-need zones and need no chapter of their own.
+A documentation root may carry directories this framework does not own. A delivered gate judges only the paths the convention owns, per [Gates](./gates.md), so a directory beside the zones is the project's to fill, name, and keep.
 
 ## Placement procedure
 
@@ -51,9 +50,6 @@ a durable fact needs a home
 │
 ├─ is it why one option was chosen over others, at the time?
 │    yes → <root>/decisions/ADR-<slug>.md
-│
-├─ is it what the project builds next, and what bounds it?
-│    yes → the plan zone
 │
 ├─ is it a sequence a reader follows to finish a task?
 │    yes → <root>/guides/<topic>/
@@ -132,7 +128,7 @@ The docs scratch holds material that is not a statement yet. The project declare
 
 A reader must be able to tell whether a document is project state from its path alone, without opening it. That is why a filename warning like `draft-final.md` inside the docs root does not substitute for the path.
 
-Forward-looking is not the same as provisional. A ranked plan with declared scope is binding and belongs in the plan zone under version control, however early it is. The test is not whether the document is finished but whether the project is working under it. [Lifecycle](./lifecycle.md) owns the promotion procedure.
+Forward-looking is not the same as provisional. A document the project is working under is binding and belongs under version control, however early it is. The test is not whether the document is finished but whether the project is working under it. [Lifecycle](./lifecycle.md) owns the promotion procedure.
 
 ## A project's documents stand on their own
 

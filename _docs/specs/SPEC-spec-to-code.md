@@ -5,9 +5,6 @@
 - [Purpose](#purpose)
 - [Requirements](#requirements)
   - [`spec-to-code:a-spec-may-lead-its-code` — A spec may lead its code](#spec-to-codea-spec-may-lead-its-code--a-spec-may-lead-its-code)
-  - [`spec-to-code:a-spec-change-is-typed` — A spec change is typed](#spec-to-codea-spec-change-is-typed--a-spec-change-is-typed)
-  - [`spec-to-code:an-entry-document-cites-rule-ids` — An entry document cites rule IDs](#spec-to-codean-entry-document-cites-rule-ids--an-entry-document-cites-rule-ids)
-  - [`spec-to-code:unenacted-rules-are-the-backlog` — Unenacted rules are the backlog](#spec-to-codeunenacted-rules-are-the-backlog--unenacted-rules-are-the-backlog)
   - [`spec-to-code:a-comment-cites-the-rule` — A comment cites the rule it satisfies](#spec-to-codea-comment-cites-the-rule--a-comment-cites-the-rule-it-satisfies)
   - [`spec-to-code:a-gate-message-cites-the-rule` — A gate message cites the rule it enforces](#spec-to-codea-gate-message-cites-the-rule--a-gate-message-cites-the-rule-it-enforces)
   - [`spec-to-code:a-comment-names-no-record` — A comment names no decision record](#spec-to-codea-comment-names-no-record--a-comment-names-no-decision-record)
@@ -17,11 +14,7 @@
 
 ## Purpose
 
-Rules governing the seam between a spec and the work that implements it. Covers requirements written before their behavior exists, how an entry document in the plan zone cites the rules it enacts, and how coverage is derived. The shape of a requirement is covered by the specs specification. How a spec changes is covered by its lifecycle rules.
-
-The plan zone is a declared value rather than a path this specification fixes. That is because the planning tool owns the record, and this framework names no planning tool. A project declares the zone at install, and the instance manifest records it. The `SDD_PLAN_ZONE` environment variable overrides the recorded value. No project edits a line of this file, and every command here is layout-independent.
-
-Where the recorded kind is `untracked` or `env` and the variable is unset, the gate below reports nothing. The zone is absent on a fresh clone. A reviewer holds the rule there, and `gates.md` carries the case.
+Rules governing the traceability between a spec and the code that implements it. Covers requirements written before their behavior exists, how code and gates cite the rules they satisfy, and how coverage is derived. The shape of a requirement is covered by the specs specification. How a spec changes is covered by its lifecycle rules.
 
 ## Requirements
 
@@ -36,42 +29,6 @@ Where a requirement's behavior does not yet exist, the author MUST represent tha
 - THEN the three failures are the backlog, and no marker in the spec restates them
 
 Verify: `rg -in '^status:' . --glob 'SPEC-*.md' && exit 1 || exit 0`
-
-### `spec-to-code:a-spec-change-is-typed` — A spec change is typed
-
-When an entry document cites a spec change, the author MUST write `ADDED`, `MODIFIED`, or `REMOVED` immediately before the inline-code rule ID.
-
-#### Scenario: A clause names a type but garbles the ID
-
-- GIVEN an entry document carrying `ADDED auth-token-expiry`
-- WHEN the shape gate runs
-- THEN the clause fails, because the ID token is not `` `<spec-slug>:<rule-slug>` ``
-
-Verify: `pre-commit run spec-change-is-typed --all-files`
-
-### `spec-to-code:an-entry-document-cites-rule-ids` — An entry document cites rule IDs
-
-When a unit of work changes agreed behavior, the author MUST cite each affected rule ID in the work's entry document.
-
-#### Scenario: A diff changes a spec the entry document never names
-
-- GIVEN a change that rewords a requirement
-- WHEN the entry document carries no `MODIFIED` clause for its ID
-- THEN review rejects the change, because no command can see the omission
-
-Verify: reviewer compares the spec diff against the entry document's typed clauses
-
-### `spec-to-code:unenacted-rules-are-the-backlog` — Unenacted rules are the backlog
-
-The author MUST derive the set of unenacted rules from the specs and the plan zone on every ask.
-
-#### Scenario: Someone proposes a coverage file
-
-- GIVEN a request for a rules-to-work index under `_docs/reference/`
-- WHEN the same set is derivable by comparing spec IDs against cited IDs
-- THEN the file is refused, because a stored copy drifts on the next change to either side
-
-Verify: reviewer confirms no document stores the agreed-to-enacted mapping
 
 ### `spec-to-code:a-comment-cites-the-rule` — A comment cites the rule it satisfies
 

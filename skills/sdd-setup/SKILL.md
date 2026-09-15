@@ -38,7 +38,7 @@ Read a chapter with `sdd docs <topic>` or its shelf verb. Never copy one here: a
 
 The pre-flight gate already ran `sdd status --target . --json`. Hold what it returned, including any invalid-instance diagnostic. It is routing evidence, not a verdict: the planner re-observes the same target, and a record nobody can read is not an absent one.
 
-The report's `paths` section is where every path this skill needs comes from, so nothing below spells one. `paths.user` carries the roots under the invoking user's home, each with the variable that moved it. `paths.active` is the landed instance, or `null` where there is none. `paths.candidates` carries one destination set per profile, and `paths.proposals` carries what this target offers for the two locations the project owns. Every entry names its source, so a recorded answer and a derived one never read alike.
+The report's `paths` section is where every path this skill needs comes from, so nothing below spells one. `paths.user` carries the roots under the invoking user's home, each with the variable that moved it. `paths.active` is the landed instance, or `null` where there is none. `paths.candidates` carries one destination set per profile, and `paths.proposals` carries what this target offers for the docs scratch. Every entry names its source, so a recorded answer and a derived one never read alike.
 
 ## 2. Request a plan
 
@@ -81,7 +81,7 @@ Read the postconditions the plan named, the result the apply printed, and `sdd s
 
 Load `sdd docs migration`. It owns the classification, the inventory, the loop, and the close, and every step below is one of its sections.
 
-With the sweep selected, author the migration checklist from the plan's structural findings into the project's plan zone, in the shape the chapter's inventory section gives, and drive the chapter's loop. The plan's findings seed the inventory rather than bound it: a read-only sweep of every populated documentation root completes it before the checklist freezes, covering files of any extension, wiki exports, README files, and contributor guides.
+With the sweep selected, author the migration checklist from the plan's structural findings into the location the operator names, in the shape the chapter's inventory section gives, and drive the chapter's loop. The plan's findings seed the inventory rather than bound it: a read-only sweep of every populated documentation root completes it before the checklist freezes, covering files of any extension, wiki exports, README files, and contributor guides.
 
 With the incremental scope selected, land the instance, answer the debt baseline where the plan offers it, and close the task naming the two standing rules: recorded debt tightens as a document shrinks, and prose converts the next time somebody edits it. Author no checklist, because nothing retires. The plan offers this answer only where it proved no structural finding, so never offer it where the plan does not.
 
@@ -111,12 +111,12 @@ Edit the file, then run `sdd hooks --apply`, which renders the managed block fro
 
 ## Land the variables
 
-The two variables `paths.active.plan_zone` and `paths.active.docs_scratch` name override the recorded values. Neither is required, and the binary writes neither. Land them as a gated step the operator approves first.
+The variable that `paths.active.docs_scratch` names overrides the recorded value. It is not required, and the binary does not write it. Land it as a gated step the operator approves first.
 
 1. Observe, read-only: an `.envrc` at the root, `direnv` on `PATH`, an existing `.env`, and what `.gitignore` already covers.
-2. With direnv present, append the two `export` lines to `.envrc.local`, and add `.envrc.local` to `.gitignore` where it is absent.
-3. Without direnv, write the two assignments to `.env`, and add `.env` to `.gitignore` where it is absent. State the caveat: nothing loads a plain `.env` on its own, so the operator sources it before a gate can read it.
-4. With neither, print the two lines and stop. A recorded tracked zone is checked whether or not the variable is set, and the other three kinds are checked only where it is.
+2. With direnv present, append the `export` line to `.envrc.local`, and add `.envrc.local` to `.gitignore` where it is absent.
+3. Without direnv, write the assignment to `.env`, and add `.env` to `.gitignore` where it is absent. State the caveat: nothing loads a plain `.env` on its own, so the operator sources it before a gate can read it.
+4. With neither, print the line and stop.
 
 ## What waits for the operator
 

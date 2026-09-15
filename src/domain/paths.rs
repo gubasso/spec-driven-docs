@@ -17,7 +17,6 @@ use std::collections::BTreeMap;
 use camino::{Utf8Path, Utf8PathBuf};
 use serde::Serialize;
 
-use crate::domain::manifest::PlanZone;
 use crate::domain::profile::{DocsRoot, ProfileId};
 
 /// The variable naming the invoking user's home directory.
@@ -30,8 +29,6 @@ pub const XDG_STATE_HOME_VAR: &str = "XDG_STATE_HOME";
 pub const XDG_CACHE_HOME_VAR: &str = "XDG_CACHE_HOME";
 /// The variable that tells this tool to reach no network.
 pub const OFFLINE_VAR: &str = "SDD_OFFLINE";
-/// The variable that names the plan zone.
-pub const PLAN_ZONE_VAR: &str = "SDD_PLAN_ZONE";
 /// The variable that names the docs scratch.
 pub const DOCS_SCRATCH_VAR: &str = "SDD_DOCS_SCRATCH";
 
@@ -293,11 +290,9 @@ pub enum LocationChoice {
     None,
 }
 
-/// The choices this target offers for the two locations it owns.
+/// The choices this target offers for the docs scratch.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Proposals {
-    /// What the plan zone can be here.
-    pub plan_zone: Vec<LocationChoice>,
     /// What the docs scratch can be here.
     pub docs_scratch: Vec<LocationChoice>,
 }
@@ -355,8 +350,6 @@ pub struct ActivePaths {
     pub profile: ProfileId,
     /// Every destination the record implies.
     pub destinations: InstancePaths,
-    /// Where the planning tool writes its entry documents.
-    pub plan_zone: ProjectLocation,
     /// Where material that is not a statement yet is staged.
     pub docs_scratch: ProjectLocation,
 }
@@ -380,7 +373,7 @@ pub struct Paths {
     pub active: Option<ActivePaths>,
     /// What each profile would imply, whether or not one is recorded.
     pub candidates: BTreeMap<String, CandidatePaths>,
-    /// What this target offers for the two locations the project owns.
+    /// What this target offers for the docs scratch.
     pub proposals: Proposals,
 }
 
@@ -395,8 +388,6 @@ pub struct UserEnv {
     pub xdg_state_home: Option<Utf8PathBuf>,
     /// The XDG cache base directory.
     pub xdg_cache_home: Option<Utf8PathBuf>,
-    /// What the plan-zone variable carries.
-    pub plan_zone: Option<String>,
     /// What the docs-scratch variable carries.
     pub docs_scratch: Option<String>,
 }
@@ -424,7 +415,6 @@ impl UserEnv {
             claude_config_dir: path(CLAUDE_CONFIG_DIR_VAR),
             xdg_state_home: path(XDG_STATE_HOME_VAR),
             xdg_cache_home: path(XDG_CACHE_HOME_VAR),
-            plan_zone: variable(PLAN_ZONE_VAR),
             docs_scratch: variable(DOCS_SCRATCH_VAR),
         }
     }
@@ -593,26 +583,6 @@ pub fn candidates() -> BTreeMap<String, CandidatePaths> {
         .collect()
 }
 
-/// Where the record says the plan zone sits.
-#[must_use]
-pub fn plan_zone_location(zone: &PlanZone, env: &UserEnv) -> ProjectLocation {
-    match zone {
-        PlanZone::Tracked { path } => ProjectLocation::Tracked {
-            path: path.clone(),
-            source: PathSource::Recorded,
-        },
-        PlanZone::Untracked { path } => ProjectLocation::Untracked {
-            path: path.clone(),
-            source: PathSource::Recorded,
-        },
-        PlanZone::Env => ProjectLocation::Env {
-            variable: PLAN_ZONE_VAR,
-            value: env.plan_zone.clone(),
-        },
-        PlanZone::None => ProjectLocation::None,
-    }
-}
-
 /// Where the record says the docs scratch sits.
 ///
 /// A recorded scratch may leave the repository, because staging beside the
@@ -642,39 +612,19 @@ pub fn docs_scratch_location(recorded: Option<&Utf8Path>, env: &UserEnv) -> Proj
     }
 }
 
-/// The directories a target already carries that a plan zone could be.
+/// The directories a target already carries that a docs scratch could be.
 ///
 /// Read from the target rather than declared, because a repository that
-/// already writes plans somewhere has answered the question and the
+/// already stages material somewhere has answered the question and the
 /// operator only has to confirm it.
-pub const PLAN_ZONE_LEAVES: &[&str] = &["plan", "plans"];
-
-/// The directories a target already carries that a docs scratch could be.
 pub const DOCS_SCRATCH_LEAVES: &[&str] = &[".docs-scratch", ".scratch"];
 
-/// What this target offers for the two locations the project owns.
+/// What this target offers for the docs scratch.
 ///
 /// `held` answers whether the target carries a repository-relative
 /// directory, so the pure derivation stays testable and the caller owns the
 /// one filesystem read.
 pub fn proposals(env: &UserEnv, held: impl Fn(&Utf8Path) -> bool) -> Proposals {
-    let mut plan_zone: Vec<LocationChoice> = Vec::new();
-    for profile in ProfileId::every() {
-        let docs = Utf8PathBuf::from(profile.profile().docs_root.as_str());
-        for leaf in PLAN_ZONE_LEAVES {
-            let candidate = docs.join(leaf);
-            if held(&candidate) && !plan_zone.iter().any(|choice| names(choice, &candidate)) {
-                plan_zone.push(LocationChoice::Observed { path: candidate });
-            }
-        }
-    }
-    plan_zone.push(LocationChoice::Env {
-        variable: PLAN_ZONE_VAR,
-        value: env.plan_zone.clone(),
-    });
-    plan_zone.push(LocationChoice::Operator);
-    plan_zone.push(LocationChoice::None);
-
     let mut docs_scratch: Vec<LocationChoice> = Vec::new();
     for leaf in DOCS_SCRATCH_LEAVES {
         let candidate = Utf8PathBuf::from(*leaf);
@@ -689,14 +639,7 @@ pub fn proposals(env: &UserEnv, held: impl Fn(&Utf8Path) -> bool) -> Proposals {
     docs_scratch.push(LocationChoice::Operator);
     docs_scratch.push(LocationChoice::None);
 
-    Proposals {
-        plan_zone,
-        docs_scratch,
-    }
-}
-
-fn names(choice: &LocationChoice, path: &Utf8Path) -> bool {
-    matches!(choice, LocationChoice::Observed { path: held } if held == path)
+    Proposals { docs_scratch }
 }
 
 #[cfg(test)]
@@ -844,27 +787,14 @@ mod tests {
 
     #[test]
     fn a_recorded_location_reports_as_recorded_and_an_override_as_env() {
-        let plain = env("/h");
-        assert_eq!(
-            plan_zone_location(
-                &PlanZone::Tracked {
-                    path: Utf8PathBuf::from("docs/plan")
-                },
-                &plain
-            ),
-            ProjectLocation::Tracked {
-                path: Utf8PathBuf::from("docs/plan"),
-                source: PathSource::Recorded,
-            }
-        );
         let overridden = UserEnv {
-            plan_zone: Some("elsewhere".to_string()),
+            docs_scratch: Some("elsewhere".to_string()),
             ..env("/h")
         };
         assert_eq!(
-            plan_zone_location(&PlanZone::Env, &overridden),
+            docs_scratch_location(Some(Utf8Path::new(".docs-scratch")), &overridden),
             ProjectLocation::Env {
-                variable: PLAN_ZONE_VAR,
+                variable: DOCS_SCRATCH_VAR,
                 value: Some("elsewhere".to_string()),
             }
         );
@@ -896,17 +826,17 @@ mod tests {
         let bare = proposals(&plain, |_| false);
         assert!(
             !bare
-                .plan_zone
+                .docs_scratch
                 .iter()
                 .any(|choice| matches!(choice, LocationChoice::Observed { .. }))
         );
-        assert_eq!(bare.plan_zone.last(), Some(&LocationChoice::None));
+        assert_eq!(bare.docs_scratch.last(), Some(&LocationChoice::None));
 
-        let observed = proposals(&plain, |path| path == Utf8Path::new("docs/plan"));
+        let observed = proposals(&plain, |path| path == Utf8Path::new(".docs-scratch"));
         assert_eq!(
-            observed.plan_zone.first(),
+            observed.docs_scratch.first(),
             Some(&LocationChoice::Observed {
-                path: Utf8PathBuf::from("docs/plan")
+                path: Utf8PathBuf::from(".docs-scratch")
             })
         );
     }

@@ -32,7 +32,7 @@ Owner: [Specs](./specs.md).
 - [ ] Requirements are ordered with the most consequential first.
 - [ ] No narrative sits between two requirements. A clarification marker is the one exception.
 - [ ] Every marker is `[NEEDS CLARIFICATION: <question>]`, the spec carries at most three, and no unit of work enacts a marked rule.
-- [ ] No spec links or names a decision record, and no entry document does either. The reference runs from the record to the rule ID.
+- [ ] No spec links or names a decision record. The reference runs from the record to the rule ID.
 - [ ] A behavior change in this diff is reflected in the spec.
 - [ ] A retired requirement was deleted, not marked obsolete.
 - [ ] A supporting artifact sits in `<root>/specs/SPEC-<domain>/` only when it has no reader who arrives without the spec. Anything with an independent reader is in reference.
@@ -68,7 +68,7 @@ Owner: [Agent Context](./agent-context.md).
 
 - [ ] The always-loaded files are within budget: 100 lines at the root, 150 in a subtree.
 - [ ] Subtree-local rules live in the subtree, and the root file points rather than imports.
-- [ ] Every source an entry document needs is linked directly from it, not through another document.
+- [ ] Every source a context entrypoint needs is linked directly from it, not through another document.
 - [ ] Filenames indicate their contents.
 
 ## Format
@@ -106,9 +106,7 @@ Owner: [Lifecycle](./lifecycle.md).
 
 Owner: [Spec to Code](./spec-to-code.md).
 
-- [ ] A spec change in this diff is cited in the enacting entry document as a typed clause: `ADDED`, `MODIFIED`, or `REMOVED`, then the rule ID in inline code.
 - [ ] No requirement carries a stored status marker, and no stored coverage artifact was added.
-- [ ] The cited type matches the diff: a new requirement is `ADDED`, a reworded one `MODIFIED`, a deleted one `REMOVED`.
 - [ ] Every comment citing an agreement cites it by rule ID as `SATISFIES` or `VERIFIES`, and no comment names a decision record.
 - [ ] Every rule ID cited in code resolves to a requirement in a spec.
 - [ ] A comment that survived holds what the code cannot express. One restating the next line was deleted, and one covering for a vague name became the name.

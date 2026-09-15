@@ -8,7 +8,7 @@ release = "0.7.0"
 id = "re-point-the-retired-rule"
 kind = "rule-retired"
 breaking = true
-destinations = ["specs", "plan-zone"]
+destinations = ["specs"]
 actor = "operator"
 text = "re-point-the-retired-rule.md"
 

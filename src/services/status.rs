@@ -9,10 +9,9 @@
 use camino::{Utf8Path, Utf8PathBuf};
 use serde::Serialize;
 
-use crate::domain::manifest::{DOCS_SCRATCH_VAR, PLAN_ZONE_VAR, PlanZone};
+use crate::domain::manifest::DOCS_SCRATCH_VAR;
 use crate::domain::paths::{
-    self, ActivePaths, Paths, UserEnv, docs_scratch_location, plan_zone_location, recorded_paths,
-    variable,
+    self, ActivePaths, Paths, UserEnv, docs_scratch_location, recorded_paths, variable,
 };
 use crate::domain::profile::{DocsRoot, ProfileId};
 use crate::domain::version::CanonVersion;
@@ -49,14 +48,10 @@ pub struct StatusReport {
     pub profile: Option<ProfileId>,
     /// The instance's documentation root.
     pub docs_root: Option<DocsRoot>,
-    /// The plan zone the instance records.
-    pub plan_zone: Option<PlanZone>,
     /// The docs scratch the instance records.
     pub docs_scratch: Option<Utf8PathBuf>,
-    /// What `SDD_PLAN_ZONE` carries here, when it is set. The variable
+    /// What `SDD_DOCS_SCRATCH` carries here, when it is set. The variable
     /// overrides the recorded value, so an audit needs both.
-    pub plan_zone_env: Option<String>,
-    /// What `SDD_DOCS_SCRATCH` carries here, when it is set.
     pub docs_scratch_env: Option<String>,
     /// The canon version that produced the instance.
     pub canon_version: Option<CanonVersion>,
@@ -80,7 +75,7 @@ pub struct StatusReport {
     pub paths: Paths,
 }
 
-/// What this target offers for the two locations the project owns.
+/// What this target offers for the docs scratch.
 fn proposals(target: &Utf8Path, env: &UserEnv) -> paths::Proposals {
     paths::proposals(env, |relative| target.join(relative).is_dir())
 }
@@ -103,9 +98,7 @@ fn absent(target: &Utf8Path) -> StatusReport {
         instance: false,
         profile: None,
         docs_root: None,
-        plan_zone: None,
         docs_scratch: None,
-        plan_zone_env: variable(PLAN_ZONE_VAR),
         docs_scratch_env: variable(DOCS_SCRATCH_VAR),
         canon_version: None,
         binary_version: CanonVersion::current(),
@@ -145,7 +138,6 @@ pub fn status(target: &Utf8Path) -> Result<StatusReport, AppError> {
     resolved.active = Some(ActivePaths {
         profile: manifest.profile,
         destinations: recorded_paths(manifest.docs_root),
-        plan_zone: plan_zone_location(&manifest.plan_zone, &env),
         docs_scratch: docs_scratch_location(manifest.docs_scratch.as_deref(), &env),
     });
     Ok(StatusReport {
@@ -154,9 +146,7 @@ pub fn status(target: &Utf8Path) -> Result<StatusReport, AppError> {
         instance: true,
         profile: Some(manifest.profile),
         docs_root: Some(manifest.docs_root),
-        plan_zone: Some(manifest.plan_zone),
         docs_scratch: manifest.docs_scratch,
-        plan_zone_env: variable(PLAN_ZONE_VAR),
         docs_scratch_env: variable(DOCS_SCRATCH_VAR),
         canon_version: Some(manifest.canon_version),
         binary_version: binary,

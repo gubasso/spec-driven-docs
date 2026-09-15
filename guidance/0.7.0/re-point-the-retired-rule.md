@@ -1,6 +1,6 @@
 # Re-point the retired rule
 
-`spec-to-code:a-permanent-exception-states-its-reason` no longer resolves. A `SATISFIES` comment or an entry document that cites it fails the citation check on the first commit after the upgrade.
+`spec-to-code:a-permanent-exception-states-its-reason` no longer resolves. A `SATISFIES` or `VERIFIES` comment that cites it fails the citation check on the first commit after the upgrade.
 
 1. Search the repository for the retired identifier.
 2. Re-point each citation, or delete it where the claim it made is gone.

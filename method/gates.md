@@ -202,21 +202,6 @@ The emphasis rule is stated without a gate. The table below carries it. The wrap
 
 This is the one prose check that does not strip code first. A fenced command carrying a real home directory is the leak, not a quotation of it. As a result, a document teaching the shape writes a placeholder segment: `<user>`, `$USER`, `~`. Two exemptions are by purpose rather than path. The first is a file whose job is one person's environment: `.env`, `.envrc.local`, and their sample copies. The second is any file git ignores, which never reaches a hook at all.
 
-## Typed clauses
-
-`sdd gate spec-change-is-typed` reads the plan zone the project declared, so the wiring carries no path. What it judges is a clause line: a line that names an owning spec by path, in inline code. A plan zone holds whatever the planning tool writes there. A narrative sentence using one of the three words is not a citation.
-
-```yaml
-- id: spec-change-is-typed
-  name: spec changes are typed
-  entry: sdd gate spec-change-is-typed
-  language: system
-  always_run: true
-  pass_filenames: false
-```
-
-The gate takes the path `SDD_PLAN_ZONE` names, else the recorded zone where the project tracks it. A declared directory it cannot read fails, because a check over an empty set is a green light over nothing. Where neither resolves, the gate reports nothing and the table below carries the case.
-
 ## Comment citations
 
 Two checks, and the second is the one that matters. Scope both to the code and exclude the docs root. A chapter stating either rule writes the strings it forbids.
@@ -262,7 +247,7 @@ These rules are real and no command decides them. A reviewer does.
 | ------------------------------------------------------------------ | ----------------------------------------- |
 | A requirement names a subject that can act                         | requires reading the sentence             |
 | A requirement statement is one sentence                            | requires reading the sentence             |
-| A reference is one level from the entry document                   | requires knowing the entry document       |
+| A reference is one level from the context entrypoint               | requires knowing the context entrypoint   |
 | A scenario names the contested case, not a restatement             | requires knowing the ambiguity            |
 | A deferral's reopening condition is checkable                      | requires domain knowledge                 |
 | Prose is spent only on a decision, hazard, or constraint           | requires judging necessity                |
@@ -274,9 +259,6 @@ These rules are real and no command decides them. A reviewer does.
 | A run of records about one domain means a missing spec             | requires reading the corpus               |
 | A seeded rule states an obligation its adopter can violate         | requires reading the rule's subject       |
 | A seeded rule's verification is one the adopter can perform        | requires knowing the adopter's tools      |
-| A spec change is declared as a typed clause                        | a command cannot see an omitted clause    |
-| A typed clause's type matches the diff                             | requires reading both sides               |
-| A typed clause outside a tracked plan zone                         | the project declined to gate that zone    |
 | A step is one action, and an unprinted outcome is a step           | requires reading the step                 |
 | Every step carries a check a reader can judge                      | requires reading the step                 |
 | A manual step enumerates every field and value                     | requires knowing the interface            |

@@ -65,8 +65,9 @@ fn profile_selection_precedes_profile_relative_operations() {
         .iter()
         .map(|decision| decision["id"].as_str().unwrap())
         .collect();
-    assert!(decisions.contains(&"plan-zone"));
+    assert!(decisions.contains(&"docs-scratch"));
     assert!(decisions.contains(&"writing-style"));
+    assert!(!decisions.contains(&"plan-zone"));
 
     // Every declaration settled, the whole landing appears at once.
     let held = plan(
@@ -74,8 +75,6 @@ fn profile_selection_precedes_profile_relative_operations() {
         &[
             "--set",
             "profile=codebase",
-            "--set",
-            "plan-zone=none",
             "--set",
             "docs-scratch=none",
             "--set",
@@ -443,8 +442,6 @@ fn a_first_landing_plans_the_record_and_both_marked_regions() {
             "--set",
             "profile=codebase",
             "--set",
-            "plan-zone=none",
-            "--set",
             "docs-scratch=none",
             "--set",
             "writing-style=builtin",
@@ -480,8 +477,6 @@ fn the_engine_lands_what_the_verb_lands() {
         &[
             "--set",
             "profile=codebase",
-            "--set",
-            "plan-zone=none",
             "--set",
             "docs-scratch=none",
             "--set",
@@ -621,8 +616,6 @@ fn an_oversized_document_is_a_budget_finding_and_an_operator_can_record_it() {
         "--set",
         "profile=codebase",
         "--set",
-        "plan-zone=none",
-        "--set",
         "docs-scratch=none",
         "--set",
         "writing-style=builtin",
@@ -672,7 +665,7 @@ fn an_oversized_document_is_a_budget_finding_and_an_operator_can_record_it() {
 fn two_landings_recording_different_declarations_are_two_plans() {
     let one = Fixture::new();
     let two = Fixture::new();
-    let held = |fixture: &Fixture, zone: &str| -> String {
+    let held = |fixture: &Fixture, scratch: &str| -> String {
         let out = fixture
             .cmd()
             .args([
@@ -684,9 +677,7 @@ fn two_landings_recording_different_declarations_are_two_plans() {
                 "--set",
                 "profile=codebase",
                 "--set",
-                &format!("plan-zone={zone}"),
-                "--set",
-                "docs-scratch=none",
+                &format!("docs-scratch={scratch}"),
                 "--set",
                 "writing-style=builtin",
             ])
@@ -697,8 +688,8 @@ fn two_landings_recording_different_declarations_are_two_plans() {
     };
     assert_ne!(
         held(&one, "none"),
-        held(&two, "project:docs/plan"),
-        "two different recorded plan zones produced one plan id"
+        held(&two, "project:staging"),
+        "two different recorded docs scratches produced one plan id"
     );
 }
 

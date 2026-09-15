@@ -20,7 +20,6 @@
     "profile": { "enum": ["codebase", "knowledge-base"] },
     "docs_root": { "enum": ["docs", "_docs"] },
     "installed_at": { "type": "string", "format": "date-time" },
-    "plan_zone": { "$ref": "#/$defs/plan_zone" },
     "docs_scratch": { "$ref": "#/$defs/relative_path" },
     "managed_files": { "$ref": "#/$defs/managed" },
     "adopted_files": { "$ref": "#/$defs/adopted" },
@@ -44,33 +43,6 @@
       "minLength": 1,
       "pattern": "^[^/]",
       "not": { "pattern": "^[.\\s/]*$" }
-    },
-    "confined_path": {
-      "type": "string",
-      "minLength": 1,
-      "pattern": "^[^/]",
-      "allOf": [
-        { "not": { "pattern": "(^|/)\\.\\.(/|$)" } },
-        { "not": { "pattern": "^[.\\s/]*$" } }
-      ]
-    },
-    "plan_zone": {
-      "type": "object",
-      "oneOf": [
-        {
-          "required": ["kind", "path"],
-          "properties": {
-            "kind": { "enum": ["tracked", "untracked"] },
-            "path": { "$ref": "#/$defs/confined_path" }
-          },
-          "additionalProperties": false
-        },
-        {
-          "required": ["kind"],
-          "properties": { "kind": { "enum": ["env", "none"] } },
-          "additionalProperties": false
-        }
-      ]
     },
     "managed": {
       "type": "array",

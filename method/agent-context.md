@@ -7,12 +7,12 @@ An agent's context window is the scarcest resource in the project. This chapter 
 ```text
 always      AGENTS.md at the repo root          cross-cutting rules, and where specs live
 always      AGENTS.md in the working subtree    subtree rules, when the tool loads it
-on entry    <root>/specs/SPEC-<domain>.md       the domains this unit of work touches
+on entry    <root>/specs/SPEC-<domain>.md       the domains the current working subject touches
 on demand   guides, reference, explanation      when the work needs them
 on ask      <root>/decisions/ADR-<slug>.md      when someone asks why
 ```
 
-- An agent starting a unit of work MUST load the specs of the domains it touches.
+- Before acting on a working subject, an agent MUST load the context entrypoint of every domain it touches.
 - An agent MUST NOT load the decision log as a matter of course.
 
 The split is what makes an unbounded decision log affordable and a spec corpus small enough to trust.
@@ -33,7 +33,7 @@ Agents also amplify stale documents. A human notices from surrounding context th
 A project states a rule so the choice is made once. An agent that surfaces a stated rule as an open question moves the cost back onto the person who already paid it.
 
 - An agent MUST apply a rule the project states rather than raise it as a question.
-- An agent MUST NOT ask whether work earns a decision record, a unit of work, or its own commit.
+- An agent MUST NOT ask whether work earns a decision record.
 - An agent reporting what is open MUST report only what is open.
 
 The second follows from the first. [Decisions](./decisions.md) states the threshold a record must clear, so the question is answered before it is asked.
@@ -44,33 +44,31 @@ The failure is specific to agents. A model with room to spare will re-derive a s
 
 Where a rule genuinely does not reach the case, ask, and name what the rule says and where it stops. That is a different act from asking whether the rule holds.
 
-## One entry document per unit of work
+## Context entrypoints
 
-A large corpus cannot be loaded, and an agent told to read the docs will either truncate or drown. The fix is a smaller entry, not a smaller corpus: each unit of work has exactly one document that names the sources it needs, and the session reads that document plus the files it names.
+A large corpus cannot be loaded, and an agent told to read the docs will either truncate or drown. The fix is a narrower entrypoint, not a smaller corpus. For its current working subject, a session selects one context entrypoint for each domain the subject touches, and each context entrypoint links every required source for its domain directly by path. The session reads those documents plus the files they name.
 
 ```text
-  a filter that names its sources          a filter that describes them
+  an entrypoint that names its sources     an entrypoint that describes them
 
   session                                  session
     │                                        │
     ▼                                        ▼
-  <plan-zone>/rate-limit.md                "read the docs"
+  specs/SPEC-rate-limiting.md              "read the docs"
     │                                        │
     │  sources:                              ├─► guides/**
-    ├─► specs/SPEC-rate-limiting.md          ├─► reference/**
-    ├─► specs/SPEC-auth.md                   ├─► specs/**
-    └─► reference/rate-limit-tiers.md        └─► explanation/**
+    ├─► specs/SPEC-auth.md                   ├─► reference/**
+    └─► reference/rate-limit-tiers.md        ├─► specs/**
+                                             └─► explanation/**
 
     3 files loaded                           truncate, or drown
 ```
 
-- An entry document MUST name its sources by path, not describe them by topic.
-- An entry document that changes agreed behavior MUST cite the affected rule IDs. See [Spec to Code](./spec-to-code.md).
-- An entry document MUST NOT name a decision record.
+- A context entrypoint MUST link every required source for its domain directly by path.
 
-Where the entry document lives depends on the timescale. For work in flight it is the story or task file. For a domain being maintained it is the spec. Both work for the same reason.
+The context entrypoint of a domain is its spec. What a spec may link or name is the specs chapter's rule, under [the reference runs one way](./specs.md#the-reference-runs-one-way): the walk from a context entrypoint outward never arrives at a decision record.
 
-A tool that ships a corpus owes its reader the same entry. A corpus reachable by a command nobody is told to run is not reachable, and a listing of bare names describes nothing. The entry is one described index the always-loaded file names in one clause, and the reader loads one topic from it. This tool's is `sdd docs`.
+A tool that ships a corpus owes its reader a corpus index. A corpus reachable by a command nobody is told to run is not reachable, and a listing of bare names describes nothing. The corpus index is one described listing the always-loaded file names in one clause, and the reader loads one topic from it. This tool's is `sdd docs`.
 
 ## Budget the always-loaded files
 
@@ -99,11 +97,11 @@ The caveat that decides what can move: not every agent lazy-loads. Some tools bu
 
 ## References stay one level deep
 
-- A document reachable from an entry file MUST NOT be the only route to a third document the reader needs.
+- A document reachable from a context entrypoint MUST NOT be the only route to a third document the reader needs.
 
 An agent following a reference from a file that was itself referenced tends to preview rather than read. It takes the first hundred lines and proceeds on partial information. The failure is silent: the agent does not report that it read part of a file.
 
-Keep every source an entry document needs linked directly from that entry document. A chain of three is a chain that gets truncated at two.
+A chain of three is a chain that gets truncated at two. The checklist and the unenforced table in [Gates](./gates.md) carry this rule under this chapter's name.
 
 ## Semantic names
 

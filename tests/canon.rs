@@ -223,7 +223,6 @@ fn every_gate_declares_what_it_judges() {
     const JUDGES_WHAT_ITS_EXCLUDES_LEAVE: &[&str] = &[
         "gate-message-cites-a-rule",
         "no-personal-path",
-        "spec-change-is-typed",
         "suppression-names-its-case",
     ];
 
@@ -262,12 +261,6 @@ fn every_subject_producer_is_filter_aware() {
     assert!(
         gates_rs.contains("ctx.subjects(files)"),
         "walk_files stopped filtering its result"
-    );
-
-    let typed = std::fs::read_to_string(canon().join("src/gates/spec_change_is_typed.rs")).unwrap();
-    assert!(
-        typed.contains("ctx.retained("),
-        "spec_change_is_typed resolves its own candidates and stopped filtering them"
     );
 
     let command = std::fs::read_to_string(canon().join("src/commands/gate.rs")).unwrap();
@@ -359,10 +352,6 @@ fn every_row_declaring_discovery_takes_the_retained_route() {
         ("src/gates/adr_word_cap.rs", &["adr-word-cap"]),
         ("src/gates/instance_manifest.rs", &["instance-manifest"]),
         ("src/gates/tracking_registry.rs", &["tracking-registry"]),
-        (
-            "src/gates/spec_change_is_typed.rs",
-            &["spec-change-is-typed"],
-        ),
     ];
     let declared: std::collections::BTreeSet<String> = spec_driven_docs::gates::GATES
         .iter()
@@ -949,30 +938,6 @@ use spec_driven_docs::payload_roots::PAYLOAD_ROOTS;
 /// a reference they cannot follow.
 const FOREIGN_PROJECTS: &[&str] = &["release-kit", "release_kit", "exobrain", "gubasso"];
 
-/// Planning tools and planning frameworks the payload must not name.
-///
-/// Generic English that some tool also uses as its name — linear, shortcut,
-/// pivotal alone — is left out: this list holds terms whose appearance can
-/// only mean the tool. Jira is judged separately below, because it is also a
-/// tracker whose comment markup this framework documents for filing.
-const PLANNING_TOOLS: &[&str] = &[
-    "wipctl",
-    "trello",
-    "asana",
-    "clickup",
-    "youtrack",
-    "redmine",
-    "basecamp",
-    "pivotal tracker",
-    "taiga",
-    "scrum",
-    "kanban",
-    "burndown",
-    "standup",
-    "sprint",
-    "story point",
-];
-
 fn walk_files(dir: &Path, files: &mut Vec<PathBuf>) {
     for entry in std::fs::read_dir(dir).unwrap().filter_map(Result::ok) {
         let path = entry.path();
@@ -1008,27 +973,6 @@ fn payload_files() -> Vec<(String, String)> {
         .collect()
 }
 
-/// SATISFIES distribution:the-payload-names-no-planning-tool
-#[test]
-fn the_embedded_payload_names_no_planning_tool() {
-    for (relative, text) in payload_files() {
-        for (index, line) in text.lines().enumerate() {
-            let number = index + 1;
-            let lower = line.to_lowercase();
-            for tool in PLANNING_TOOLS {
-                assert!(
-                    !lower.contains(tool),
-                    "{relative}:{number}: the payload names the planning tool '{tool}'"
-                );
-            }
-            assert!(
-                !lower.contains("jira") || lower.contains("tracker-markup"),
-                "{relative}:{number}: the payload names Jira outside a tracker-markup reference"
-            );
-        }
-    }
-}
-
 /// SATISFIES distribution:the-payload-names-no-other-project
 #[test]
 fn the_embedded_payload_names_no_other_project() {
@@ -1046,8 +990,134 @@ fn the_embedded_payload_names_no_other_project() {
                     index + 1
                 );
             }
+            // Jira is a documented integration, because the payload carries
+            // its comment markup under `reference/tracker-markup/`. The name
+            // is legitimate beside that reference and nowhere else.
+            assert!(
+                !lower.contains("jira") || lower.contains("tracker-markup"),
+                "{relative}:{}: the payload names Jira outside a tracker-markup reference",
+                index + 1
+            );
         }
     }
+}
+
+/// Terms the tracked tree carries nowhere outside the immutable records and
+/// the generated changelog, as word pairs and the separators that join them.
+///
+/// Spelled as pairs so this file does not carry the terms it forbids: the
+/// sweep below reads this file too, and a literal here would fail it.
+const ABSENT_PAIRS: &[(&str, &str)] = &[
+    ("plan", "zone"),
+    ("entry", "document"),
+    ("entry", "file"),
+    ("planning", "tool"),
+];
+
+/// Every spelling of the absent pairs, joined by a space, a hyphen, or an
+/// underscore, lowercase.
+fn absent_terms() -> Vec<String> {
+    ABSENT_PAIRS
+        .iter()
+        .flat_map(|(head, tail)| [" ", "-", "_"].map(|join| format!("{head}{join}{tail}")))
+        .collect()
+}
+
+/// Every tracked file, with its repository-relative path, that is UTF-8.
+fn tracked_text_files() -> Vec<(String, String)> {
+    let output = std::process::Command::new("git")
+        .args(["ls-files", "-z"])
+        .current_dir(canon())
+        .output()
+        .expect("git ls-files runs in the canon checkout");
+    assert!(output.status.success(), "git ls-files failed");
+    String::from_utf8_lossy(&output.stdout)
+        .split('\0')
+        .filter(|path| !path.is_empty())
+        .filter_map(|path| {
+            let text = std::fs::read_to_string(canon().join(path)).ok()?;
+            Some((path.to_string(), text))
+        })
+        .collect()
+}
+
+/// The tree states the context entrypoint and nothing older.
+///
+/// A decision record is the one document class that carries history, and the
+/// changelog is generated from it, so those two are the only carriers.
+#[test]
+fn the_tracked_tree_carries_no_retired_entry_term() {
+    // The compatibility read of a record written before the removal names
+    // the retired field once, and the tests that prove the removal name what
+    // they remove. Nothing else may.
+    const REMOVAL_CARRIERS: &[&str] = &[
+        "src/domain/manifest.rs",
+        "tests/cmd_init.rs",
+        "tests/cmd_reconcile.rs",
+        "tests/cmd_status.rs",
+        "tests/cmd_upgrade.rs",
+    ];
+    let terms = absent_terms();
+    for (relative, text) in tracked_text_files() {
+        if relative.starts_with("_docs/decisions/")
+            || relative == "CHANGELOG.md"
+            || REMOVAL_CARRIERS.contains(&relative.as_str())
+        {
+            continue;
+        }
+        for (index, line) in text.lines().enumerate() {
+            let lower = line.to_lowercase();
+            for term in &terms {
+                assert!(
+                    !lower.contains(term.as_str()),
+                    "{relative}:{}: the tree carries '{term}'",
+                    index + 1
+                );
+            }
+        }
+    }
+}
+
+/// The agent-context chapter frames retrieval around a session and its
+/// working subject, and lets a subject touch more than one domain.
+#[test]
+fn the_agent_context_chapter_owns_the_context_entrypoint() {
+    let chapter = read("method/agent-context.md");
+    let lower = chapter.to_lowercase();
+    assert!(
+        !lower.contains("unit of work"),
+        "method/agent-context.md names another tool's structure"
+    );
+    assert!(
+        lower.contains("one context entrypoint for each domain"),
+        "method/agent-context.md stopped stating the per-domain cardinality"
+    );
+    assert!(
+        chapter.contains("./specs.md#the-reference-runs-one-way"),
+        "method/agent-context.md stopped linking the owner of the decision-record prohibition"
+    );
+    let normative = chapter
+        .lines()
+        .filter(|line| line.contains("MUST NOT") && line.contains("name a decision record"))
+        .count();
+    assert_eq!(
+        normative, 0,
+        "method/agent-context.md restates the prohibition the specs chapter owns"
+    );
+    let specs = read("method/specs.md");
+    let owner = specs
+        .lines()
+        .filter(|line| line.contains("MUST NOT link or name a decision record"))
+        .count();
+    assert_eq!(
+        owner, 1,
+        "method/specs.md states the decision-record prohibition {owner} times"
+    );
+    let format = read("method/format.md");
+    assert!(
+        format.contains("The other is not a count"),
+        "method/format.md declares more than one ungated budget"
+    );
 }
 
 /// The canon's own build drivers. The installer wires neither into an
@@ -1251,8 +1321,8 @@ fn the_package_carries_the_notice_and_license() {
 /// location this framework just stopped fixing.
 ///
 /// `workshop` is ordinary English, so it is matched as a whole word only.
-/// The same reasoning `PLANNING_TOOLS` states applies: a substring match on
-/// a common word blocks prose it was never about.
+/// A substring match on a common word blocks prose it was never about, so
+/// the whole-word flag exists.
 const RETIRED_TERMS: &[(&str, bool)] = &[(".draft", false), ("workshop", true)];
 
 /// Everything this repository authors that the retired-term sweep reads.
@@ -1335,17 +1405,12 @@ fn a_concrete_declared_path_appears_in_no_authored_prose() {
 
 /// SATISFIES release:the-canon-record-describes-its-tree
 ///
-/// This repository dogfoods both locations it delivers. Without this, a later
-/// regeneration could turn the typed-clause gate off in silence, or leave the
-/// ignore entry naming a scratch the record no longer declares.
+/// This repository dogfoods the declared location it delivers. Without this,
+/// a later regeneration could leave the ignore entry naming a scratch the
+/// record no longer declares.
 #[test]
-fn the_canon_declares_both_of_its_own_locations() {
+fn the_canon_declares_its_own_docs_scratch() {
     let manifest = recorded_manifest();
-    assert_eq!(
-        manifest["plan_zone"],
-        serde_json::json!({"kind": "tracked", "path": "tests/fixtures"}),
-        "this repository stopped declaring the plan zone its own gate reads"
-    );
     let scratch = manifest["docs_scratch"]
         .as_str()
         .expect("this repository declares no docs scratch");

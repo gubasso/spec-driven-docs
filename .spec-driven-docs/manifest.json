@@ -5,10 +5,6 @@
   "profile": "knowledge-base",
   "docs_root": "_docs",
   "installed_at": "2026-08-24T00:00:00Z",
-  "plan_zone": {
-    "kind": "tracked",
-    "path": "tests/fixtures"
-  },
   "docs_scratch": ".docs-scratch",
   "managed_files": [
     {
@@ -29,7 +25,7 @@
     {
       "source": "skills/sdd-setup/SKILL.md",
       "destination": "skills/sdd-setup/SKILL.md",
-      "sha256": "1de3fb0ff3de591dacc54ff6ef866c8ab14a5a4e021a1f4764c217f75c4c36a8"
+      "sha256": "fc686ac60e531afea790d649840a7d095cc0fabfdfde459f66103d9b4e7277ae"
     },
     {
       "source": "skills/sdd-write-docs/SKILL.md",
@@ -39,7 +35,7 @@
     {
       "source": "skill-shared/plan-gate.md",
       "destination": "skill-shared/plan-gate.md",
-      "sha256": "0a1d9e211b072b3eaf9338f779e3995ea3f8d30a11bbb7532cbc2f09b4727212"
+      "sha256": "030126f8ef525ffb2d06202ec694584471773f2ed914a38174f004d9d938c0a0"
     },
     {
       "source": "skill-shared/pre-flight-gate.md",
@@ -75,8 +71,8 @@
     {
       "source": "_docs/specs/SPEC-distribution.md",
       "destination": "_docs/specs/SPEC-distribution.md",
-      "sha256": "e9eb55d1c145956ef965881a6760c468030676f26d9ecd884c507d18d672149c",
-      "baseline_sha256": "e9eb55d1c145956ef965881a6760c468030676f26d9ecd884c507d18d672149c"
+      "sha256": "2a0ca7bde7920bedc184c9142204ed7808af29f2b4d2b6abd5efefe27678c46c",
+      "baseline_sha256": "2a0ca7bde7920bedc184c9142204ed7808af29f2b4d2b6abd5efefe27678c46c"
     },
     {
       "source": "_docs/specs/SPEC-docs-discovery.md",
@@ -135,8 +131,8 @@
     {
       "source": "_docs/specs/SPEC-spec-to-code.md",
       "destination": "_docs/specs/SPEC-spec-to-code.md",
-      "sha256": "9c5c30de7f7ecd78e4d5acd089d1a8bc5e0d5db8fc8215414a0a4a093a1a8928",
-      "baseline_sha256": "9c5c30de7f7ecd78e4d5acd089d1a8bc5e0d5db8fc8215414a0a4a093a1a8928"
+      "sha256": "9dbc4cf57855073b75832342b85e0fd9865d14492e5af66c76b137199f795e6b",
+      "baseline_sha256": "9dbc4cf57855073b75832342b85e0fd9865d14492e5af66c76b137199f795e6b"
     },
     {
       "source": "_docs/specs/SPEC-tracking.md",
@@ -178,7 +174,7 @@
   "integration_blocks": [
     {
       "path": ".pre-commit-config.yaml",
-      "marker_hash": "ef9473aa39a308dac43542ca0c3a0b2242cbd0b145d447cb16e49edeabd6d59e"
+      "marker_hash": "21ebfe79a18930b902dfd950a27f922a017aca46dcd76b6fb6c97e15eafcd3b4"
     }
   ]
 }
