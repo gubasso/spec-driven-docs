@@ -687,6 +687,7 @@ fn run_transaction(
         while let Some(directory) = parent {
             if !layout.roots.iter().any(|root| directory.starts_with(root))
                 && !directory.starts_with(&layout.state_root)
+                && !directory.starts_with(&layout.legacy_shared)
             {
                 break;
             }

@@ -141,15 +141,6 @@ pub fn resolve_root(
     env: Option<&str>,
     state_root: &Utf8Path,
 ) -> Result<(Utf8PathBuf, RootSource), AppError> {
-    if let Some(named) = output
-        && named
-            .components()
-            .any(|part| part.as_str() == ".." || part.as_str() == ".")
-    {
-        return Err(AppError::Usage(format!(
-            "the stage root names a relative step: {named}; give the path it resolves to"
-        )));
-    }
     let (root, source) = match (output, env) {
         (Some(named), _) => (named.to_owned(), RootSource::Flag),
         (None, Some(base)) if !base.is_empty() => (
@@ -164,6 +155,17 @@ pub fn resolve_root(
     if !root.is_absolute() {
         return Err(AppError::Usage(format!(
             "the stage root must be absolute: {root}"
+        )));
+    }
+    // Whatever chose the root, a relative step in it resolves only once
+    // the directories exist, which is after the containment check has
+    // already run. The path the operator means is the one to give.
+    if root
+        .components()
+        .any(|part| part.as_str() == ".." || part.as_str() == ".")
+    {
+        return Err(AppError::Usage(format!(
+            "the stage root names a relative step: {root}; give the path it resolves to"
         )));
     }
     Ok((root, source))
@@ -586,15 +588,20 @@ mod tests {
     fn a_relative_step_in_the_stage_root_is_a_usage_error() {
         // A path with a nonexistent prefix and a `..` resolves somewhere
         // the containment check cannot see until the directory exists.
-        let error = resolve_root(
-            Utf8Path::new("/work/project"),
-            Some(Utf8Path::new("/work/project/absent/../inside")),
-            None,
-            Utf8Path::new("/state"),
-        )
-        .unwrap_err();
-        assert_eq!(error.kind(), "Usage");
-        assert!(error.to_string().contains("relative step"), "{error}");
+        for (output, env) in [
+            (Some(Utf8Path::new("/work/project/absent/../inside")), None),
+            (None, Some("/tmp/absent/../../work")),
+        ] {
+            let error = resolve_root(
+                Utf8Path::new("/work/project"),
+                output,
+                env,
+                Utf8Path::new("/state"),
+            )
+            .unwrap_err();
+            assert_eq!(error.kind(), "Usage");
+            assert!(error.to_string().contains("relative step"), "{error}");
+        }
     }
 
     #[test]
