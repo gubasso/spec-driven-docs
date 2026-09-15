@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0](https://github.com/gubasso/spec-driven-docs/compare/v0.11.2...v0.12.0) - 2026-09-15
+
+### Added
+
+- *(landing)* [**breaking**] Render and land the candidate this binary carries
+
 ## [0.11.2](https://github.com/gubasso/spec-driven-docs/compare/v0.11.1...v0.11.2) - 2026-09-15
 
 ### Added
