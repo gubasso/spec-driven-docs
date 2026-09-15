@@ -141,6 +141,32 @@ pub fn asset(source: &str) -> Option<&'static [u8]> {
     })
 }
 
+/// Every file under one embedded root, by the logical path that names it.
+///
+/// The paths come back sorted, so a caller that copies them writes the same
+/// tree every time.
+#[must_use]
+pub fn assets_under(root: &str) -> Vec<(String, &'static [u8])> {
+    let Some((name, dir)) = EMBEDDED_ROOTS.iter().find(|(name, _)| *name == root) else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    collect_under(name, dir, &mut out);
+    out.sort_by(|a, b| a.0.cmp(&b.0));
+    out
+}
+
+fn collect_under(root: &str, dir: &'static Dir<'static>, out: &mut Vec<(String, &'static [u8])>) {
+    for file in dir.files() {
+        if let Some(rest) = file.path().to_str() {
+            out.push((format!("{root}/{rest}"), file.contents()));
+        }
+    }
+    for sub in dir.dirs() {
+        collect_under(root, sub, out);
+    }
+}
+
 /// Every `` ### `domain:rule` `` requirement address the embedded specs define.
 #[must_use]
 pub fn spec_rule_ids() -> BTreeSet<String> {

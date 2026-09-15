@@ -20,6 +20,7 @@ pub mod read;
 pub mod reconcile;
 pub mod self_depend;
 pub mod skill;
+pub mod stage;
 pub mod status;
 pub mod track;
 pub mod upgrade;
@@ -82,6 +83,8 @@ pub enum Commands {
     Template(read::ReadArgs),
     /// Read the embedded skills, or install them for coding agents.
     Skill(skill::SkillArgs),
+    /// Render this binary's candidate into a stage an agent reads.
+    Stage(stage::StageArgs),
     /// Report an instance's state without gating on it.
     Status(status::StatusArgs),
     /// Report tracking freshness offline, or check upstreams over the network.

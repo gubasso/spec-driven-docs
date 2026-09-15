@@ -60,4 +60,5 @@ pub mod probes;
 pub mod release;
 pub mod self_depend;
 pub mod services;
+pub mod stage;
 pub mod transaction;

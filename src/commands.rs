@@ -24,6 +24,7 @@ pub mod reconcile;
 pub mod self_depend;
 pub mod self_manifest;
 pub mod skill;
+pub mod stage;
 pub mod status;
 pub mod track;
 pub mod upgrade;

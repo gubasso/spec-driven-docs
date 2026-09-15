@@ -37,6 +37,22 @@ aliases = ["land a plan", "execute"]
 target = { command = ["reconcile", "apply", "--help"] }
 
 [[topic]]
+id = "stage"
+title = "Render a candidate to compare against"
+summary = "Write this binary's candidate and its reference material where an agent can read both."
+kind = "operator-task"
+aliases = ["workbench", "compare before landing", "candidate"]
+target = { command = ["stage", "--help"] }
+
+[[topic]]
+id = "stage-clean"
+title = "Remove a stage"
+summary = "Delete one stage this tool wrote, after its own receipt says it wrote it."
+kind = "operator-task"
+aliases = ["clean up the stage", "discard the workbench"]
+target = { command = ["stage", "clean", "--help"] }
+
+[[topic]]
 id = "verify"
 title = "Check an installed instance"
 summary = "Compare the tree against the record offline, and report drift by ownership class."

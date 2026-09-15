@@ -45,6 +45,7 @@ fn run(cli: Cli) -> Result<(), AppError> {
         Commands::Spec(args) => commands::read::run(&ctx, &reader::SPECS, args),
         Commands::Template(args) => commands::read::run(&ctx, &reader::TEMPLATES, args),
         Commands::Skill(args) => commands::skill::run(&ctx, args),
+        Commands::Stage(args) => commands::stage::run(&ctx, args),
         Commands::Status(args) => commands::status::run(&ctx, args),
         Commands::Track(args) => commands::track::run(&ctx, args),
         Commands::Doctor(args) => commands::doctor::run(&ctx, &args),

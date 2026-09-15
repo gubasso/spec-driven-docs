@@ -179,7 +179,7 @@ pub fn compute_target_state(
     target: &Utf8Path,
     options: &InitOptions,
 ) -> Result<TargetState, AppError> {
-    let candidate = crate::candidate::project(&gather(target, options)?)?;
+    let candidate = candidate_for(target, options)?;
     let mut lines: Vec<String> = Vec::new();
     for destination in &candidate.destinations {
         lines.push(destination.path.to_string());
@@ -190,6 +190,28 @@ pub fn compute_target_state(
         files: candidate.files(),
         lines,
     })
+}
+
+/// The candidate this binary renders for one target.
+///
+/// # Errors
+///
+/// As [`compute_target_state`].
+pub fn candidate_for(
+    target: &Utf8Path,
+    options: &InitOptions,
+) -> Result<crate::candidate::Candidate, AppError> {
+    crate::candidate::project(&gather(target, options)?)
+}
+
+/// The target a landing or a stage will read, canonical and known-good.
+///
+/// # Errors
+///
+/// [`AppError::Usage`] for a path no verb can mean: relative, absent, the
+/// filesystem root, or inside the canon checkout.
+pub fn resolved_target(target: &Utf8Path) -> Result<Utf8PathBuf, AppError> {
+    canonical_target(target)
 }
 
 /// Read the target once, so the projection never has to.
