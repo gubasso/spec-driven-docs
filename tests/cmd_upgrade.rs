@@ -709,6 +709,33 @@ fn an_upgrade_never_reconciles() {
 /// A dry run says which versions it would move between and writes nothing.
 /// What a release asks of a person travels in the changelog and the setup
 /// skill, so the preview does not carry a second copy of it.
+/// VERIFIES distribution:upgrade-conflicts-are-atomic
+///
+/// The version shortcut must not come before the conflict scan. A managed
+/// file edited in a current instance is the drift this verb serves, and
+/// reporting success first would leave the one route to it unable to do
+/// its job.
+#[test]
+fn a_current_instance_with_managed_drift_reports_the_conflict() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    fixture.write(
+        ".spec-driven-docs/markdownlint/adr.markdownlint-cli2.jsonc",
+        "{ \"edited\": true }\n",
+    );
+
+    fixture
+        .upgrade()
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("adr.markdownlint-cli2.jsonc"));
+    assert_eq!(
+        fixture.read(".spec-driven-docs/markdownlint/adr.markdownlint-cli2.jsonc"),
+        "{ \"edited\": true }\n",
+        "the conflict report changed the file it named"
+    );
+}
+
 #[test]
 fn a_dry_run_names_the_version_move_and_writes_nothing() {
     let fixture = v1_instance();

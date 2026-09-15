@@ -47,6 +47,10 @@ const REFERENCE_ROOTS: [&str; 6] = [
 ];
 
 /// What a stage was asked to render.
+///
+/// Every choice a landing takes is here too. A stage rendered under
+/// different choices than the landing that follows it would be evidence
+/// about a candidate nobody is going to write.
 #[derive(Debug, Clone)]
 pub struct Request {
     /// The repository to render a candidate for.
@@ -55,6 +59,12 @@ pub struct Request {
     pub profile: ProfileId,
     /// The stage directory the operator named.
     pub output: Option<Utf8PathBuf>,
+    /// The documentation scratch the candidate would record.
+    pub docs_scratch: Option<Option<Utf8PathBuf>>,
+    /// Paths the candidate would record under `reserved:`.
+    pub reserve: Vec<String>,
+    /// The writing-style selection the candidate would record.
+    pub writing_style: Option<crate::domain::instance_config::WritingStyle>,
 }
 
 /// Which rule chose the stage root, for the report that names it.
@@ -97,6 +107,12 @@ pub struct Receipt {
     pub root_source: RootSource,
     /// The version the target's own record claims, where one is readable.
     pub recorded_version: Option<String>,
+    /// The documentation root the candidate records.
+    pub docs_root: String,
+    /// The documentation scratch the candidate records.
+    pub docs_scratch: Option<Utf8PathBuf>,
+    /// The paths the candidate reserves.
+    pub reserve: Vec<String>,
     /// Every destination the candidate would land.
     pub artifacts: Vec<Artifact>,
     /// Every reference root copied, relative to the stage.
@@ -139,6 +155,25 @@ pub fn resolve_root(
     Ok((root, source))
 }
 
+/// A scratch sibling this run alone owns.
+///
+/// The name carries the process and a timestamp, and the directory is
+/// created exclusively, so the run never removes a path somebody else
+/// left. A collision refuses rather than clearing what is there.
+fn scratch_beside(root: &Utf8Path) -> Result<Utf8PathBuf, AppError> {
+    let stamp = jiff::Timestamp::now().as_nanosecond();
+    let partial = Utf8PathBuf::from(format!("{root}.partial-{}-{stamp}", std::process::id()));
+    if let Some(parent) = partial.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::create_dir(&partial).map_err(|source| {
+        AppError::Refused(format!(
+            "{partial} could not be created for this run: {source}"
+        ))
+    })?;
+    Ok(partial)
+}
+
 /// One target's stage directory name: its own name and a digest of its path.
 ///
 /// Two checkouts of one repository stage side by side, and neither name is
@@ -177,16 +212,17 @@ pub fn create(request: &Request, state_root: &Utf8Path) -> Result<Receipt, AppEr
         profile: request.profile,
         apply: false,
         dry_run: true,
-        docs_scratch: None,
-        reserve: Vec::new(),
-        writing_style: None,
+        docs_scratch: request.docs_scratch.clone(),
+        reserve: request.reserve.clone(),
+        writing_style: request.writing_style.clone(),
     };
     let candidate = crate::services::installer::candidate_for(&target, &options)?;
 
     // Render beside the destination and rename the finished directory into
     // place, so a reader never meets a stage that is still being written.
-    let partial = Utf8PathBuf::from(format!("{root}.partial"));
-    let _ = std::fs::remove_dir_all(&partial);
+    // The scratch name is this run's own: a predictable one would make the
+    // command remove a sibling nothing proves it wrote.
+    let partial = scratch_beside(&root)?;
     let mut artifacts = Vec::new();
     for destination in &candidate.destinations {
         let path = partial.join(ARTIFACTS_DIR).join(&destination.path);
@@ -246,6 +282,9 @@ pub fn create(request: &Request, state_root: &Utf8Path) -> Result<Receipt, AppEr
         root_source,
         recorded_version: crate::services::installer::recorded_field(&target, "canon_version")
             .and_then(|value| value.as_str().map(String::from)),
+        docs_root: candidate.manifest.docs_root.to_string(),
+        docs_scratch: candidate.manifest.docs_scratch.clone(),
+        reserve: request.reserve.clone(),
         artifacts,
         reference,
         notes: candidate.notes,
@@ -257,8 +296,13 @@ pub fn create(request: &Request, state_root: &Utf8Path) -> Result<Receipt, AppEr
     if let Some(parent) = root.parent() {
         std::fs::create_dir_all(parent)?;
     }
+    // An empty directory at the destination is the one thing a rename
+    // cannot land on. Anything else there already refused above.
     let _ = std::fs::remove_dir(&root);
-    std::fs::rename(&partial, &root)?;
+    if let Err(source) = std::fs::rename(&partial, &root) {
+        let _ = std::fs::remove_dir_all(&partial);
+        return Err(AppError::Io(source));
+    }
     Ok(receipt)
 }
 
@@ -295,6 +339,32 @@ pub fn clean(path: &Utf8Path) -> Result<Vec<String>, AppError> {
     if path.join(MANIFEST_PATH).exists() || path.join(".git").exists() {
         return Err(AppError::Refused(format!(
             "{path} looks like a project rather than a stage"
+        )));
+    }
+    // A receipt is ordinary user-writable JSON, so it proves nothing on
+    // its own. These refusals are what stand between a forged one and a
+    // recursive removal of somewhere that matters.
+    if let Some(home) = crate::domain::paths::UserEnv::from_process().home
+        && path == home
+    {
+        return Err(AppError::Refused(format!(
+            "{path} is the home directory, which is never a stage"
+        )));
+    }
+    if let Ok(cwd) = std::env::current_dir()
+        && let Ok(cwd) = Utf8PathBuf::from_path_buf(cwd)
+        && cwd.starts_with(path)
+    {
+        return Err(AppError::Refused(format!(
+            "{path} holds the working directory, so it is not a stage this tool wrote"
+        )));
+    }
+    // A stage this tool wrote holds the tree it renders. A directory that
+    // carries a receipt and none of that structure is something else
+    // wearing the name.
+    if !path.join(ARTIFACTS_DIR).is_dir() {
+        return Err(AppError::Refused(format!(
+            "{path} carries no {ARTIFACTS_DIR}/ directory, so it is not a stage this tool wrote"
         )));
     }
 
@@ -399,6 +469,7 @@ mod tests {
     fn clean_refuses_a_receipt_that_names_another_root() {
         let dir = tempfile::tempdir().unwrap();
         let path = root(&dir).join("stage");
+        std::fs::create_dir_all(path.join(ARTIFACTS_DIR)).unwrap();
         crate::adapters::fs::write_file(
             &path.join(RECEIPT_FILE),
             format!(r#"{{"schema":"{STAGE_SCHEMA}","root":"/elsewhere"}}"#).as_bytes(),
@@ -413,6 +484,7 @@ mod tests {
     fn clean_refuses_a_link_standing_where_a_stage_stood() {
         let dir = tempfile::tempdir().unwrap();
         let real = root(&dir).join("stage");
+        std::fs::create_dir_all(real.join(ARTIFACTS_DIR)).unwrap();
         crate::adapters::fs::write_file(
             &real.join(RECEIPT_FILE),
             format!(r#"{{"schema":"{STAGE_SCHEMA}","root":"{real}"}}"#).as_bytes(),
@@ -442,10 +514,42 @@ mod tests {
     }
 
     #[test]
+    fn clean_refuses_a_forged_receipt_over_a_directory_that_is_not_a_stage() {
+        let dir = tempfile::tempdir().unwrap();
+        // Somebody's directory of work, with a receipt dropped in it that
+        // names the directory as its own root.
+        let path = root(&dir).join("someones-files");
+        crate::adapters::fs::write_file(&path.join("notes.md"), b"mine").unwrap();
+        crate::adapters::fs::write_file(
+            &path.join(RECEIPT_FILE),
+            format!(r#"{{"schema":"{STAGE_SCHEMA}","root":"{path}"}}"#).as_bytes(),
+        )
+        .unwrap();
+
+        let error = clean(&path).unwrap_err();
+        assert!(error.to_string().contains(ARTIFACTS_DIR), "{error}");
+        assert!(path.join("notes.md").exists(), "the directory was removed");
+    }
+
+    #[test]
+    fn clean_refuses_a_directory_holding_the_working_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = Utf8PathBuf::from_path_buf(std::env::current_dir().unwrap())
+            .unwrap()
+            .parent()
+            .unwrap()
+            .to_owned();
+        let _ = dir;
+        let error = clean(&path).unwrap_err();
+        assert_eq!(error.kind(), "Refused");
+        assert!(path.exists());
+    }
+
+    #[test]
     fn clean_removes_one_valid_stage() {
         let dir = tempfile::tempdir().unwrap();
         let path = root(&dir).join("stage");
-        crate::adapters::fs::write_file(&path.join("artifacts/AGENTS.md"), b"x").unwrap();
+        crate::adapters::fs::write_file(&path.join(ARTIFACTS_DIR).join("AGENTS.md"), b"x").unwrap();
         crate::adapters::fs::write_file(
             &path.join(RECEIPT_FILE),
             format!(r#"{{"schema":"{STAGE_SCHEMA}","root":"{path}"}}"#).as_bytes(),

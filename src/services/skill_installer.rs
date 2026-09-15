@@ -66,12 +66,6 @@ impl Layout {
         self.state_root.join(crate::domain::paths::SKILL_LOCK_FILE)
     }
 
-    /// Where a run copies what it is about to replace.
-    #[must_use]
-    pub fn backups(&self) -> Utf8PathBuf {
-        self.state_root.join(crate::domain::paths::BACKUPS_DIR)
-    }
-
     /// Every location a sweep reads: the selected roots and the retired one.
     fn scanned(&self) -> Vec<Utf8PathBuf> {
         let mut scanned = self.roots.clone();

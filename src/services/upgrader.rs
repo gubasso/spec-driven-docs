@@ -215,21 +215,26 @@ pub fn upgrade(options: &UpgradeOptions) -> Result<UpgradeOutcome, AppError> {
     let old = installed.version;
     let mut outcome = UpgradeOutcome::default();
 
-    if old == new && installed.schema_current {
-        outcome.lines.push(format!("OK already at {new}"));
-        return Ok(outcome);
-    }
     if old > new {
         return Err(AppError::Refused(format!(
             "sdd {new} is older than the installed canon {old}; upgrade sdd"
         )));
     }
 
+    // The conflict scan comes before the version shortcut. A managed file
+    // edited in a current instance is exactly the drift this verb serves,
+    // and a shortcut that reported success first would leave the one route
+    // to it unable to do its job.
     let conflicts = conflicts_at(&target, &installed)?;
     if !conflicts.is_empty() {
         let count = conflicts.len();
         outcome.lines.extend(conflicts);
         outcome.failures += count;
+        return Ok(outcome);
+    }
+
+    if old == new && installed.schema_current {
+        outcome.lines.push(format!("OK already at {new}"));
         return Ok(outcome);
     }
 

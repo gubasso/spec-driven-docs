@@ -240,8 +240,18 @@ fn is_empty(target: &Utf8Path) -> Result<bool, AppError> {
 /// reports, and neither stops the observation.
 fn read_installation(target: &Utf8Path) -> (Option<Installation>, Option<String>) {
     let path = target.join(MANIFEST_PATH);
-    let Ok(text) = std::fs::read_to_string(&path) else {
-        return (None, None);
+    let text = match std::fs::read_to_string(&path) {
+        Ok(text) => text,
+        // Absent is absent. Anything else — unreadable, not UTF-8, a
+        // permission refusal — is a record that exists and cannot be
+        // trusted, and reporting it as absence would land seeds over it.
+        Err(source) if source.kind() == std::io::ErrorKind::NotFound => return (None, None),
+        Err(source) => {
+            return (
+                None,
+                Some(format!("{path} exists and cannot be read: {source}")),
+            );
+        }
     };
     // The record's schema is its own axis. A record an older release wrote
     // is a record this engine reads well enough to classify: what it needs

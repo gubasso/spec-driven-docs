@@ -25,6 +25,18 @@ pub struct StageArgs {
     #[arg(long)]
     pub output: Option<Utf8PathBuf>,
 
+    /// The documentation scratch the candidate would record, or `none`.
+    #[arg(long)]
+    pub docs_scratch: Option<String>,
+
+    /// A path to record under `reserved:` in the declaration. Repeatable.
+    #[arg(long)]
+    pub reserve: Vec<String>,
+
+    /// The writing-style selection the candidate would record.
+    #[arg(long)]
+    pub writing_style: Option<String>,
+
     /// Print one JSON object instead of text.
     #[arg(long)]
     pub json: bool,

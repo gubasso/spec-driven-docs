@@ -71,12 +71,6 @@ pub const SKILL_REFERENCES_DIR: &str = "references";
 
 /// The user-scope lock, relative to the state root.
 pub const SKILL_LOCK_FILE: &str = "skills.lock";
-/// The user-scope journal, relative to the state root.
-pub const SKILL_JOURNAL_FILE: &str = "skills.journal";
-/// Where a transaction copies what it is about to replace.
-pub const BACKUPS_DIR: &str = "backups";
-/// The plan store, relative to the state root.
-pub const PLAN_STORE_DIR: &str = "plans";
 /// The per-checkout sync stamps, relative to the state root.
 pub const SELF_DEPEND_STAMP_DIR: &str = "self-depend";
 /// The user-scope skill receipt at the home-relative path, read once.

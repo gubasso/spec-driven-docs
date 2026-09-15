@@ -104,12 +104,12 @@ impl Intent {
             (Self::Init, _) => Err(IntentRefused {
                 verb: "sdd init",
                 found,
-                next: "sdd reconcile plan",
+                next: "sdd stage",
             }),
             (Self::Upgrade, _) => Err(IntentRefused {
                 verb: "sdd upgrade",
                 found,
-                next: "sdd reconcile plan",
+                next: "sdd stage",
             }),
         }
     }
@@ -230,7 +230,7 @@ mod tests {
     fn init_intent_cannot_force_a_settled_target_to_setup() {
         let error = Intent::Init.accepts(Classification::Migration).unwrap_err();
         assert_eq!(error.verb, "sdd init");
-        assert!(error.to_string().contains("sdd reconcile plan"));
+        assert!(error.to_string().contains("sdd stage"));
         assert!(Intent::Init.accepts(Classification::Setup).is_ok());
         // A reinstall over an instance the verb already owns still works.
         assert!(Intent::Init.accepts(Classification::Current).is_ok());

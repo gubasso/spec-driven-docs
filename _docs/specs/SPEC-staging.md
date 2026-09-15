@@ -45,7 +45,7 @@ Verify: `cargo nextest run -E 'binary(cmd_init) + binary(cmd_upgrade) + binary(c
 
 `sdd stage` MUST read the target and write nothing outside the stage directory it reports.
 
-The stage path comes from the request, then the instance declaration, then the default beneath the target's documentation scratch. The first of those that resolves wins, and the report names the one in force.
+The stage path comes from the request, then the automation base the environment declares, then a default beneath this tool's own state root. The first of those that resolves wins, and the report names the one in force.
 
 #### Scenario: A stage runs against a target holding an instance
 
@@ -58,6 +58,8 @@ Verify: `cargo nextest run -E 'binary(cmd_stage)'`
 ### `staging:a-stage-carries-the-whole-candidate` — A stage carries the whole candidate
 
 A stage MUST hold every instance destination the candidate would land, the canon references of the exact installed version, and a receipt naming the candidate version, the resolved configuration, and the destinations it rendered.
+
+The candidate a stage renders takes the same choices the landing will: the profile, the documentation root, the documentation scratch, the reserved paths, and the writing-style selection. A stage rendered under other choices is evidence about a candidate nobody is going to write. The canon references are every payload root the binary carries that an adopting project reads while it migrates.
 
 #### Scenario: An agent prepares a migration
 
@@ -135,7 +137,9 @@ Verify: `cargo nextest run -E 'binary(cmd_init) + binary(cmd_upgrade)'`
 
 ### `staging:one-writer-holds-the-target` — One writer holds the target
 
-A landing MUST hold one exclusive lock on the target for its whole run, and MUST refuse at once naming the holder where another process holds it.
+A landing MUST take one exclusive lock on the target before it observes anything, MUST hold it for the whole run, and MUST refuse at once naming the holder where another process holds it.
+
+The lock comes first so that every observation the run acts on describes a target no other run of this tool is changing underneath it. It bounds cooperating processes and nothing else.
 
 #### Scenario: Two landings start against one target
 
@@ -147,9 +151,9 @@ Verify: `cargo nextest run -E 'binary(cmd_upgrade)'`
 
 ### `staging:every-path-stays-under-the-target` — Every path stays under the target
 
-Every path a landing writes MUST resolve beneath the opened target directory, and a replacement MUST happen in the directory of the file it replaces.
+Every path a landing writes MUST resolve beneath the target directory, checked component by component without following a link, and MUST be re-checked immediately before the write it guards. A replacement MUST happen in the directory of the file it replaces.
 
-A path is judged against the directory the run opened, not against a string it was handed. A link, a parent traversal, and an absolute destination each refuse the run.
+A link, a parent traversal, and an absolute destination each refuse the run. The re-check is what bounds the window between the decision and the write. It is a narrow window and not a closed one: this tool names no guarantee against an actor that can swap a component inside it, because a pathname check on a tree somebody else can rewrite is not a proof.
 
 #### Scenario: A destination resolves outside the target
 

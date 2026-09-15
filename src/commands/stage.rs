@@ -29,11 +29,26 @@ pub fn run(ctx: &AppContext, args: StageArgs) -> Result<(), AppError> {
         .state_root()
         .ok_or_else(|| AppError::Usage("no state root resolves".to_string()))?
         .path;
+    let docs_scratch = args
+        .docs_scratch
+        .as_deref()
+        .map(crate::domain::manifest::parse_docs_scratch)
+        .transpose()
+        .map_err(|error| AppError::Usage(format!("--docs-scratch: {error}")))?;
+    let writing_style = args
+        .writing_style
+        .as_deref()
+        .map(crate::domain::instance_config::WritingStyle::parse_flag)
+        .transpose()
+        .map_err(|error| AppError::Usage(format!("--writing-style: {error}")))?;
     let receipt = stage::create(
         &Request {
             target,
             profile: args.profile,
             output: args.output,
+            docs_scratch,
+            reserve: args.reserve,
+            writing_style,
         },
         &state_root,
     )?;

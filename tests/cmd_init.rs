@@ -402,9 +402,7 @@ fn a_managed_destination_nothing_accounts_for_refuses_before_the_first_write() {
         ])
         .assert()
         .code(73)
-        .stderr(predicate::str::contains(
-            "hold bytes no record accounts for",
-        ))
+        .stderr(predicate::str::contains("hold bytes no record vouches for"))
         .stderr(predicate::str::contains("adr.markdownlint-cli2.jsonc"));
     assert_eq!(
         digest,

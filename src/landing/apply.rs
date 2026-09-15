@@ -45,11 +45,15 @@ pub fn land(
     candidate: &Candidate,
     recorded_managed: &[(String, Sha256)],
 ) -> Result<Outcome, AppError> {
+    // The lock comes first, so every observation below describes a target
+    // no other run of this tool is changing underneath it. It bounds
+    // cooperating processes and nothing else, which is why each write
+    // re-checks its own path immediately before it happens.
+    let _lock = super::lock::hold(target)?;
+
     contained(target, candidate)?;
     unattributed(target, candidate, recorded_managed)?;
     let retired = retired(target, candidate, recorded_managed)?;
-
-    let _lock = super::lock::hold(target)?;
     let mut outcome = Outcome::default();
 
     for destination in &candidate.destinations {
@@ -57,12 +61,21 @@ pub fn land(
         if std::fs::read(&path).is_ok_and(|held| held == destination.bytes) {
             continue;
         }
-        write_one(&path, &destination.bytes).map_err(|error| stopped(&error, &outcome))?;
+        write_one(target, &destination.path, &destination.bytes)
+            .map_err(|error| stopped(&error, &outcome))?;
         outcome.written.push(destination.path.clone());
     }
 
     for destination in retired {
         let path = target.join(&destination);
+        // Re-checked here, not only when the list was built: a component
+        // swapped since then is refused rather than followed.
+        if let Some((_, kind)) = escapes(target, Utf8Path::new(&destination)) {
+            return Err(stopped(
+                &AppError::Refused(format!("destination {kind}: {destination}")),
+                &outcome,
+            ));
+        }
         match std::fs::remove_file(&path) {
             Ok(()) => {
                 prune_empty(target, &destination);
@@ -76,15 +89,25 @@ pub fn land(
     // The record is last. Until it lands, the previous one describes the
     // target, which is what the next run reads.
     let record = candidate.manifest.to_json().into_bytes();
-    write_one(&target.join(MANIFEST_PATH), &record).map_err(|error| stopped(&error, &outcome))?;
+    write_one(target, Utf8Path::new(MANIFEST_PATH), &record)
+        .map_err(|error| stopped(&error, &outcome))?;
     outcome.written.push(Utf8PathBuf::from(MANIFEST_PATH));
     Ok(outcome)
 }
 
 /// Replace one destination in its own directory.
-fn write_one(path: &Utf8Path, bytes: &[u8]) -> Result<(), AppError> {
-    let scratch = Stage::write(path, bytes)?;
-    Stage::replace(&scratch, path)
+///
+/// The chain is inspected again immediately before the rename, so a
+/// component swapped between the check and the write is refused rather
+/// than followed.
+fn write_one(target: &Utf8Path, destination: &Utf8Path, bytes: &[u8]) -> Result<(), AppError> {
+    let path = target.join(destination);
+    let scratch = Stage::write(&path, bytes)?;
+    if let Some((component, kind)) = escapes(target, destination) {
+        Stage::discard(&scratch);
+        return Err(AppError::Refused(format!("{component} {kind}")));
+    }
+    Stage::replace(&scratch, &path)
 }
 
 /// The refusal a run that stopped partway carries.
@@ -165,11 +188,14 @@ fn escapes(target: &Utf8Path, destination: &Utf8Path) -> Option<(Utf8PathBuf, &'
     None
 }
 
-/// Refuse a whole file this tool would own that no record accounts for.
+/// Refuse a whole file this tool would own whose bytes no record vouches
+/// for.
 ///
+/// The record authorizes exact bytes, never a path. A destination whose
+/// contents are not the ones the record holds is one somebody edited or
+/// one somebody else wrote, and neither is this tool's to replace.
 /// Missing provenance routes to the agent, never to an automatic
-/// overwrite: the file this tool cannot account for is exactly the file
-/// somebody else wrote.
+/// overwrite.
 fn unattributed(
     target: &Utf8Path,
     candidate: &Candidate,
@@ -187,10 +213,11 @@ fn unattributed(
         if held == destination.bytes {
             continue;
         }
-        if recorded_managed
+        let vouched = recorded_managed
             .iter()
-            .any(|(recorded, _)| recorded == destination.path.as_str())
-        {
+            .find(|(recorded, _)| recorded == destination.path.as_str())
+            .is_some_and(|(_, digest)| digest == &Sha256::of(&held));
+        if vouched {
             continue;
         }
         collisions.push(destination.path.to_string());
@@ -199,7 +226,7 @@ fn unattributed(
         return Ok(());
     }
     Err(AppError::Refused(format!(
-        "destinations hold bytes no record accounts for: {}; move them aside, or let the setup skill reconcile them",
+        "destinations hold bytes no record vouches for: {}; move them aside, or let the setup skill reconcile them",
         collisions.join(", ")
     )))
 }
@@ -359,6 +386,34 @@ mod tests {
     }
 
     #[test]
+    fn a_managed_destination_edited_since_the_record_refuses() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = target(&dir);
+        let candidate = candidate();
+        let managed = candidate
+            .destinations
+            .iter()
+            .find(|destination| destination.ownership == Ownership::Managed)
+            .unwrap()
+            .clone();
+        // The record names the path and vouches for other bytes, which is
+        // what a local edit to a managed file looks like.
+        crate::adapters::fs::write_file(&target.join(&managed.path), b"edited since").unwrap();
+        let recorded = vec![(
+            managed.path.to_string(),
+            Sha256::of(b"what the record holds"),
+        )];
+
+        let error = land(&target, &candidate, &recorded).unwrap_err();
+        assert!(error.to_string().contains(managed.path.as_str()), "{error}");
+        assert_eq!(
+            std::fs::read(target.join(&managed.path)).unwrap(),
+            b"edited since"
+        );
+        assert!(!target.join(MANIFEST_PATH).exists());
+    }
+
+    #[test]
     fn a_recorded_managed_destination_is_refreshed() {
         let dir = tempfile::tempdir().unwrap();
         let target = target(&dir);
@@ -370,6 +425,8 @@ mod tests {
             .unwrap()
             .clone();
         crate::adapters::fs::write_file(&target.join(&managed.path), b"older").unwrap();
+        // The record vouches for exactly the bytes that are there, which is
+        // what an older landing of this tool leaves.
         let recorded = vec![(managed.path.to_string(), Sha256::of(b"older"))];
 
         land(&target, &candidate, &recorded).unwrap();

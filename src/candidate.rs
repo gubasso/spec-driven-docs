@@ -222,14 +222,27 @@ pub fn project(input: &Input) -> Result<Candidate, AppError> {
     // Render from the declaration this landing is writing, not from the one
     // on disk. With `--reserve` they differ, and a block rendered from the
     // old one would disagree with the file the same landing writes.
-    let declaration = destinations
+    // A declaration that cannot be read is a refusal, never a default. The
+    // landing would otherwise keep the project's bytes and wire the block
+    // from something else, and the two would disagree from the first
+    // commit onward.
+    let declared = destinations
         .iter()
-        .find(|destination| destination.path == crate::domain::instance_config::CONFIG_PATH)
-        .and_then(|destination| std::str::from_utf8(&destination.bytes).ok())
-        .map(InstanceConfig::parse)
-        .transpose()
-        .map_err(|error| anyhow::anyhow!("{error}"))?
-        .unwrap_or_default();
+        .find(|destination| destination.path == crate::domain::instance_config::CONFIG_PATH);
+    let declaration = match declared {
+        Some(destination) => {
+            let text = std::str::from_utf8(&destination.bytes).map_err(|source| {
+                AppError::Refused(format!(
+                    "{} is not UTF-8, so what the gates judge cannot be read: {source}",
+                    destination.path
+                ))
+            })?;
+            InstanceConfig::parse(text).map_err(|error| {
+                AppError::Refused(format!("{} does not parse: {error}", destination.path))
+            })?
+        }
+        None => InstanceConfig::default(),
+    };
     let writing_style = declaration.writing_style.clone();
     let block = render_block(&RenderOptions {
         docs_root: docs_root.to_string(),
@@ -486,6 +499,24 @@ mod tests {
         let text = String::from_utf8(agents.bytes.clone()).unwrap();
         assert!(text.contains("Our own paragraph."));
         assert_eq!(agents.placement, Placement::MarkedRegion);
+    }
+
+    #[test]
+    fn a_declaration_that_cannot_be_read_refuses_rather_than_defaulting() {
+        let mut held = input(ProfileId::KnowledgeBase);
+        held.evidence.existing.insert(
+            Utf8PathBuf::from(crate::domain::paths::CONFIG_PATH),
+            b"\xff\xfe not text".to_vec(),
+        );
+        let error = project(&held).unwrap_err();
+        assert!(error.to_string().contains("not UTF-8"), "{error}");
+
+        held.evidence.existing.insert(
+            Utf8PathBuf::from(crate::domain::paths::CONFIG_PATH),
+            b"reserved: [".to_vec(),
+        );
+        let error = project(&held).unwrap_err();
+        assert!(error.to_string().contains("does not parse"), "{error}");
     }
 
     #[test]

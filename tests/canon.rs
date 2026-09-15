@@ -744,7 +744,7 @@ fn the_payload_carries_both_shared_gates() {
 #[test]
 fn the_pre_flight_gate_invokes_no_planner_or_skill() {
     let gate = read("skill-shared/pre-flight-gate.md");
-    for named in ["sdd assess", "sdd reconcile", "migration skill"] {
+    for named in ["sdd assess", "sdd stage", "migration skill"] {
         assert!(
             !gate.contains(named),
             "the pre-flight gate names '{named}'; it hands its findings back and routes nothing"

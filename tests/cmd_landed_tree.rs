@@ -76,6 +76,59 @@ fn a_fresh_landing_verifies_and_reports_no_drift() {
         .success();
 }
 
+/// VERIFIES distribution:initialization-preserves-project-content
+///
+/// The gates the landing wires are not all its own. It also wires three
+/// markdown-linter hooks, and the defect this suite exists to prevent was
+/// exactly one of those failing after verification passed. Running the
+/// linter itself needs pre-commit's own network fetch, which this suite
+/// does not do, so what it holds is everything short of that: each hook
+/// reads a configuration the same landing wrote, and each configuration
+/// parses.
+#[test]
+fn every_linter_hook_reads_a_configuration_the_landing_wrote() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    let block = fixture.read(".pre-commit-config.yaml");
+
+    let mut configs = 0;
+    for line in block.lines() {
+        let Some(rest) = line.trim().strip_prefix("args: ['--config', '") else {
+            continue;
+        };
+        let Some(relative) = rest.split('\'').next() else {
+            continue;
+        };
+        configs += 1;
+        let path = fixture.path().join(relative);
+        assert!(
+            path.is_file(),
+            "a wired hook reads {relative}, which the landing did not write"
+        );
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(
+            text.contains("\"config\""),
+            "{relative} is not a linter configuration"
+        );
+    }
+    assert_eq!(
+        configs, 3,
+        "the landing wired {configs} linter configurations"
+    );
+
+    // Every file the three hooks judge is a file the landing wrote, so a
+    // pattern that matched nothing would be a silent pass.
+    for judged in [
+        "_docs/specs/SPEC-docs-format.md",
+        "_docs/specs/SPEC-instance.md",
+    ] {
+        assert!(
+            fixture.path().join(judged).is_file(),
+            "{judged} is not in the landed tree, so the spec hook judges nothing"
+        );
+    }
+}
+
 /// VERIFIES docs-specs:verification-names-a-live-hook
 ///
 /// Every `Verify:` line a seeded spec carries must name something the
