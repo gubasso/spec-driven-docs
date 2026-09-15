@@ -20,7 +20,9 @@ Verify: `pre-commit run adr-filename-shape --all-files`
 
 ### `decision-records:a-citation-resolves-to-a-rule` — A citation resolves to a rule
 
-Where a record names what enforces it, the author MUST cite rule IDs the specs still define.
+Where a record names what enforces it, the author MUST cite rule IDs the specs still define, until another record supersedes it.
+
+A superseded record keeps the pointer it was frozen with. Its successor carries what binds now, and its own `Enforced by` line is part of the history. Without that, retiring a rule would be impossible: the record that cited it cannot be rewritten, so the citation would hold the rule alive forever.
 
 #### Scenario: A rule moves to a domain of its own
 

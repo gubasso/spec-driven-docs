@@ -16,6 +16,7 @@ pub mod fragments;
 pub mod leftovers;
 pub mod manager;
 pub mod pin;
+pub mod registry;
 pub mod stamp;
 pub mod status;
 pub mod txn;

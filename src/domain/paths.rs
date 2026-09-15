@@ -71,17 +71,8 @@ pub const SKILL_REFERENCES_DIR: &str = "references";
 
 /// The user-scope lock, relative to the state root.
 pub const SKILL_LOCK_FILE: &str = "skills.lock";
-/// The user-scope journal, relative to the state root.
-pub const SKILL_JOURNAL_FILE: &str = "skills.journal";
-/// Where a transaction copies what it is about to replace.
-pub const BACKUPS_DIR: &str = "backups";
-/// The plan store, relative to the state root.
-pub const PLAN_STORE_DIR: &str = "plans";
 /// The per-checkout sync stamps, relative to the state root.
 pub const SELF_DEPEND_STAMP_DIR: &str = "self-depend";
-/// The verified release bundles, relative to the cache root.
-pub const BUNDLE_CACHE_DIR: &str = "bundles";
-
 /// The user-scope skill receipt at the home-relative path, read once.
 ///
 /// A home installed before the state root followed `XDG_STATE_HOME` holds
@@ -313,10 +304,6 @@ pub struct UserPaths {
     pub cache_root: PathEntry,
     /// The receipt vouching for every user-scope file this tool wrote.
     pub skill_receipt: PathEntry,
-    /// Where computed plans are stored.
-    pub plan_store: PathEntry,
-    /// Where verified release bundles are cached.
-    pub bundle_cache: PathEntry,
     /// The agent skill roots, deduplicated by resolved path.
     pub agent_roots: Vec<AgentRootEntry>,
 }
@@ -515,14 +502,6 @@ impl UserEnv {
             skill_receipt: PathEntry {
                 path: state.path.join(SKILL_RECEIPT_FILE),
                 source: state.source,
-            },
-            plan_store: PathEntry {
-                path: state.path.join(PLAN_STORE_DIR),
-                source: state.source,
-            },
-            bundle_cache: PathEntry {
-                path: cache.path.join(BUNDLE_CACHE_DIR),
-                source: cache.source,
             },
             agent_roots: self.agent_roots(&[AgentId::Claude, AgentId::Agents]),
             state_root: state,
@@ -753,14 +732,6 @@ mod tests {
         assert_eq!(
             paths.skill_receipt.path,
             "/h/.local/state/spec-driven-docs/skills.json"
-        );
-        assert_eq!(
-            paths.plan_store.path,
-            "/h/.local/state/spec-driven-docs/plans"
-        );
-        assert_eq!(
-            paths.bundle_cache.path,
-            "/h/.cache/spec-driven-docs/bundles"
         );
     }
 

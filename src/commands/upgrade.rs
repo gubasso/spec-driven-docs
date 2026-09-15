@@ -24,17 +24,11 @@ pub fn run(ctx: &AppContext, args: UpgradeArgs) -> Result<(), AppError> {
     } else {
         return Err(AppError::Usage("target must be absolute or .".to_string()));
     };
-    crate::commands::front::serves(crate::plan::classify::Intent::Upgrade, &target)?;
-    let selections = crate::plan::decision::parse(&args.set)
-        .map_err(|error| AppError::Usage(error.to_string()))?;
-    let outcome = upgrade(
-        &UpgradeOptions {
-            target,
-            dry_run: args.dry_run,
-            selections,
-        },
-        &crate::release::embedded::EmbeddedReleaseBundle::new(),
-    )?;
+    crate::commands::front::serves(crate::landing::classify::Intent::Upgrade, &target)?;
+    let outcome = upgrade(&UpgradeOptions {
+        target,
+        dry_run: args.dry_run,
+    })?;
     for line in &outcome.lines {
         output::line(line);
     }

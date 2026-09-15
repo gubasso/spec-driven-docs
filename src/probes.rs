@@ -206,7 +206,7 @@ fn tool(
 /// protocol defines, and writes nothing.
 fn registry() -> ProbeResult {
     let id = "release-registry";
-    let url = format!("{}/config.json", crate::release::crates_io::INDEX_ROOT);
+    let url = format!("{}/config.json", crate::self_depend::registry::INDEX_ROOT);
     // One variable turns the read off, for a host that is deliberately
     // offline and for every test in this repository's own suite.
     if crate::domain::paths::variable(OFFLINE_VAR).is_some() {

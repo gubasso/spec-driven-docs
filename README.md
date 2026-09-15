@@ -21,10 +21,10 @@ Linux is the only supported target. A build for another operating system is refu
 - Find anything the binary carries: `sdd docs`, then `sdd docs <topic>`.
 - Read the method: [method/README.md](./method/README.md), or `sdd method --list` anywhere.
 - Author a comparison: [comparison-docs/README.md](./comparison-docs/README.md).
-- See what a landing would do: `sdd reconcile plan`, documented in [instance/README.md](./instance/README.md#request-a-plan).
+- See what a landing would do: `sdd stage`, documented in [instance/README.md](./instance/README.md#stage-the-candidate).
 - Instantiate into a project: `sdd init`, the short form for a first landing.
 - Upgrade an installed instance: `sdd upgrade`, the short form for a move to a newer release.
-- Apply a plan and verify the result: `sdd reconcile apply` and `sdd verify`, documented in [instance/README.md](./instance/README.md#apply).
+- Land and verify the result: `sdd init --apply` or `sdd upgrade`, then `sdd verify`, documented in [instance/README.md](./instance/README.md#land).
 - Copy stable templates: [templates/](./templates/), or `sdd template --list`.
 - Install the agent skills at user scope: `sdd skill install`, documented in [instance/README.md](./instance/README.md#skills).
 - Cut a release: [_docs/guides/release.md](./_docs/guides/release.md). First-time bootstrap: [_docs/guides/release-setup.md](./_docs/guides/release-setup.md).

@@ -1,100 +1,56 @@
-//! Scratch files beside their destinations, and backups by digest.
+//! Scratch files beside their destinations.
 //!
 //! Staging is always a sibling of the destination, so the rename that
 //! follows never crosses a filesystem, whichever mount `HOME`,
-//! `XDG_STATE_HOME`, or `CLAUDE_CONFIG_DIR` puts a root on. Backups are
-//! copies under one root and cross filesystems freely, which is why they
-//! are copies and the replacements are renames.
+//! `XDG_STATE_HOME`, or `CLAUDE_CONFIG_DIR` puts a root on.
 
 use camino::{Utf8Path, Utf8PathBuf};
 
-use crate::domain::ownership::Sha256;
 use crate::error::AppError;
-use crate::transaction::{sync_dir, sync_parent};
+use crate::transaction::sync_parent;
 
 /// The suffix a staged file carries until it is renamed into place.
 const SCRATCH_SUFFIX: &str = ".sdd-stage";
 
-/// Where a run keeps what it is about to replace.
-#[derive(Debug, Clone)]
-pub struct Stage {
-    backups: Utf8PathBuf,
-}
+/// The staging operations, which hold no state of their own.
+#[derive(Debug, Clone, Copy)]
+pub struct Stage;
 
 impl Stage {
-    /// Open the backup store under `backup_root`.
-    ///
-    /// # Errors
-    ///
-    /// Any I/O error creating the store.
-    pub fn new(backup_root: &Utf8Path) -> Result<Self, AppError> {
-        std::fs::create_dir_all(backup_root)?;
-        Ok(Self {
-            backups: backup_root.to_owned(),
-        })
-    }
-
-    /// Where one backed-up digest is kept.
-    #[must_use]
-    pub fn backup_path(&self, digest: &Sha256) -> Utf8PathBuf {
-        self.backups.join(digest.to_string())
-    }
-
-    /// Copy an existing destination into the store, returning its digest.
-    ///
-    /// `None` means the destination does not exist, which is what tells a
-    /// recovery to remove it rather than restore it.
-    ///
-    /// # Errors
-    ///
-    /// Any I/O error reading the destination or writing the copy.
-    pub fn back_up(&self, destination: &Utf8Path) -> Result<Option<Sha256>, AppError> {
-        if !destination.is_file() {
-            return Ok(None);
-        }
-        let bytes = std::fs::read(destination)?;
-        let digest = Sha256::of(&bytes);
-        let held = self.backup_path(&digest);
-        if !held.is_file() {
-            crate::adapters::fs::write_atomic(&held, &bytes)?;
-        }
-        sync_dir(&self.backups)?;
-        Ok(Some(digest))
-    }
-
-    /// Put a backed-up copy back at `destination`.
-    ///
-    /// # Errors
-    ///
-    /// [`AppError::Unrecovered`] when the copy is gone, and any I/O error
-    /// of the write.
-    pub fn restore(&self, digest: &Sha256, destination: &Utf8Path) -> Result<(), AppError> {
-        let held = self.backup_path(digest);
-        let bytes = std::fs::read(&held).map_err(|source| {
-            AppError::Unrecovered(format!(
-                "the copy of {destination} is not in the backup store at {held}: {source}"
-            ))
-        })?;
-        crate::adapters::fs::write_atomic(destination, &bytes)?;
-        sync_parent(destination)?;
-        Ok(())
-    }
-
     /// Write `bytes` to a scratch file beside `destination`.
     ///
-    /// The scratch file is created exclusively, so a path already there —
-    /// a symlink included — refuses rather than being followed.
+    /// The name carries this run, and the file is created exclusively, so
+    /// the write never lands in one somebody else left. A scratch path
+    /// already taken refuses rather than being reused: nothing proves an
+    /// existing file came from a run of this tool, and renaming it over
+    /// the destination would replace the destination with its contents.
     ///
     /// # Errors
     ///
     /// Any I/O error creating the parent, the scratch file, or syncing it.
     pub fn write(destination: &Utf8Path, bytes: &[u8]) -> Result<Utf8PathBuf, AppError> {
+        Self::write_at(&scratch_for(destination), destination, bytes)
+    }
+
+    /// Write `bytes` to one named scratch path beside `destination`.
+    ///
+    /// The path is the caller's, which is what lets a test plant something
+    /// at it and prove the exclusive create refuses rather than follows.
+    ///
+    /// # Errors
+    ///
+    /// As [`Stage::write`].
+    pub fn write_at(
+        scratch: &Utf8Path,
+        destination: &Utf8Path,
+        bytes: &[u8],
+    ) -> Result<Utf8PathBuf, AppError> {
         use std::io::Write as _;
 
         if let Some(parent) = destination.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        let scratch = scratch_for(destination);
+        let scratch = scratch.to_owned();
         let mut handle = std::fs::OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -102,7 +58,7 @@ impl Stage {
             .map_err(|source| {
                 std::io::Error::new(
                     source.kind(),
-                    format!("{scratch}: {source}; remove the scratch file to retry"),
+                    format!("{scratch}: {source}; move it aside and run this again"),
                 )
             })?;
         let written = handle.write_all(bytes).and_then(|()| handle.sync_all());
@@ -136,9 +92,18 @@ impl Stage {
 }
 
 /// The scratch path one destination stages through.
+///
+/// The name carries the process and a counter, so two runs never choose
+/// one path and a leftover never looks like this run's own.
 #[must_use]
 pub fn scratch_for(destination: &Utf8Path) -> Utf8PathBuf {
-    Utf8PathBuf::from(format!("{destination}{SCRATCH_SUFFIX}"))
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    let serial = NEXT.fetch_add(1, Ordering::Relaxed);
+    Utf8PathBuf::from(format!(
+        "{destination}{SCRATCH_SUFFIX}.{}-{serial}",
+        std::process::id()
+    ))
 }
 
 #[cfg(test)]
@@ -167,38 +132,36 @@ mod tests {
     }
 
     #[test]
-    fn a_backup_round_trips_and_an_absent_destination_has_none() {
-        let dir = tempfile::tempdir().unwrap();
-        let stage = Stage::new(&root(&dir).join("backups")).unwrap();
-        let destination = root(&dir).join("a/SKILL.md");
-        assert_eq!(stage.back_up(&destination).unwrap(), None);
-
-        crate::adapters::fs::write_file(&destination, b"held\n").unwrap();
-        let digest = stage.back_up(&destination).unwrap().unwrap();
-        std::fs::write(&destination, b"replaced\n").unwrap();
-        stage.restore(&digest, &destination).unwrap();
-        assert_eq!(std::fs::read(&destination).unwrap(), b"held\n");
-    }
-
-    #[test]
     fn a_pre_existing_scratch_path_refuses_rather_than_being_followed() {
         let dir = tempfile::tempdir().unwrap();
         let destination = root(&dir).join("SKILL.md");
+        let scratch = root(&dir).join("SKILL.md.sdd-stage.taken");
         let victim = root(&dir).join("victim");
         std::fs::write(&victim, b"keep\n").unwrap();
-        std::os::unix::fs::symlink(&victim, scratch_for(&destination).as_std_path()).unwrap();
-        assert!(Stage::write(&destination, b"new\n").is_err());
+        std::os::unix::fs::symlink(&victim, scratch.as_std_path()).unwrap();
+        assert!(Stage::write_at(&scratch, &destination, b"new\n").is_err());
         assert_eq!(std::fs::read(&victim).unwrap(), b"keep\n");
     }
 
     #[test]
-    fn a_missing_backup_reports_an_unrecovered_run() {
+    fn a_leftover_scratch_file_is_never_reused_as_this_runs_own() {
         let dir = tempfile::tempdir().unwrap();
-        let stage = Stage::new(&root(&dir).join("backups")).unwrap();
-        let error = stage
-            .restore(&Sha256::of(b"absent"), &root(&dir).join("x"))
-            .unwrap_err();
-        assert_eq!(error.kind(), "Unrecovered");
-        assert_eq!(error.exit_code(), 73);
+        let destination = root(&dir).join("SKILL.md");
+        // What a stopped run leaves, under the suffix but not this run's
+        // name. It is neither read nor renamed over the destination.
+        let leftover = root(&dir).join("SKILL.md.sdd-stage.1-0");
+        std::fs::write(leftover.as_std_path(), b"half a write").unwrap();
+
+        let scratch = Stage::write(&destination, b"new\n").unwrap();
+        assert_ne!(scratch, leftover);
+        Stage::replace(&scratch, &destination).unwrap();
+        assert_eq!(std::fs::read(&destination).unwrap(), b"new\n");
+        assert_eq!(std::fs::read(&leftover).unwrap(), b"half a write");
+    }
+
+    #[test]
+    fn two_scratch_paths_for_one_destination_never_collide() {
+        let destination = Utf8Path::new("/work/AGENTS.md");
+        assert_ne!(scratch_for(destination), scratch_for(destination));
     }
 }

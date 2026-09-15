@@ -10,16 +10,11 @@
 
 use camino::{Utf8Path, Utf8PathBuf};
 
-use crate::domain::manifest::{
-    CANON_SOURCE, MANIFEST_PATH, Manifest, SCHEMA_VERSION, validate_docs_scratch_path,
-};
-use crate::domain::ownership::{AdoptedEntry, IntegrationBlock, ManagedEntry, Sha256};
+use crate::domain::manifest::{MANIFEST_PATH, validate_docs_scratch_path};
 use crate::domain::paths::{AGENTS_DIGEST_PATH, HOOKS_CONFIG_PATH};
 use crate::domain::profile::{ProfileId, resolve_destination};
 use crate::domain::version::CanonVersion;
 use crate::error::AppError;
-use crate::release::ReleaseBundle;
-use crate::services::hooks_render::{RenderOptions, render_block};
 
 /// What an installation was asked to do.
 #[derive(Debug, Clone)]
@@ -167,54 +162,60 @@ pub struct TargetState {
     pub lines: Vec<String>,
 }
 
-#[allow(
-    clippy::too_many_lines,
-    reason = "computing the target state is one ordered pass the installer replays"
-)]
-/// What one landing would put in a target.
+/// What this binary would put in a target, and what it would say.
+///
+/// Observation happens here and projection happens in [`crate::candidate`].
+/// Everything this function reads from the target is a value it hands over,
+/// so the bytes a stage renders and the bytes a landing writes come out of
+/// one pure pass over the same evidence.
 ///
 /// # Errors
 ///
-/// [`AppError::Refused`] when the release declares no such profile or a
-/// marked region cannot be read, and I/O errors reading the target.
+/// [`AppError::Refused`] when this release declares no such profile, when a
+/// marked region cannot be read, or when the root author-instructions file
+/// is a link, and I/O errors reading the target.
 pub fn compute_target_state(
     target: &Utf8Path,
     options: &InitOptions,
-    bundle: &dyn ReleaseBundle,
 ) -> Result<TargetState, AppError> {
-    let profile = options.profile;
-    // The release the bundle is, not the release the engine is. A plan
-    // toward an older version lands that version's bytes, so recording
-    // this binary's version would leave the target claiming a release it
-    // does not hold, and every later classification would read the lie.
-    let landed: CanonVersion = bundle
-        .manifest()?
-        .version
-        .to_string()
-        .parse()
-        .map_err(|_| AppError::Refused("the release is not a version triple".to_string()))?;
-    let released = bundle.declaration()?;
-    let declaration = released.profile(profile).ok_or_else(|| {
-        AppError::Refused(format!(
-            "the release declares no {profile} profile, so it cannot land one"
-        ))
-    })?;
-    let mut files: Vec<(Utf8PathBuf, Vec<u8>)> = Vec::new();
-    let mut lines = Vec::new();
-    let mut managed_entries = Vec::new();
-    let mut adopted_entries = Vec::new();
-
-    for projection in declaration.managed {
-        let bytes = bundle.artifact(&projection.source)?;
-        let destination = Utf8PathBuf::from(&projection.destination);
-        managed_entries.push(ManagedEntry {
-            source: projection.source.clone().into(),
-            destination: destination.clone(),
-            sha256: Sha256::of(&bytes),
-        });
-        lines.push(destination.to_string());
-        files.push((destination, bytes));
+    let candidate = candidate_for(target, options)?;
+    let mut lines: Vec<String> = Vec::new();
+    for destination in &candidate.destinations {
+        lines.push(destination.path.to_string());
     }
+    lines.extend(candidate.notes.iter().cloned());
+    lines.push(MANIFEST_PATH.to_string());
+    Ok(TargetState {
+        files: candidate.files(),
+        lines,
+    })
+}
+
+/// The candidate this binary renders for one target.
+///
+/// # Errors
+///
+/// As [`compute_target_state`].
+pub fn candidate_for(
+    target: &Utf8Path,
+    options: &InitOptions,
+) -> Result<crate::candidate::Candidate, AppError> {
+    crate::candidate::project(&gather(target, options)?)
+}
+
+/// The target a landing or a stage will read, canonical and known-good.
+///
+/// # Errors
+///
+/// [`AppError::Usage`] for a path no verb can mean: relative, absent, the
+/// filesystem root, or inside the canon checkout.
+pub fn resolved_target(target: &Utf8Path) -> Result<Utf8PathBuf, AppError> {
+    canonical_target(target)
+}
+
+/// Read the target once, so the projection never has to.
+fn gather(target: &Utf8Path, options: &InitOptions) -> Result<crate::candidate::Input, AppError> {
+    let docs_root = crate::candidate::docs_root_of(options.profile)?;
 
     // What the target already records as adopted. A destination that holds
     // project content and is recorded nowhere is preserved and noted: the
@@ -230,148 +231,53 @@ pub fn compute_target_state(
             })
         })
         .unwrap_or_default();
-    for projection in declaration.adopted {
-        let seed = bundle.artifact(&projection.source)?;
-        let destination = resolve_destination(&projection.destination, declaration.docs_root);
-        let existing = target.join(&destination);
-        let mut bytes = if existing.is_file() {
-            let held = std::fs::read(&existing)?;
-            if held != seed && !recorded_adopted.iter().any(|d| d == destination.as_str()) {
-                lines.push(format!(
-                    "note: {destination} already exists and is kept; the seed was not written, so read it with 'sdd spec' and reconcile by hand"
-                ));
-            }
-            held
-        } else {
-            seed.clone()
-        };
-        // `--reserve` and `--writing-style` record into the declaration,
-        // keeping its comments and whatever the project already wrote there.
-        if destination == crate::domain::instance_config::CONFIG_PATH
-            && let Ok(text) = std::str::from_utf8(&bytes)
-        {
-            let mut text = text.to_string();
-            if !options.reserve.is_empty() {
-                text = crate::domain::instance_config::with_reserved(&text, &options.reserve);
-            }
-            if let Some(selection) = &options.writing_style {
-                text = crate::domain::instance_config::with_writing_style(&text, selection);
-            }
-            bytes = text.into_bytes();
+
+    let mut existing = std::collections::BTreeMap::new();
+    for projection in &crate::domain::profile::DECLARATION.adopted {
+        let destination = resolve_destination(&projection.destination, docs_root);
+        let path = target.join(&destination);
+        if path.is_file() {
+            existing.insert(destination, std::fs::read(&path)?);
         }
-        adopted_entries.push(AdoptedEntry {
-            source: projection.source.clone().into(),
-            destination: destination.clone(),
-            sha256: Sha256::of(&bytes),
-            baseline_sha256: Sha256::of(&seed),
-        });
-        lines.push(destination.to_string());
-        files.push((destination, bytes));
     }
 
-    let config_path = target.join(HOOKS_CONFIG_PATH);
-    let host = if config_path.is_file() {
-        std::fs::read_to_string(&config_path)?
+    let hooks_path = target.join(HOOKS_CONFIG_PATH);
+    let hooks_host = if hooks_path.is_file() {
+        std::fs::read_to_string(&hooks_path)?
     } else {
-        "repos:\n".to_string()
+        String::new()
     };
-    let (base, _) = crate::domain::marker::split_block(&host)?;
-    let indent = crate::domain::marker::splice_indent(&base)?;
-    // Render from the declaration this install is writing, not from the one
-    // on disk. With `--reserve` they differ, and a block rendered from the
-    // old one would disagree with the file the same install lands.
-    let declared = files
-        .iter()
-        .find(|(destination, _)| destination == crate::domain::instance_config::CONFIG_PATH)
-        .and_then(|(_, bytes)| std::str::from_utf8(bytes).ok())
-        .map(crate::domain::instance_config::InstanceConfig::parse)
-        .transpose()
-        .map_err(|error| anyhow::anyhow!("{error}"))?
-        .unwrap_or_default();
-    let writing_style = declared.writing_style.clone();
-    let block = render_block(&RenderOptions {
-        docs_root: declaration.docs_root.to_string(),
-        indent,
-        declaration: declared,
-        ..RenderOptions::default()
-    });
-    let spliced = crate::domain::marker::splice(&base, &block)?;
-    let marker_hash = crate::domain::marker::block_hash(&spliced)
-        .ok_or_else(|| anyhow::anyhow!("the rendered block lost its markers"))?;
-    lines.push(HOOKS_CONFIG_PATH.to_string());
-    files.push((Utf8PathBuf::from(HOOKS_CONFIG_PATH), spliced.into_bytes()));
-
-    let mut integration_blocks = vec![IntegrationBlock {
-        path: HOOKS_CONFIG_PATH.into(),
-        marker_hash,
-    }];
 
     // The root AGENTS.md documentation block routes authors to the context they
     // load before editing. A symlinked host is refused before it is read, so a
     // link cannot redirect the read outside the target.
-    let agents_relative = Utf8Path::new(AGENTS_DIGEST_PATH);
-    if target.join(agents_relative).is_symlink() {
+    let agents_path = target.join(AGENTS_DIGEST_PATH);
+    if agents_path.is_symlink() {
         return Err(AppError::Refused(
             "AGENTS.md is a symlink; refusing to write the documentation block through it"
                 .to_string(),
         ));
     }
-    let agents_host = if target.join(agents_relative).is_file() {
-        std::fs::read_to_string(target.join(agents_relative))?
+    let agents_host = if agents_path.is_file() {
+        std::fs::read_to_string(&agents_path)?
     } else {
         String::new()
     };
-    let agents_block = crate::services::agents_render::render_block(
-        &declaration.docs_root.to_string(),
-        &writing_style,
-    );
-    let agents = crate::domain::marker::place_agents_block(&agents_host, &agents_block)?;
-    let agents_hash = crate::domain::marker::block_hash_with(
-        &agents,
-        crate::domain::marker::AGENTS_BEGIN,
-        crate::domain::marker::AGENTS_END,
-    )
-    .ok_or_else(|| anyhow::anyhow!("the rendered AGENTS.md block lost its markers"))?;
-    // An old unmarked documentation section is preserved, never deleted; the
-    // note tells the operator to remove the duplicate by hand.
-    if agents_host.contains("## Documentation")
-        && crate::domain::marker::block_region_with(
-            &agents_host,
-            crate::domain::marker::AGENTS_BEGIN,
-            crate::domain::marker::AGENTS_END,
-        )
-        .is_none()
-    {
-        lines.push(
-            "note: AGENTS.md carries an unmarked '## Documentation' section; the managed block was appended and the old section left in place — remove it by hand".to_string(),
-        );
-    }
-    lines.push(AGENTS_DIGEST_PATH.to_string());
-    files.push((agents_relative.to_path_buf(), agents.into_bytes()));
-    integration_blocks.push(IntegrationBlock {
-        path: AGENTS_DIGEST_PATH.into(),
-        marker_hash: agents_hash,
-    });
 
-    let manifest = Manifest {
-        schema_version: SCHEMA_VERSION,
-        canon_version: landed,
-        canon_source: CANON_SOURCE.to_string(),
-        profile,
-        docs_root: declaration.docs_root,
+    Ok(crate::candidate::Input {
+        profile: options.profile,
+        version: CanonVersion::current(),
         installed_at: installed_at(target),
         docs_scratch: resolved_docs_scratch(target, options.docs_scratch.as_ref())?,
-        managed_files: managed_entries,
-        adopted_files: adopted_entries,
-        integration_blocks,
-    };
-    lines.push(MANIFEST_PATH.to_string());
-    files.push((
-        Utf8PathBuf::from(MANIFEST_PATH),
-        manifest.to_json().into_bytes(),
-    ));
-
-    Ok(TargetState { files, lines })
+        reserve: options.reserve.clone(),
+        writing_style: options.writing_style.clone(),
+        evidence: crate::candidate::Evidence {
+            existing,
+            recorded_adopted,
+            hooks_host,
+            agents_host,
+        },
+    })
 }
 
 /// Install or reinstall an instance.
@@ -379,33 +285,28 @@ pub fn compute_target_state(
 /// # Errors
 ///
 /// [`AppError::Usage`] for a target the arguments cannot mean,
-/// [`AppError::Marker`] for a configuration whose markers cannot be trusted,
-/// and [`AppError::Refused`] when the apply could not complete — the target
-/// is restored before that returns.
+/// [`AppError::Marker`] for a configuration whose markers cannot be
+/// trusted, and [`AppError::Refused`] when a destination escapes the
+/// target, holds bytes no record accounts for, or cannot be written.
 pub fn init(
     options: &InitOptions,
-    bundle: &dyn ReleaseBundle,
-    intent: crate::plan::classify::Intent,
+    intent: crate::landing::classify::Intent,
 ) -> Result<InitOutcome, AppError> {
-    init_with(
-        &crate::plan::decision::Selections::new(),
-        options,
-        bundle,
-        intent,
-    )
+    init_holding(None, options, intent)
 }
 
-/// Install or reinstall an instance, carrying answers the caller collected.
+/// Install or reinstall an instance under a lock the caller already holds.
+///
+/// A verb that observed the target before it decided to land must hold the
+/// target across both, so the tree it decided from is the tree it writes.
 ///
 /// # Errors
 ///
-/// As [`init`], plus whatever the plan refuses when a decision it raises
-/// is unanswered.
-pub fn init_with(
-    answered: &crate::plan::decision::Selections,
+/// As [`init`].
+pub fn init_holding(
+    held: Option<crate::transaction::lock::Lock>,
     options: &InitOptions,
-    bundle: &dyn ReleaseBundle,
-    intent: crate::plan::classify::Intent,
+    intent: crate::landing::classify::Intent,
 ) -> Result<InitOutcome, AppError> {
     let target = canonical_target(&options.target)?;
     // The target is known-good before it is classified, so an argument
@@ -418,18 +319,40 @@ pub fn init_with(
         && !target.join(MANIFEST_PATH).is_file();
     let dry = options.dry_run || forced_dry;
 
-    let state = compute_target_state(&target, options, bundle)?;
-    let mut lines = state.lines;
-
-    let landing = crate::plan::session::Landing {
-        target: &target,
-        release: crate::plan::session::ReleaseRef::of(bundle)?,
-        offline: true,
-        selections: answered.clone(),
-        carried: profile_only(options.profile),
-        reserve: options.reserve.clone(),
-        declared: Some(options.clone()),
+    // A preview reads and writes nothing, so it needs no lock. An apply
+    // holds one across the observation as well as the writes: a candidate
+    // rendered before the lock would describe a target another run could
+    // still be changing. A caller that already holds it passes it in,
+    // because taking it twice from one process proves nothing.
+    let held = match (dry, held) {
+        (true, _) => None,
+        (false, Some(held)) => Some(held),
+        (false, None) => Some(crate::landing::lock::hold(&target)?),
     };
+
+    // A profile carries the documentation root, so changing it moves every
+    // adopted document to a new home and leaves the old corpus where it
+    // is. That is a migration somebody asks for deliberately, never a
+    // consequence of running a landing verb with a different flag.
+    if let Some(recorded) = recorded_field(&target, "profile").and_then(|value| {
+        ProfileId::every().find(|profile| Some(profile.as_str()) == value.as_str())
+    }) && recorded != options.profile
+    {
+        return Err(AppError::Refused(format!(
+            "{target} records the {recorded} profile and this run asks for {}; \
+             moving a profile moves the documentation root, which is a migration to ask for deliberately",
+            options.profile
+        )));
+    }
+
+    let candidate = candidate_for(&target, options)?;
+    let mut lines: Vec<String> = candidate
+        .destinations
+        .iter()
+        .map(|destination| destination.path.to_string())
+        .collect();
+    lines.extend(candidate.notes.iter().cloned());
+    lines.push(MANIFEST_PATH.to_string());
 
     if dry {
         if forced_dry {
@@ -438,12 +361,6 @@ pub fn init_with(
                     .to_string(),
             );
         }
-        // The preview is the plan. A destination list alone cannot say
-        // that a precondition blocks the run or that a release in the
-        // interval asks something of a person.
-        lines.extend(crate::plan::session::preview_lines(
-            &crate::plan::session::preview(&landing)?,
-        ));
         lines.push("DRY RUN: no files written".to_string());
         return Ok(InitOutcome {
             lines,
@@ -452,46 +369,47 @@ pub fn init_with(
         });
     }
 
-    // Every write into a target comes from an operation in one plan, so
-    // this verb reaches the engine rather than writing what it computed.
-    // The state above is what the planner derives its operations from, so
-    // the landing is the same landing; what it gains is the plan's own id,
-    // the journal that can take it back, and a recorded result.
-    let result = crate::plan::session::land(&landing)?;
-    for refused in result
-        .postconditions
-        .iter()
-        .filter(|postcondition| !postcondition.held)
-    {
-        lines.push(format!(
-            "FAIL {} did not hold: {}",
-            refused.id,
-            refused.detail.clone().unwrap_or_default()
-        ));
-    }
+    let outcome = crate::landing::apply::land(&target, &candidate, &recorded(&target))?;
+    drop(held);
     Ok(InitOutcome {
         lines,
         applied: true,
-        removed: result
-            .operations
-            .iter()
-            .filter(|operation| operation.kind == "remove-owned-file")
-            .map(|operation| operation.path.clone())
-            .collect(),
+        removed: outcome.removed,
     })
 }
 
-/// The one decision a front's flags still answer by name.
+/// What the target's own record says this tool owns today.
 ///
-/// The rest travel as the options themselves. A flag and a decision are
-/// the same answer under two names, and rendering a recorded value back
-/// into its flag spelling only to parse it again is a round trip that can
-/// lose what it carries.
-fn profile_only(profile: ProfileId) -> crate::plan::decision::Selections {
-    let mut selections = crate::plan::decision::Selections::new();
-    selections.insert(
-        crate::plan::decision::id::PROFILE.to_string(),
-        profile.to_string(),
-    );
-    selections
+/// Read as free JSON, so a record an older release wrote still says which
+/// files this tool may refresh, which regions it may re-splice, and which
+/// files it may take back.
+pub(crate) fn recorded(target: &Utf8Path) -> crate::landing::apply::Recorded {
+    crate::landing::apply::Recorded {
+        managed: digests(target, "managed_files", "destination", "sha256"),
+        integration: digests(target, "integration_blocks", "path", "marker_hash"),
+    }
+}
+
+/// One recorded list, as pairs of destination and digest.
+fn digests(
+    target: &Utf8Path,
+    key: &str,
+    name: &str,
+    digest: &str,
+) -> Vec<(String, crate::domain::ownership::Sha256)> {
+    let Some(value) = recorded_field(target, key) else {
+        return Vec::new();
+    };
+    let Some(entries) = value.as_array() else {
+        return Vec::new();
+    };
+    entries
+        .iter()
+        .filter_map(|entry| {
+            let destination = entry.get(name)?.as_str()?.to_string();
+            let held = entry.get(digest)?.as_str()?;
+            let held = held.parse::<crate::domain::ownership::Sha256>().ok()?;
+            Some((destination, held))
+        })
+        .collect()
 }

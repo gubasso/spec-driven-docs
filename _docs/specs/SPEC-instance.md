@@ -8,12 +8,14 @@ Rules a project owes the instance installed in it. Covers the installation recor
 
 ### `instance:the-manifest-stays-readable` — The manifest stays readable
 
-The project MUST keep `.spec-driven-docs/manifest.json` present and valid against its schema, because every ownership check reads that record before it can judge anything.
+The project MUST keep `.spec-driven-docs/manifest.json` present and readable, because every ownership check reads that record before it can judge anything.
+
+A record written by an older release is readable: the tool carries a bounded reader for each shape it published, and the next successful landing writes the current one. A record no reader can parse is the failure this rule names.
 
 #### Scenario: A manifest is hand-edited until it no longer parses
 
 - GIVEN an installed instance whose manifest is edited by hand
-- WHEN the edit leaves the record missing, truncated, or at an older schema version
+- WHEN the edit leaves the record missing or truncated
 - THEN the hook fails naming the manifest, because a record no check can read disables every ownership check at once
 
 Verify: `pre-commit run instance-manifest --all-files`
@@ -52,7 +54,7 @@ The project MAY state, in `.spec-driven-docs/config.yaml`, which paths no delive
 - WHEN any delivered gate runs, whether pre-commit passes the path or the gate walks to it
 - THEN no gate judges the path, and `sdd gate --explain <path>` names `reserved` as the layer that decided
 
-Verify: `pre-commit run cargo-test --all-files`
+Verify: `sdd gate --explain .spec-driven-docs/config.yaml`
 
 ### `instance:the-managed-block-agrees-with-the-declaration` — The managed block agrees with the declaration
 

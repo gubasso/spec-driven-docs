@@ -15,17 +15,15 @@ use crate::domain::ownership::Sha256;
 use crate::domain::profile::ProfileId;
 use crate::domain::version::CanonVersion;
 use crate::error::AppError;
-use crate::services::installer::{InitOptions, init_with};
+use crate::services::installer::{InitOptions, init, init_holding};
 
 /// What an upgrade was asked to do.
 #[derive(Debug, Clone)]
 pub struct UpgradeOptions {
     /// The absolute target instance.
     pub target: Utf8PathBuf,
-    /// Report the plan and change nothing.
+    /// Report what would change and change nothing.
     pub dry_run: bool,
-    /// Every decision the operator answered on the command line.
-    pub selections: crate::plan::decision::Selections,
 }
 
 /// What an upgrade did.
@@ -120,11 +118,6 @@ fn read_installed(target: &Utf8Path) -> Result<Installed, AppError> {
 /// # Errors
 ///
 /// [`AppError::Usage`] naming the decision nothing offered.
-fn unanswerable(selections: &crate::plan::decision::Selections) -> Result<(), AppError> {
-    crate::plan::decision::validate(&[], selections)
-        .map_err(|error| AppError::Usage(error.to_string()))
-}
-
 /// Every managed file and region the target no longer holds as recorded.
 ///
 /// A reinstall replaces a managed file and re-splices a managed region, so
@@ -184,9 +177,8 @@ fn reinstall_options(target: &Utf8Path, profile: ProfileId) -> InitOptions {
 
 /// Report what the landing took back.
 ///
-/// The removals are the plan's own operations, applied under its journal,
-/// and the executor sweeps the directory each one emptied inside that
-/// same transaction. This only says what happened.
+/// The removals are the landing's own, taken only where the record
+/// vouched for the bytes it removed. This only says what happened.
 fn report_removals(removed: &[String], outcome: &mut UpgradeOutcome) {
     for raw in removed {
         outcome
@@ -203,10 +195,7 @@ fn report_removals(removed: &[String], outcome: &mut UpgradeOutcome) {
 /// remain unfinished, [`AppError::Refused`] when the binary is older than
 /// the instance or the reinstall refuses, and manifest errors when the
 /// record cannot be read.
-pub fn upgrade(
-    options: &UpgradeOptions,
-    bundle: &dyn crate::release::ReleaseBundle,
-) -> Result<UpgradeOutcome, AppError> {
+pub fn upgrade(options: &UpgradeOptions) -> Result<UpgradeOutcome, AppError> {
     if !options.target.is_absolute() {
         return Err(AppError::Usage("target must be absolute".to_string()));
     }
@@ -219,42 +208,43 @@ pub fn upgrade(
     let target = Utf8PathBuf::from_path_buf(std::fs::canonicalize(&options.target)?)
         .map_err(|p| AppError::Usage(format!("target is not UTF-8: {}", p.display())))?;
 
+    // An apply holds the target for the whole run, the observation below
+    // included. Without it, a second run could read the tree another
+    // landing is halfway through and report that as drift rather than
+    // naming the holder.
+    let held = if options.dry_run {
+        None
+    } else {
+        Some(crate::landing::lock::hold(&target)?)
+    };
+
     let installed = read_installed(&target)?;
-    // The destination is the release the caller handed over, not the
-    // engine running. Reporting the engine's version would name a release
-    // the target does not hold, and every later classification reads it.
-    let new: CanonVersion = bundle
-        .manifest()?
-        .version
-        .to_string()
-        .parse()
-        .map_err(|_| AppError::Refused("the release is not a version triple".to_string()))?;
+    // The version landed is the version running. The operator chose which
+    // binary to install, and that binary projects only itself.
+    let new = CanonVersion::current();
     let old = installed.version;
     let mut outcome = UpgradeOutcome::default();
 
-    if old == new && installed.schema_current {
-        unanswerable(&options.selections)?;
-        outcome.lines.push(format!("OK already at {new}"));
-        return Ok(outcome);
-    }
     if old > new {
         return Err(AppError::Refused(format!(
             "sdd {new} is older than the installed canon {old}; upgrade sdd"
         )));
     }
 
+    // The conflict scan comes before the version shortcut. A managed file
+    // edited in a current instance is exactly the drift this verb serves,
+    // and a shortcut that reported success first would leave the one route
+    // to it unable to do its job.
     let conflicts = conflicts_at(&target, &installed)?;
     if !conflicts.is_empty() {
-        // The conflict is what the operator needs to see. An answer to a
-        // decision that never got offered is reported beside it rather
-        // than instead of it: turning it into the exit reason would hide
-        // the edited file behind a complaint about a flag.
-        if let Err(refused) = unanswerable(&options.selections) {
-            outcome.lines.push(format!("note: {refused}"));
-        }
         let count = conflicts.len();
         outcome.lines.extend(conflicts);
         outcome.failures += count;
+        return Ok(outcome);
+    }
+
+    if old == new && installed.schema_current {
+        outcome.lines.push(format!("OK already at {new}"));
         return Ok(outcome);
     }
 
@@ -270,41 +260,36 @@ pub fn upgrade(
                 .lines
                 .push(format!("DRY RUN upgrade {old} to {new}"));
         }
-        // The preview is the plan. A release in the interval that asks
-        // something of a person is exactly what a dry run must show, and
-        // a version pair alone cannot show it.
-        let preview = init_with(
-            &options.selections,
+        // A seed the landing will not write, and a file it cannot account
+        // for, are what a dry run exists to show.
+        let preview = init(
             &reinstall_options(&target, installed.profile),
-            bundle,
-            crate::plan::classify::Intent::Reconcile,
+            crate::landing::classify::Intent::Reconcile,
         )
         .map_err(|error| {
             AppError::Refused(format!(
-                "upgrade could not be planned from {old} to {new}: {error}"
+                "upgrade could not be previewed from {old} to {new}: {error}"
             ))
         })?;
-        outcome
-            .lines
-            .extend(preview.lines.into_iter().filter(|line| {
-                line.starts_with("BLOCKED")
-                    || line.starts_with("DECISION")
-                    || line.starts_with("note:")
-            }));
+        outcome.lines.extend(
+            preview
+                .lines
+                .into_iter()
+                .filter(|line| line.starts_with("note:")),
+        );
         return Ok(outcome);
     }
 
-    let reinstalled = init_with(
-        &options.selections,
+    let reinstalled = init_holding(
+        held,
         &InitOptions {
             apply: true,
             dry_run: false,
             ..reinstall_options(&target, installed.profile)
         },
-        bundle,
         // The upgrade already classified the target; the reinstall is its
         // own act rather than a second landing decision.
-        crate::plan::classify::Intent::Reconcile,
+        crate::landing::classify::Intent::Reconcile,
     )
     .map_err(|error| {
         AppError::Refused(format!(

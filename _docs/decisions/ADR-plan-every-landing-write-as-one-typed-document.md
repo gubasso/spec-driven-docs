@@ -28,4 +28,4 @@ Enforced by `reconcile:one-plan-is-the-input-to-every-write` and `reconcile:the-
 
 ## Status
 
-Accepted
+Superseded by [ADR-render-the-candidate-this-binary-carries](./ADR-render-the-candidate-this-binary-carries.md)

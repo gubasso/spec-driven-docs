@@ -64,7 +64,9 @@ fn show_prints_the_frontmatter_and_body() {
         .assert()
         .success()
         .stdout(predicate::str::contains("name: sdd-setup"))
-        .stdout(predicate::str::contains("## 2. Request a plan"));
+        .stdout(predicate::str::contains(
+            "## 2. Acquire the version, then stage it",
+        ));
 }
 
 #[test]
@@ -241,14 +243,13 @@ fn a_home_with_no_record_installs_and_writes_one() {
 
 /// VERIFIES distribution:a-skill-install-restores-on-failure
 #[test]
-fn an_apply_that_cannot_write_the_second_root_restores_the_first() {
+fn an_apply_that_cannot_write_the_second_root_names_what_it_finished() {
     let home = Home::new();
     as_a_previous_release_left_it(&home);
 
-    // `.claude` is the second root, so the first is already rewritten when
-    // this destination refuses: its file is gone and its directory denies
-    // the creation.
-    let blocked = home.path().join(".claude/skills/sdd-setup");
+    // `.agents` is written after `.claude`, so this destination refuses
+    // once the first root already holds the new bytes.
+    let blocked = home.path().join(".agents/skills/sdd-write-docs");
     std::fs::remove_file(blocked.join("SKILL.md")).unwrap();
     let mut permissions = std::fs::metadata(&blocked).unwrap().permissions();
     std::os::unix::fs::PermissionsExt::set_mode(&mut permissions, 0o500);
@@ -258,17 +259,25 @@ fn an_apply_that_cannot_write_the_second_root_restores_the_first() {
         .args(["skill", "install", "--apply", "--force"])
         .assert()
         .code(73)
-        .stderr(predicate::str::contains("skill install aborted"))
+        .stderr(predicate::str::contains("skill install stopped"))
+        .stderr(predicate::str::contains("these destinations are written"))
         .stderr(predicate::str::contains(
-            ".claude/skills/sdd-setup/SKILL.md",
+            ".agents/skills/sdd-write-docs/SKILL.md",
         ));
 
     std::os::unix::fs::PermissionsExt::set_mode(&mut permissions, 0o700);
     std::fs::set_permissions(&blocked, permissions).unwrap();
-    assert_eq!(home.read(".agents/skills/sdd-setup/SKILL.md"), OLDER);
-    assert_eq!(home.read(".agents/skills/sdd-write-docs/SKILL.md"), OLDER);
-    assert_eq!(home.read(".claude/skills/sdd-write-docs/SKILL.md"), OLDER);
+    // The first root holds the new bytes the report named, and the run that
+    // follows finishes the second.
+    assert_ne!(home.read(".claude/skills/sdd-setup/SKILL.md"), OLDER);
     assert!(!blocked.join("SKILL.md").exists());
+
+    home.cmd()
+        .args(["skill", "install", "--apply", "--force"])
+        .assert()
+        .success();
+    assert_ne!(home.read(".agents/skills/sdd-setup/SKILL.md"), OLDER);
+    assert_ne!(home.read(".agents/skills/sdd-write-docs/SKILL.md"), OLDER);
 }
 
 /// VERIFIES distribution:skill-install-previews-before-writing

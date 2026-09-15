@@ -23,7 +23,7 @@ use crate::services::verifier;
 /// Adding a field within schema 2 is additive. Removing one, renaming one,
 /// or changing one's type is the next schema, because a reader that
 /// branched on the old shape cannot tell the two apart otherwise.
-pub const SCHEMA: &str = "sdd.status/2";
+pub const SCHEMA: &str = "sdd.status/3";
 
 /// How an instance's canon version relates to this binary's.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -123,10 +123,7 @@ pub fn status(target: &Utf8Path) -> Result<StatusReport, AppError> {
         Err(AppError::ManifestMissing(_)) => return Ok(absent(target)),
         Err(error) => return Err(error),
     };
-    let report = verifier::verify(
-        target,
-        &crate::release::embedded::EmbeddedReleaseBundle::new(),
-    )?;
+    let report = verifier::verify(target)?;
     let binary = CanonVersion::current();
     let alignment = match manifest.canon_version.cmp(&binary) {
         std::cmp::Ordering::Equal => Alignment::Aligned,

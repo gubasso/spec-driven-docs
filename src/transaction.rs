@@ -1,27 +1,21 @@
-//! Recoverable multi-file writes.
+//! Multi-file writes, one file at a time.
 //!
-//! Three primitives, used first by the user-scope skill installer and
-//! reused by the repository apply. A lock serializes writers over one
-//! record. A stage writes every intended byte beside its destination and
-//! replaces it by rename. A journal names every destination before the
-//! first replacement, so a run the process did not finish is rolled back by
-//! the next invocation rather than left half-applied.
+//! Two primitives, used by the user-scope skill installer and by the
+//! repository landing. A lock serializes writers over one target. A stage
+//! writes every intended byte beside its destination and replaces it by
+//! rename.
 //!
 //! What this guarantees, and what it does not. Each replacement is atomic
-//! on its own; the set is not. A process that dies at any boundary of the
-//! persistence order below leaves a journal, and the next invocation
-//! restores every destination before it plans new work. Recovery after
-//! power loss rests on that order and on the platform's `fsync` semantics,
-//! and is claimed no further.
+//! on its own; the set is not. A run the process does not finish leaves
+//! whole files and the record the previous run wrote, and running it again
+//! finishes the rest. Recovery after power loss rests on the persistence
+//! order below and on the platform's `fsync` semantics, and is claimed no
+//! further.
 //!
-//! The persistence order is fixed and the same for every domain. Every
-//! backup copy is written and synced. The journal is written and synced,
-//! and its directory synced. Each scratch file is written and synced, then
-//! renamed over its destination, then the destination's directory synced.
-//! Each journal state change is a rewrite through the same pair. The record
-//! is replaced last. The journal is unlinked and its directory synced.
+//! The persistence order is fixed and the same for every domain. Each
+//! scratch file is written and synced, then renamed over its destination,
+//! then the destination's directory synced. The record is replaced last.
 
-pub mod journal;
 pub mod lock;
 pub mod stage;
 

@@ -378,17 +378,44 @@ fn a_dangling_symlink_counts_as_content() {
         .stdout(predicate::str::contains("DRY RUN"));
 }
 
-/// VERIFIES distribution:initialization-preserves-project-content
+/// VERIFIES staging:one-documentation-root-serves-the-run
 #[test]
-fn a_refused_apply_names_what_made_it_refuse() {
+fn a_reinstall_under_another_profile_refuses_rather_than_moving_the_root() {
     let fixture = Fixture::new();
     fixture.install("knowledge-base");
-    // A second spec claiming a seeded rule ID: the target writes, then fails
-    // verification. The refusal has to carry that reason, because the tree it
-    // describes is rolled back before the caller can look at it.
+    let digest = fixture.tree_digest();
+
+    fixture
+        .cmd()
+        .args([
+            "init",
+            "--target",
+            &fixture.target(),
+            "--profile",
+            "codebase",
+            "--apply",
+        ])
+        .assert()
+        .code(73)
+        .stderr(predicate::str::contains("knowledge-base"))
+        .stderr(predicate::str::contains("migration"));
+    assert_eq!(
+        digest,
+        fixture.tree_digest(),
+        "a refused profile move changed bytes"
+    );
+}
+
+/// VERIFIES staging:an-unattributed-collision-refuses-first
+#[test]
+fn a_managed_destination_nothing_accounts_for_refuses_before_the_first_write() {
+    let fixture = Fixture::new();
+    // A managed destination this tool did not write, in a target with no
+    // record to vouch for it. The landing has no way to tell it from
+    // somebody's own work, so it refuses rather than guessing.
     fixture.write(
-        "_docs/specs/SPEC-copy.md",
-        "# Copy Specification\n\n### `instance:the-manifest-stays-readable` — Duplicated\n\nVerify: `true`\n",
+        ".spec-driven-docs/markdownlint/adr.markdownlint-cli2.jsonc",
+        "{ \"somebody\": \"else\" }\n",
     );
     let digest = fixture.tree_digest();
     fixture
@@ -403,13 +430,33 @@ fn a_refused_apply_names_what_made_it_refuse() {
         ])
         .assert()
         .code(73)
-        .stderr(predicate::str::contains("apply aborted"))
-        .stderr(predicate::str::contains("duplicate rule ID in local specs"));
+        .stderr(predicate::str::contains("hold bytes no record vouches for"))
+        .stderr(predicate::str::contains("adr.markdownlint-cli2.jsonc"));
     assert_eq!(
         digest,
         fixture.tree_digest(),
-        "a refused apply changed bytes"
+        "a refusal before the first write changed bytes"
     );
+}
+
+/// VERIFIES distribution:initialization-preserves-project-content
+#[test]
+fn a_local_spec_claiming_a_seeded_rule_id_is_reported_by_verify() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    // The landing writes what it renders. A second spec claiming a seeded
+    // rule ID is the project's own state, and the verifier is what reports
+    // it: a landing that refused here would be judging the corpus.
+    fixture.write(
+        "_docs/specs/SPEC-copy.md",
+        "# Copy Specification\n\n### `instance:the-manifest-stays-readable` — Duplicated\n\nVerify: `true`\n",
+    );
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("duplicate rule ID in local specs"));
 }
 
 #[test]

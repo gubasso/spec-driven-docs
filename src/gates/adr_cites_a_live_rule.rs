@@ -6,6 +6,11 @@
 //! A record naming a retired rule in its prose is describing the retirement,
 //! which is the record doing its job.
 //!
+//! A superseded record is exempt. Its successor carries what binds now, and
+//! the retired pointer is part of the history the record was frozen with.
+//! Without that exemption no rule could ever be retired, because the record
+//! that cited it cannot be rewritten.
+//!
 //! Corpus-wide by construction, like the uniqueness gate: the break happens
 //! in the spec that renames a rule, not in the record that cited it, so a
 //! gate reading only the files a commit touched would stay green through the
@@ -41,6 +46,13 @@ fn cited_ids(line: &str) -> Vec<&str> {
             })
         })
         .collect()
+}
+
+/// Whether a record's status says another record replaced it.
+fn superseded(text: &str) -> bool {
+    text.lines()
+        .skip_while(|line| line.trim() != "## Status")
+        .any(|line| line.trim_start().starts_with("Superseded by"))
 }
 
 /// Every decision record under the resolved documentation root.
@@ -83,6 +95,9 @@ pub fn run(ctx: &GateCtx, _files: &[String]) -> GateResult {
     let mut violations = Vec::new();
     for file in ctx.retained(records(ctx)) {
         let text = read_text(ctx, &file)?;
+        if superseded(&text) {
+            continue;
+        }
         for line in text.lines() {
             if !line.starts_with("Enforced by ") {
                 continue;
@@ -104,6 +119,18 @@ pub fn run(ctx: &GateCtx, _files: &[String]) -> GateResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_superseded_record_keeps_the_pointer_it_was_frozen_with() {
+        assert!(superseded(
+            "# A\n\n## Status\n\nSuperseded by [B](./B.md)\n"
+        ));
+        assert!(!superseded("# A\n\n## Status\n\nAccepted\n"));
+        // The word in an argument is not a status.
+        assert!(!superseded(
+            "# A\n\nSuperseded by nothing yet.\n\n## Status\n\nAccepted\n"
+        ));
+    }
 
     #[test]
     fn reads_only_inline_code_slug_pairs() {

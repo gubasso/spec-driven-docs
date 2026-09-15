@@ -24,10 +24,7 @@ pub fn run(ctx: &AppContext, args: VerifyArgs) -> Result<(), AppError> {
     } else {
         return Err(AppError::Usage("target must be absolute or .".to_string()));
     };
-    let report = verify(
-        &target,
-        &crate::release::embedded::EmbeddedReleaseBundle::new(),
-    )?;
+    let report = verify(&target)?;
     for line in &report.lines {
         output::line(line);
     }

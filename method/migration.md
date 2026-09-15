@@ -10,7 +10,7 @@ A migration begins with a verdict about the target, read from evidence rather th
 - brownfield: a settled corpus under a documentation root, or a methodology marker such as a site generator's configuration, a decision-record directory, a specs tree. The corpus is migrated, never overwritten and never left as a second convention beside the new one.
 - needs-decision: durable prose outside any recognized home. The operator says what it is before any plan claims to know.
 
-An installed instance is a fourth state and not a classification: it routes to [Reconcile](./reconcile.md), which owns every landing and upgrade over an instance that already exists. No instance does not mean no documents. A brownfield target with no instance is the common case. Treating it as green is how a project ends up running two conventions at once.
+An installed instance is a fourth state and not a classification: it routes to [Landing](./landing.md), which owns every landing and upgrade over an instance that already exists. No instance does not mean no documents. A brownfield target with no instance is the common case. Treating it as green is how a project ends up running two conventions at once.
 
 The plan a target gets is the same plan in both chapters, and it reports the three kinds of debt separately. A structural finding is a document in a home the method does not recognize. A budget finding is a document over a size or shape budget. A style candidate is prose the writing convention would change, and the engine raises it unjudged: it never labels prose compliant or noncompliant.
 

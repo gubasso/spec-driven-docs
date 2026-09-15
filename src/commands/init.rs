@@ -12,8 +12,8 @@ use crate::cli::init::InitArgs;
 use crate::context::AppContext;
 use crate::domain::manifest::parse_docs_scratch;
 use crate::error::AppError;
+use crate::landing::classify::Intent;
 use crate::output;
-use crate::plan::classify::Intent;
 use crate::services::installer::{InitOptions, init};
 
 /// Install the payload into a target repository.
@@ -44,7 +44,6 @@ pub fn run(_ctx: &AppContext, args: InitArgs) -> Result<(), AppError> {
             reserve: args.reserve,
             writing_style,
         },
-        &crate::release::embedded::EmbeddedReleaseBundle::new(),
         Intent::Init,
     )?;
     for line in &outcome.lines {

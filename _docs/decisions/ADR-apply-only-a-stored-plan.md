@@ -30,4 +30,4 @@ Enforced by `reconcile:a-plan-is-stored-and-applied-by-its-id`, `reconcile:an-ap
 
 ## Status
 
-Accepted
+Superseded by [ADR-render-the-candidate-this-binary-carries](./ADR-render-the-candidate-this-binary-carries.md)

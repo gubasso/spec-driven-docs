@@ -73,7 +73,7 @@ fn an_instance_at_the_current_version_is_already_done() {
     let fixture = Fixture::new();
     fixture.install("knowledge-base");
     fixture
-        .upgrade_bare()
+        .upgrade()
         .assert()
         .success()
         .stdout(predicate::str::contains(format!(
@@ -107,7 +107,7 @@ fn conflicts_are_collected_and_abort_atomically() {
     .unwrap();
     let digest = fixture.tree_digest();
     fixture
-        .upgrade_bare()
+        .upgrade()
         .assert()
         .code(1)
         .stdout(predicate::str::contains(
@@ -372,7 +372,7 @@ fn an_upgrade_drops_a_retired_record_field() {
         .args(["verify", "--target", &fixture.target()])
         .assert()
         .success();
-    fixture.upgrade_bare().assert().success();
+    fixture.upgrade().assert().success();
 
     let after: serde_json::Value =
         serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
@@ -418,7 +418,7 @@ fn an_upgrade_removes_a_hook_the_registry_no_longer_renders() {
         &(serde_json::to_string_pretty(&manifest).unwrap() + "\n"),
     );
 
-    fixture.upgrade_bare().assert().success();
+    fixture.upgrade().assert().success();
     assert!(
         !fixture
             .read(".pre-commit-config.yaml")
@@ -498,7 +498,7 @@ fn an_older_schema_at_the_current_version_still_migrates() {
         .stdout(predicate::str::contains("DRY RUN migrate the record"));
 
     fixture
-        .upgrade_bare()
+        .upgrade()
         .assert()
         .success()
         .stdout(predicate::str::contains("OK migrated the record"));
@@ -527,7 +527,7 @@ fn a_version_two_instance_still_refuses_an_edited_managed_block() {
     fixture.write(".pre-commit-config.yaml", &config);
 
     fixture
-        .upgrade_bare()
+        .upgrade()
         .assert()
         .code(1)
         .stdout(predicate::str::contains(
@@ -559,7 +559,7 @@ fn behind_without(spec: &str) -> Fixture {
 fn the_new_specification_seeds_into_an_existing_instance() {
     let spec = "_docs/specs/SPEC-budget-debt.md";
     let fixture = behind_without(spec);
-    fixture.upgrade_bare().assert().success();
+    fixture.upgrade().assert().success();
     assert!(
         fixture
             .read(spec)
@@ -582,7 +582,7 @@ fn project_content_at_the_new_destination_survives_and_notes() {
     let own = "# Budget Debt Specification\n\n## Purpose\n\nOurs.\n\n## Requirements\n\n### `budget-debt:our-own-rule` — Ours\n\nThe author MUST keep it.\n\n#### Scenario: Ours\n\n- GIVEN x\n- WHEN y\n- THEN z\n\nVerify: `true`\n";
     fixture.write(spec, own);
     fixture
-        .upgrade_bare()
+        .upgrade()
         .assert()
         .success()
         .stdout(predicate::str::contains(format!(
@@ -606,7 +606,7 @@ fn an_instance_carrying_only_the_legacy_list_stays_green_with_a_note() {
         ".spec-driven-docs/chapter-size-debt.txt",
         "method/carried.md\n",
     );
-    fixture.upgrade_bare().assert().success();
+    fixture.upgrade().assert().success();
     assert!(!fixture.path().join(".spec-driven-docs/debt.yaml").exists());
     fixture
         .cmd()
@@ -626,7 +626,7 @@ fn an_instance_carrying_only_the_legacy_list_stays_green_with_a_note() {
 fn the_writing_policy_specification_seeds_into_an_existing_instance() {
     let spec = "_docs/specs/SPEC-writing-policy.md";
     let fixture = behind_without(spec);
-    fixture.upgrade_bare().assert().success();
+    fixture.upgrade().assert().success();
     assert!(
         fixture
             .read(spec)
@@ -650,7 +650,7 @@ fn a_declaration_without_the_writing_style_key_upgrades_as_builtin() {
         .read(".spec-driven-docs/manifest.json")
         .replace(env!("CARGO_PKG_VERSION"), "0.7.0");
     fixture.write(".spec-driven-docs/manifest.json", &manifest);
-    fixture.upgrade_bare().assert().success();
+    fixture.upgrade().assert().success();
     assert!(
         fixture
             .read("AGENTS.md")
@@ -690,7 +690,7 @@ fn an_upgrade_never_reconciles() {
         .replace(env!("CARGO_PKG_VERSION"), "0.7.0");
     fixture.write(".spec-driven-docs/manifest.json", &manifest);
 
-    fixture.upgrade_bare().assert().success();
+    fixture.upgrade().assert().success();
     assert_eq!(
         fixture.read(spec),
         older,
@@ -706,11 +706,38 @@ fn an_upgrade_never_reconciles() {
 
 /// VERIFIES distribution:upgrade-conflicts-are-atomic
 ///
-/// The preview is the plan. A release in the interval that asks something
-/// of a person is exactly what a dry run must show, and a version pair
-/// alone cannot show it.
+/// A dry run says which versions it would move between and writes nothing.
+/// What a release asks of a person travels in the changelog and the setup
+/// skill, so the preview does not carry a second copy of it.
+/// VERIFIES distribution:upgrade-conflicts-are-atomic
+///
+/// The version shortcut must not come before the conflict scan. A managed
+/// file edited in a current instance is the drift this verb serves, and
+/// reporting success first would leave the one route to it unable to do
+/// its job.
 #[test]
-fn a_dry_run_names_the_decision_the_interval_raises() {
+fn a_current_instance_with_managed_drift_reports_the_conflict() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    fixture.write(
+        ".spec-driven-docs/markdownlint/adr.markdownlint-cli2.jsonc",
+        "{ \"edited\": true }\n",
+    );
+
+    fixture
+        .upgrade()
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("adr.markdownlint-cli2.jsonc"));
+    assert_eq!(
+        fixture.read(".spec-driven-docs/markdownlint/adr.markdownlint-cli2.jsonc"),
+        "{ \"edited\": true }\n",
+        "the conflict report changed the file it named"
+    );
+}
+
+#[test]
+fn a_dry_run_names_the_version_move_and_writes_nothing() {
     let fixture = v1_instance();
     let digest = fixture.tree_digest();
     fixture
@@ -718,9 +745,6 @@ fn a_dry_run_names_the_decision_the_interval_raises() {
         .args(["upgrade", "--target", &fixture.target(), "--dry-run"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("DRY RUN upgrade 0.1.6 to"))
-        .stdout(predicate::str::contains(
-            "DECISION guidance:0.7.0:re-point-the-retired-rule",
-        ));
+        .stdout(predicate::str::contains("DRY RUN upgrade 0.1.6 to"));
     assert_eq!(digest, fixture.tree_digest(), "a dry run changed bytes");
 }

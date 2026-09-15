@@ -97,36 +97,8 @@ impl Fixture {
             .success();
     }
 
-    /// Every answer an upgrade across this canon's own history needs.
-    ///
-    /// Releases between 0.6.6 and here carry breaking guidance steps, and
-    /// the plan raises each as a decision. A test that means "upgrade
-    /// mechanically" is saying it accepts them, so it says so once here
-    /// rather than repeating the list.
-    pub fn guidance_answers() -> Vec<String> {
-        [
-            "guidance-coverage=accepted",
-            "guidance:0.7.0:re-point-the-retired-rule=accepted",
-            "guidance:0.7.0:declare-the-fixture-paths=accepted",
-        ]
-        .iter()
-        .flat_map(|answer| ["--set".to_string(), (*answer).to_string()])
-        .collect()
-    }
-
-    /// An `sdd upgrade` invocation that accepts every guidance step.
-    ///
-    /// For an instance old enough that the whole interval applies. An
-    /// answer the plan does not offer is a usage error, so a fixture
-    /// already past a step uses [`Fixture::upgrade_bare`].
+    /// An `sdd upgrade` invocation against this fixture's target.
     pub fn upgrade(&self) -> Command {
-        let mut cmd = self.upgrade_bare();
-        cmd.args(Self::guidance_answers());
-        cmd
-    }
-
-    /// An `sdd upgrade` invocation that answers nothing.
-    pub fn upgrade_bare(&self) -> Command {
         let mut cmd = self.cmd();
         cmd.args(["upgrade", "--target", &self.target()]);
         cmd

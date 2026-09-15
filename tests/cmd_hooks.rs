@@ -30,9 +30,19 @@ fn the_block_carries_markers_verifier_and_every_gate() {
     assert!(block.contains("entry: sdd verify"));
     assert_eq!(
         block.matches("- id: ").count(),
-        spec_driven_docs::gates::GATES.len() + 1,
-        "the block must wire the verifier plus every gate"
+        spec_driven_docs::gates::GATES.len() + 4,
+        "the block must wire the verifier, every gate, and the three linter entries"
     );
+    // The configurations the landing writes are the ones the block reads,
+    // so an instance never has to guess the wiring.
+    for name in ["relative-links", "spec", "adr"] {
+        assert!(
+            block.contains(&format!(
+                ".spec-driven-docs/markdownlint/{name}.markdownlint-cli2.jsonc"
+            )),
+            "the block does not read the {name} configuration"
+        );
+    }
 }
 
 #[test]

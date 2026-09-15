@@ -117,7 +117,7 @@ fn a_command_target_prints_the_argv_and_runs_nothing() {
         .args(["docs", "upgrade"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("Run: sdd reconcile plan --help"))
+        .stdout(predicate::str::contains("Run: sdd upgrade --help"))
         .stdout(predicate::str::contains("Usage:").not());
 }
 

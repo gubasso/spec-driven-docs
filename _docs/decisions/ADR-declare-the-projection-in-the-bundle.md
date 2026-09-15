@@ -28,4 +28,4 @@ Enforced by `bundle:a-release-declares-what-it-lands` and `bundle:a-pre-schema-r
 
 ## Status
 
-Accepted
+Superseded by [ADR-render-the-candidate-this-binary-carries](./ADR-render-the-candidate-this-binary-carries.md)

@@ -25,14 +25,19 @@ pub static MARKDOWNLINT: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/.markd
 /// subdirectory would make the declaration a one-file exception to the
 /// payload inventory.
 pub static INSTANCE: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/instance");
-/// What each release asks of an instance that takes it.
-pub static GUIDANCE: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/guidance");
 /// The method chapters and glossary.
 pub static METHOD: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/method");
 /// The cross-agent skills, one `SKILL.md` per directory.
 pub static SKILLS: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/skills");
 /// The artifacts every skill shares, installed once outside the skill roots.
 pub static SKILL_SHARED: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/skill-shared");
+/// The comparison documents, which a stage carries as reference material.
+pub static COMPARISON_DOCS: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/comparison-docs");
+/// The prior-art shelf, which a stage carries as reference material.
+pub static PRIOR_ART: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/reference/prior-art");
+/// The tracker-markup shelf, which the format chapter routes a reader to.
+pub static TRACKER_MARKUP: Dir<'static> =
+    include_dir!("$CARGO_MANIFEST_DIR/reference/tracker-markup");
 
 /// The combined license statement naming both halves.
 pub static LICENSE: &str = include_str!("../LICENSE");
@@ -42,6 +47,8 @@ pub static LICENSE_MIT: &str = include_str!("../LICENSE-MIT");
 pub static LICENSE_CC_BY: &str = include_str!("../LICENSE-CC-BY-4.0");
 /// The attribution notice for every third-party source the payload derives from.
 pub static THIRD_PARTY_NOTICES: &str = include_str!("../THIRD_PARTY_NOTICES.md");
+/// The release notes, which a stage carries as this version's own history.
+pub static CHANGELOG: &str = include_str!("../CHANGELOG.md");
 
 /// Every embedded root paired with the authored path it came from, in
 /// [`PAYLOAD_ROOTS`] order. A unit test holds the two equal, so a root
@@ -52,16 +59,18 @@ const EMBEDDED_ROOTS: &[(&str, &Dir<'static>)] = &[
     ("templates", &TEMPLATES),
     (".markdownlint", &MARKDOWNLINT),
     ("instance", &INSTANCE),
-    ("guidance", &GUIDANCE),
     ("method", &METHOD),
     ("skills", &SKILLS),
     ("skill-shared", &SKILL_SHARED),
+    ("comparison-docs", &COMPARISON_DOCS),
+    ("reference/prior-art", &PRIOR_ART),
+    ("reference/tracker-markup", &TRACKER_MARKUP),
 ];
 
 /// Every embedded root paired with the authored path it came from.
 ///
-/// The release bundle walks this to build a manifest, so a root added to
-/// the declaration reaches the bundle without a second list.
+/// The candidate reads its sources through this, so a root added to the
+/// declaration reaches the projection without a second list.
 #[must_use]
 pub const fn roots() -> &'static [(&'static str, &'static Dir<'static>)] {
     EMBEDDED_ROOTS
@@ -139,6 +148,32 @@ pub fn asset(source: &str) -> Option<&'static [u8]> {
         let rest = source.strip_prefix(root)?.strip_prefix('/')?;
         dir.get_file(rest).map(include_dir::File::contents)
     })
+}
+
+/// Every file under one embedded root, by the logical path that names it.
+///
+/// The paths come back sorted, so a caller that copies them writes the same
+/// tree every time.
+#[must_use]
+pub fn assets_under(root: &str) -> Vec<(String, &'static [u8])> {
+    let Some((name, dir)) = EMBEDDED_ROOTS.iter().find(|(name, _)| *name == root) else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    collect_under(name, dir, &mut out);
+    out.sort_by(|a, b| a.0.cmp(&b.0));
+    out
+}
+
+fn collect_under(root: &str, dir: &'static Dir<'static>, out: &mut Vec<(String, &'static [u8])>) {
+    for file in dir.files() {
+        if let Some(rest) = file.path().to_str() {
+            out.push((format!("{root}/{rest}"), file.contents()));
+        }
+    }
+    for sub in dir.dirs() {
+        collect_under(root, sub, out);
+    }
 }
 
 /// Every `` ### `domain:rule` `` requirement address the embedded specs define.

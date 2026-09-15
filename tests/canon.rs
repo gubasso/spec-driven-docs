@@ -744,7 +744,7 @@ fn the_payload_carries_both_shared_gates() {
 #[test]
 fn the_pre_flight_gate_invokes_no_planner_or_skill() {
     let gate = read("skill-shared/pre-flight-gate.md");
-    for named in ["sdd assess", "sdd reconcile", "migration skill"] {
+    for named in ["sdd assess", "sdd stage", "migration skill"] {
         assert!(
             !gate.contains(named),
             "the pre-flight gate names '{named}'; it hands its findings back and routes nothing"
@@ -752,22 +752,38 @@ fn the_pre_flight_gate_invokes_no_planner_or_skill() {
     }
 }
 
-/// SATISFIES distribution:a-landing-classifies-its-target-first
+/// SATISFIES staging:a-stage-writes-only-the-stage
 #[test]
-fn the_setup_skill_requests_exactly_one_initial_plan() {
+fn the_setup_skill_stages_before_it_compares() {
     let setup = read("skills/sdd-setup/SKILL.md");
     assert!(
-        setup.contains("sdd reconcile plan --target . --json"),
-        "the router does not request a plan"
+        setup.contains("sdd stage --target . --json"),
+        "the router does not stage the candidate"
     );
     assert!(
-        setup.contains("Request exactly one initial plan"),
-        "the router does not bound its initial plan request"
+        setup.contains("The stage writes nothing into the target"),
+        "the router does not say that staging leaves the target alone"
     );
     assert!(
         !setup.contains("sdd assess"),
-        "the router classifies for itself instead of reading the plan's classification"
+        "the router classifies for itself instead of letting the verb refuse"
     );
+}
+
+/// SATISFIES staging:the-operator-owns-acquisition
+#[test]
+fn the_setup_skill_leaves_acquisition_to_the_operator() {
+    let setup = read("skills/sdd-setup/SKILL.md");
+    assert!(
+        setup.contains("Acquisition is the operator's"),
+        "the router does not say who installs the version"
+    );
+    for absent in ["--to <version>", "--to latest", "sdd payload", "plan-id"] {
+        assert!(
+            !setup.contains(absent),
+            "the router still names {absent}, which no verb offers"
+        );
+    }
 }
 
 /// SATISFIES distribution:a-landing-classifies-its-target-first
@@ -800,10 +816,10 @@ fn the_setup_skill_names_the_five_steps() {
     let setup = read("skills/sdd-setup/SKILL.md");
     for step in [
         "## 1. Observe",
-        "## 2. Request a plan",
-        "## 3. Present the plan",
-        "## 4. Decide and apply",
-        "## 5. Read the result",
+        "## 2. Acquire the version, then stage it",
+        "## 3. Compare and prepare",
+        "## 4. Land",
+        "## 5. Verify, then clean",
     ] {
         assert!(setup.contains(step), "the router has no '{step}' section");
     }
@@ -815,7 +831,7 @@ fn the_setup_skill_declares_its_gated_steps() {
     assert!(setup.contains("## What waits for the operator"));
     for gated in [
         "ignore entry for the docs scratch",
-        "sdd reconcile apply <plan-id> --target .",
+        "sdd stage clean <path>",
         "before its entry retires anything",
         "Every retirement of a file the project authored",
         "Every disposition question",
@@ -877,7 +893,7 @@ fn the_setup_skill_offers_the_freshness_wire() {
 fn the_setup_skill_offers_incremental_only_as_the_plan_does() {
     let setup = read("skills/sdd-setup/SKILL.md");
     assert!(
-        setup.contains("never offer it where the plan does not"),
+        setup.contains("Author no checklist, because nothing retires"),
         "the router states a scope rule of its own instead of deferring to the plan"
     );
 }
@@ -1036,10 +1052,13 @@ fn the_embedded_payload_names_no_other_project() {
                 );
             }
             // Jira is a documented integration, because the payload carries
-            // its comment markup under `reference/tracker-markup/`. The name
-            // is legitimate beside that reference and nowhere else.
+            // its comment markup under `reference/tracker-markup/`. The
+            // name is legitimate inside that shelf, and elsewhere only on a
+            // line that says which shelf it is pointing at.
             assert!(
-                !lower.contains("jira") || lower.contains("tracker-markup"),
+                !lower.contains("jira")
+                    || lower.contains("tracker-markup")
+                    || relative.starts_with("reference/tracker-markup/"),
                 "{relative}:{}: the payload names Jira outside a tracker-markup reference",
                 index + 1
             );
@@ -1715,7 +1734,6 @@ fn every_skill_names_its_gates_relative_to_its_own_root() {
 fn the_declaration_is_the_projection_this_release_lands() {
     use spec_driven_docs::domain::profile::{DECLARATION, DocsRoot, ProfileId};
 
-    assert_eq!(DECLARATION.payload_schema, 1);
     assert_eq!(
         DECLARATION.docs_root(ProfileId::Codebase),
         Some(DocsRoot::Docs)
@@ -1761,42 +1779,18 @@ fn the_declaration_roots_equal_the_payload_roots() {
     }
 }
 
-/// SATISFIES bundle:a-release-is-read-through-one-seam
+/// SATISFIES staging:the-operator-owns-acquisition
 ///
-/// A landing verb that reached the embedded payload directly could only
-/// describe the release it was compiled with, whatever the seam says.
+/// A landing verb that took a release as an argument would be answering a
+/// question the operator's own project manager already answered.
 #[test]
-fn no_landing_service_names_the_embedded_payload() {
-    const LANDING: &[&str] = &[
-        "src/services/installer.rs",
-        "src/services/upgrader.rs",
-        "src/services/verifier.rs",
-        "src/services/policy.rs",
-        "src/services/assess.rs",
-    ];
-    for relative in LANDING {
-        let text = read(relative);
-        let production = text
-            .split_once("#[cfg(test)]")
-            .map_or_else(|| text.clone(), |(before, _)| before.to_string());
-        assert!(
-            !production.contains("crate::embedded::asset("),
-            "{relative} reads the embedded payload rather than the release bundle"
-        );
-    }
-}
-
-/// SATISFIES bundle:a-release-is-read-through-one-seam
-#[test]
-fn every_landing_verb_takes_a_release_bundle() {
+fn no_landing_verb_takes_a_release() {
     const SIGNATURES: &[(&str, &str)] = &[
         ("src/services/installer.rs", "pub fn init("),
         ("src/services/upgrader.rs", "pub fn upgrade("),
         ("src/services/verifier.rs", "pub fn verify("),
-        ("src/services/policy.rs", "pub fn plan("),
-        ("src/services/policy.rs", "pub fn apply_all("),
         ("src/services/assess.rs", "pub fn assess("),
-        ("src/services/self_manifest.rs", "pub fn regenerate("),
+        ("src/stage.rs", "pub fn create("),
     ];
     for (relative, signature) in SIGNATURES {
         let text = read(relative);
@@ -1808,10 +1802,38 @@ fn every_landing_verb_takes_a_release_bundle() {
             .unwrap_or_else(|| panic!("{relative}: {signature} has no return type"));
         let head = &text[start..start + end];
         assert!(
-            head.contains("ReleaseBundle"),
-            "{relative}: {signature} takes no release bundle"
+            !head.contains("ReleaseBundle"),
+            "{relative}: {signature} still takes a release bundle"
         );
     }
+}
+
+/// SATISFIES staging:the-operator-owns-acquisition
+///
+/// One function owns every byte a landing writes, and it reads this
+/// binary's own sources. A service that rendered bytes of its own would be
+/// a second answer to the one question the candidate exists to answer.
+#[test]
+fn only_the_candidate_renders_the_bytes_a_landing_writes() {
+    const LANDING: &[&str] = &[
+        "src/services/installer.rs",
+        "src/services/upgrader.rs",
+        "src/landing/apply.rs",
+    ];
+    for relative in LANDING {
+        let text = read(relative);
+        let production = text
+            .split_once("#[cfg(test)]")
+            .map_or_else(|| text.clone(), |(before, _)| before.to_string());
+        assert!(
+            !production.contains("crate::embedded::asset("),
+            "{relative} reads the payload itself rather than through the candidate"
+        );
+    }
+    assert!(
+        read("src/candidate.rs").contains("crate::embedded::asset("),
+        "the candidate no longer reads this binary's own sources"
+    );
 }
 
 /// SATISFIES bundle:a-pre-schema-release-is-cataloged-or-unavailable
@@ -1824,11 +1846,10 @@ fn every_landing_verb_takes_a_release_bundle() {
 /// skips every hidden entry, so it would report `.markdownlint` missing
 /// from a crate that carries it.
 #[test]
-fn the_published_crate_carries_the_payload_and_the_release_catalog() {
+fn the_published_crate_carries_the_payload() {
     let wanted: Vec<String> = PAYLOAD_ROOTS
         .iter()
         .map(|root| (*root).to_string())
-        .chain(["release-compat".to_string()])
         .collect();
 
     let manifest = read("Cargo.toml");
@@ -1869,124 +1890,31 @@ fn the_published_crate_carries_the_payload_and_the_release_catalog() {
             "the published crate carries no {root}"
         );
     }
+}
+
+/// SATISFIES distribution:a-landing-classifies-its-target-first
+#[test]
+fn the_reading_order_and_the_digest_route_to_landing() {
     assert!(
-        files
-            .lines()
-            .any(|line| line == "release-compat/index.toml"),
-        "the published crate carries no release catalog"
+        read("method/README.md").contains("[Landing](./landing.md)"),
+        "the reading order does not name the landing chapter"
     );
     assert!(
-        files
-            .lines()
-            .any(|line| line.starts_with("release-compat/legacy/")),
-        "the published crate carries no legacy descriptor"
+        read("method/AGENTS.md").contains("`landing.md`"),
+        "the method digest routes nothing to the landing chapter"
     );
-}
-
-/// SATISFIES release:every-release-declares-what-it-asks
-///
-/// One entry per release from the capability floor. Absence never means
-/// two things: `none` says there is nothing to do, and a missing entry is
-/// a release-time failure rather than a silent gap.
-#[test]
-fn every_covered_release_has_exactly_one_guidance_entry() {
-    use spec_driven_docs::plan::guidance::{Index, NONE};
-
-    let index = Index::parse(read("guidance/index.toml").as_bytes()).expect("the ledger parses");
-    let catalog = spec_driven_docs::release::legacy::LegacyCatalog::embedded();
-    for entry in &catalog.index().releases {
-        if !entry.eligible {
-            continue;
-        }
-        let version = entry.version.parse().expect("a released triple");
-        assert!(
-            index.entry(version).is_some(),
-            "{} is eligible and the guidance ledger does not cover it",
-            entry.version
-        );
-    }
-    for entry in &index.releases {
-        if entry.guidance == NONE {
-            continue;
-        }
-        let path = format!("guidance/{}", entry.guidance);
-        assert!(
-            canon().join(&path).is_file(),
-            "{} selects {path}, which is not on disk",
-            entry.version
-        );
-    }
-}
-
-/// SATISFIES release:every-release-declares-what-it-asks
-#[test]
-fn every_guidance_step_names_a_body_the_payload_carries() {
-    use spec_driven_docs::plan::guidance::{Guidance, Index, NONE};
-
-    let index = Index::parse(read("guidance/index.toml").as_bytes()).expect("the ledger parses");
-    let bodies: Vec<String> = walkdir::WalkDir::new(canon().join("guidance"))
-        .into_iter()
-        .filter_map(Result::ok)
-        .filter(|entry| entry.file_type().is_file())
-        .filter_map(|entry| {
-            let path = entry.path().strip_prefix(canon()).ok()?;
-            Some(path.to_str()?.to_string())
-        })
-        .collect();
-    let mut files = 0usize;
-    for entry in &index.releases {
-        if entry.guidance == NONE {
-            continue;
-        }
-        let path = format!("guidance/{}", entry.guidance);
-        // The parser is what holds a step to its kind, its destinations,
-        // its actor, and a body the bundle carries.
-        Guidance::parse(&path, read(&path).as_bytes(), &bodies)
-            .unwrap_or_else(|error| panic!("{path}: {error}"));
-        files += 1;
-    }
-    assert!(files > 0, "the ledger selects no guidance file");
-}
-
-/// SATISFIES bundle:a-release-declares-what-it-lands
-#[test]
-fn the_compatibility_declaration_is_present_and_true() {
-    use spec_driven_docs::plan::compatibility::Compatibility;
-
-    let held = Compatibility::parse(read("instance/compatibility.toml").as_bytes())
-        .expect("the declaration parses");
-    let version: spec_driven_docs::domain::version::CanonVersion = env!("CARGO_PKG_VERSION")
-        .parse()
-        .expect("the crate version is a triple");
     assert!(
-        held.minimum_engine <= version,
-        "the declaration needs an engine newer than the one that carries it"
+        read("AGENTS.md").contains("method/landing.md"),
+        "the root digest routes nothing to the landing chapter"
     );
 }
 
 /// SATISFIES distribution:a-landing-classifies-its-target-first
 #[test]
-fn the_reading_order_and_the_digest_route_to_reconcile() {
-    assert!(
-        read("method/README.md").contains("[Reconcile](./reconcile.md)"),
-        "the reading order does not name the reconcile chapter"
-    );
-    assert!(
-        read("method/AGENTS.md").contains("`reconcile.md`"),
-        "the method digest routes nothing to the reconcile chapter"
-    );
-    assert!(
-        read("AGENTS.md").contains("method/reconcile.md"),
-        "the root digest routes nothing to the reconcile chapter"
-    );
-}
-
-/// SATISFIES distribution:a-landing-classifies-its-target-first
-#[test]
-fn the_migration_chapter_sends_an_installed_instance_to_the_reconcile_chapter() {
+fn the_migration_chapter_sends_an_installed_instance_to_the_landing_chapter() {
     let chapter = read("method/migration.md");
     assert!(
-        chapter.contains("[Reconcile](./reconcile.md)"),
+        chapter.contains("[Landing](./landing.md)"),
         "the migration chapter keeps an installed instance to itself"
     );
 }
@@ -2009,12 +1937,17 @@ fn the_migration_chapter_names_the_two_proved_finding_kinds_the_unjudged_style_c
     }
 }
 
+/// SATISFIES staging:production-reads-no-staged-byte
 #[test]
-fn the_reconcile_chapter_states_the_plan_handling_rule() {
-    let chapter = read("method/reconcile.md");
+fn the_landing_chapter_states_what_a_stage_is_for() {
+    let chapter = read("method/landing.md");
     assert!(
-        chapter.contains("never committed") && chapter.contains("never pasted"),
-        "the reconcile chapter does not state how a plan is handled"
+        chapter.contains("The stage is for reading"),
+        "the landing chapter does not say what a stage is for"
+    );
+    assert!(
+        chapter.contains("renders the candidate again from scratch"),
+        "the landing chapter does not say that production re-renders"
     );
 }
 
