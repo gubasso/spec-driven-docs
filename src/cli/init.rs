@@ -25,13 +25,6 @@ pub struct InitArgs {
     #[arg(long)]
     pub dry_run: bool,
 
-    /// Where the planning tool writes entry documents: a repository-relative
-    /// path, `untracked:<PATH>`, `env`, or `none`. Write `./none` or `./env`
-    /// for a directory carrying either name. Omitted, the recorded value
-    /// stays.
-    #[arg(long, value_name = "VALUE")]
-    pub plan_zone: Option<String>,
-
     /// A path no delivered gate judges, recorded under `reserved:` in the
     /// instance's declaration. Repeatable.
     ///

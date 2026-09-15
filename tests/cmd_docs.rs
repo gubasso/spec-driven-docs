@@ -94,6 +94,22 @@ fn a_multiword_alias_resolves_from_several_argv_values_and_from_one_quoted_value
 }
 
 #[test]
+fn the_context_entrypoint_alias_resolves_and_the_retired_term_does_not() {
+    let fixture = Fixture::new();
+    fixture
+        .cmd()
+        .args(["docs", "context entrypoint"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("# Agent Context"));
+    fixture
+        .cmd()
+        .args(["docs", "entry", "document"])
+        .assert()
+        .code(64);
+}
+
+#[test]
 fn a_command_target_prints_the_argv_and_runs_nothing() {
     let fixture = Fixture::new();
     fixture

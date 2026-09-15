@@ -73,7 +73,7 @@ The cap is a local optimizer, so it needs a counterweight. It reads one file and
 - A rejected option MUST state why in one sentence.
 - A deferred option MUST name the condition that reopens it.
 
-The reopening condition is what keeps deferrals from accumulating. "We will look at it later" is not a decision and belongs in the plan zone. "Revisit if append-only ingestion becomes the dominant workload" is a boundary on the current choice and earns its line.
+The reopening condition is what keeps deferrals from accumulating. "We will look at it later" is not a decision. "Revisit if append-only ingestion becomes the dominant workload" is a boundary on the current choice and earns its line.
 
 ## Status
 

@@ -203,19 +203,20 @@ fn status_derives_project_location_proposals_from_the_target() {
     let fixture = Fixture::new();
     fixture.install("codebase");
     let bare = status_json(&fixture);
-    let kinds: Vec<&str> = bare["paths"]["proposals"]["plan_zone"]
+    let kinds: Vec<&str> = bare["paths"]["proposals"]["docs_scratch"]
         .as_array()
         .unwrap()
         .iter()
         .map(|choice| choice["kind"].as_str().unwrap())
         .collect();
     assert_eq!(kinds, ["env", "operator", "none"]);
+    assert!(bare["paths"]["proposals"].get("plan_zone").is_none());
 
-    std::fs::create_dir_all(fixture.path().join("docs/plan")).unwrap();
+    std::fs::create_dir_all(fixture.path().join(".docs-scratch")).unwrap();
     let observed = status_json(&fixture);
-    let first = &observed["paths"]["proposals"]["plan_zone"][0];
+    let first = &observed["paths"]["proposals"]["docs_scratch"][0];
     assert_eq!(first["kind"], "observed");
-    assert_eq!(first["path"], "docs/plan");
+    assert_eq!(first["path"], ".docs-scratch");
 }
 
 #[test]
@@ -230,16 +231,19 @@ fn a_recorded_location_reports_as_recorded_and_an_override_as_env() {
             "--profile",
             "codebase",
             "--apply",
-            "--plan-zone",
-            "docs/plan",
+            "--docs-scratch",
+            "staging",
         ])
         .assert()
         .success();
     let recorded = status_json(&fixture);
     assert_eq!(
-        recorded["paths"]["active"]["plan_zone"],
-        serde_json::json!({"kind": "tracked", "path": "docs/plan", "source": "recorded"})
+        recorded["paths"]["active"]["docs_scratch"],
+        serde_json::json!({"kind": "untracked", "path": "staging", "source": "recorded"})
     );
+    assert!(recorded["paths"]["active"].get("plan_zone").is_none());
+    assert!(recorded.get("plan_zone").is_none());
+    assert!(recorded.get("plan_zone_env").is_none());
 
     let output = fixture
         .cmd()

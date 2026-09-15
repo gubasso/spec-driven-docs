@@ -1,13 +1,13 @@
 # Spec to Code
 
-A spec can exist before the code it binds. This chapter owns the seam between the two. It covers how a requirement written first becomes work, how the work declares what it changed, and how coverage is derived rather than stored. It states the contract any planning tool can satisfy, and it names none.
+A spec can exist before the code it binds. This chapter owns the seam between the two. It covers how a requirement written first becomes work, how the work declares what it changed, and how coverage is derived rather than stored.
 
 ## A failing verification is an unimplemented rule
 
 Every requirement carries a `Verify:` command that exits non-zero on violation. Before the behavior exists, the command fails. That failure is not a defect in the spec. It is the definition of "not yet built."
 
 - An author MAY write a requirement whose verification command does not yet pass.
-- A unit of work enacting a requirement MUST leave its verification command passing.
+- Work enacting a requirement MUST leave its verification command passing.
 
 This is what makes the spec a legitimate greenfield artifact. The requirement states the agreement, the failing command states the distance, and the work closes it. Writing the check before the behavior is the same discipline as writing the failing test first, applied to documentation.
 
@@ -21,23 +21,7 @@ A stored status (`status: implemented`, a checkbox, a phase column) is a second 
 
 ## Precedence is phase-dependent
 
-[Model](./model.md) owns precedence and states both directions. The marker that selects the direction lives here. A unit of work is in flight for a rule while an open entry document cites that rule's ID. While it is, the spec states the agreement and divergent code is the defect. When no work cites the rule, the code is the observed truth and a divergent spec is the defect.
-
-## The entry document enacts rules by ID
-
-[Agent Context](./agent-context.md) gives each unit of work one entry document that names its sources by path. When the work changes agreed behavior, path-level naming is not enough. The entry document also names the rules, so enactment is greppable.
-
-- An entry document that changes agreed behavior MUST cite the affected rule IDs.
-- An entry document citing a spec change MUST type it as `ADDED`, `MODIFIED`, or `REMOVED`.
-
-The three types are the three operations of [Lifecycle](./lifecycle.md), stated from the work's side. One clause per affected rule, on the line that names the owning spec:
-
-```markdown
-- `_docs/specs/SPEC-auth.md` — ADDED `auth:token-expiry-is-bounded`
-- `_docs/specs/SPEC-auth.md` — MODIFIED `auth:refresh-requires-reauth`
-```
-
-The clause grammar is fixed so a command can check the shape. It takes the type in capitals, then the rule ID in inline code. The ID matches `[a-z0-9-]+:[a-z0-9-]+`. A typed clause whose ID token is malformed is a gate failure. Whether a story that changed a spec declared the clause at all stays a review question, because no command can see the omission.
+[Model](./model.md) owns precedence and states both directions. The marker that selects the direction lives here. Work is in flight for a rule while an open change cites that rule's ID. While it is, the spec states the agreement and divergent code is the defect. When no work cites the rule, the code is the observed truth and a divergent spec is the defect.
 
 ## A comment cites the rule, never the record
 
@@ -46,7 +30,7 @@ Code is the last word on behavior, so a comment restating behavior is a second c
 - A comment citing an agreement MUST cite it by rule ID.
 - A comment MUST NOT name a decision record.
 
-The clause grammar is the entry document's, extended to code: the type in capitals, then the rule ID. `SATISFIES` marks the code that implements a rule, and `VERIFIES` marks the test that proves it.
+The clause grammar is fixed so a command can check the shape: the marker in capitals, then the rule ID in `[a-z0-9-]+:[a-z0-9-]+` form. `SATISFIES` marks the code that implements a rule, and `VERIFIES` marks the test that proves it.
 
 ```python
 # SATISFIES retry-artifacts:cleanup-follows-upload
@@ -100,47 +84,24 @@ A test that must not hide the bug at all keeps failing, with the case id in a co
 
 ## Coverage is a grep
 
-The rule ID is one string in four record sets. The spec defines it, a decision record argues for it, an entry document enacts it, and a comment marks the code that satisfies it. Traceability is therefore derived on demand, in both directions, from the records that already exist.
+The rule ID is one string in three record sets. The spec defines it, a decision record argues for it, and a comment marks the code that satisfies it. Traceability is therefore derived on demand, in both directions, from the records that already exist.
 
 ```bash
 rg -o '^### `([a-z0-9-]+:[a-z0-9-]+)`' -r '$1' _docs/specs | sort -u > /tmp/agreed
-zone=${SDD_PLAN_ZONE:-$(sdd status --json | jq -r '.plan_zone.path // empty')}
-[ -d "$zone" ] || { echo 'FAIL no plan zone resolved'; exit 1; }
-rg -oe '(ADDED|MODIFIED|REMOVED) `[a-z0-9-]+:[a-z0-9-]+`' -r '$0' "$zone" \
-  | rg -o '[a-z0-9-]+:[a-z0-9-]+' | sort -u > /tmp/enacted
-comm -23 /tmp/agreed /tmp/enacted
-```
-
-The third command prints the agreed rules that no typed clause cites: the spec-first backlog, computed from two record sets and stored in neither. The same shape run against code prints the opposite defect.
-
-```bash
 rg -o '(SATISFIES|VERIFIES) ([a-z0-9-]+:[a-z0-9-]+)' -r '$2' --glob '!_docs/**' \
   | sort -u > /tmp/cited
 comm -13 /tmp/agreed /tmp/cited
 ```
 
-What that prints is a rule ID cited in code that no spec defines: a fabricated citation, and the check that makes citing worth anything.
+What that prints is a rule ID cited in code that no spec defines: a fabricated citation, and the check that makes citing worth anything. The inverse, `comm -23`, prints the agreed rules no code cites, computed from two record sets and stored in neither.
 
 - A project MUST NOT maintain a stored coverage artifact.
 
-A traceability matrix, a rules-to-stories index, or a backlog file restates what the greps derive. Each is the filesystem-index shape [Model](./model.md) forbids. It is a copy kept because the records exist, and it drifts on the next change to either side.
-
-## What the planning tool owes
-
-This framework does not name a planning tool. Any tool serves whose work record is readable by the greps in this chapter. It must also satisfy the contract the rules above already state: one entry document per unit of work, sources named by path, and spec changes cited by typed rule ID. The inverse dependency is bounded too. The specs never name the tool, so replacing it edits the plan zone and nothing under `specs/` or `decisions/`.
-
-The zone's path is a declared value too. The project declares it once and the instance records it. `SDD_PLAN_ZONE` overrides that record, and no spec, chapter, or gate carries the path itself. A tool whose records live outside the checkout is served the same way as one whose records sit beside the specs.
-
-## Unenforced
-
-Two rules in this chapter no command can decide. The first is that a unit of work which changed a spec declared the typed clause at all. The second is that the cited type matches the diff. A gate checks every declared clause and cannot see an omitted or mistyped one. The reviewer compares the spec diff against the entry document.
-
-A third condition is unenforced by the project's own choice rather than by kind. Only a plan zone the project declared tracked is gated. A project that keeps its entry documents untracked has a zone no clone carries, and so does one that reaches them through `SDD_PLAN_ZONE`. The gate declines it, and a reviewer holds the clause shape instead. [Gates](./gates.md) carries all three in the unenforced list.
+A traceability matrix or a coverage index restates what the greps derive. Each is the filesystem-index shape [Model](./model.md) forbids. It is a copy kept because the records exist, and it drifts on the next change to either side.
 
 ## Sources
 
 - GitHub Spec Kit, on tests written first and confirmed to fail before implementation: <https://github.com/github/spec-kit/blob/main/spec-driven.md>
-- OpenSpec, for the `ADDED` / `MODIFIED` / `REMOVED` delta typing: <https://github.com/Fission-AI/OpenSpec/blob/main/docs/concepts.md>
 - AWS Kiro, on tasks tracing to requirement identifiers: <https://kiro.dev/docs/specs/>
 - StrictDoc, for the relation marker in a source comment and its implementation and verification roles: <https://strictdoc.readthedocs.io/en/stable/stable/docs/strictdoc_01_user_guide.html>
 - OpenFastTrace, for coverage tags written as source comments against specification item ids: <https://github.com/itsallcode/openfasttrace>

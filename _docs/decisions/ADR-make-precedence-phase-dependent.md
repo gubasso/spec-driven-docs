@@ -18,7 +18,7 @@ Chosen option: `phase-dependent precedence` — for observed behavior the code w
 
 A failing verification command on an agreed rule is therefore an unimplemented requirement, not a broken spec, and requirement state is derived by running the command rather than stored anywhere.
 
-Enforced by `spec-to-code:a-spec-may-lead-its-code` and `spec-to-code:an-entry-document-cites-rule-ids`.
+Enforced by `spec-to-code:a-spec-may-lead-its-code`.
 
 ## Consequences
 

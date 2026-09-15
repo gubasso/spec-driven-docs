@@ -310,14 +310,13 @@ fn a_locally_edited_agents_block_aborts_the_upgrade() {
 }
 
 /// Rewrite a fresh instance into the version-two shape: schema 2, an older
-/// canon, and neither declared location — version 2 had no field for either.
+/// canon, and no declared location — version 2 had no field for one.
 fn downgrade_to_v2(fixture: &Fixture) {
     let mut manifest: serde_json::Value =
         serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
     manifest["schema_version"] = 2.into();
     manifest["canon_version"] = "0.1.6".into();
     let object = manifest.as_object_mut().unwrap();
-    object.remove("plan_zone");
     object.remove("docs_scratch");
     fixture.write(
         ".spec-driven-docs/manifest.json",
@@ -325,9 +324,9 @@ fn downgrade_to_v2(fixture: &Fixture) {
     );
 }
 
-/// A real version-2 record reaches version 3. It declared neither location,
-/// so the only honest outcome is the undeclared state, and nothing else in
-/// the record moves.
+/// A real version-2 record reaches version 3. It declared no location, so
+/// the only honest outcome is the undeclared state, and nothing else in the
+/// record moves.
 #[test]
 fn a_version_two_upgrade_reaches_the_current_schema() {
     let fixture = Fixture::new();
@@ -348,9 +347,84 @@ fn a_version_two_upgrade_reaches_the_current_schema() {
     let after: serde_json::Value =
         serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
     assert_eq!(after["schema_version"], 3);
-    assert_eq!(after["plan_zone"], serde_json::json!({"kind": "none"}));
     assert!(after.get("docs_scratch").is_none());
     assert_eq!(after["installed_at"], before["installed_at"]);
+}
+
+/// An instance written by an earlier release of the current schema may
+/// carry a field this binary no longer reads. The upgrade reads past it and
+/// writes a record without it, and no operator edit happens in between.
+#[test]
+fn an_upgrade_drops_a_retired_record_field() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    let mut manifest: serde_json::Value =
+        serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
+    manifest["canon_version"] = "0.10.0".into();
+    manifest["plan_zone"] = serde_json::json!({"kind": "tracked", "path": "docs/plan"});
+    fixture.write(
+        ".spec-driven-docs/manifest.json",
+        &(serde_json::to_string_pretty(&manifest).unwrap() + "\n"),
+    );
+
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .success();
+    fixture.upgrade_bare().assert().success();
+
+    let after: serde_json::Value =
+        serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
+    assert!(after.get("plan_zone").is_none());
+    assert_eq!(after["canon_version"], env!("CARGO_PKG_VERSION"));
+}
+
+/// A hook an earlier release rendered into the managed block is taken back
+/// by the upgrade, because the block is rendered whole from this binary's
+/// registry. Nothing is left pointing at a gate the binary no longer serves.
+#[test]
+fn an_upgrade_removes_a_hook_the_registry_no_longer_renders() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    let retired = "\
+      - id: spec-change-is-typed
+        name: spec changes are typed
+        entry: sdd gate spec-change-is-typed
+        language: system
+        always_run: true
+        pass_filenames: false
+";
+    let hooks = fixture.read(".pre-commit-config.yaml");
+    let end = hooks
+        .find("# END spec-driven-docs managed")
+        .expect("the managed block ends");
+    let older = format!("{}{retired}{}", &hooks[..end], &hooks[end..]);
+    fixture.write(".pre-commit-config.yaml", &older);
+    // The older release recorded the block it wrote, so its hash matches.
+    let mut manifest: serde_json::Value =
+        serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
+    manifest["canon_version"] = "0.10.0".into();
+    let hash = spec_driven_docs::domain::marker::block_hash(&older)
+        .expect("the block hashes")
+        .to_string();
+    for block in manifest["integration_blocks"].as_array_mut().unwrap() {
+        if block["path"] == ".pre-commit-config.yaml" {
+            block["marker_hash"] = hash.clone().into();
+        }
+    }
+    fixture.write(
+        ".spec-driven-docs/manifest.json",
+        &(serde_json::to_string_pretty(&manifest).unwrap() + "\n"),
+    );
+
+    fixture.upgrade_bare().assert().success();
+    assert!(
+        !fixture
+            .read(".pre-commit-config.yaml")
+            .contains("spec-change-is-typed"),
+        "the retired hook survived the upgrade"
+    );
 }
 
 /// A declared location survives a reinstall it did not name, whatever schema
@@ -368,8 +442,6 @@ fn a_reinstall_over_an_older_record_carries_the_declarations_forward() {
             "--profile",
             "knowledge-base",
             "--apply",
-            "--plan-zone",
-            "docs/plan",
             "--docs-scratch",
             "staging",
         ])
@@ -389,7 +461,6 @@ fn a_reinstall_over_an_older_record_carries_the_declarations_forward() {
     let after: serde_json::Value =
         serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
     assert_eq!(after["schema_version"], 3);
-    assert_eq!(after["plan_zone"]["path"], "docs/plan");
     assert_eq!(after["docs_scratch"], "staging");
 }
 
@@ -405,7 +476,6 @@ fn an_older_schema_at_the_current_version_still_migrates() {
         serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
     manifest["schema_version"] = 2.into();
     let object = manifest.as_object_mut().unwrap();
-    object.remove("plan_zone");
     object.remove("docs_scratch");
     fixture.write(
         ".spec-driven-docs/manifest.json",

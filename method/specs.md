@@ -129,7 +129,7 @@ A domain with exactly one rule still gets a spec. The overhead is four headings.
 - Not a tutorial. A reader learning the subject reads explanation. Someone about to act reads a spec.
 - Not a field list. Exact values belong in reference and exact behavior belongs in code. See [Model](./model.md).
 - Not a decision record. A spec states the rule. The record that argued for it names the rule ID.
-- Not a plan. What the project builds next is perishable and lives in the plan zone.
+- Not a plan. What the project builds next is perishable, and a spec states what is true now.
 
 ## Worked example
 

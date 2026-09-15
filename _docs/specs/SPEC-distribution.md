@@ -22,7 +22,6 @@
   - [`distribution:user-scope-files-stay-unrecorded` — User-scope files stay unrecorded](#distributionuser-scope-files-stay-unrecorded--user-scope-files-stay-unrecorded)
   - [`distribution:a-skill-package-is-self-contained` — A skill package is self-contained](#distributiona-skill-package-is-self-contained--a-skill-package-is-self-contained)
   - [`distribution:a-user-scope-receipt-is-required-state` — A user-scope receipt is required state](#distributiona-user-scope-receipt-is-required-state--a-user-scope-receipt-is-required-state)
-  - [`distribution:the-payload-names-no-planning-tool` — The payload names no planning tool](#distributionthe-payload-names-no-planning-tool--the-payload-names-no-planning-tool)
   - [`distribution:the-payload-names-no-other-project` — The payload names no other project](#distributionthe-payload-names-no-other-project--the-payload-names-no-other-project)
   - [`distribution:a-declared-location-is-named-by-its-variable` — A declared location is named by its variable](#distributiona-declared-location-is-named-by-its-variable--a-declared-location-is-named-by-its-variable)
   - [`distribution:the-payload-roots-are-declared-once` — The payload roots are declared once](#distributionthe-payload-roots-are-declared-once--the-payload-roots-are-declared-once)
@@ -252,18 +251,6 @@ An apply that cannot write the user-scope receipt MUST fail and MUST roll back e
 - THEN the apply fails and every destination goes back, because a landing this tool cannot vouch for is a landing it would later refuse to take back
 
 Verify: `cargo nextest run -E 'binary(cmd_skill)'`
-
-### `distribution:the-payload-names-no-planning-tool` — The payload names no planning tool
-
-The author MUST keep planning tool names out of every embedded payload root, so instances can pair this framework with any work-record convention or none.
-
-#### Scenario: A method chapter names the tool it was tested against
-
-- GIVEN a chapter edited to illustrate the seam with one planning tool by name
-- WHEN the canon test suite runs
-- THEN the check fails naming the file and the term, because a framework that names one tool stops being pairable with another
-
-Verify: `cargo nextest run -E 'binary(canon)'`
 
 ### `distribution:the-payload-names-no-other-project` — The payload names no other project
 

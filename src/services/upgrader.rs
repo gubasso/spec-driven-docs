@@ -176,7 +176,6 @@ fn reinstall_options(target: &Utf8Path, profile: ProfileId) -> InitOptions {
         profile,
         apply: false,
         dry_run: true,
-        plan_zone: None,
         docs_scratch: None,
         reserve: Vec::new(),
         writing_style: None,

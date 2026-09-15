@@ -35,7 +35,6 @@ pub mod markdown_prose;
 pub mod no_personal_path;
 pub mod no_self_narration;
 pub mod prose_stays_unwrapped;
-pub mod spec_change_is_typed;
 pub mod spec_requirement_parts;
 pub mod spec_rule_id_unique;
 pub mod spec_size_cap;
@@ -68,13 +67,11 @@ use crate::domain::rule_id::RuleId;
 ///
 /// # Every route a subject path takes
 ///
-/// There are three, and each passes through [`Self::subjects`], so a gate
+/// There are two, and each passes through [`Self::subjects`], so a gate
 /// author cannot reach an unfiltered subject list:
 ///
 /// 1. The `&[String]` a gate is handed, filtered in `commands::gate`.
 /// 2. [`walk_files`], which filters before it returns.
-/// 3. [`crate::gates::spec_change_is_typed`], which resolves its own
-///    candidate set and filters it explicitly.
 ///
 /// `canon::every_subject_producer_is_filter_aware` holds that list.
 #[derive(Debug)]
@@ -518,7 +515,7 @@ pub static GATES: &[GateSpec] = &[
     GateSpec {
         id: GateId::NoSelfNarration,
         name: "documents state the present",
-        include: &[r"{docs_root}/**/*.md"],
+        include: &[r"{docs_root}/{specs,decisions,guides,reference,explanation}/**/*.md"],
         types: Some("markdown"),
         exclude: &[r"{docs_root}/decisions/**"],
         always_run: false,
@@ -529,28 +526,13 @@ pub static GATES: &[GateSpec] = &[
     GateSpec {
         id: GateId::ProseStaysUnwrapped,
         name: "prose lines stay unwrapped",
-        include: &[r"{docs_root}/**/*.md"],
+        include: &[r"{docs_root}/{specs,decisions,guides,reference,explanation}/**/*.md"],
         types: Some("markdown"),
         exclude: &[r"**/CHANGELOG.md"],
         always_run: false,
         discovers: false,
         cites: prose_stays_unwrapped::CITES,
         run: prose_stays_unwrapped::run,
-    },
-    GateSpec {
-        id: GateId::SpecChangeIsTyped,
-        name: "spec changes are typed",
-        // Judges whatever the project's declared plan zone holds, and the
-        // zone is the project's own choice of path, so no canon pattern can
-        // name it. The declaration already bounds this gate by naming the
-        // zone; `reserved:` still reaches inside it.
-        include: &[],
-        types: None,
-        exclude: &[],
-        always_run: true,
-        discovers: true,
-        cites: spec_change_is_typed::CITES,
-        run: spec_change_is_typed::run,
     },
     GateSpec {
         id: GateId::SpecRequirementParts,

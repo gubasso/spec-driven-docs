@@ -21,45 +21,26 @@ pub const CANON_SOURCE: &str = "https://github.com/gubasso/spec-driven-docs";
 // Every control path this tool names is declared in `domain::paths`, and
 // reaches its callers from here so that the names they already import stay
 // where they were.
-pub use crate::domain::paths::{DOCS_SCRATCH_VAR, INSTANCE_DIR, MANIFEST_PATH, PLAN_ZONE_VAR};
+pub use crate::domain::paths::{DOCS_SCRATCH_VAR, INSTANCE_DIR, MANIFEST_PATH};
 
-/// Where the project's planning tool writes its entry documents.
+/// Fields an earlier release of this schema version wrote and this one
+/// does not read.
 ///
-/// The kind is part of the value because the three absent cases are not one
-/// case. A tracked zone is a directory every clone has, so a command may
-/// check it and an absent directory is drift. An untracked zone and a zone
-/// reached through [`PLAN_ZONE_VAR`] are absent on a fresh clone, so the
-/// same failure there would report a layout the project never promised.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
-pub enum PlanZone {
-    /// A repository-relative directory under version control.
-    Tracked {
-        /// Where the zone sits, relative to the instance root.
-        path: Utf8PathBuf,
-    },
-    /// A repository-relative directory version control does not carry.
-    Untracked {
-        /// Where the zone sits, relative to the instance root.
-        path: Utf8PathBuf,
-    },
-    /// Wherever [`PLAN_ZONE_VAR`] resolves at run time.
-    Env,
-    /// The project keeps no plan zone.
-    #[default]
-    None,
-}
+/// A record carrying one parses as if the field were absent, and the next
+/// write omits it, so an instance in the field crosses the removal without
+/// an operator edit and without a schema bump.
+pub const RETIRED_FIELDS: &[&str] = &["plan_zone"];
 
-/// A `--plan-zone` or `--docs-scratch` value the arguments cannot mean.
+/// A `--docs-scratch` value the argument cannot mean.
 #[derive(Debug, Error, PartialEq, Eq)]
 #[error("{0}")]
 pub struct DeclaredPathError(String);
 
 /// A declared path, normalized: relative, non-empty, and `./` stripped.
 ///
-/// `parents` says whether the path may leave the instance root. A plan zone
-/// may not, because a gate resolves it against that root. A docs scratch
-/// may, because staging beside the checkout is one of the offered answers.
+/// `parents` says whether the path may leave the instance root. A docs
+/// scratch may, because staging beside the checkout is one of the offered
+/// answers.
 fn declared_path(value: &str, parents: bool) -> Result<Utf8PathBuf, DeclaredPathError> {
     let value = value.trim();
     if value.is_empty() {
@@ -86,62 +67,11 @@ fn declared_path(value: &str, parents: bool) -> Result<Utf8PathBuf, DeclaredPath
     Ok(normalized)
 }
 
-impl PlanZone {
-    /// Read the `--plan-zone` argument's four forms.
-    ///
-    /// `none` and `env` are words rather than paths, so a directory with
-    /// either name is written `./none` or `./env`.
-    ///
-    /// # Errors
-    ///
-    /// [`DeclaredPathError`] for a path that is empty, absolute, or leaves
-    /// the repository.
-    pub fn parse(value: &str) -> Result<Self, DeclaredPathError> {
-        match value.trim() {
-            "none" => Ok(Self::None),
-            "env" => Ok(Self::Env),
-            // The vocabulary offers one prefix, so the symmetric spelling is
-            // a usage mistake rather than a directory named `tracked:`.
-            rest if rest.starts_with("tracked:") => Err(DeclaredPathError(
-                "a tracked zone is written as the bare path; `untracked:` is the only prefix"
-                    .to_string(),
-            )),
-            rest => match rest.strip_prefix("untracked:") {
-                Some(path) => Ok(Self::Untracked {
-                    path: declared_path(path, false)?,
-                }),
-                None => Ok(Self::Tracked {
-                    path: declared_path(rest, false)?,
-                }),
-            },
-        }
-    }
-
-    /// The recorded path, whatever the kind carries.
-    #[must_use]
-    pub const fn path(&self) -> Option<&Utf8PathBuf> {
-        match self {
-            Self::Tracked { path } | Self::Untracked { path } => Some(path),
-            Self::Env | Self::None => None,
-        }
-    }
-}
-
-/// Whether a recorded plan-zone path is one a gate can resolve.
+/// Whether a recorded docs-scratch path is one a reader can resolve.
 ///
 /// The same check the argument runs. A record reaches a reinstall through a
 /// permissive read, so without this a hand-edited value is carried forward
 /// and only the post-write verification catches it.
-///
-/// # Errors
-///
-/// [`DeclaredPathError`] for a path that is empty, absolute, or leaves the
-/// repository.
-pub fn validate_plan_zone_path(path: &Utf8Path) -> Result<(), DeclaredPathError> {
-    declared_path(path.as_str(), false).map(|_| ())
-}
-
-/// Whether a recorded docs-scratch path is one a reader can resolve.
 ///
 /// # Errors
 ///
@@ -152,9 +82,9 @@ pub fn validate_docs_scratch_path(path: &Utf8Path) -> Result<(), DeclaredPathErr
 
 /// Read the `--docs-scratch` argument.
 ///
-/// `none` clears a recorded value, mirroring `--plan-zone none`. Without a
-/// clearing word an operator who declares a scratch by typo can change it
-/// but never return to the undeclared state.
+/// `none` clears a recorded value. Without a clearing word an operator who
+/// declares a scratch by typo can change it but never return to the
+/// undeclared state.
 ///
 /// # Errors
 ///
@@ -182,9 +112,6 @@ pub struct Manifest {
     pub docs_root: DocsRoot,
     /// When the instance was first installed; preserved across reinstalls.
     pub installed_at: String,
-    /// Where the planning tool writes entry documents.
-    #[serde(default)]
-    pub plan_zone: PlanZone,
     /// Where material that is not a statement yet is kept.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub docs_scratch: Option<Utf8PathBuf>,
@@ -220,7 +147,7 @@ impl Manifest {
     /// [`ManifestParseError::Invalid`] for anything that does not fit the
     /// schema or records no managed file.
     pub fn parse(json: &str) -> Result<Self, ManifestParseError> {
-        let value: serde_json::Value =
+        let mut value: serde_json::Value =
             serde_json::from_str(json).map_err(|e| ManifestParseError::Invalid(e.to_string()))?;
         match value
             .get("schema_version")
@@ -241,6 +168,13 @@ impl Manifest {
                 ));
             }
         }
+        // A field an earlier release of this schema wrote is dropped on
+        // read, so the record parses as it would have without it.
+        if let Some(object) = value.as_object_mut() {
+            for field in RETIRED_FIELDS {
+                object.remove(*field);
+            }
+        }
         let manifest: Self = serde_json::from_value(value)
             .map_err(|e| ManifestParseError::Invalid(e.to_string()))?;
         if manifest.managed_files.is_empty() {
@@ -248,16 +182,10 @@ impl Manifest {
                 "managed_files is empty".to_string(),
             ));
         }
-        // The declared locations carry the same invariants the arguments
-        // enforce. Without this the record is the weaker gate: a hand-edited
-        // empty path makes the typed-clause gate skip a zone the project
-        // declared tracked, and an absolute one makes it read outside the
-        // repository, because a gate resolves the value against the root.
-        if let Some(path) = manifest.plan_zone.path()
-            && let Err(error) = validate_plan_zone_path(path)
-        {
-            return Err(ManifestParseError::Invalid(format!("plan_zone: {error}")));
-        }
+        // The declared location carries the same invariant the argument
+        // enforces. Without this the record is the weaker gate: a
+        // hand-edited absolute path makes a reader resolve outside the
+        // repository.
         if let Some(path) = &manifest.docs_scratch
             && let Err(error) = validate_docs_scratch_path(path)
         {
@@ -336,9 +264,6 @@ mod tests {
             profile: ProfileId::KnowledgeBase,
             docs_root: DocsRoot::UnderscoreDocs,
             installed_at: "2026-08-25T00:00:00Z".to_string(),
-            plan_zone: PlanZone::Tracked {
-                path: "tests/fixtures".into(),
-            },
             docs_scratch: Some("scratch".into()),
             managed_files: vec![ManagedEntry {
                 source: ".markdownlint/spec.markdownlint-cli2.jsonc".into(),
@@ -378,65 +303,31 @@ mod tests {
         ));
     }
 
-    /// A record written before the two locations were declared reads as the
-    /// project declaring neither, rather than as a broken manifest.
+    /// A record written before the docs scratch was declared reads as the
+    /// project declaring none, rather than as a broken manifest.
     #[test]
-    fn a_record_without_the_declared_locations_defaults_them() {
+    fn a_record_without_the_declared_location_defaults_it() {
         let mut value: serde_json::Value = serde_json::from_str(&sample().to_json()).unwrap();
-        value.as_object_mut().unwrap().remove("plan_zone");
         value.as_object_mut().unwrap().remove("docs_scratch");
         let manifest = Manifest::parse(&value.to_string()).unwrap();
-        assert_eq!(manifest.plan_zone, PlanZone::None);
         assert_eq!(manifest.docs_scratch, None);
     }
 
+    /// A field an earlier release of this schema wrote parses as absent,
+    /// whatever shape it carries, and the next write omits it.
     #[test]
-    fn the_plan_zone_round_trips_through_its_tagged_form() {
-        let manifest = sample();
-        let json = manifest.to_json();
-        assert!(json.contains("\"kind\": \"tracked\""));
-        assert_eq!(Manifest::parse(&json).unwrap(), manifest);
-
-        let mut value: serde_json::Value = serde_json::from_str(&json).unwrap();
-        value["plan_zone"] = serde_json::json!({"kind": "none"});
-        assert_eq!(
-            Manifest::parse(&value.to_string()).unwrap().plan_zone,
-            PlanZone::None
-        );
+    fn a_retired_field_is_dropped_on_read_and_omitted_on_write() {
+        for retired in RETIRED_FIELDS {
+            let mut value: serde_json::Value = serde_json::from_str(&sample().to_json()).unwrap();
+            value[*retired] = serde_json::json!({"kind": "tracked", "path": "docs/plan"});
+            let manifest = Manifest::parse(&value.to_string()).unwrap();
+            assert_eq!(manifest, sample());
+            assert!(!manifest.to_json().contains(retired));
+        }
     }
 
     #[test]
-    fn the_plan_zone_argument_takes_four_forms() {
-        assert_eq!(PlanZone::parse("none").unwrap(), PlanZone::None);
-        assert_eq!(PlanZone::parse("env").unwrap(), PlanZone::Env);
-        assert_eq!(
-            PlanZone::parse("docs/plan").unwrap(),
-            PlanZone::Tracked {
-                path: "docs/plan".into()
-            }
-        );
-        assert_eq!(
-            PlanZone::parse("untracked:docs/plan").unwrap(),
-            PlanZone::Untracked {
-                path: "docs/plan".into()
-            }
-        );
-        // A directory carrying one of the two words is written as a path.
-        assert_eq!(
-            PlanZone::parse("./none").unwrap(),
-            PlanZone::Tracked {
-                path: "none".into()
-            }
-        );
-    }
-
-    #[test]
-    fn a_plan_zone_never_leaves_the_repository_and_a_docs_scratch_may() {
-        assert!(PlanZone::parse("/etc/plan").is_err());
-        assert!(PlanZone::parse("../plan").is_err());
-        assert!(PlanZone::parse("untracked:../plan").is_err());
-        assert!(PlanZone::parse("  ").is_err());
-
+    fn a_docs_scratch_may_leave_the_repository() {
         assert_eq!(
             parse_docs_scratch("../beside-the-checkout").unwrap(),
             Some(Utf8PathBuf::from("../beside-the-checkout"))
@@ -445,17 +336,9 @@ mod tests {
         assert!(parse_docs_scratch("").is_err());
     }
 
-    /// The symmetric prefix is a usage mistake, never a directory name.
+    /// The declared value has a clearing word, so a typo can be undone.
     #[test]
-    fn the_tracked_prefix_is_refused_rather_than_absorbed() {
-        let error = PlanZone::parse("tracked:docs/plan").unwrap_err();
-        assert!(error.to_string().contains("bare path"), "{error}");
-    }
-
-    /// Each declared value has a clearing word, so a typo can be undone.
-    #[test]
-    fn each_declared_location_can_be_cleared() {
-        assert_eq!(PlanZone::parse("none").unwrap(), PlanZone::None);
+    fn the_declared_location_can_be_cleared() {
         assert_eq!(parse_docs_scratch("none").unwrap(), None);
         // And a directory literally named `none` is still reachable.
         assert_eq!(
@@ -464,27 +347,9 @@ mod tests {
         );
     }
 
-    /// The record carries the same invariants the arguments enforce. A
-    /// hand-edited empty path would otherwise make the typed-clause gate
-    /// skip a zone the project declared tracked.
+    /// The record carries the same invariant the argument enforces.
     #[test]
-    fn a_recorded_location_the_arguments_would_refuse_is_invalid() {
-        for zone in [
-            serde_json::json!({"kind": "tracked", "path": ""}),
-            serde_json::json!({"kind": "tracked", "path": "/etc"}),
-            serde_json::json!({"kind": "untracked", "path": "../plan"}),
-        ] {
-            let mut value: serde_json::Value = serde_json::from_str(&sample().to_json()).unwrap();
-            value["plan_zone"] = zone.clone();
-            assert!(
-                matches!(
-                    Manifest::parse(&value.to_string()),
-                    Err(ManifestParseError::Invalid(_))
-                ),
-                "{zone} was accepted"
-            );
-        }
-
+    fn a_recorded_location_the_argument_would_refuse_is_invalid() {
         let mut value: serde_json::Value = serde_json::from_str(&sample().to_json()).unwrap();
         value["docs_scratch"] = "/tmp/scratch".into();
         assert!(matches!(
@@ -535,15 +400,14 @@ mod tests {
     }
 
     /// A record of the shape version 2 actually wrote — the current one
-    /// without the two declared locations, which version 2 had no field for
-    /// — parses, and its integration blocks reach the upgrade. Without them
-    /// the edited-block conflict check is skipped on every version-2 hop.
+    /// without `docs_scratch`, which version 2 had no field for — parses,
+    /// and its integration blocks reach the upgrade. Without them the
+    /// edited-block conflict check is skipped on every version-2 hop.
     #[test]
     fn legacy_manifest_reads_the_version_two_shape() {
         let mut value: serde_json::Value = serde_json::from_str(&sample().to_json()).unwrap();
         value["schema_version"] = 2.into();
         let object = value.as_object_mut().unwrap();
-        object.remove("plan_zone");
         object.remove("docs_scratch");
         value["integration_blocks"] = serde_json::json!([{
             "path": ".pre-commit-config.yaml",

@@ -29,4 +29,4 @@ Enforced by `distribution:a-declared-location-is-named-by-its-variable`.
 
 ## Status
 
-Accepted
+Superseded in part by [ADR-carry-no-plan-zone](./ADR-carry-no-plan-zone.md).

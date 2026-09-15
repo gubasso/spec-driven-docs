@@ -86,46 +86,69 @@ fn an_unknown_gate_is_a_clap_error() {
         .code(2);
 }
 
-/// The plan-zone gate reads a declared location, so the variable is the one
-/// path a unit test cannot reach: this crate forbids unsafe code, and
-/// setting a variable is unsafe from the 2024 edition on.
+/// A gate this binary no longer serves is unknown to the list and to the
+/// argument parser both, so a hook line naming it fails loudly rather than
+/// passing on nothing.
 #[test]
-fn the_plan_zone_variable_selects_what_the_typed_clause_gate_reads() {
+fn a_retired_gate_is_neither_listed_nor_accepted() {
+    let fixture = Fixture::new();
+    fixture
+        .cmd()
+        .args(["gate", "--list"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("spec-change-is-typed").not());
+    fixture
+        .cmd()
+        .args(["gate", "spec-change-is-typed"])
+        .assert()
+        .code(2);
+}
+
+/// A documentation root may carry directories the convention does not own.
+/// Every delivered gate leaves them alone: a file there that would fail the
+/// prose gates inside an owned zone is never a subject, and the instance
+/// verifies clean.
+#[test]
+fn a_directory_the_convention_does_not_own_is_judged_by_no_gate() {
     let fixture = Fixture::new();
     fixture.install("knowledge-base");
-    fixture.write(
-        "elsewhere/work.md",
-        "- `_docs/specs/SPEC-auth.md` — ADDED auth:token-expiry\n",
-    );
+    let narrated_and_wrapped =
+        "# A plan\n\nThis replaces the older plan, and\nwraps its lines by hand.\n";
+    fixture.write("_docs/plans/2026-09-a-plan.md", narrated_and_wrapped);
+    fixture.write("_docs/plans/README.md", narrated_and_wrapped);
+    let foreign = ["_docs/plans/2026-09-a-plan.md", "_docs/plans/README.md"];
 
-    // Unset, the instance declares no zone and the gate reports nothing.
+    // The same bytes inside an owned zone are a finding, so the pass below
+    // is the selector's doing and not the content's.
+    fixture.write("_docs/guides/held.md", narrated_and_wrapped);
+    for gate in ["no-self-narration", "prose-stays-unwrapped"] {
+        fixture
+            .cmd()
+            .args(["gate", gate, "_docs/guides/held.md"])
+            .args(foreign)
+            .current_dir(fixture.path())
+            .assert()
+            .code(1)
+            .stdout(predicate::str::contains("_docs/guides/held.md"))
+            .stdout(predicate::str::contains("_docs/plans/").not());
+    }
+    std::fs::remove_file(fixture.path().join("_docs/guides/held.md")).unwrap();
+
+    for gate in ["no-self-narration", "prose-stays-unwrapped"] {
+        fixture
+            .cmd()
+            .args(["gate", gate])
+            .args(foreign)
+            .current_dir(fixture.path())
+            .assert()
+            .success();
+    }
     fixture
         .cmd()
-        .args(["gate", "spec-change-is-typed"])
-        .current_dir(fixture.path())
+        .args(["verify", "--target", &fixture.target()])
         .assert()
         .success();
-
-    fixture
-        .cmd()
-        .env("SDD_PLAN_ZONE", "elsewhere")
-        .args(["gate", "spec-change-is-typed"])
-        .current_dir(fixture.path())
-        .assert()
-        .code(1)
-        .stdout(predicate::str::contains(
-            "FAIL spec-to-code:a-spec-change-is-typed elsewhere/work.md:1",
-        ));
-
-    // A variable pointing at nothing is a stale declaration, not a pass.
-    fixture
-        .cmd()
-        .env("SDD_PLAN_ZONE", "gone")
-        .args(["gate", "spec-change-is-typed"])
-        .current_dir(fixture.path())
-        .assert()
-        .code(1)
-        .stdout(predicate::str::contains("SDD_PLAN_ZONE names gone"));
 }
 
 // ---------------------------------------------------------------------

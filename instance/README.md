@@ -88,7 +88,7 @@ sdd docs context budget
 sdd status --target /path/to/your-project --json
 ```
 
-The object declares the schema `sdd.status/2`, and its `paths` section is where every path the tool names comes from. `paths.user` carries the roots under the invoking user's home, each with the variable that moved it. `paths.active` is the landed instance, or `null` where there is none. `paths.candidates` carries one destination set per profile, and `paths.proposals` carries what the target offers for the two locations the project owns. Every entry states its source, so a recorded answer and a derived one never read alike. Read a path from here rather than writing it down: a skill, a runbook, or a chapter that spells one is a copy that drifts at the first rename.
+The object declares the schema `sdd.status/2`, and its `paths` section is where every path the tool names comes from. `paths.user` carries the roots under the invoking user's home, each with the variable that moved it. `paths.active` is the landed instance, or `null` where there is none. `paths.candidates` carries one destination set per profile, and `paths.proposals` carries what the target offers for the docs scratch. Every entry states its source, so a recorded answer and a derived one never read alike. Read a path from here rather than writing it down: a skill, a runbook, or a chapter that spells one is a copy that drifts at the first rename.
 
 ## Apply
 

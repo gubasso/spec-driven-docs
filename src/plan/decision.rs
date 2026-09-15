@@ -82,8 +82,6 @@ impl Decision {
 pub mod id {
     /// Which profile a first landing takes.
     pub const PROFILE: &str = "profile";
-    /// Where the planning tool writes its entry documents.
-    pub const PLAN_ZONE: &str = "plan-zone";
     /// Where material that is not a statement yet is staged.
     pub const DOCS_SCRATCH: &str = "docs-scratch";
     /// Which writing source the project selects.
@@ -250,13 +248,13 @@ mod tests {
         }
     }
 
-    fn zone() -> Decision {
+    fn scratch() -> Decision {
         Decision {
-            id: id::PLAN_ZONE.to_string(),
-            question: "where does the planning tool write?".to_string(),
+            id: id::DOCS_SCRATCH.to_string(),
+            question: "where does material that is not a statement yet stage?".to_string(),
             schema: AnswerSchema::ChoiceOrValue {
-                choices: vec![choice("env"), choice("none")],
-                prefixes: vec!["project:".to_string(), "untracked:".to_string()],
+                choices: vec![choice("none")],
+                prefixes: vec!["project:".to_string(), "external:".to_string()],
             },
             depends_on: vec![id::PROFILE.to_string()],
             selected: None,
@@ -280,23 +278,23 @@ mod tests {
         let held = scope();
         assert!(held.accepts("sweep"));
         assert!(!held.accepts("Sweep"));
-        assert!(!held.accepts("project:docs/plan"));
+        assert!(!held.accepts("project:.docs-scratch"));
     }
 
     #[test]
     fn a_parameterized_answer_takes_a_prefix_with_something_after_it() {
-        let held = zone();
-        assert!(held.accepts("env"));
-        assert!(held.accepts("project:docs/plan"));
-        assert!(held.accepts("untracked:.plans"));
+        let held = scratch();
+        assert!(held.accepts("none"));
+        assert!(held.accepts("project:.docs-scratch"));
+        assert!(held.accepts("external:../scratch"));
         assert!(!held.accepts("project:"));
         assert!(!held.accepts("elsewhere"));
     }
 
     #[test]
     fn a_selection_splits_on_the_first_equals_so_a_value_may_carry_one() {
-        let held = parse(&["plan-zone=project:docs/plan=1".to_string()]).unwrap();
-        assert_eq!(held["plan-zone"], "project:docs/plan=1");
+        let held = parse(&["docs-scratch=project:scratch=1".to_string()]).unwrap();
+        assert_eq!(held["docs-scratch"], "project:scratch=1");
     }
 
     #[test]
@@ -336,13 +334,13 @@ mod tests {
 
     #[test]
     fn the_decision_dependency_graph_is_acyclic() {
-        assert!(acyclic(&[profile(), zone()]).is_ok());
+        assert!(acyclic(&[profile(), scratch()]).is_ok());
         // A prerequisite nothing offers is the same defect as a cycle: the
         // decision can never be reached.
-        assert!(acyclic(&[zone()]).is_err());
+        assert!(acyclic(&[scratch()]).is_err());
 
         let mut one = profile();
-        let mut two = zone();
+        let mut two = scratch();
         one.depends_on = vec![two.id.clone()];
         two.depends_on = vec![one.id.clone()];
         let error = acyclic(&[one, two]).unwrap_err();

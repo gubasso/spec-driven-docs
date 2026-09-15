@@ -102,7 +102,6 @@ pub const DESTINATIONS: &[&str] = &[
     "markdownlint",
     "hooks-config",
     "agents-digest",
-    "plan-zone",
 ];
 
 /// One thing a release asks.
