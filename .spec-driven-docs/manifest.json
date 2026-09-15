@@ -77,8 +77,8 @@
     {
       "source": "_docs/specs/SPEC-distribution.md",
       "destination": "_docs/specs/SPEC-distribution.md",
-      "sha256": "2ea2f1ecce0c60963d59371c3b8df40f2606debead24827af9dfbfee764ba285",
-      "baseline_sha256": "2ea2f1ecce0c60963d59371c3b8df40f2606debead24827af9dfbfee764ba285"
+      "sha256": "8d87979078dd4bdfe6f1149d767d43233ca104fd0e1eb11c06ba7727aa96bac5",
+      "baseline_sha256": "8d87979078dd4bdfe6f1149d767d43233ca104fd0e1eb11c06ba7727aa96bac5"
     },
     {
       "source": "_docs/specs/SPEC-docs-discovery.md",

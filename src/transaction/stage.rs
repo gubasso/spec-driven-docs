@@ -82,8 +82,10 @@ impl Stage {
 
     /// Write `bytes` to a scratch file beside `destination`.
     ///
-    /// The scratch file is created exclusively, so a path already there —
-    /// a symlink included — refuses rather than being followed.
+    /// The scratch file is created exclusively. A regular file already
+    /// there is one a run that stopped partway left, and it is truncated
+    /// and reused so the rerun needs no hand cleanup. Anything else there,
+    /// a symlink included, refuses rather than being followed.
     ///
     /// # Errors
     ///
@@ -95,16 +97,34 @@ impl Stage {
             std::fs::create_dir_all(parent)?;
         }
         let scratch = scratch_for(destination);
-        let mut handle = std::fs::OpenOptions::new()
+        let mut handle = match std::fs::OpenOptions::new()
             .write(true)
             .create_new(true)
             .open(&scratch)
-            .map_err(|source| {
-                std::io::Error::new(
+        {
+            Ok(handle) => handle,
+            Err(source) if source.kind() == std::io::ErrorKind::AlreadyExists => {
+                let held = std::fs::symlink_metadata(&scratch)?;
+                if !held.is_file() {
+                    return Err(AppError::Io(std::io::Error::new(
+                        std::io::ErrorKind::AlreadyExists,
+                        format!(
+                            "{scratch} is not a regular file; move it aside and run this again"
+                        ),
+                    )));
+                }
+                std::fs::OpenOptions::new()
+                    .write(true)
+                    .truncate(true)
+                    .open(&scratch)?
+            }
+            Err(source) => {
+                return Err(AppError::Io(std::io::Error::new(
                     source.kind(),
-                    format!("{scratch}: {source}; remove the scratch file to retry"),
-                )
-            })?;
+                    format!("{scratch}: {source}"),
+                )));
+            }
+        };
         let written = handle.write_all(bytes).and_then(|()| handle.sync_all());
         drop(handle);
         if let Err(source) = written {

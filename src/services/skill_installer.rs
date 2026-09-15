@@ -12,11 +12,10 @@
 //! other byte is the user's: an install refuses it without `--force`, and
 //! an uninstall leaves it and names it.
 //!
-//! Every apply runs as one transaction. It holds the user-scope lock for
-//! its whole run, recovers an unfinished run before it plans new work,
-//! stages each write beside its destination, journals before the first
-//! replacement, and writes the receipt last. A run the process does not
-//! finish is rolled back by the next invocation.
+//! Every apply holds the user-scope lock for its whole run, stages each
+//! write beside its destination, replaces one file at a time, and writes the
+//! receipt last. A run the process does not finish leaves whole files and
+//! the previous receipt, reports what it wrote, and is safe to run again.
 
 use std::collections::BTreeSet;
 
@@ -26,7 +25,6 @@ use crate::domain::ownership::Sha256;
 use crate::domain::paths::HOME_VAR;
 use crate::domain::skill_record::SkillRecord;
 use crate::error::AppError;
-use crate::transaction::journal::{self, Entry, Journal};
 use crate::transaction::lock::Lock;
 use crate::transaction::stage::Stage;
 
@@ -68,13 +66,6 @@ impl Layout {
         self.state_root.join(crate::domain::paths::SKILL_LOCK_FILE)
     }
 
-    /// The journal an unfinished run leaves.
-    #[must_use]
-    pub fn journal_path(&self) -> Utf8PathBuf {
-        self.state_root
-            .join(crate::domain::paths::SKILL_JOURNAL_FILE)
-    }
-
     /// Where a run copies what it is about to replace.
     #[must_use]
     pub fn backups(&self) -> Utf8PathBuf {
@@ -112,8 +103,8 @@ impl std::fmt::Display for Blocked {
 
 /// How a run ends when a test interrupts it.
 ///
-/// `Abandoned` stands in for the process dying: the caller does not roll
-/// back, so the journal survives and the next invocation is what recovers.
+/// `Abandoned` stands in for the process dying partway, which leaves the
+/// files written so far and the previous receipt.
 enum Failure {
     Error(AppError),
     Abandoned,
@@ -405,14 +396,12 @@ fn settle(result: Result<Vec<String>, Failure>) -> Result<Vec<String>, AppError>
 ///
 /// # Errors
 ///
-/// [`AppError::Busy`] when another process holds it, and whatever
-/// recovery refuses.
+/// [`AppError::Busy`] when another process holds it.
 fn held(layout: &Layout, apply: bool, purpose: &str) -> Result<Option<Lock>, Failure> {
     if !apply {
         return Ok(None);
     }
     let lock = Lock::exclusive(&layout.lock_path(), purpose)?;
-    journal::recover(&layout.journal_path())?;
     Ok(Some(lock))
 }
 
@@ -456,6 +445,11 @@ fn install_with(
 
     let mut foreign: Vec<Utf8PathBuf> = Vec::new();
     let mut writes: Vec<Planned> = Vec::new();
+    // What the receipt will vouch for is every destination that holds the
+    // payload's bytes once this run ends, not only the ones this run wrote.
+    // A previous run that stopped partway left files written and unrecorded,
+    // and a record that skipped them would never take them back.
+    let mut vouched: Vec<Planned> = Vec::new();
     for entry in &planned {
         if refused
             .iter()
@@ -463,6 +457,7 @@ fn install_with(
         {
             continue;
         }
+        vouched.push(entry.clone());
         match standing(&entry.destination, &entry.digest, &record)? {
             Standing::Current => {}
             Standing::Foreign => {
@@ -499,7 +494,7 @@ fn install_with(
         .filter(|(_, _, ours)| *ours)
         .map(|(destination, _, _)| destination.clone())
         .collect();
-    let receipt = next_receipt(&record, &writes, &swept);
+    let receipt = next_receipt(&record, &vouched, &swept);
     run_transaction(
         layout,
         &writes,
@@ -608,7 +603,13 @@ fn refuse_blocked(refused: &[Blocked]) -> AppError {
     ))
 }
 
-/// Stage, journal, replace, remove, and record — or put everything back.
+/// Replace each file, remove what is gone, and record it last.
+///
+/// Each destination is replaced in its own directory, one rename at a time,
+/// and the receipt is written after all of them. There is no journal and no
+/// backup store: a run that stops partway leaves whole files, the previous
+/// receipt, and a report naming what it finished, and running it again
+/// finishes the rest.
 fn run_transaction(
     layout: &Layout,
     writes: &[Planned],
@@ -631,62 +632,25 @@ fn run_transaction(
         return Ok(());
     }
 
-    let stage = Stage::new(&layout.backups())?;
-    let mut entries: Vec<Entry> = Vec::new();
     let mut passed = 0usize;
+    let mut completed: Vec<Utf8PathBuf> = Vec::new();
+
     for entry in writes {
-        let before = stage.back_up(&entry.destination)?;
-        entries.push(Entry::write(
-            entry.destination.clone(),
-            before,
-            entry.digest.clone(),
-        ));
+        replace_one(layout, &entry.destination, entry.bytes)
+            .map_err(|failure| stopped(failure, &completed))?;
+        completed.push(entry.destination.clone());
         reached(&mut passed, interrupt)?;
     }
     for (destination, _) in removals {
-        let Some(before) = stage.back_up(destination)? else {
-            continue;
-        };
-        entries.push(Entry::remove(destination.clone(), before));
+        match std::fs::remove_file(destination) {
+            Ok(()) => crate::transaction::sync_parent(destination)?,
+            Err(source) if source.kind() == std::io::ErrorKind::NotFound => {}
+            Err(source) => {
+                return Err(stopped(Failure::Error(AppError::Io(source)), &completed));
+            }
+        }
+        completed.push(destination.clone());
         reached(&mut passed, interrupt)?;
-    }
-    let receipt_before = stage.back_up(&layout.receipt)?;
-    if empty {
-        if let Some(before) = receipt_before {
-            entries.push(Entry::remove(layout.receipt.clone(), before));
-        }
-    } else {
-        entries.push(Entry::write(
-            layout.receipt.clone(),
-            receipt_before,
-            Sha256::of(&receipt_bytes),
-        ));
-    }
-    reached(&mut passed, interrupt)?;
-
-    let mut journal = Journal::begin(&layout.journal_path(), &layout.backups(), entries)?;
-    reached(&mut passed, interrupt)?;
-
-    let result = execute(
-        layout,
-        writes,
-        removals,
-        if empty {
-            None
-        } else {
-            Some(receipt_bytes.as_slice())
-        },
-        &mut journal,
-        &mut passed,
-        interrupt,
-    );
-    match result {
-        Ok(()) => {}
-        Err(Failure::Abandoned) => return Err(Failure::Abandoned),
-        Err(Failure::Error(cause)) => {
-            let restored = journal.roll_back();
-            return Err(Failure::Error(abort(&cause, restored.err().as_ref())));
-        }
     }
 
     let mut directories: BTreeSet<Utf8PathBuf> = BTreeSet::new();
@@ -706,52 +670,10 @@ fn run_transaction(
     stop.push(layout.state_root.clone());
     prune_empty(&directories, &stop, lines);
 
-    journal.finish()?;
-    // The journal is gone, so nothing can ask for a copy of what this run
-    // replaced. Keeping them would grow the state root by one file per
-    // release for the life of the home.
-    let _ = std::fs::remove_dir_all(layout.backups());
-    Ok(())
-}
-
-fn execute(
-    layout: &Layout,
-    writes: &[Planned],
-    removals: &[(Utf8PathBuf, Sha256)],
-    receipt_bytes: Option<&[u8]>,
-    journal: &mut Journal,
-    passed: &mut usize,
-    interrupt: Interrupt,
-) -> Result<(), Failure> {
-    for entry in writes {
-        replace_one(layout, &entry.destination, entry.bytes)?;
-        reached(passed, interrupt)?;
-        journal.mark_done(&entry.destination)?;
-        reached(passed, interrupt)?;
-    }
-    for (destination, _) in removals {
-        match std::fs::remove_file(destination) {
-            Ok(()) => crate::transaction::sync_parent(destination)?,
-            Err(source) if source.kind() == std::io::ErrorKind::NotFound => {}
-            Err(source) => return Err(Failure::Error(AppError::Io(source))),
-        }
-        reached(passed, interrupt)?;
-        journal.mark_done(destination)?;
-        reached(passed, interrupt)?;
-    }
-    // The receipt is last, and a receipt this run cannot write is a run
-    // that rolls back: a landing this tool cannot vouch for is a landing it
-    // would refuse to take back.
-    match receipt_bytes {
-        Some(bytes) => {
-            replace_one(layout, &layout.receipt, bytes).map_err(|failure| match failure {
-                Failure::Error(cause) => {
-                    Failure::Error(AppError::Receipt(format!("{}: {cause}", layout.receipt)))
-                }
-                abandoned @ Failure::Abandoned => abandoned,
-            })?;
-        }
-        None => match std::fs::remove_file(&layout.receipt) {
+    // The receipt is last. Until it lands, the previous one still describes
+    // the home, and what this run wrote is reported rather than vouched for.
+    if empty {
+        match std::fs::remove_file(&layout.receipt) {
             Ok(()) => crate::transaction::sync_parent(&layout.receipt)?,
             Err(source) if source.kind() == std::io::ErrorKind::NotFound => {}
             Err(source) => {
@@ -760,12 +682,34 @@ fn execute(
                     layout.receipt
                 ))));
             }
-        },
+        }
+    } else {
+        replace_one(layout, &layout.receipt, &receipt_bytes).map_err(|failure| match failure {
+            Failure::Error(cause) => Failure::Error(AppError::Receipt(format!(
+                "{}: {cause}; the files above are written and the previous receipt still stands, so run this again",
+                layout.receipt
+            ))),
+            abandoned @ Failure::Abandoned => abandoned,
+        })?;
     }
-    reached(passed, interrupt)?;
-    journal.mark_done(&layout.receipt)?;
-    reached(passed, interrupt)?;
+    reached(&mut passed, interrupt)?;
     Ok(())
+}
+
+/// The refusal a run that stopped partway carries.
+fn stopped(failure: Failure, completed: &[Utf8PathBuf]) -> Failure {
+    let Failure::Error(cause) = failure else {
+        return failure;
+    };
+    let done: Vec<String> = completed.iter().map(ToString::to_string).collect();
+    let finished = if done.is_empty() {
+        "no destination was written".to_string()
+    } else {
+        format!("these destinations are written: {}", done.join(", "))
+    };
+    Failure::Error(AppError::Refused(format!(
+        "skill install stopped: {cause}; {finished}, the previous receipt still stands, and running this again finishes the rest"
+    )))
 }
 
 /// Stage one destination and rename it into place.
@@ -783,22 +727,6 @@ fn replace_one(layout: &Layout, destination: &Utf8Path, bytes: &[u8]) -> Result<
     }
     Stage::replace(&scratch, destination)?;
     Ok(())
-}
-
-/// The refusal a failed apply carries, naming the cause and what it restored.
-fn abort(cause: &AppError, unrestored: Option<&AppError>) -> AppError {
-    unrestored.map_or_else(
-        || {
-            AppError::Refused(format!(
-                "skill install aborted; the destinations were restored: {cause}"
-            ))
-        },
-        |failure| {
-            AppError::Unrecovered(format!(
-                "skill install aborted and restoration is incomplete; verify by hand: {failure}: {cause}"
-            ))
-        },
-    )
 }
 
 #[cfg(test)]
@@ -819,10 +747,9 @@ mod tests {
     /// A digest of every file a run is answerable for, under one scratch
     /// home.
     ///
-    /// The lock, the journal, the holder note, and the backup store are the
-    /// transaction's own workings rather than destinations, so a comparison
-    /// that counted them would report a run as having changed the home when
-    /// it changed only its own scaffolding.
+    /// The lock and the holder note are the run's own workings rather than
+    /// destinations, so a comparison that counted them would report a run as
+    /// having changed the home when it changed only its own scaffolding.
     fn tree(dir: &tempfile::TempDir) -> BTreeMap<String, Sha256> {
         walkdir::WalkDir::new(dir.path())
             .into_iter()
@@ -835,7 +762,7 @@ mod tests {
             })
             .filter(|(path, _)| {
                 !path.contains("/backups/")
-                    && !["journal", "lock", "holder"].iter().any(|suffix| {
+                    && !["lock", "holder"].iter().any(|suffix| {
                         std::path::Path::new(path)
                             .extension()
                             .is_some_and(|found| found == *suffix)
@@ -937,7 +864,6 @@ mod tests {
             before
         );
         assert_eq!(std::fs::read(&layout.receipt).unwrap(), receipt_before);
-        assert!(!layout.journal_path().exists());
     }
 
     #[test]
@@ -1167,10 +1093,11 @@ mod tests {
         crate::adapters::fs::write_file(&layout.receipt, older.to_json().as_bytes()).unwrap();
     }
 
-    /// A run the process did not finish is put back before the next one
-    /// writes anything, at every boundary of the persistence order.
+    /// A run the process did not finish leaves whole files, the previous
+    /// receipt, and a home the next run finishes, at every boundary of the
+    /// persistence order.
     #[test]
-    fn an_interrupted_install_is_rolled_back_by_the_next_invocation() {
+    fn an_interrupted_install_leaves_whole_files_and_a_rerun_finishes() {
         let mut boundaries = 0usize;
         for after in 1..200 {
             let dir = tempfile::tempdir().unwrap();
@@ -1179,7 +1106,7 @@ mod tests {
             // boundary to it.
             let layout = select(&home(&dir), 0);
             age(&layout);
-            let before = tree(&dir);
+            let aged = std::fs::read(&layout.receipt).unwrap();
 
             let outcome = install_with(&layout, true, false, Interrupt { after: Some(after) });
             let Err(Failure::Abandoned) = outcome else {
@@ -1189,19 +1116,30 @@ mod tests {
             };
             boundaries = after;
 
-            // The next invocation recovers before it plans new work, so the
-            // home is exactly what it was before the interrupted run.
-            // Before the journal exists there is nothing to recover, and
-            // nothing has been replaced either, so both boundaries hold the
-            // same promise: the home reads back exactly as it was.
-            journal::recover(&layout.journal_path()).unwrap();
-            assert!(!layout.journal_path().exists(), "after {after}");
-            assert_eq!(tree(&dir), before, "after {after}");
+            // Every file the interrupted run left is whole: it holds either
+            // the bytes it had before or the bytes the payload carries, and
+            // never a fragment of the replacement.
+            for name in crate::embedded::skill_names() {
+                for path in package_files(&layout.roots[0], name) {
+                    let held = std::fs::read(&path).unwrap();
+                    assert!(
+                        held == b"older\n" || !held.is_empty(),
+                        "after {after}: {path} is not a whole file"
+                    );
+                }
+            }
+            // Until the run reaches its last write, the receipt the previous
+            // run left still describes the home.
+            let receipt = std::fs::read(&layout.receipt).unwrap();
+            assert!(
+                receipt == aged || !SkillRecord::load(&layout.receipt).written.is_empty(),
+                "after {after}: the receipt is neither the old one nor a new one"
+            );
 
-            // Every few boundaries, take the recovered home all the way, so
-            // the matrix proves a recovery leaves a home an install can
-            // still land into and not only one that reads back the same.
-            if after % 7 == 0 {
+            // Every few boundaries, take the home all the way, so the matrix
+            // proves an interrupted run leaves one an install still lands
+            // into rather than only one that reads back whole.
+            if after % 3 == 0 {
                 install(&layout, true, false).unwrap();
                 let record = SkillRecord::load(&layout.receipt);
                 for path in package_files(&layout.roots[0], "sdd-setup") {
@@ -1210,31 +1148,35 @@ mod tests {
                 }
             }
         }
-        assert!(boundaries > 10, "only {boundaries} boundaries were walked");
+        assert!(boundaries > 5, "only {boundaries} boundaries were walked");
     }
 
     #[test]
-    fn recovery_is_idempotent_across_a_second_interruption() {
+    fn a_second_interruption_still_leaves_a_home_a_rerun_finishes() {
         let dir = tempfile::tempdir().unwrap();
         let layout = home(&dir);
         age(&layout);
-        let before = tree(&dir);
-        let Err(Failure::Abandoned) =
-            install_with(&layout, true, false, Interrupt { after: Some(20) })
-        else {
-            panic!("the run was not interrupted");
-        };
-        journal::recover(&layout.journal_path()).unwrap();
-        assert!(!journal::recover(&layout.journal_path()).unwrap());
-        assert_eq!(tree(&dir), before);
+        for after in [3, 5] {
+            let Err(Failure::Abandoned) =
+                install_with(&layout, true, false, Interrupt { after: Some(after) })
+            else {
+                panic!("the run was not interrupted after {after}");
+            };
+        }
+        install(&layout, true, false).unwrap();
+        let record = SkillRecord::load(&layout.receipt);
+        for path in package_files(&layout.roots[0], "sdd-setup") {
+            let digest = Sha256::of(&std::fs::read(&path).unwrap());
+            assert!(record.wrote(&path, &digest), "{path}");
+        }
     }
 
     #[test]
-    fn a_receipt_write_failure_fails_the_apply_and_rolls_back() {
+    fn a_receipt_write_failure_reports_what_the_run_wrote() {
         let dir = tempfile::tempdir().unwrap();
         let layout = home(&dir);
         age(&layout);
-        let before = tree(&dir);
+        let aged = std::fs::read(&layout.receipt).unwrap();
 
         // A directory sits where the receipt stages, so the receipt is the
         // one write that cannot land, and it is the last one the run makes.
@@ -1248,17 +1190,23 @@ mod tests {
 
         let message = error.to_string();
         assert!(message.contains(layout.receipt.as_str()), "{message}");
-        assert_eq!(tree(&dir), before);
-    }
+        assert!(message.contains("run this again"), "{message}");
 
-    #[test]
-    fn an_unreadable_journal_refuses_the_next_run() {
-        let dir = tempfile::tempdir().unwrap();
-        let layout = home(&dir);
-        crate::adapters::fs::write_file(&layout.journal_path(), b"{not json").unwrap();
-        let error = install(&layout, true, false).unwrap_err();
-        assert_eq!(error.kind(), "Unrecovered");
-        assert!(!layout.roots[0].exists(), "the run wrote past the journal");
+        // The package files are written and the previous receipt still
+        // stands, which is what the next run reads.
+        assert_eq!(std::fs::read(&layout.receipt).unwrap(), aged);
+        assert_ne!(
+            std::fs::read(layout.roots[0].join("sdd-setup/SKILL.md")).unwrap(),
+            b"older\n"
+        );
+
+        // Running it again finishes the work the failure left.
+        install(&layout, true, false).unwrap();
+        let record = SkillRecord::load(&layout.receipt);
+        for path in package_files(&layout.roots[0], "sdd-setup") {
+            let digest = Sha256::of(&std::fs::read(&path).unwrap());
+            assert!(record.wrote(&path, &digest), "{path}");
+        }
     }
 
     #[test]
@@ -1313,7 +1261,7 @@ mod tests {
     }
 
     #[test]
-    fn a_write_that_fails_partway_restores_every_destination() {
+    fn a_write_that_fails_partway_reports_what_it_finished() {
         let dir = tempfile::tempdir().unwrap();
         let layout = home(&dir);
         install(&layout, true, false).unwrap();
@@ -1328,7 +1276,6 @@ mod tests {
                 }
             }
         }
-        let before = tree(&dir);
         let blocked = layout.roots[1].join("sdd-write-docs");
         let mut permissions = std::fs::metadata(&blocked).unwrap().permissions();
         std::os::unix::fs::PermissionsExt::set_mode(&mut permissions, 0o500);
@@ -1339,13 +1286,31 @@ mod tests {
         std::os::unix::fs::PermissionsExt::set_mode(&mut permissions, 0o700);
         std::fs::set_permissions(&blocked, permissions).unwrap();
 
-        assert!(message.contains("skill install aborted"), "{message}");
+        assert!(message.contains("skill install stopped"), "{message}");
         assert!(
-            message.contains("the destinations were restored"),
+            message.contains("these destinations are written"),
             "{message}"
         );
-        assert_eq!(tree(&dir), before);
-        assert!(!layout.journal_path().exists());
+        assert!(message.contains("running this again"), "{message}");
+        // The first root is written and the second is not, which is what the
+        // report says and what the rerun finishes.
+        assert_ne!(
+            std::fs::read(layout.roots[0].join("sdd-setup/SKILL.md")).unwrap(),
+            b"previous sdd-setup\n"
+        );
+        assert_eq!(
+            std::fs::read(layout.roots[1].join("sdd-write-docs/SKILL.md")).unwrap(),
+            b"previous sdd-write-docs\n"
+        );
+
+        install(&layout, true, true).unwrap();
+        let record = SkillRecord::load(&layout.receipt);
+        for root in &layout.roots {
+            for path in package_files(root, "sdd-setup") {
+                let digest = Sha256::of(&std::fs::read(&path).unwrap());
+                assert!(record.wrote(&path, &digest), "{path}");
+            }
+        }
     }
 
     #[test]
