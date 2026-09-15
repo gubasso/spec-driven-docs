@@ -49,6 +49,7 @@ This repository is the canonical knowledge product for spec-driven documentation
 - Landing, upgrading, and drift in an instance: `method/reconcile.md`.
 - Comparison-document routing: `comparison-docs/AGENTS.md`.
 - Distribution and ownership: `_docs/specs/SPEC-distribution.md`.
+- Pinning this tool from a consumer: `_docs/specs/SPEC-acquisition.md`.
 - Format and budgets: `_docs/specs/SPEC-docs-format.md`.
 - Decision records: `_docs/specs/SPEC-decision-records.md`.
 - Cutting a release: `_docs/guides/release.md`.

@@ -51,6 +51,7 @@ fn run(cli: Cli) -> Result<(), AppError> {
         Commands::Assess(args) => commands::assess::run(&ctx, args),
         Commands::License(args) => commands::license::run(&ctx, args),
         Commands::SelfManifest => commands::self_manifest::run(&ctx),
+        Commands::SelfDepend(args) => commands::self_depend::run(&ctx, args),
         Commands::Completions(args) => commands::completions::run(&ctx, args),
         Commands::Man => commands::man::run(&ctx),
     }
