@@ -63,6 +63,16 @@ macro_rules! rule_ids {
 }
 
 rule_ids! {
+    FragmentNamesTheVenueForm => "acquisition:a-fragment-names-the-venue-form",
+    CleanRemovesOnlyANamedLeftover => "acquisition:clean-removes-only-a-named-leftover",
+    EveryPairCarriesAVerdict => "acquisition:every-pair-carries-a-verdict",
+    OneTargetRunsOneMechanism => "acquisition:one-target-runs-one-mechanism",
+    StatusReportsAndNeverJudges => "acquisition:status-reports-and-never-judges",
+    TheOperatorCallerReportsEveryOutcome => "acquisition:the-operator-caller-reports-every-outcome",
+    ThePinMovesInOneTransaction => "acquisition:the-pin-moves-in-one-transaction",
+    TheShellEntryCallerIsRateLimitedAndSilent => "acquisition:the-shell-entry-caller-is-rate-limited-and-silent",
+    TheSyncLeavesADiffNobodyCommitted => "acquisition:the-sync-leaves-a-diff-nobody-committed",
+    TheToolServesAndDoesNotEdit => "acquisition:the-tool-serves-and-does-not-edit",
     RecordedDimensionOnlyShrinks => "budget-debt:a-recorded-dimension-only-shrinks",
     DebtIsCreatedByAnExplicitAct => "budget-debt:debt-is-created-by-an-explicit-act",
     CellCarriesOneReference => "comparison-docs:a-cell-carries-one-reference",

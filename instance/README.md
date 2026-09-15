@@ -63,6 +63,17 @@ Both verbs sweep: a destination the receipt vouches for that the current payload
 
 User-scope files are never recorded in an instance manifest, and no verification reads the receipt.
 
+## Keep the pin fresh
+
+```bash
+sdd self-depend status --target /path/to/your-project --json
+sdd self-depend add --target /path/to/your-project --manager mise --venue crates
+sdd self-depend sync --target /path/to/your-project --caller operator --apply
+sdd self-depend clean --target /path/to/your-project --also scripts/bump.sh
+```
+
+A project pins this tool through the manager it already runs, and `sdd self-depend` keeps that pin fresh. `status` reports offline, one entry per manager with the absent ones included, plus the shell-entry line, the stamp, the host probes, and any leftover; every state exits 0. `add` prints the fragments one manager and venue pair needs with their anchors and placements, edits no file the project owns, and seeds a manager file only where the project has none and only with `--apply`. `sync` moves the pin to the latest release through the wired manager in one transaction: a flake moves its tag and its lock together or not at all. The `--caller envrc` default, the line `sdd self-depend sync --apply || true` in `.envrc`, attempts at most once a day per checkout, stays silent, exits 0 on every outcome, and leaves a diff for review; `--caller operator` reports every outcome and fails loudly. `CI` or `SDD_SELF_DEPEND_OFF` switches the loop off. `clean` removes only what a predecessor mechanism left and names what it keeps.
+
 ## Read a release
 
 ```bash

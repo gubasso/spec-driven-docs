@@ -21,6 +21,7 @@ pub mod payload;
 pub mod policy;
 pub mod read;
 pub mod reconcile;
+pub mod self_depend;
 pub mod self_manifest;
 pub mod skill;
 pub mod status;

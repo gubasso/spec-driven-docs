@@ -69,6 +69,14 @@ aliases = ["inherited violations", "budget ceiling"]
 target = { command = ["debt", "--help"] }
 
 [[topic]]
+id = "self-depend"
+title = "Pin this tool and keep the pin fresh"
+summary = "Read how a project pins this tool, serve the fragment its manager takes, and move the pin."
+kind = "operator-task"
+aliases = ["freshness loop", "consumer pin", "sync the pin"]
+target = { command = ["self-depend", "--help"] }
+
+[[topic]]
 id = "run-a-gate"
 title = "Run one delivered gate"
 summary = "List every gate this binary delivers, and run one against the working tree."
@@ -239,6 +247,14 @@ aliases = ["terms", "definitions"]
 target = { document = { shelf = "method", name = "glossary" } }
 
 # Specifications: the seeds an instance adopts, and the canon-only ones.
+
+[[topic]]
+id = "spec-acquisition"
+title = "Acquisition rules"
+summary = "How a consumer pins this tool through its own manager, and what the sync verb owes it."
+kind = "spec-seed"
+aliases = ["acquisition rules", "self-depend rules"]
+target = { document = { shelf = "spec", name = "acquisition" } }
 
 [[topic]]
 id = "spec-budget-debt"

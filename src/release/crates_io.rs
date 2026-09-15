@@ -161,6 +161,32 @@ impl CratesIoResolver {
         self.cache.join(format!("{cksum}.crate"))
     }
 
+    /// The highest stable, non-yanked release the index serves.
+    ///
+    /// One index read and nothing more: no archive is fetched. A cached
+    /// answer cannot prove freshness, so this always reaches the index and
+    /// `--offline` refuses it.
+    ///
+    /// # Errors
+    ///
+    /// [`AppError::Refused`] where the network is refused or the index
+    /// lists no stable release.
+    pub fn latest_version(&self) -> Result<Version, AppError> {
+        if self.offline {
+            return Err(AppError::Refused(
+                "offline: only the index says which release is newest".to_string(),
+            ));
+        }
+        let entries = self.index()?;
+        entries
+            .iter()
+            .filter(|entry| !entry.yanked)
+            .filter_map(|entry| entry.vers.parse::<Version>().ok())
+            .filter(|version| version.pre.is_empty())
+            .max()
+            .ok_or_else(|| AppError::Refused(format!("the registry serves no stable {CRATE_NAME}")))
+    }
+
     /// The sparse index path for a crate name, as the protocol defines it.
     #[must_use]
     pub fn index_path(name: &str) -> String {

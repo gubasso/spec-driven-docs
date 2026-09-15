@@ -31,6 +31,11 @@ pub const XDG_CACHE_HOME_VAR: &str = "XDG_CACHE_HOME";
 pub const OFFLINE_VAR: &str = "SDD_OFFLINE";
 /// The variable that names the docs scratch.
 pub const DOCS_SCRATCH_VAR: &str = "SDD_DOCS_SCRATCH";
+/// The variable an operator sets to hold the consumer pin where it is.
+pub const SELF_DEPEND_OFF_VAR: &str = "SDD_SELF_DEPEND_OFF";
+/// The variable a continuous-integration environment sets, where the pin
+/// is whatever the checkout carries.
+pub const CI_VAR: &str = "CI";
 
 /// This tool's directory name under a base directory.
 pub const TOOL_DIR: &str = "spec-driven-docs";
@@ -72,6 +77,8 @@ pub const SKILL_JOURNAL_FILE: &str = "skills.journal";
 pub const BACKUPS_DIR: &str = "backups";
 /// The plan store, relative to the state root.
 pub const PLAN_STORE_DIR: &str = "plans";
+/// The per-checkout sync stamps, relative to the state root.
+pub const SELF_DEPEND_STAMP_DIR: &str = "self-depend";
 /// The verified release bundles, relative to the cache root.
 pub const BUNDLE_CACHE_DIR: &str = "bundles";
 

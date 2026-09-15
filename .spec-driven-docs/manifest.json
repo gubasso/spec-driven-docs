@@ -45,6 +45,12 @@
   ],
   "adopted_files": [
     {
+      "source": "_docs/specs/SPEC-acquisition.md",
+      "destination": "_docs/specs/SPEC-acquisition.md",
+      "sha256": "bd3e006861f204e2f4435ee2c5a3036b62681f5f66519f2638c6958ee0de0c90",
+      "baseline_sha256": "bd3e006861f204e2f4435ee2c5a3036b62681f5f66519f2638c6958ee0de0c90"
+    },
+    {
       "source": "_docs/specs/SPEC-budget-debt.md",
       "destination": "_docs/specs/SPEC-budget-debt.md",
       "sha256": "1b652c9984683d4732b748ad363d56232095dd5fe9c2d048fd4dab59a468d684",

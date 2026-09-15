@@ -17,6 +17,8 @@
 //! - [`plan`] — the typed document every landing write comes from.
 //! - [`release`] — the bundle and resolver boundary every landing verb
 //!   reads a release through.
+//! - [`self_depend`] — how a consumer pins this tool and keeps the pin
+//!   fresh.
 //! - [`transaction`] — the lock, staging, and journal a recoverable
 //!   multi-file write runs through.
 //! - [`cli`] / [`commands`] — clap parse shapes and their handlers.
@@ -55,5 +57,6 @@ pub mod payload_roots;
 pub mod plan;
 pub mod probes;
 pub mod release;
+pub mod self_depend;
 pub mod services;
 pub mod transaction;

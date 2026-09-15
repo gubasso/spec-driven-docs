@@ -18,6 +18,7 @@ pub mod payload;
 pub mod policy;
 pub mod read;
 pub mod reconcile;
+pub mod self_depend;
 pub mod skill;
 pub mod status;
 pub mod track;
@@ -93,6 +94,8 @@ pub enum Commands {
     License(license::LicenseArgs),
     /// Regenerate the canon checkout's own instance manifest.
     SelfManifest,
+    /// Wire this tool as a consumer's dependency and keep its pin fresh.
+    SelfDepend(self_depend::SelfDependArgs),
     /// Generate shell completions.
     Completions(completions::CompletionsArgs),
     /// Render the manual page.
