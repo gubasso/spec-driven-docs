@@ -828,6 +828,51 @@ fn the_setup_skill_declares_its_gated_steps() {
     }
 }
 
+/// VERIFIES acquisition:the-setup-path-offers-the-wire
+#[test]
+fn the_setup_skill_offers_the_freshness_wire() {
+    let setup = read("skills/sdd-setup/SKILL.md");
+    let readme = read("instance/README.md");
+    assert!(
+        setup.contains("## Offer the freshness wire"),
+        "the router has no freshness-wire step"
+    );
+    for held in [
+        // The observation the offer rests on.
+        "sdd self-depend status --target . --json",
+        "Hold `wired` and `envrc_sync`",
+        // Silence where nothing is wired, and where the wire is landed.
+        "Where `wired` is `null`, there is no pin to keep fresh",
+        "`envrc_sync` is `true`, the wire is landed",
+        // The offer, with its three facts.
+        "`envrc_sync` is `false`, ask with `AskUserQuestion`",
+        "sdd self-depend sync --apply || true",
+        "attempts at most one bump a day",
+        "leaves a diff for the operator to review and commit",
+        // Landing the line is gated, and a no is recorded.
+        "landing the line is a gated step",
+        "sdd self-depend add --target . --manager <wired>",
+        "re-observe with the status verb until `envrc_sync` reads `true`",
+        "the landing is complete without the wire",
+        "Record the answer in the close of the task",
+    ] {
+        assert!(setup.contains(held), "the router does not state '{held}'");
+    }
+    // The operator's path asks the same question in the same words.
+    for shared in [
+        "does not close until the operator has answered about the freshness wire",
+        "Where `wired` is `null`, there is no pin to keep fresh",
+        "attempts at most one bump a day",
+        "leaves a diff for the operator to review and commit",
+        "seeds `.envrc` only where the target has none",
+    ] {
+        assert!(
+            readme.contains(shared),
+            "instance/README.md does not carry '{shared}'"
+        );
+    }
+}
+
 #[test]
 fn the_setup_skill_offers_incremental_only_as_the_plan_does() {
     let setup = read("skills/sdd-setup/SKILL.md");

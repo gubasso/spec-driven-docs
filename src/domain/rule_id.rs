@@ -70,6 +70,7 @@ rule_ids! {
     StatusReportsAndNeverJudges => "acquisition:status-reports-and-never-judges",
     TheOperatorCallerReportsEveryOutcome => "acquisition:the-operator-caller-reports-every-outcome",
     ThePinMovesInOneTransaction => "acquisition:the-pin-moves-in-one-transaction",
+    TheSetupPathOffersTheWire => "acquisition:the-setup-path-offers-the-wire",
     TheShellEntryCallerIsRateLimitedAndSilent => "acquisition:the-shell-entry-caller-is-rate-limited-and-silent",
     TheSyncLeavesADiffNobodyCommitted => "acquisition:the-sync-leaves-a-diff-nobody-committed",
     TheToolServesAndDoesNotEdit => "acquisition:the-tool-serves-and-does-not-edit",
