@@ -1124,12 +1124,30 @@ fn the_tracked_tree_carries_no_retired_entry_term() {
     const REMOVAL_CARRIERS: &[&str] = &[
         "src/domain/manifest.rs",
         "tests/cmd_init.rs",
-        "tests/cmd_reconcile.rs",
         "tests/cmd_status.rs",
         "tests/cmd_upgrade.rs",
     ];
     let terms = absent_terms();
-    for (relative, text) in tracked_text_files() {
+    let tree = tracked_text_files();
+
+    // An exemption for a file that no longer names a retired term exempts
+    // nothing, and the comment above the list then claims something untrue.
+    // The list is small and hand-kept, so it states what it still covers.
+    for carrier in REMOVAL_CARRIERS {
+        let text = tree
+            .iter()
+            .find(|(relative, _)| relative == carrier)
+            .map(|(_, text)| text.to_lowercase());
+        let Some(text) = text else {
+            panic!("{carrier} is exempted from the retired terms and is not in the tree");
+        };
+        assert!(
+            terms.iter().any(|term| text.contains(term.as_str())),
+            "{carrier} is exempted from the retired terms and carries none"
+        );
+    }
+
+    for (relative, text) in tree {
         if relative.starts_with("_docs/decisions/")
             || relative == "CHANGELOG.md"
             || REMOVAL_CARRIERS.contains(&relative.as_str())
