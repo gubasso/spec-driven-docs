@@ -11,7 +11,7 @@
       # Moved by `rk self-depend sync`, invoked from .envrc: the tag in this URL
       # is the version, flake.lock is the content pin, and nothing else in
       # this repository names an rk version.
-      url = "github:gubasso/release-kit/v0.4.0";
+      url = "github:gubasso/release-kit/v0.6.0";
       # A deliberate deal, not a tidy-up: with follows, rk rebuilds against
       # this repository's nixpkgs rather than the revision it tested
       # upstream, so this consumer owns that compatibility — proven by the
