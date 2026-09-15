@@ -98,6 +98,35 @@ fn the_stage_holds_every_destination_and_the_installed_reference_material() {
         .clone();
     assert!(!staged.is_empty());
     assert!(!served.is_empty());
+
+    // Every relative link the staged method carries resolves inside the
+    // stage. A reference shelf that told a reader to open a file it did
+    // not copy would send them back to a checkout.
+    let reference = root.join("reference");
+    for entry in walkdir::WalkDir::new(reference.join("method"))
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_type().is_file())
+    {
+        let text = std::fs::read_to_string(entry.path()).unwrap();
+        for target in text.split("](").skip(1) {
+            let Some(relative) = target.split(')').next() else {
+                continue;
+            };
+            let relative = relative.split('#').next().unwrap_or(relative);
+            // Only the relative links: an absolute URL is somebody else's
+            // to serve, and an anchor alone points inside this file.
+            if !relative.starts_with("./") && !relative.starts_with("../") {
+                continue;
+            }
+            let resolved = entry.path().parent().unwrap().join(relative);
+            assert!(
+                resolved.exists(),
+                "{} links to {relative}, which the stage did not copy",
+                entry.path().display()
+            );
+        }
+    }
 }
 
 /// VERIFIES staging:a-stage-carries-the-whole-candidate
@@ -111,6 +140,51 @@ fn a_staged_artifact_holds_the_bytes_a_landing_would_write() {
     let staged = std::fs::read_to_string(root.join("artifacts/.pre-commit-config.yaml")).unwrap();
     let landed = fixture.read(".pre-commit-config.yaml");
     assert_eq!(staged, landed);
+}
+
+/// VERIFIES staging:a-stage-writes-only-the-stage
+#[test]
+fn a_stage_inside_the_target_refuses() {
+    let fixture = Fixture::new();
+    fixture.install("codebase");
+    let digest = fixture.tree_digest();
+
+    fixture
+        .cmd()
+        .args([
+            "stage",
+            "--target",
+            &fixture.target(),
+            "--output",
+            fixture.path().join("review").to_str().unwrap(),
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("outside the target"));
+    assert_eq!(
+        digest,
+        fixture.tree_digest(),
+        "a refusal wrote in the target"
+    );
+}
+
+/// VERIFIES staging:a-stage-carries-the-whole-candidate
+#[test]
+fn the_receipt_reports_the_declaration_the_candidate_carries() {
+    let fixture = Fixture::new();
+    fixture.install("codebase");
+    // The project reserves a path of its own, in the declaration it owns.
+    fixture.write(
+        ".spec-driven-docs/config.yaml",
+        "reserved:\n  - vendor/**\n",
+    );
+
+    // Staged with no flags at all: the receipt must report what the
+    // candidate says, not what the command line did not say.
+    let receipt = stage(&fixture);
+    assert_eq!(receipt["reserve"][0], "vendor/**");
+    assert_eq!(receipt["writing_style"], "builtin");
+    assert_eq!(receipt["docs_root"], "docs");
 }
 
 /// VERIFIES staging:production-reads-no-staged-byte

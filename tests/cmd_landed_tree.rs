@@ -105,10 +105,21 @@ fn every_linter_hook_reads_a_configuration_the_landing_wrote() {
             path.is_file(),
             "a wired hook reads {relative}, which the landing did not write"
         );
+        // Parsed, not grepped: a broken token in a configuration the
+        // landing wrote is exactly the failure this suite exists to catch,
+        // and a substring check would pass over it. The linter reads JSONC,
+        // so line comments come off before the parse.
         let text = std::fs::read_to_string(&path).unwrap();
+        let stripped: String = text
+            .lines()
+            .filter(|line| !line.trim_start().starts_with("//"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let parsed: serde_json::Value = serde_json::from_str(&stripped)
+            .unwrap_or_else(|error| panic!("{relative} does not parse: {error}"));
         assert!(
-            text.contains("\"config\""),
-            "{relative} is not a linter configuration"
+            parsed.get("config").is_some(),
+            "{relative} carries no linter configuration"
         );
     }
     assert_eq!(

@@ -11,8 +11,7 @@ readme = "README.md"
 keywords = ["documentation", "pre-commit", "spec", "gates", "docs-as-code"]
 categories = ["command-line-utilities", "development-tools"]
 exclude = [
-    "/comparison-docs",
-    "/reference",
+    "/reference/dependencies-and-conventions.md",
     "/examples",
     "/_docs/decisions",
     "/_docs/guides",

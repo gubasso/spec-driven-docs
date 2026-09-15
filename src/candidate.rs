@@ -66,6 +66,12 @@ pub struct Candidate {
     pub destinations: Vec<Destination>,
     /// The record that describes the landing, written after all of them.
     pub manifest: Manifest,
+    /// What the gates judge, as the candidate's own declaration states it.
+    ///
+    /// This is the resolved value the rendered bytes carry, not the flags
+    /// the caller passed: a reader of the candidate needs what it says,
+    /// and the two differ wherever the project already declared something.
+    pub declaration: InstanceConfig,
     /// What the operator is told about what the projection chose.
     pub notes: Vec<String>,
 }
@@ -247,7 +253,7 @@ pub fn project(input: &Input) -> Result<Candidate, AppError> {
     let block = render_block(&RenderOptions {
         docs_root: docs_root.to_string(),
         indent,
-        declaration,
+        declaration: declaration.clone(),
         ..RenderOptions::default()
     });
     let spliced = crate::domain::marker::splice(&base, &block)?;
@@ -319,6 +325,7 @@ pub fn project(input: &Input) -> Result<Candidate, AppError> {
     Ok(Candidate {
         destinations,
         manifest,
+        declaration,
         notes,
     })
 }

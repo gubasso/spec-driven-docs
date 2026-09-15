@@ -635,7 +635,15 @@ fn run_transaction(
         completed.push(entry.destination.clone());
         reached(&mut passed, interrupt)?;
     }
-    for (destination, _) in removals {
+    for (destination, vouched) in removals {
+        // The receipt authorizes these bytes, not this path. Re-read them
+        // here rather than trusting the read that planned the run: a file
+        // edited since then is the user's, and a removal would be a silent
+        // loss.
+        match std::fs::read(destination) {
+            Ok(held) if &Sha256::of(&held) == vouched => {}
+            _ => continue,
+        }
         match std::fs::remove_file(destination) {
             Ok(()) => crate::transaction::sync_parent(destination)?,
             Err(source) if source.kind() == std::io::ErrorKind::NotFound => {}
@@ -1168,19 +1176,22 @@ mod tests {
     #[test]
     fn a_receipt_write_failure_reports_what_the_run_wrote() {
         let dir = tempfile::tempdir().unwrap();
-        let layout = home(&dir);
+        // The receipt sits in its own directory, so denying writes there
+        // stops the receipt alone and leaves the lock beside it reachable.
+        let mut layout = home(&dir);
+        let vault = layout.state_root.join("receipt");
+        layout.receipt = vault.join("skills.json");
         age(&layout);
         let aged = std::fs::read(&layout.receipt).unwrap();
 
-        // A directory sits where the receipt stages, so the receipt is the
-        // one write that cannot land, and it is the last one the run makes.
-        std::fs::create_dir_all(
-            crate::transaction::stage::scratch_for(&layout.receipt).as_std_path(),
-        )
-        .unwrap();
+        let mut permissions = std::fs::metadata(&vault).unwrap().permissions();
+        std::os::unix::fs::PermissionsExt::set_mode(&mut permissions, 0o500);
+        std::fs::set_permissions(&vault, permissions.clone()).unwrap();
+
         let error = install(&layout, true, false).unwrap_err();
-        std::fs::remove_dir(crate::transaction::stage::scratch_for(&layout.receipt).as_std_path())
-            .unwrap();
+
+        std::os::unix::fs::PermissionsExt::set_mode(&mut permissions, 0o700);
+        std::fs::set_permissions(&vault, permissions).unwrap();
 
         let message = error.to_string();
         assert!(message.contains(layout.receipt.as_str()), "{message}");

@@ -378,6 +378,34 @@ fn a_dangling_symlink_counts_as_content() {
         .stdout(predicate::str::contains("DRY RUN"));
 }
 
+/// VERIFIES staging:one-documentation-root-serves-the-run
+#[test]
+fn a_reinstall_under_another_profile_refuses_rather_than_moving_the_root() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    let digest = fixture.tree_digest();
+
+    fixture
+        .cmd()
+        .args([
+            "init",
+            "--target",
+            &fixture.target(),
+            "--profile",
+            "codebase",
+            "--apply",
+        ])
+        .assert()
+        .code(73)
+        .stderr(predicate::str::contains("knowledge-base"))
+        .stderr(predicate::str::contains("migration"));
+    assert_eq!(
+        digest,
+        fixture.tree_digest(),
+        "a refused profile move changed bytes"
+    );
+}
+
 /// VERIFIES staging:an-unattributed-collision-refuses-first
 #[test]
 fn a_managed_destination_nothing_accounts_for_refuses_before_the_first_write() {

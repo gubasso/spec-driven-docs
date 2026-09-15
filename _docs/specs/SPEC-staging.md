@@ -71,15 +71,15 @@ Verify: `cargo nextest run -E 'binary(cmd_stage)'`
 
 ### `staging:production-reads-no-staged-byte` — Production reads no staged byte
 
-A landing MUST render the candidate again from the binary's own sources, and it MUST refuse a stage path, a stage receipt, or a stage artifact offered as input.
+A landing MUST render the candidate again from the binary's own sources, and no landing verb MUST offer an argument that names a stage.
 
-A stage is evidence for a reader. Bytes that reach production through a stage make the stage a cache, and a stale cache lands a version nobody chose.
+A stage is evidence for a reader. Bytes that reach production through a stage make the stage a cache, and a stale cache lands a version nobody chose. Refusing a stage argument is not enough, because an argument that exists is one somebody will pass: there is none.
 
-#### Scenario: A landing is asked to apply what the agent inspected
+#### Scenario: An operator looks for the way to apply what the agent inspected
 
-- GIVEN a completed stage and a request naming it
-- WHEN `sdd init --apply` or `sdd upgrade --apply` runs
-- THEN the request is refused and the landing renders afresh, and the run succeeds with the stage deleted
+- GIVEN a completed stage and a landing to run
+- WHEN the operator reads `sdd init --help` and `sdd upgrade --help`
+- THEN no flag takes a stage, the landing renders the candidate again, and the stage is still there afterwards to compare against
 
 Verify: `cargo nextest run -E 'binary(cmd_stage) + binary(cmd_upgrade)'`
 

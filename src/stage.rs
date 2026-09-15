@@ -34,15 +34,20 @@ pub const REFERENCE_DIR: &str = "reference";
 
 /// The payload roots a stage carries as reference material.
 ///
-/// The repository's own decision records and tests are not here: they are
-/// this project's history and its proof, and neither is knowledge an
-/// adopting project reads while it migrates.
-const REFERENCE_ROOTS: [&str; 6] = [
+/// Every root the binary carries that an adopting project reads while it
+/// migrates. The repository's own decision records and tests are not here:
+/// they are this project's history and its proof, and neither is knowledge
+/// an adopting project reads.
+const REFERENCE_ROOTS: [&str; 10] = [
     "method",
     "templates",
     "skills",
     "skill-shared",
     "_docs/specs",
+    "instance",
+    "comparison-docs",
+    "reference/prior-art",
+    "reference/tracker-markup",
     ".markdownlint",
 ];
 
@@ -111,8 +116,10 @@ pub struct Receipt {
     pub docs_root: String,
     /// The documentation scratch the candidate records.
     pub docs_scratch: Option<Utf8PathBuf>,
-    /// The paths the candidate reserves.
+    /// The paths the candidate's own declaration reserves.
     pub reserve: Vec<String>,
+    /// The writing source the candidate's own declaration selects.
+    pub writing_style: String,
     /// Every destination the candidate would land.
     pub artifacts: Vec<Artifact>,
     /// Every reference root copied, relative to the stage.
@@ -153,6 +160,21 @@ pub fn resolve_root(
         )));
     }
     Ok((root, source))
+}
+
+/// The writing source a declaration selects, as one word a reader keeps.
+fn writing_style_of(declaration: &crate::domain::instance_config::InstanceConfig) -> String {
+    use crate::domain::instance_config::WritingSource;
+
+    match declaration.writing_style.source {
+        WritingSource::Builtin => "builtin".to_string(),
+        WritingSource::None => "none".to_string(),
+        WritingSource::Project => declaration
+            .writing_style
+            .path
+            .as_ref()
+            .map_or_else(|| "project".to_string(), |path| format!("project:{path}")),
+    }
 }
 
 /// A scratch sibling this run alone owns.
@@ -201,6 +223,14 @@ pub fn create(request: &Request, state_root: &Utf8Path) -> Result<Receipt, AppEr
         state_root,
     )?;
 
+    // A stage inside the target would be the one thing this command
+    // promises not to do: put the candidate and its reference corpus into
+    // the repository it is supposed to leave alone.
+    if root == target || root.starts_with(&target) {
+        return Err(AppError::Refused(format!(
+            "{root} is inside {target}, and a stage is written outside the target it describes"
+        )));
+    }
     if root.exists() && root.read_dir_utf8().is_ok_and(|mut it| it.next().is_some()) {
         return Err(AppError::Refused(format!(
             "{root} already holds a stage; read it, or remove it with 'sdd stage clean {root}'"
@@ -223,6 +253,43 @@ pub fn create(request: &Request, state_root: &Utf8Path) -> Result<Receipt, AppEr
     // The scratch name is this run's own: a predictable one would make the
     // command remove a sibling nothing proves it wrote.
     let partial = scratch_beside(&root)?;
+    let render = render(&partial, &target, &root, root_source, &candidate, request);
+    match render {
+        Ok(receipt) => finish(&partial, &root, receipt),
+        Err(error) => {
+            // The directory is this run's own, so removing it takes back
+            // only what this run made. A failure that left it behind would
+            // accumulate debris no command removes.
+            let _ = std::fs::remove_dir_all(&partial);
+            Err(error)
+        }
+    }
+}
+
+/// Rename the finished directory into place.
+fn finish(partial: &Utf8Path, root: &Utf8Path, receipt: Receipt) -> Result<Receipt, AppError> {
+    if let Some(parent) = root.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    // An empty directory at the destination is the one thing a rename
+    // cannot land on. Anything else there already refused above.
+    let _ = std::fs::remove_dir(root);
+    if let Err(source) = std::fs::rename(partial, root) {
+        let _ = std::fs::remove_dir_all(partial);
+        return Err(AppError::Io(source));
+    }
+    Ok(receipt)
+}
+
+/// Write one candidate and its reference material under `partial`.
+fn render(
+    partial: &Utf8Path,
+    target: &Utf8Path,
+    root: &Utf8Path,
+    root_source: RootSource,
+    candidate: &crate::candidate::Candidate,
+    request: &Request,
+) -> Result<Receipt, AppError> {
     let mut artifacts = Vec::new();
     for destination in &candidate.destinations {
         let path = partial.join(ARTIFACTS_DIR).join(&destination.path);
@@ -276,33 +343,24 @@ pub fn create(request: &Request, state_root: &Utf8Path) -> Result<Receipt, AppEr
     let receipt = Receipt {
         schema: STAGE_SCHEMA,
         version: crate::domain::version::CanonVersion::current().to_string(),
-        target: target.clone(),
+        target: target.to_owned(),
         profile: request.profile,
-        root: root.clone(),
+        root: root.to_owned(),
         root_source,
-        recorded_version: crate::services::installer::recorded_field(&target, "canon_version")
+        recorded_version: crate::services::installer::recorded_field(target, "canon_version")
             .and_then(|value| value.as_str().map(String::from)),
         docs_root: candidate.manifest.docs_root.to_string(),
         docs_scratch: candidate.manifest.docs_scratch.clone(),
-        reserve: request.reserve.clone(),
+        reserve: candidate.declaration.reserved.clone(),
+        writing_style: writing_style_of(&candidate.declaration),
         artifacts,
         reference,
-        notes: candidate.notes,
+        notes: candidate.notes.clone(),
     };
     let json = serde_json::to_string_pretty(&receipt)
         .map_err(|error| anyhow::anyhow!("the stage receipt does not serialize: {error}"))?;
     crate::adapters::fs::write_file(&partial.join(RECEIPT_FILE), json.as_bytes())?;
 
-    if let Some(parent) = root.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    // An empty directory at the destination is the one thing a rename
-    // cannot land on. Anything else there already refused above.
-    let _ = std::fs::remove_dir(&root);
-    if let Err(source) = std::fs::rename(&partial, &root) {
-        let _ = std::fs::remove_dir_all(&partial);
-        return Err(AppError::Io(source));
-    }
     Ok(receipt)
 }
 

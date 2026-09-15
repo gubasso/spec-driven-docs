@@ -1052,10 +1052,13 @@ fn the_embedded_payload_names_no_other_project() {
                 );
             }
             // Jira is a documented integration, because the payload carries
-            // its comment markup under `reference/tracker-markup/`. The name
-            // is legitimate beside that reference and nowhere else.
+            // its comment markup under `reference/tracker-markup/`. The
+            // name is legitimate inside that shelf, and elsewhere only on a
+            // line that says which shelf it is pointing at.
             assert!(
-                !lower.contains("jira") || lower.contains("tracker-markup"),
+                !lower.contains("jira")
+                    || lower.contains("tracker-markup")
+                    || relative.starts_with("reference/tracker-markup/"),
                 "{relative}:{}: the payload names Jira outside a tracker-markup reference",
                 index + 1
             );

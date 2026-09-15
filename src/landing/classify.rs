@@ -88,8 +88,11 @@ impl Intent {
         match (self, found) {
             (Self::Reconcile | Self::Assess, _)
             // A landing verb still reinstalls over an instance it already
-            // owns. What it may not do is land seeds beside a convention
-            // that is already there, or over a record nobody can read.
+            // owns, which is how a declared location changes. What it may
+            // not do is land seeds beside a convention that is already
+            // there, or over a record nobody can read. Moving the profile
+            // of an installed instance is refused separately, by the
+            // landing itself.
             | (
                 Self::Init,
                 Classification::Setup
@@ -232,7 +235,9 @@ mod tests {
         assert_eq!(error.verb, "sdd init");
         assert!(error.to_string().contains("sdd stage"));
         assert!(Intent::Init.accepts(Classification::Setup).is_ok());
-        // A reinstall over an instance the verb already owns still works.
+        // A reinstall over an instance the verb already owns still works,
+        // which is how a declared location changes. Moving the profile is
+        // what the landing refuses, not the classification.
         assert!(Intent::Init.accepts(Classification::Current).is_ok());
         assert!(Intent::Init.accepts(Classification::Upgrade).is_ok());
         assert!(Intent::Init.accepts(Classification::Invalid).is_err());

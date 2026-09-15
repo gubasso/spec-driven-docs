@@ -29,11 +29,24 @@ pub struct Outcome {
     pub removed: Vec<String>,
 }
 
+/// What the target's own record says this tool owns today.
+///
+/// It decides three things: which whole files may be refreshed, which
+/// marked regions may be re-spliced, and which files a release that
+/// stopped landing them may take back.
+#[derive(Debug, Default, Clone)]
+pub struct Recorded {
+    /// Each managed destination and the digest the record vouches for.
+    pub managed: Vec<(String, Sha256)>,
+    /// Each integration host and the hash of the region this tool owns.
+    pub integration: Vec<(String, Sha256)>,
+}
+
 /// Write the candidate into the target, and record it last.
 ///
-/// `recorded_managed` is what the target's own record says this tool owns
-/// today. It decides two things: which whole files may be refreshed, and
-/// which files a release that stopped landing them may take back.
+/// The caller holds the target lock for the whole of this, including the
+/// observation it passes in: a candidate rendered before the lock would
+/// describe a target somebody else could still be changing.
 ///
 /// # Errors
 ///
@@ -43,17 +56,11 @@ pub struct Outcome {
 pub fn land(
     target: &Utf8Path,
     candidate: &Candidate,
-    recorded_managed: &[(String, Sha256)],
+    recorded: &Recorded,
 ) -> Result<Outcome, AppError> {
-    // The lock comes first, so every observation below describes a target
-    // no other run of this tool is changing underneath it. It bounds
-    // cooperating processes and nothing else, which is why each write
-    // re-checks its own path immediately before it happens.
-    let _lock = super::lock::hold(target)?;
-
     contained(target, candidate)?;
-    unattributed(target, candidate, recorded_managed)?;
-    let retired = retired(target, candidate, recorded_managed)?;
+    unattributed(target, candidate, recorded)?;
+    let retired = retired(target, candidate, &recorded.managed)?;
     let mut outcome = Outcome::default();
 
     for destination in &candidate.destinations {
@@ -66,15 +73,22 @@ pub fn land(
         outcome.written.push(destination.path.clone());
     }
 
-    for destination in retired {
+    for (destination, vouched) in retired {
         let path = target.join(&destination);
         // Re-checked here, not only when the list was built: a component
-        // swapped since then is refused rather than followed.
+        // swapped since then is refused rather than followed, and bytes
+        // that changed since then are left alone. A removal is authorized
+        // by the bytes the record holds, never by the path alone.
         if let Some((_, kind)) = escapes(target, Utf8Path::new(&destination)) {
             return Err(stopped(
                 &AppError::Refused(format!("destination {kind}: {destination}")),
                 &outcome,
             ));
+        }
+        match std::fs::read(&path) {
+            Ok(held) if Sha256::of(&held) == vouched => {}
+            // Gone already, or no longer the bytes the record vouches for.
+            _ => continue,
         }
         match std::fs::remove_file(&path) {
             Ok(()) => {
@@ -101,28 +115,48 @@ pub fn land(
 /// component swapped between the check and the write is refused rather
 /// than followed.
 fn write_one(target: &Utf8Path, destination: &Utf8Path, bytes: &[u8]) -> Result<(), AppError> {
+    let refuse = || {
+        escapes(target, destination)
+            .map(|(component, kind)| AppError::Refused(format!("{component} {kind}")))
+    };
+    // Before the scratch file is created, so nothing is written through a
+    // component that already escapes.
+    if let Some(refusal) = refuse() {
+        return Err(refusal);
+    }
     let path = target.join(destination);
     let scratch = Stage::write(&path, bytes)?;
-    if let Some((component, kind)) = escapes(target, destination) {
+    // And again before the rename, so a component swapped in between is
+    // refused rather than followed.
+    if let Some(refusal) = refuse() {
         Stage::discard(&scratch);
-        return Err(AppError::Refused(format!("{component} {kind}")));
+        return Err(refusal);
     }
     Stage::replace(&scratch, &path)
 }
 
 /// The refusal a run that stopped partway carries.
 fn stopped(cause: &AppError, outcome: &Outcome) -> AppError {
-    let done: Vec<String> = outcome.written.iter().map(ToString::to_string).collect();
-    let finished = if done.is_empty() {
-        "no destination was written".to_string()
-    } else {
-        format!(
+    let mut finished: Vec<String> = Vec::new();
+    if !outcome.written.is_empty() {
+        let done: Vec<String> = outcome.written.iter().map(ToString::to_string).collect();
+        finished.push(format!(
             "these destinations hold candidate bytes: {}",
             done.join(", ")
-        )
-    };
+        ));
+    }
+    if !outcome.removed.is_empty() {
+        finished.push(format!(
+            "these destinations were removed: {}",
+            outcome.removed.join(", ")
+        ));
+    }
+    if finished.is_empty() {
+        finished.push("nothing was written or removed".to_string());
+    }
     AppError::Refused(format!(
-        "the landing stopped: {cause}; {finished}, the previous record still stands, and running this again finishes the rest"
+        "the landing stopped: {cause}; {}, the previous record still stands, and running this again finishes the rest",
+        finished.join("; ")
     ))
 }
 
@@ -199,13 +233,10 @@ fn escapes(target: &Utf8Path, destination: &Utf8Path) -> Option<(Utf8PathBuf, &'
 fn unattributed(
     target: &Utf8Path,
     candidate: &Candidate,
-    recorded_managed: &[(String, Sha256)],
+    recorded: &Recorded,
 ) -> Result<(), AppError> {
     let mut collisions: Vec<String> = Vec::new();
     for destination in &candidate.destinations {
-        if destination.ownership != Ownership::Managed {
-            continue;
-        }
         let path = target.join(&destination.path);
         let Ok(held) = std::fs::read(&path) else {
             continue;
@@ -213,10 +244,20 @@ fn unattributed(
         if held == destination.bytes {
             continue;
         }
-        let vouched = recorded_managed
-            .iter()
-            .find(|(recorded, _)| recorded == destination.path.as_str())
-            .is_some_and(|(_, digest)| digest == &Sha256::of(&held));
+        let vouched = match destination.ownership {
+            Ownership::Managed => recorded
+                .managed
+                .iter()
+                .find(|(name, _)| name == destination.path.as_str())
+                .is_some_and(|(_, digest)| digest == &Sha256::of(&held)),
+            // A marked region sits in a file the project owns, so what the
+            // record vouches for is the region rather than the file. Every
+            // byte outside it is the project's and survives either way.
+            Ownership::Integration => region_vouched(destination, &held, recorded),
+            // An adopted destination is the project's from the moment it
+            // lands, and the projection already kept what is there.
+            Ownership::Adopted => true,
+        };
         if vouched {
             continue;
         }
@@ -229,6 +270,36 @@ fn unattributed(
         "destinations hold bytes no record vouches for: {}; move them aside, or let the setup skill reconcile them",
         collisions.join(", ")
     )))
+}
+
+/// Whether the record vouches for the marked region a host file holds.
+///
+/// A host with no region yet is a first landing into a file the project
+/// wrote, which the record cannot have an entry for and which the splice
+/// leaves otherwise untouched.
+fn region_vouched(
+    destination: &crate::candidate::Destination,
+    held: &[u8],
+    recorded: &Recorded,
+) -> bool {
+    use crate::domain::marker;
+
+    let Ok(text) = std::str::from_utf8(held) else {
+        return false;
+    };
+    let hash = if destination.path == crate::domain::paths::HOOKS_CONFIG_PATH {
+        marker::block_hash(text)
+    } else {
+        marker::block_hash_with(text, marker::AGENTS_BEGIN, marker::AGENTS_END)
+    };
+    let Some(hash) = hash else {
+        return true;
+    };
+    recorded
+        .integration
+        .iter()
+        .find(|(name, _)| name == destination.path.as_str())
+        .is_some_and(|(_, recorded)| recorded == &hash)
 }
 
 /// Remove the directories one removal emptied, inside the roots this tool
@@ -265,7 +336,7 @@ fn retired(
     target: &Utf8Path,
     candidate: &Candidate,
     recorded_managed: &[(String, Sha256)],
-) -> Result<Vec<String>, AppError> {
+) -> Result<Vec<(String, Sha256)>, AppError> {
     let landing: Vec<&str> = candidate
         .destinations
         .iter()
@@ -295,7 +366,7 @@ fn retired(
         if &Sha256::of(&held) != recorded {
             continue;
         }
-        retired.push(destination.clone());
+        retired.push((destination.clone(), recorded.clone()));
     }
     Ok(retired)
 }
@@ -335,7 +406,7 @@ mod tests {
         let target = target(&dir);
         let candidate = candidate();
 
-        let outcome = land(&target, &candidate, &[]).unwrap();
+        let outcome = land(&target, &candidate, &Recorded::default()).unwrap();
 
         assert_eq!(
             outcome.written.last().unwrap(),
@@ -356,9 +427,9 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let target = target(&dir);
         let candidate = candidate();
-        land(&target, &candidate, &[]).unwrap();
+        land(&target, &candidate, &Recorded::default()).unwrap();
 
-        let outcome = land(&target, &candidate, &[]).unwrap();
+        let outcome = land(&target, &candidate, &Recorded::default()).unwrap();
         assert_eq!(outcome.written, vec![Utf8PathBuf::from(MANIFEST_PATH)]);
     }
 
@@ -375,7 +446,7 @@ mod tests {
         crate::adapters::fs::write_file(&target.join(&managed.path), b"somebody else wrote this")
             .unwrap();
 
-        let error = land(&target, &candidate, &[]).unwrap_err();
+        let error = land(&target, &candidate, &Recorded::default()).unwrap_err();
         assert!(error.to_string().contains(managed.path.as_str()), "{error}");
         // Nothing else landed: the refusal is before the first write.
         assert_eq!(
@@ -399,10 +470,13 @@ mod tests {
         // The record names the path and vouches for other bytes, which is
         // what a local edit to a managed file looks like.
         crate::adapters::fs::write_file(&target.join(&managed.path), b"edited since").unwrap();
-        let recorded = vec![(
-            managed.path.to_string(),
-            Sha256::of(b"what the record holds"),
-        )];
+        let recorded = Recorded {
+            managed: vec![(
+                managed.path.to_string(),
+                Sha256::of(b"what the record holds"),
+            )],
+            integration: Vec::new(),
+        };
 
         let error = land(&target, &candidate, &recorded).unwrap_err();
         assert!(error.to_string().contains(managed.path.as_str()), "{error}");
@@ -427,7 +501,10 @@ mod tests {
         crate::adapters::fs::write_file(&target.join(&managed.path), b"older").unwrap();
         // The record vouches for exactly the bytes that are there, which is
         // what an older landing of this tool leaves.
-        let recorded = vec![(managed.path.to_string(), Sha256::of(b"older"))];
+        let recorded = Recorded {
+            managed: vec![(managed.path.to_string(), Sha256::of(b"older"))],
+            integration: Vec::new(),
+        };
 
         land(&target, &candidate, &recorded).unwrap();
         assert_eq!(
@@ -442,7 +519,10 @@ mod tests {
         let target = target(&dir);
         let dropped = ".spec-driven-docs/markdownlint/retired.jsonc";
         crate::adapters::fs::write_file(&target.join(dropped), b"old").unwrap();
-        let recorded = vec![(dropped.to_string(), Sha256::of(b"old"))];
+        let recorded = Recorded {
+            managed: vec![(dropped.to_string(), Sha256::of(b"old"))],
+            integration: Vec::new(),
+        };
 
         let outcome = land(&target, &candidate(), &recorded).unwrap();
         assert_eq!(outcome.removed, vec![dropped.to_string()]);
@@ -455,7 +535,10 @@ mod tests {
         let target = target(&dir);
         let dropped = ".spec-driven-docs/markdownlint/retired.jsonc";
         crate::adapters::fs::write_file(&target.join(dropped), b"edited since").unwrap();
-        let recorded = vec![(dropped.to_string(), Sha256::of(b"old"))];
+        let recorded = Recorded {
+            managed: vec![(dropped.to_string(), Sha256::of(b"old"))],
+            integration: Vec::new(),
+        };
 
         let outcome = land(&target, &candidate(), &recorded).unwrap();
         assert!(outcome.removed.is_empty());
@@ -475,7 +558,7 @@ mod tests {
         )
         .unwrap();
 
-        let error = land(&target, &candidate(), &[]).unwrap_err();
+        let error = land(&target, &candidate(), &Recorded::default()).unwrap_err();
         assert!(error.to_string().contains("symlink"), "{error}");
         assert!(!target.join(MANIFEST_PATH).exists());
     }
@@ -493,7 +576,7 @@ mod tests {
             source: None,
         });
 
-        let error = land(&target, &candidate, &[]).unwrap_err();
+        let error = land(&target, &candidate, &Recorded::default()).unwrap_err();
         assert!(error.to_string().contains("climbs out"), "{error}");
     }
 }

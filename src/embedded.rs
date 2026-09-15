@@ -31,6 +31,13 @@ pub static METHOD: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/method");
 pub static SKILLS: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/skills");
 /// The artifacts every skill shares, installed once outside the skill roots.
 pub static SKILL_SHARED: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/skill-shared");
+/// The comparison documents, which a stage carries as reference material.
+pub static COMPARISON_DOCS: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/comparison-docs");
+/// The prior-art shelf, which a stage carries as reference material.
+pub static PRIOR_ART: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/reference/prior-art");
+/// The tracker-markup shelf, which the format chapter routes a reader to.
+pub static TRACKER_MARKUP: Dir<'static> =
+    include_dir!("$CARGO_MANIFEST_DIR/reference/tracker-markup");
 
 /// The combined license statement naming both halves.
 pub static LICENSE: &str = include_str!("../LICENSE");
@@ -53,6 +60,9 @@ const EMBEDDED_ROOTS: &[(&str, &Dir<'static>)] = &[
     ("method", &METHOD),
     ("skills", &SKILLS),
     ("skill-shared", &SKILL_SHARED),
+    ("comparison-docs", &COMPARISON_DOCS),
+    ("reference/prior-art", &PRIOR_ART),
+    ("reference/tracker-markup", &TRACKER_MARKUP),
 ];
 
 /// Every embedded root paired with the authored path it came from.

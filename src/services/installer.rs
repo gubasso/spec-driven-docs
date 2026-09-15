@@ -303,6 +303,31 @@ pub fn init(
         && !target.join(MANIFEST_PATH).is_file();
     let dry = options.dry_run || forced_dry;
 
+    // A preview reads and writes nothing, so it needs no lock. An apply
+    // holds one across the observation as well as the writes: a candidate
+    // rendered before the lock would describe a target another run could
+    // still be changing.
+    let held = if dry {
+        None
+    } else {
+        Some(crate::landing::lock::hold(&target)?)
+    };
+
+    // A profile carries the documentation root, so changing it moves every
+    // adopted document to a new home and leaves the old corpus where it
+    // is. That is a migration somebody asks for deliberately, never a
+    // consequence of running a landing verb with a different flag.
+    if let Some(recorded) = recorded_field(&target, "profile").and_then(|value| {
+        ProfileId::every().find(|profile| Some(profile.as_str()) == value.as_str())
+    }) && recorded != options.profile
+    {
+        return Err(AppError::Refused(format!(
+            "{target} records the {recorded} profile and this run asks for {}; \
+             moving a profile moves the documentation root, which is a migration to ask for deliberately",
+            options.profile
+        )));
+    }
+
     let candidate = candidate_for(&target, options)?;
     let mut lines: Vec<String> = candidate
         .destinations
@@ -327,7 +352,8 @@ pub fn init(
         });
     }
 
-    let outcome = crate::landing::apply::land(&target, &candidate, &recorded_managed(&target))?;
+    let outcome = crate::landing::apply::land(&target, &candidate, &recorded(&target))?;
+    drop(held);
     Ok(InitOutcome {
         lines,
         applied: true,
@@ -338,11 +364,23 @@ pub fn init(
 /// What the target's own record says this tool owns today.
 ///
 /// Read as free JSON, so a record an older release wrote still says which
-/// files this tool may refresh and which it may take back.
-pub(crate) fn recorded_managed(
+/// files this tool may refresh, which regions it may re-splice, and which
+/// files it may take back.
+pub(crate) fn recorded(target: &Utf8Path) -> crate::landing::apply::Recorded {
+    crate::landing::apply::Recorded {
+        managed: digests(target, "managed_files", "destination", "sha256"),
+        integration: digests(target, "integration_blocks", "path", "marker_hash"),
+    }
+}
+
+/// One recorded list, as pairs of destination and digest.
+fn digests(
     target: &Utf8Path,
+    key: &str,
+    name: &str,
+    digest: &str,
 ) -> Vec<(String, crate::domain::ownership::Sha256)> {
-    let Some(value) = recorded_field(target, "managed_files") else {
+    let Some(value) = recorded_field(target, key) else {
         return Vec::new();
     };
     let Some(entries) = value.as_array() else {
@@ -351,10 +389,10 @@ pub(crate) fn recorded_managed(
     entries
         .iter()
         .filter_map(|entry| {
-            let destination = entry.get("destination")?.as_str()?.to_string();
-            let digest = entry.get("sha256")?.as_str()?;
-            let digest = digest.parse::<crate::domain::ownership::Sha256>().ok()?;
-            Some((destination, digest))
+            let destination = entry.get(name)?.as_str()?.to_string();
+            let held = entry.get(digest)?.as_str()?;
+            let held = held.parse::<crate::domain::ownership::Sha256>().ok()?;
+            Some((destination, held))
         })
         .collect()
 }
