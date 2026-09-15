@@ -1761,42 +1761,18 @@ fn the_declaration_roots_equal_the_payload_roots() {
     }
 }
 
-/// SATISFIES bundle:a-release-is-read-through-one-seam
+/// SATISFIES staging:the-operator-owns-acquisition
 ///
-/// A landing verb that reached the embedded payload directly could only
-/// describe the release it was compiled with, whatever the seam says.
+/// A landing verb that took a release as an argument would be answering a
+/// question the operator's own project manager already answered.
 #[test]
-fn no_landing_service_names_the_embedded_payload() {
-    const LANDING: &[&str] = &[
-        "src/services/installer.rs",
-        "src/services/upgrader.rs",
-        "src/services/verifier.rs",
-        "src/services/policy.rs",
-        "src/services/assess.rs",
-    ];
-    for relative in LANDING {
-        let text = read(relative);
-        let production = text
-            .split_once("#[cfg(test)]")
-            .map_or_else(|| text.clone(), |(before, _)| before.to_string());
-        assert!(
-            !production.contains("crate::embedded::asset("),
-            "{relative} reads the embedded payload rather than the release bundle"
-        );
-    }
-}
-
-/// SATISFIES bundle:a-release-is-read-through-one-seam
-#[test]
-fn every_landing_verb_takes_a_release_bundle() {
+fn no_landing_verb_takes_a_release() {
     const SIGNATURES: &[(&str, &str)] = &[
         ("src/services/installer.rs", "pub fn init("),
         ("src/services/upgrader.rs", "pub fn upgrade("),
         ("src/services/verifier.rs", "pub fn verify("),
-        ("src/services/policy.rs", "pub fn plan("),
-        ("src/services/policy.rs", "pub fn apply_all("),
         ("src/services/assess.rs", "pub fn assess("),
-        ("src/services/self_manifest.rs", "pub fn regenerate("),
+        ("src/stage.rs", "pub fn create("),
     ];
     for (relative, signature) in SIGNATURES {
         let text = read(relative);
@@ -1808,10 +1784,38 @@ fn every_landing_verb_takes_a_release_bundle() {
             .unwrap_or_else(|| panic!("{relative}: {signature} has no return type"));
         let head = &text[start..start + end];
         assert!(
-            head.contains("ReleaseBundle"),
-            "{relative}: {signature} takes no release bundle"
+            !head.contains("ReleaseBundle"),
+            "{relative}: {signature} still takes a release bundle"
         );
     }
+}
+
+/// SATISFIES staging:the-operator-owns-acquisition
+///
+/// One function owns every byte a landing writes, and it reads this
+/// binary's own sources. A service that rendered bytes of its own would be
+/// a second answer to the one question the candidate exists to answer.
+#[test]
+fn only_the_candidate_renders_the_bytes_a_landing_writes() {
+    const LANDING: &[&str] = &[
+        "src/services/installer.rs",
+        "src/services/upgrader.rs",
+        "src/landing/apply.rs",
+    ];
+    for relative in LANDING {
+        let text = read(relative);
+        let production = text
+            .split_once("#[cfg(test)]")
+            .map_or_else(|| text.clone(), |(before, _)| before.to_string());
+        assert!(
+            !production.contains("crate::embedded::asset("),
+            "{relative} reads the payload itself rather than through the candidate"
+        );
+    }
+    assert!(
+        read("src/candidate.rs").contains("crate::embedded::asset("),
+        "the candidate no longer reads this binary's own sources"
+    );
 }
 
 /// SATISFIES bundle:a-pre-schema-release-is-cataloged-or-unavailable

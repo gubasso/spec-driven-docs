@@ -15,16 +15,13 @@ use crate::domain::ownership::Sha256;
 use crate::domain::paths::UserEnv;
 use crate::domain::profile::ProfileId;
 use crate::error::AppError;
-use crate::plan::apply::{Request, apply as execute};
 use crate::plan::observe::observe;
 use crate::plan::planner::{Inputs, plan as compute};
-use crate::plan::store::{Result as ApplyResult, Store};
 use crate::plan::{Plan, compatibility, decision, guidance};
 use crate::release::crates_io::CratesIoResolver;
 use crate::release::embedded::EmbeddedReleaseBundle;
 use crate::release::{Provenance, ReleaseBundle, ReleaseResolver, Role, Selector};
 use crate::services::installer::{InitOptions, compute_target_state};
-use crate::transaction::lock::Lock;
 
 /// How long a verb waits for the store before it refuses.
 ///
@@ -125,27 +122,6 @@ pub(crate) struct ReleaseRef<'a> {
     pub checksum: Option<Sha256>,
     /// Whether the registry marks it withdrawn.
     pub yanked: bool,
-}
-
-impl<'a> ReleaseRef<'a> {
-    /// Describe a bundle a caller already holds.
-    ///
-    /// # Errors
-    ///
-    /// Whatever the bundle's manifest refuses.
-    pub(crate) fn of(bundle: &'a dyn ReleaseBundle) -> Result<Self, AppError> {
-        let manifest = bundle.manifest()?;
-        Ok(Self {
-            bundle,
-            version: manifest.version.to_string(),
-            provenance: match manifest.provenance {
-                Provenance::Native => "native",
-                Provenance::LegacyAdapted => "legacy-adapted",
-            },
-            checksum: None,
-            yanked: false,
-        })
-    }
 }
 
 impl Release {
@@ -550,203 +526,4 @@ pub(crate) fn blobs_for(plan: &Plan, bundle: &dyn ReleaseBundle) -> BTreeMap<Sha
         }
     }
     blobs
-}
-
-/// What one landing asked for.
-pub(crate) struct Landing<'a> {
-    /// The repository, already canonical.
-    pub target: &'a Utf8Path,
-    /// The release that lands, resolved once by the caller.
-    ///
-    /// The object, not a selector to resolve again. A caller that reads a
-    /// fixture or an older release must land that release's bytes, and a
-    /// second resolution here would land whatever this binary carries
-    /// while the caller's preview described something else.
-    pub release: ReleaseRef<'a>,
-    /// Whether the network is forbidden.
-    pub offline: bool,
-    /// Every decision the operator answered, validated against the plan.
-    ///
-    /// Only these. A value the front carries internally, such as the
-    /// profile a record already names, is not an answer anybody typed and
-    /// is not a decision the plan offers, so validating it would refuse a
-    /// correct request.
-    pub selections: decision::Selections,
-    /// Answers the front supplies for itself, which nobody typed.
-    pub carried: decision::Selections,
-    /// Paths no delivered gate judges, from the caller's flags.
-    pub reserve: Vec<String>,
-    /// The declarations a front already holds, where it holds them.
-    ///
-    /// A front carries recorded values that have no flag spelling to
-    /// round-trip through, so it hands them over as they are rather than
-    /// rendering them into answers the planner would parse back.
-    pub declared: Option<InitOptions>,
-}
-
-impl Landing<'_> {
-    /// What the plan records as the caller's request.
-    ///
-    /// The embedded release has no version to look up, so it keeps the
-    /// word rather than a triple: an apply that read the triple back
-    /// would go to the registry for a release this binary already holds.
-    fn selector(&self) -> String {
-        if self.release.provenance == "native"
-            && self.release.version == crate::domain::version::CanonVersion::current().to_string()
-        {
-            "embedded".to_string()
-        } else {
-            self.release.version.clone()
-        }
-    }
-}
-
-/// Take one plan's own lock, after an opportunistic prune.
-///
-/// The prune walks the whole store, so it takes the store lock and gives
-/// up rather than waiting: it is housekeeping, and a landing that skipped
-/// it loses nothing but disk.
-///
-/// # Errors
-///
-/// [`AppError::Busy`] when another writer holds this fingerprint.
-fn plan_lock(store: &Store, fingerprint: &str) -> Result<Lock, AppError> {
-    if let Ok(_walk) = Lock::exclusive(&store.lock_path(), "plan store prune") {
-        let _ = store.prune(jiff::Timestamp::now(), Some(fingerprint));
-    }
-    Lock::exclusive_waiting(&store.plan_lock_path(fingerprint)?, "landing", STORE_WAIT)
-}
-
-/// Say what a refusal to write under the state root actually means.
-///
-/// A landing is a journalled transaction, so it needs somewhere to keep
-/// its lock, its plan, and the bytes it will write. A state root this user
-/// cannot write is therefore a refusal, and the message names the root and
-/// the variable that moves it rather than reporting a bare errno.
-fn unwritable_state(cause: AppError) -> AppError {
-    let AppError::Io(ref source) = cause else {
-        return cause;
-    };
-    if source.kind() != std::io::ErrorKind::PermissionDenied {
-        return cause;
-    }
-    let root = state_root().map_or_else(|_| "the state root".to_string(), |path| path.to_string());
-    AppError::Refused(format!(
-        "{root} cannot be written: {source}; every landing keeps its lock, its plan, and its journal there, so set {} to a directory this user owns",
-        crate::domain::paths::XDG_STATE_HOME_VAR
-    ))
-}
-
-/// Compute the plan one landing would run, and write nothing.
-///
-/// What a preview owes its reader is the plan, not a list of paths. A
-/// preview that could not show a blocked precondition or a decision the
-/// interval raises would tell an operator the run is ready when it is not.
-///
-/// # Errors
-///
-/// [`AppError::Busy`] when a writer holds the target, and whatever the
-/// planner refuses.
-pub(crate) fn preview(request: &Landing<'_>) -> Result<Plan, AppError> {
-    let _lock =
-        Lock::shared(&target_lock(request.target)?, "landing preview").map_err(unwritable_state)?;
-    let mut answers = request.carried.clone();
-    answers.extend(request.selections.clone());
-    let (plan, _) = compute_plan(
-        request.target,
-        &request.selector(),
-        request.offline,
-        &answers,
-        &request.reserve,
-        request.declared.as_ref(),
-        &request.release,
-    )?;
-    decision::validate(&plan.decisions, &request.selections)
-        .map_err(|error| AppError::Usage(error.to_string()))?;
-    Ok(plan)
-}
-
-/// What a preview says about a plan beyond the destinations it names.
-///
-/// One line per thing that would stop the run or ask a question. A ready
-/// plan adds nothing, because the destination list already said it all.
-#[must_use]
-pub(crate) fn preview_lines(plan: &Plan) -> Vec<String> {
-    let mut lines = Vec::new();
-    for precondition in &plan.preconditions {
-        if precondition.requirement == crate::plan::readiness::Requirement::Required
-            && !precondition.evaluation.is_satisfied()
-        {
-            lines.push(format!(
-                "BLOCKED {}: {}",
-                precondition.id, precondition.statement
-            ));
-        }
-    }
-    for decision in &plan.decisions {
-        if decision.selected.is_none() {
-            lines.push(format!("DECISION {}: {}", decision.id, decision.question));
-        }
-    }
-    lines
-}
-
-/// Plan one landing and execute it.
-///
-/// The one path from a target to a write. Every front reaches the engine
-/// here, so an operation is never derived twice and never applied outside
-/// the journal that can take it back. A caller that wants a preview asks
-/// for a plan and does not call this.
-///
-/// # Errors
-///
-/// [`AppError::Busy`] when another writer holds the target, and whatever
-/// the planner, the store, or the executor refuses.
-pub(crate) fn land(request: &Landing<'_>) -> Result<ApplyResult, AppError> {
-    let _lock =
-        Lock::exclusive(&target_lock(request.target)?, "landing").map_err(unwritable_state)?;
-    let release = &request.release;
-    let mut answers = request.carried.clone();
-    answers.extend(request.selections.clone());
-    let (plan, blobs) = compute_plan(
-        request.target,
-        &request.selector(),
-        request.offline,
-        &answers,
-        &request.reserve,
-        request.declared.as_ref(),
-        release,
-    )?;
-    // An answer the plan does not offer is not authorization. The front
-    // verbs take `--set` too, so the check belongs here rather than in one
-    // caller: a malformed answer that reached a precondition would turn
-    // typing into consent.
-    decision::validate(&plan.decisions, &request.selections)
-        .map_err(|error| AppError::Usage(error.to_string()))?;
-
-    let store = Store::new(&state_root()?);
-    // A landing is a journalled transaction, so it needs somewhere to keep
-    // the journal and the bytes it will write. A state root this user
-    // cannot write is therefore a refusal, and the message names the root
-    // and the variable that moves it rather than reporting a bare errno.
-    store.create().map_err(unwritable_state)?;
-    let _store_lock = plan_lock(&store, &plan.identity.plan_id)?;
-    if !store.holds(&plan.identity.plan_id) {
-        let mut blobs = blobs;
-        for (digest, bytes) in blobs_for(&plan, release.bundle) {
-            blobs.entry(digest).or_insert(bytes);
-        }
-        store.put(&plan, &blobs)?;
-    }
-    execute(&Request {
-        store: &store,
-        target: request.target,
-        stored: &plan,
-        // The plan was computed a moment ago under this same exclusive
-        // lock, so nothing could move between the two. The apply still
-        // compares the two fingerprints rather than assuming that.
-        recomputed: &plan,
-        bundle: release.bundle,
-        now: jiff::Timestamp::now().to_string(),
-    })
 }

@@ -706,11 +706,11 @@ fn an_upgrade_never_reconciles() {
 
 /// VERIFIES distribution:upgrade-conflicts-are-atomic
 ///
-/// The preview is the plan. A release in the interval that asks something
-/// of a person is exactly what a dry run must show, and a version pair
-/// alone cannot show it.
+/// A dry run says which versions it would move between and writes nothing.
+/// What a release asks of a person travels in the changelog and the setup
+/// skill, so the preview does not carry a second copy of it.
 #[test]
-fn a_dry_run_names_the_decision_the_interval_raises() {
+fn a_dry_run_names_the_version_move_and_writes_nothing() {
     let fixture = v1_instance();
     let digest = fixture.tree_digest();
     fixture
@@ -718,9 +718,6 @@ fn a_dry_run_names_the_decision_the_interval_raises() {
         .args(["upgrade", "--target", &fixture.target(), "--dry-run"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("DRY RUN upgrade 0.1.6 to"))
-        .stdout(predicate::str::contains(
-            "DECISION guidance:0.7.0:re-point-the-retired-rule",
-        ));
+        .stdout(predicate::str::contains("DRY RUN upgrade 0.1.6 to"));
     assert_eq!(digest, fixture.tree_digest(), "a dry run changed bytes");
 }

@@ -15,7 +15,7 @@ use crate::domain::ownership::Sha256;
 use crate::domain::profile::ProfileId;
 use crate::domain::version::CanonVersion;
 use crate::error::AppError;
-use crate::services::installer::{InitOptions, init_with};
+use crate::services::installer::{InitOptions, init};
 
 /// What an upgrade was asked to do.
 #[derive(Debug, Clone)]
@@ -184,9 +184,8 @@ fn reinstall_options(target: &Utf8Path, profile: ProfileId) -> InitOptions {
 
 /// Report what the landing took back.
 ///
-/// The removals are the plan's own operations, applied under its journal,
-/// and the executor sweeps the directory each one emptied inside that
-/// same transaction. This only says what happened.
+/// The removals are the landing's own, taken only where the record
+/// vouched for the bytes it removed. This only says what happened.
 fn report_removals(removed: &[String], outcome: &mut UpgradeOutcome) {
     for raw in removed {
         outcome
@@ -203,10 +202,7 @@ fn report_removals(removed: &[String], outcome: &mut UpgradeOutcome) {
 /// remain unfinished, [`AppError::Refused`] when the binary is older than
 /// the instance or the reinstall refuses, and manifest errors when the
 /// record cannot be read.
-pub fn upgrade(
-    options: &UpgradeOptions,
-    bundle: &dyn crate::release::ReleaseBundle,
-) -> Result<UpgradeOutcome, AppError> {
+pub fn upgrade(options: &UpgradeOptions) -> Result<UpgradeOutcome, AppError> {
     if !options.target.is_absolute() {
         return Err(AppError::Usage("target must be absolute".to_string()));
     }
@@ -220,15 +216,9 @@ pub fn upgrade(
         .map_err(|p| AppError::Usage(format!("target is not UTF-8: {}", p.display())))?;
 
     let installed = read_installed(&target)?;
-    // The destination is the release the caller handed over, not the
-    // engine running. Reporting the engine's version would name a release
-    // the target does not hold, and every later classification reads it.
-    let new: CanonVersion = bundle
-        .manifest()?
-        .version
-        .to_string()
-        .parse()
-        .map_err(|_| AppError::Refused("the release is not a version triple".to_string()))?;
+    // The version landed is the version running. The operator chose which
+    // binary to install, and that binary projects only itself.
+    let new = CanonVersion::current();
     let old = installed.version;
     let mut outcome = UpgradeOutcome::default();
 
@@ -270,38 +260,32 @@ pub fn upgrade(
                 .lines
                 .push(format!("DRY RUN upgrade {old} to {new}"));
         }
-        // The preview is the plan. A release in the interval that asks
-        // something of a person is exactly what a dry run must show, and
-        // a version pair alone cannot show it.
-        let preview = init_with(
-            &options.selections,
+        // A seed the landing will not write, and a file it cannot account
+        // for, are what a dry run exists to show.
+        let preview = init(
             &reinstall_options(&target, installed.profile),
-            bundle,
             crate::plan::classify::Intent::Reconcile,
         )
         .map_err(|error| {
             AppError::Refused(format!(
-                "upgrade could not be planned from {old} to {new}: {error}"
+                "upgrade could not be previewed from {old} to {new}: {error}"
             ))
         })?;
-        outcome
-            .lines
-            .extend(preview.lines.into_iter().filter(|line| {
-                line.starts_with("BLOCKED")
-                    || line.starts_with("DECISION")
-                    || line.starts_with("note:")
-            }));
+        outcome.lines.extend(
+            preview
+                .lines
+                .into_iter()
+                .filter(|line| line.starts_with("note:")),
+        );
         return Ok(outcome);
     }
 
-    let reinstalled = init_with(
-        &options.selections,
+    let reinstalled = init(
         &InitOptions {
             apply: true,
             dry_run: false,
             ..reinstall_options(&target, installed.profile)
         },
-        bundle,
         // The upgrade already classified the target; the reinstall is its
         // own act rather than a second landing decision.
         crate::plan::classify::Intent::Reconcile,

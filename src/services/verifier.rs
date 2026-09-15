@@ -16,7 +16,6 @@ use crate::domain::marker;
 use crate::domain::paths::{AGENTS_DIGEST_PATH, HOOKS_CONFIG_PATH};
 use crate::domain::version::CanonVersion;
 use crate::error::AppError;
-use crate::release::ReleaseBundle;
 
 /// What a verification run reports.
 #[derive(Debug, Default)]
@@ -288,9 +287,9 @@ fn check_projection_against(
 /// [`AppError::ManifestMissing`] / [`AppError::ManifestInvalid`] when the
 /// record itself cannot be trusted, and I/O errors when the disk cannot be
 /// read; recorded-versus-disk differences are reported, not raised.
-pub fn verify(target: &Utf8Path, bundle: &dyn ReleaseBundle) -> Result<VerifyReport, AppError> {
+pub fn verify(target: &Utf8Path) -> Result<VerifyReport, AppError> {
     let manifest = read_manifest(target)?;
-    let released = bundle.declaration()?;
+    let released = &*crate::domain::profile::DECLARATION;
     let mut report = VerifyReport::default();
 
     check_declaration(target, &manifest, &mut report);
@@ -338,7 +337,7 @@ pub fn verify(target: &Utf8Path, bundle: &dyn ReleaseBundle) -> Result<VerifyRep
         }
     }
 
-    check_projection_against(&released, &manifest, &mut report);
+    check_projection_against(released, &manifest, &mut report);
     check_integration(target, &manifest, &mut report)?;
     check_specs(target, &manifest, &mut report)?;
     check_debt(target, &mut report);

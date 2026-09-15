@@ -123,10 +123,7 @@ pub fn status(target: &Utf8Path) -> Result<StatusReport, AppError> {
         Err(AppError::ManifestMissing(_)) => return Ok(absent(target)),
         Err(error) => return Err(error),
     };
-    let report = verifier::verify(
-        target,
-        &crate::release::embedded::EmbeddedReleaseBundle::new(),
-    )?;
+    let report = verifier::verify(target)?;
     let binary = CanonVersion::current();
     let alignment = match manifest.canon_version.cmp(&binary) {
         std::cmp::Ordering::Equal => Alignment::Aligned,

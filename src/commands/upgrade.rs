@@ -27,14 +27,11 @@ pub fn run(ctx: &AppContext, args: UpgradeArgs) -> Result<(), AppError> {
     crate::commands::front::serves(crate::plan::classify::Intent::Upgrade, &target)?;
     let selections = crate::plan::decision::parse(&args.set)
         .map_err(|error| AppError::Usage(error.to_string()))?;
-    let outcome = upgrade(
-        &UpgradeOptions {
-            target,
-            dry_run: args.dry_run,
-            selections,
-        },
-        &crate::release::embedded::EmbeddedReleaseBundle::new(),
-    )?;
+    let outcome = upgrade(&UpgradeOptions {
+        target,
+        dry_run: args.dry_run,
+        selections,
+    })?;
     for line in &outcome.lines {
         output::line(line);
     }

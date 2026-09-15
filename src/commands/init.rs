@@ -44,7 +44,6 @@ pub fn run(_ctx: &AppContext, args: InitArgs) -> Result<(), AppError> {
             reserve: args.reserve,
             writing_style,
         },
-        &crate::release::embedded::EmbeddedReleaseBundle::new(),
         Intent::Init,
     )?;
     for line in &outcome.lines {

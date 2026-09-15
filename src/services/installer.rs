@@ -15,7 +15,6 @@ use crate::domain::paths::{AGENTS_DIGEST_PATH, HOOKS_CONFIG_PATH};
 use crate::domain::profile::{ProfileId, resolve_destination};
 use crate::domain::version::CanonVersion;
 use crate::error::AppError;
-use crate::release::ReleaseBundle;
 
 /// What an installation was asked to do.
 #[derive(Debug, Clone)]
@@ -286,32 +285,11 @@ fn gather(target: &Utf8Path, options: &InitOptions) -> Result<crate::candidate::
 /// # Errors
 ///
 /// [`AppError::Usage`] for a target the arguments cannot mean,
-/// [`AppError::Marker`] for a configuration whose markers cannot be trusted,
-/// and [`AppError::Refused`] when the apply could not complete — the target
-/// is restored before that returns.
+/// [`AppError::Marker`] for a configuration whose markers cannot be
+/// trusted, and [`AppError::Refused`] when a destination escapes the
+/// target, holds bytes no record accounts for, or cannot be written.
 pub fn init(
     options: &InitOptions,
-    bundle: &dyn ReleaseBundle,
-    intent: crate::plan::classify::Intent,
-) -> Result<InitOutcome, AppError> {
-    init_with(
-        &crate::plan::decision::Selections::new(),
-        options,
-        bundle,
-        intent,
-    )
-}
-
-/// Install or reinstall an instance, carrying answers the caller collected.
-///
-/// # Errors
-///
-/// As [`init`], plus whatever the plan refuses when a decision it raises
-/// is unanswered.
-pub fn init_with(
-    answered: &crate::plan::decision::Selections,
-    options: &InitOptions,
-    bundle: &dyn ReleaseBundle,
     intent: crate::plan::classify::Intent,
 ) -> Result<InitOutcome, AppError> {
     let target = canonical_target(&options.target)?;
@@ -325,18 +303,14 @@ pub fn init_with(
         && !target.join(MANIFEST_PATH).is_file();
     let dry = options.dry_run || forced_dry;
 
-    let state = compute_target_state(&target, options)?;
-    let mut lines = state.lines;
-
-    let landing = crate::plan::session::Landing {
-        target: &target,
-        release: crate::plan::session::ReleaseRef::of(bundle)?,
-        offline: true,
-        selections: answered.clone(),
-        carried: profile_only(options.profile),
-        reserve: options.reserve.clone(),
-        declared: Some(options.clone()),
-    };
+    let candidate = candidate_for(&target, options)?;
+    let mut lines: Vec<String> = candidate
+        .destinations
+        .iter()
+        .map(|destination| destination.path.to_string())
+        .collect();
+    lines.extend(candidate.notes.iter().cloned());
+    lines.push(MANIFEST_PATH.to_string());
 
     if dry {
         if forced_dry {
@@ -345,12 +319,6 @@ pub fn init_with(
                     .to_string(),
             );
         }
-        // The preview is the plan. A destination list alone cannot say
-        // that a precondition blocks the run or that a release in the
-        // interval asks something of a person.
-        lines.extend(crate::plan::session::preview_lines(
-            &crate::plan::session::preview(&landing)?,
-        ));
         lines.push("DRY RUN: no files written".to_string());
         return Ok(InitOutcome {
             lines,
@@ -359,46 +327,34 @@ pub fn init_with(
         });
     }
 
-    // Every write into a target comes from an operation in one plan, so
-    // this verb reaches the engine rather than writing what it computed.
-    // The state above is what the planner derives its operations from, so
-    // the landing is the same landing; what it gains is the plan's own id,
-    // the journal that can take it back, and a recorded result.
-    let result = crate::plan::session::land(&landing)?;
-    for refused in result
-        .postconditions
-        .iter()
-        .filter(|postcondition| !postcondition.held)
-    {
-        lines.push(format!(
-            "FAIL {} did not hold: {}",
-            refused.id,
-            refused.detail.clone().unwrap_or_default()
-        ));
-    }
+    let outcome = crate::landing::apply::land(&target, &candidate, &recorded_managed(&target))?;
     Ok(InitOutcome {
         lines,
         applied: true,
-        removed: result
-            .operations
-            .iter()
-            .filter(|operation| operation.kind == "remove-owned-file")
-            .map(|operation| operation.path.clone())
-            .collect(),
+        removed: outcome.removed,
     })
 }
 
-/// The one decision a front's flags still answer by name.
+/// What the target's own record says this tool owns today.
 ///
-/// The rest travel as the options themselves. A flag and a decision are
-/// the same answer under two names, and rendering a recorded value back
-/// into its flag spelling only to parse it again is a round trip that can
-/// lose what it carries.
-fn profile_only(profile: ProfileId) -> crate::plan::decision::Selections {
-    let mut selections = crate::plan::decision::Selections::new();
-    selections.insert(
-        crate::plan::decision::id::PROFILE.to_string(),
-        profile.to_string(),
-    );
-    selections
+/// Read as free JSON, so a record an older release wrote still says which
+/// files this tool may refresh and which it may take back.
+pub(crate) fn recorded_managed(
+    target: &Utf8Path,
+) -> Vec<(String, crate::domain::ownership::Sha256)> {
+    let Some(value) = recorded_field(target, "managed_files") else {
+        return Vec::new();
+    };
+    let Some(entries) = value.as_array() else {
+        return Vec::new();
+    };
+    entries
+        .iter()
+        .filter_map(|entry| {
+            let destination = entry.get("destination")?.as_str()?.to_string();
+            let digest = entry.get("sha256")?.as_str()?;
+            let digest = digest.parse::<crate::domain::ownership::Sha256>().ok()?;
+            Some((destination, digest))
+        })
+        .collect()
 }

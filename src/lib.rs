@@ -52,6 +52,7 @@ pub mod domain;
 pub mod embedded;
 pub mod error;
 pub mod gates;
+pub mod landing;
 pub mod logging;
 pub mod output;
 pub mod payload_roots;

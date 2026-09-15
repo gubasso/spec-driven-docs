@@ -150,7 +150,7 @@ pub fn apply(request: &Request<'_>) -> std::result::Result<ApplyResult, AppError
         target,
         stored,
         recomputed,
-        bundle,
+        bundle: _,
         now,
     } = request;
     let directory = store.directory(&stored.identity.plan_id);
@@ -224,7 +224,7 @@ pub fn apply(request: &Request<'_>) -> std::result::Result<ApplyResult, AppError
         // target that already holds every byte can still fail its own
         // verification, and reporting success without looking would put
         // that claim in the result unchecked.
-        let postconditions = prove(target, stored, *bundle);
+        let postconditions = prove(target, stored);
         let failed: Vec<&PostconditionOutcome> =
             postconditions.iter().filter(|held| !held.held).collect();
         let (disposition, reason) = failed.first().map_or_else(
@@ -256,7 +256,7 @@ pub fn apply(request: &Request<'_>) -> std::result::Result<ApplyResult, AppError
         return Err(refuse(&result.reason));
     }
 
-    execute(store, target, stored, *bundle, now)
+    execute(store, target, stored, now)
 }
 
 /// Stage, journal, replace, and prove.
@@ -264,7 +264,6 @@ fn execute(
     store: &Store,
     target: &Utf8Path,
     plan: &Plan,
-    bundle: &dyn crate::release::ReleaseBundle,
     now: &str,
 ) -> std::result::Result<ApplyResult, AppError> {
     let directory = store.directory(&plan.identity.plan_id);
@@ -310,7 +309,7 @@ fn execute(
         affected.push(operation.path().as_str().to_string());
     }
 
-    let postconditions = prove(target, plan, bundle);
+    let postconditions = prove(target, plan);
     if let Some(first) = postconditions.iter().find(|held| !held.held) {
         let reason = format!(
             "apply aborted: the postcondition {} did not hold: {}",
@@ -532,11 +531,7 @@ fn ordered(plan: &Plan) -> Vec<&Operation> {
 }
 
 /// What the apply proves once every operation has landed.
-fn prove(
-    target: &Utf8Path,
-    plan: &Plan,
-    bundle: &dyn crate::release::ReleaseBundle,
-) -> Vec<PostconditionOutcome> {
+fn prove(target: &Utf8Path, plan: &Plan) -> Vec<PostconditionOutcome> {
     plan.postconditions
         .iter()
         .map(|postcondition| match postcondition.id.as_str() {
@@ -564,7 +559,7 @@ fn prove(
                 }
             }
             "verification-passes" => {
-                let report = crate::services::verifier::verify(target, bundle);
+                let report = crate::services::verifier::verify(target);
                 let detail = match &report {
                     Ok(report) if report.failures == 0 => None,
                     Ok(report) => Some(format!(

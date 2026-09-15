@@ -23,10 +23,7 @@ pub fn run(ctx: &AppContext, args: AssessArgs) -> Result<(), AppError> {
     } else {
         return Err(AppError::Usage("target must be absolute or .".to_string()));
     };
-    let report = assess(
-        &target,
-        &crate::release::embedded::EmbeddedReleaseBundle::new(),
-    )?;
+    let report = assess(&target)?;
     if args.json {
         return output::json(&report);
     }
