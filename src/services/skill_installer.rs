@@ -218,6 +218,10 @@ fn owning_root<'a>(layout: &'a Layout, destination: &Utf8Path) -> Option<&'a Utf
         .roots
         .iter()
         .chain(std::iter::once(&layout.state_root))
+        // The retired root is swept rather than written, and a sweep
+        // unlinks. A destination under it that no root claimed would reach
+        // the removal with no component checked at all.
+        .chain(std::iter::once(&layout.legacy_shared))
         .map(Utf8PathBuf::as_path)
         .find(|root| destination.starts_with(root))
 }
@@ -421,7 +425,9 @@ fn install_with(
     let stale = leftovers(&layout.scanned(), &record, &kept);
     for (destination, _, ours) in &stale {
         if *ours {
-            lines.push(format!("sweep (no longer in the payload): {destination}"));
+            lines.push(format!(
+                "to sweep (no longer in the payload): {destination}"
+            ));
         } else {
             lines.push(format!("kept (edited): {destination}"));
         }
@@ -643,6 +649,7 @@ fn run_transaction(
         // A component swapped since the run was planned is refused rather
         // than followed: a removal through a link would unlink somebody
         // else's file.
+        //
         if let Some(root) = owning_root(layout, destination)
             && let Some(one) = blocked_by(root, destination)
         {
@@ -669,6 +676,7 @@ fn run_transaction(
                 return Err(stopped(Failure::Error(AppError::Io(source)), &completed));
             }
         }
+        lines.push(format!("swept: {destination}"));
         completed.push(destination.clone());
         reached(&mut passed, interrupt)?;
     }
@@ -907,6 +915,22 @@ mod tests {
             before
         );
         assert_eq!(std::fs::read(&layout.receipt).unwrap(), receipt_before);
+    }
+
+    #[test]
+    fn the_retired_root_is_a_root_the_component_check_knows() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut layout = home(&dir);
+        // The retired root is home-relative and the state root follows
+        // `XDG_STATE_HOME`, so a moved state root leaves the retired root
+        // outside it. A sweep there would otherwise unlink through
+        // components nothing inspected.
+        layout.state_root = root(&dir).join("moved/state");
+        let leftover = layout.legacy_shared.join("plan-gate.md");
+        assert_eq!(
+            owning_root(&layout, &leftover),
+            Some(layout.legacy_shared.as_path())
+        );
     }
 
     #[test]

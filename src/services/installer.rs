@@ -292,6 +292,22 @@ pub fn init(
     options: &InitOptions,
     intent: crate::landing::classify::Intent,
 ) -> Result<InitOutcome, AppError> {
+    init_holding(None, options, intent)
+}
+
+/// Install or reinstall an instance under a lock the caller already holds.
+///
+/// A verb that observed the target before it decided to land must hold the
+/// target across both, so the tree it decided from is the tree it writes.
+///
+/// # Errors
+///
+/// As [`init`].
+pub fn init_holding(
+    held: Option<crate::transaction::lock::Lock>,
+    options: &InitOptions,
+    intent: crate::landing::classify::Intent,
+) -> Result<InitOutcome, AppError> {
     let target = canonical_target(&options.target)?;
     // The target is known-good before it is classified, so an argument
     // this verb cannot mean is a usage answer rather than a walk of
@@ -306,11 +322,12 @@ pub fn init(
     // A preview reads and writes nothing, so it needs no lock. An apply
     // holds one across the observation as well as the writes: a candidate
     // rendered before the lock would describe a target another run could
-    // still be changing.
-    let held = if dry {
-        None
-    } else {
-        Some(crate::landing::lock::hold(&target)?)
+    // still be changing. A caller that already holds it passes it in,
+    // because taking it twice from one process proves nothing.
+    let held = match (dry, held) {
+        (true, _) => None,
+        (false, Some(held)) => Some(held),
+        (false, None) => Some(crate::landing::lock::hold(&target)?),
     };
 
     // A profile carries the documentation root, so changing it moves every

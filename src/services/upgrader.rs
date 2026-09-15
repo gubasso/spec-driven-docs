@@ -15,7 +15,7 @@ use crate::domain::ownership::Sha256;
 use crate::domain::profile::ProfileId;
 use crate::domain::version::CanonVersion;
 use crate::error::AppError;
-use crate::services::installer::{InitOptions, init};
+use crate::services::installer::{InitOptions, init, init_holding};
 
 /// What an upgrade was asked to do.
 #[derive(Debug, Clone)]
@@ -208,6 +208,16 @@ pub fn upgrade(options: &UpgradeOptions) -> Result<UpgradeOutcome, AppError> {
     let target = Utf8PathBuf::from_path_buf(std::fs::canonicalize(&options.target)?)
         .map_err(|p| AppError::Usage(format!("target is not UTF-8: {}", p.display())))?;
 
+    // An apply holds the target for the whole run, the observation below
+    // included. Without it, a second run could read the tree another
+    // landing is halfway through and report that as drift rather than
+    // naming the holder.
+    let held = if options.dry_run {
+        None
+    } else {
+        Some(crate::landing::lock::hold(&target)?)
+    };
+
     let installed = read_installed(&target)?;
     // The version landed is the version running. The operator chose which
     // binary to install, and that binary projects only itself.
@@ -270,7 +280,8 @@ pub fn upgrade(options: &UpgradeOptions) -> Result<UpgradeOutcome, AppError> {
         return Ok(outcome);
     }
 
-    let reinstalled = init(
+    let reinstalled = init_holding(
+        held,
         &InitOptions {
             apply: true,
             dry_run: false,

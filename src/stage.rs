@@ -141,6 +141,15 @@ pub fn resolve_root(
     env: Option<&str>,
     state_root: &Utf8Path,
 ) -> Result<(Utf8PathBuf, RootSource), AppError> {
+    if let Some(named) = output
+        && named
+            .components()
+            .any(|part| part.as_str() == ".." || part.as_str() == ".")
+    {
+        return Err(AppError::Usage(format!(
+            "the stage root names a relative step: {named}; give the path it resolves to"
+        )));
+    }
     let (root, source) = match (output, env) {
         (Some(named), _) => (named.to_owned(), RootSource::Flag),
         (None, Some(base)) if !base.is_empty() => (
@@ -507,7 +516,17 @@ pub fn clean(path: &Utf8Path) -> Result<Vec<String>, AppError> {
     let aside = scratch_beside(path)?;
     let _ = std::fs::remove_dir(&aside);
     std::fs::rename(path, &aside)?;
-    std::fs::remove_dir_all(&aside)?;
+    if let Err(source) = std::fs::remove_dir_all(&aside) {
+        // Put it back under the name the operator knows, so a second try
+        // can find it. Where even that fails, name both paths: a stage
+        // nobody can address again is worse than the failure itself.
+        if std::fs::rename(&aside, path).is_err() {
+            return Err(AppError::Refused(format!(
+                "{path} could not be removed and is now at {aside}: {source}"
+            )));
+        }
+        return Err(AppError::Io(source));
+    }
     Ok(vec![format!("removed {path}")])
 }
 
@@ -561,6 +580,21 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!(error.kind(), "Usage");
+    }
+
+    #[test]
+    fn a_relative_step_in_the_stage_root_is_a_usage_error() {
+        // A path with a nonexistent prefix and a `..` resolves somewhere
+        // the containment check cannot see until the directory exists.
+        let error = resolve_root(
+            Utf8Path::new("/work/project"),
+            Some(Utf8Path::new("/work/project/absent/../inside")),
+            None,
+            Utf8Path::new("/state"),
+        )
+        .unwrap_err();
+        assert_eq!(error.kind(), "Usage");
+        assert!(error.to_string().contains("relative step"), "{error}");
     }
 
     #[test]
