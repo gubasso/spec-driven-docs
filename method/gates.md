@@ -22,7 +22,9 @@ set -- _docs/specs/SPEC-*.md
 
 `MD043 required-headings` holds the fixed heading lists. It takes one `headings` array, so each shape needs its own configuration file and hook entry. First remove every mention of `MD043` from the project's `.markdownlint-cli2.jsonc`, including `"MD043": false`. That file merges over the `--config` base. A mention left there disables every shape below, and the hooks keep reporting success.
 
-Each configuration is `{"config": {"MD043": {"headings": [...]}}}` with one array. For a spec that array is `["?", "## Purpose", "## Requirements", "+"]`. For a record it is `"?"` followed by the five section headings in order, with no trailing wildcard. Scope the record hook to `ADR-` alone. A template holds the shape inside a fence so an author can copy it, and MD043 counts a fenced heading as no heading at all.
+Each configuration sets `"default": false` beside its `MD043` entry, so it judges the heading shape and nothing else. A project with no `.markdownlint-cli2.jsonc` of its own is a supported state: the delivered file is then the whole configuration, and every other markdown rule stays off. A project that wants general linting writes its own file, which merges over the delivered one.
+
+Each configuration is `{"config": {"default": false, "MD043": {"headings": [...]}}}` with one array. For a spec that array is `["?", "## Purpose", "## Requirements", "+"]`. For a record it is `"?"` followed by the five section headings in order, with no trailing wildcard. Scope the record hook to `ADR-` alone. A template holds the shape inside a fence so an author can copy it, and MD043 counts a fenced heading as no heading at all.
 
 MD043 checks every heading level, so the array covers requirement and scenario headings too. Tokens are `?` for exactly one, `+` for one or more, `*` for zero or more. `+` fails an empty spec. Set `match_case: true`. Its default is false, and without it a record headed `## status` passes.
 

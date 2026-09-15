@@ -125,7 +125,7 @@ Where the target pins `sdd` through a manager, the task does not close until the
 
 1. Observe, read-only: `sdd self-depend status --target . --json`. Hold `wired` and `envrc_sync`. Where `wired` is `null`, there is no pin to keep fresh, and where `envrc_sync` is `true`, the wire is landed: in either case say nothing and continue.
 2. Where `wired` names a manager and `envrc_sync` is `false`, ask with `AskUserQuestion` whether the project lands the line `sdd self-depend sync --apply || true` in its `.envrc`. State what the line does: on each directory entry it moves the pin to the latest release through that manager, it attempts at most one bump a day, and it leaves a diff for the operator to review and commit.
-3. On yes, landing the line is a gated step: print `sdd self-depend add --target . --manager <wired>`, say what it changes, wait, then re-observe with the status verb until `envrc_sync` reads `true`.
+3. On yes, landing the line is a gated step and you place it, because `sdd self-depend add --target . --manager <wired>` prints the fragment, edits no file the project owns, and seeds `.envrc` only where the target has none: where that read-only run names `.envrc` among its seeds, gate the same command with `--apply`; where it seeds nothing, the target already carries an `.envrc` and you append the line to it yourself, the way the variables land above. Print the exact command or line, say what it changes, wait, then re-observe with the status verb until `envrc_sync` reads `true`.
 4. On no, the landing is complete without the wire. Record the answer in the close of the task, so the question reads as asked and answered rather than skipped.
 
 ## What waits for the operator

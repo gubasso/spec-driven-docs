@@ -87,6 +87,7 @@ rule_ids! {
     MergedRecordIsPermanent => "decision-records:merged-record-is-permanent",
     RecordIsNotRevised => "decision-records:record-is-not-revised",
     DeclaredLocationIsNamedByItsVariable => "distribution:a-declared-location-is-named-by-its-variable",
+    DeliveredConfigurationServesADeliveredRule => "distribution:a-delivered-configuration-serves-a-delivered-rule",
     LandingClassifiesItsTargetFirst => "distribution:a-landing-classifies-its-target-first",
     SeededRuleRunsNoCanonCommand => "distribution:a-seeded-rule-runs-no-canon-command",
     SkillChecksItsHostBeforeItPlans => "distribution:a-skill-checks-its-host-before-it-plans",
