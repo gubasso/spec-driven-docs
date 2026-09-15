@@ -84,12 +84,11 @@ pub fn measure(ctx: &GateCtx) -> Result<Vec<Measurement>, GateError> {
 /// [`GateError::Io`] when a matched record cannot be read, and
 /// [`GateError::Debt`] when the debt file cannot be trusted.
 pub fn run(ctx: &GateCtx, _files: &[String]) -> GateResult {
-    // The layout check reads the unfiltered set: a project that reserves
-    // every record still has a layout.
+    // A project that has written no decision record yet is not a broken
+    // layout. Every landing starts in that state, and a gate that failed
+    // there would make the landing it delivered uncommittable.
     if records(ctx).is_empty() {
-        return Ok(vec![Violation::Layout(
-            "no decision records matched".to_string(),
-        )]);
+        return Ok(Vec::new());
     }
     let debt = budget::read_debt(ctx)?;
     let measurements = measure(ctx)?;
@@ -149,10 +148,10 @@ mod tests {
     }
 
     #[test]
-    fn an_empty_record_set_is_a_layout_failure() {
+    fn an_empty_record_set_has_nothing_to_judge() {
         let dir = tempfile::tempdir().unwrap();
         let out = run_in(&dir);
-        assert_eq!(out, vec!["FAIL no decision records matched".to_string()]);
+        assert!(out.is_empty(), "{out:?}");
     }
 
     #[test]

@@ -54,7 +54,7 @@ The project MAY state, in `.spec-driven-docs/config.yaml`, which paths no delive
 - WHEN any delivered gate runs, whether pre-commit passes the path or the gate walks to it
 - THEN no gate judges the path, and `sdd gate --explain <path>` names `reserved` as the layer that decided
 
-Verify: `pre-commit run cargo-test --all-files`
+Verify: `sdd gate --explain .spec-driven-docs/config.yaml`
 
 ### `instance:the-managed-block-agrees-with-the-declaration` — The managed block agrees with the declaration
 

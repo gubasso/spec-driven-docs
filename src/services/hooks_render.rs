@@ -17,11 +17,25 @@ use crate::domain::instance_config::InstanceConfig;
 use crate::domain::marker;
 use crate::gates::GATES;
 
-/// The pre-commit language every entry declares.
+/// The pre-commit language every delivered gate declares.
 ///
 /// An instance runs `sdd` from its own PATH, which is what `system` means;
 /// no other language has a caller.
 const LANGUAGE: &str = "system";
+
+/// The markdown linter the delivered configurations are written for.
+///
+/// The landing writes three configurations under the instance directory,
+/// so it wires the hooks that read them. A configuration whose wiring a
+/// project has to guess is a file that does nothing, and the shapes it
+/// holds are ones no delivered gate reads.
+const MARKDOWNLINT_REPO: &str = "https://github.com/DavidAnson/markdownlint-cli2";
+
+/// The linter revision this release wires.
+const MARKDOWNLINT_REV: &str = "v0.23.2";
+
+/// Where the landing puts the configurations those hooks read.
+const MARKDOWNLINT_DIR: &str = ".spec-driven-docs/markdownlint";
 
 /// Everything a render depends on.
 #[derive(Debug, Clone)]
@@ -290,14 +304,100 @@ pub fn render_block(options: &RenderOptions) -> String {
     let _ = writeln!(out, "{indent}      always_run: true");
     let _ = writeln!(out, "{indent}      pass_filenames: false");
     out.push_str(&render_gates(options));
+    out.push_str(&render_markdownlint(options));
     out.push_str(marker::END);
     out.push('\n');
+    out
+}
+
+/// Wire the markdown linter to the configurations the landing writes.
+fn render_markdownlint(options: &RenderOptions) -> String {
+    let indent = &options.indent;
+    let docs_root = &options.docs_root;
+    let mut out = String::new();
+    let _ = writeln!(out, "{indent}- repo: {MARKDOWNLINT_REPO}");
+    let _ = writeln!(out, "{indent}  rev: {MARKDOWNLINT_REV}");
+    let _ = writeln!(out, "{indent}  hooks:");
+
+    let _ = writeln!(out, "{indent}    - id: markdownlint-cli2");
+    let _ = writeln!(out, "{indent}      alias: md-relative-links");
+    let _ = writeln!(out, "{indent}      name: markdownlint relative links");
+    let _ = writeln!(
+        out,
+        "{indent}      additional_dependencies: ['markdownlint-rule-relative-links']"
+    );
+    let _ = writeln!(
+        out,
+        "{indent}      args: ['--config', '{MARKDOWNLINT_DIR}/relative-links.markdownlint-cli2.jsonc']"
+    );
+    let _ = writeln!(
+        out,
+        "{indent}      exclude: {}",
+        quoted(&format!("^{docs_root}/decisions/"))
+    );
+
+    let _ = writeln!(out, "{indent}    - id: markdownlint-cli2");
+    let _ = writeln!(out, "{indent}      alias: md-spec");
+    let _ = writeln!(out, "{indent}      name: markdownlint spec heading shape");
+    let _ = writeln!(
+        out,
+        "{indent}      files: {}",
+        quoted(&format!("^{docs_root}/specs/SPEC-[a-z0-9-]+\\.md$"))
+    );
+    let _ = writeln!(
+        out,
+        "{indent}      args: ['--config', '{MARKDOWNLINT_DIR}/spec.markdownlint-cli2.jsonc']"
+    );
+
+    let _ = writeln!(out, "{indent}    - id: markdownlint-cli2");
+    let _ = writeln!(out, "{indent}      alias: md-adr");
+    let _ = writeln!(
+        out,
+        "{indent}      name: markdownlint decision heading shape"
+    );
+    let _ = writeln!(
+        out,
+        "{indent}      files: {}",
+        quoted(&format!("^{docs_root}/decisions/ADR-[a-z-]+\\.md$"))
+    );
+    let _ = writeln!(
+        out,
+        "{indent}      args: ['--config', '{MARKDOWNLINT_DIR}/adr.markdownlint-cli2.jsonc']"
+    );
     out
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_linter_reads_the_configurations_the_landing_writes() {
+        let out = render_markdownlint(&RenderOptions::default());
+        assert!(out.contains(MARKDOWNLINT_REPO), "{out}");
+        for name in ["relative-links", "spec", "adr"] {
+            assert!(
+                out.contains(&format!(
+                    "{MARKDOWNLINT_DIR}/{name}.markdownlint-cli2.jsonc"
+                )),
+                "{name} is not wired: {out}"
+            );
+        }
+        assert!(
+            out.contains("'^_docs/specs/SPEC-[a-z0-9-]+\\.md$'"),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn the_documentation_root_reaches_the_linter_wiring() {
+        let out = render_markdownlint(&RenderOptions {
+            docs_root: "docs".to_string(),
+            ..RenderOptions::default()
+        });
+        assert!(out.contains("'^docs/decisions/ADR-[a-z-]+\\.md$'"), "{out}");
+        assert!(!out.contains("_docs/"), "{out}");
+    }
 
     #[test]
     fn every_gate_renders_its_wiring_fields() {

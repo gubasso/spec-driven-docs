@@ -104,7 +104,7 @@ The author MUST give every fenced code block a language, using `text` when none 
 
 - GIVEN an ASCII diagram in a fenced block
 - WHEN no language is declared
-- THEN the gate rejects it and `text` is the correct declaration
+- THEN the linter rejects it and `text` is the correct declaration
 
 Verify: `pre-commit run markdownlint-cli2 --all-files`
 
