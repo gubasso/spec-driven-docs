@@ -871,8 +871,37 @@ fn the_setup_skill_offers_the_freshness_wire() {
         "re-observe with the status verb until `envrc_sync` reads `true`",
         "the landing is complete without the wire",
         "Record the answer in the close of the task",
+        // Both placement cases, because the verb covers one of them. A
+        // rewrite that drops the second sends the operator back to a
+        // command that refuses to edit the file it names.
+        "gate the same command with `--apply`",
+        "you append the line to it yourself",
     ] {
         assert!(setup.contains(held), "the router does not state '{held}'");
+    }
+    // The skill quotes the binary's own line and the binary's own file, so
+    // a rename in one place cannot leave the other reading almost right.
+    assert!(
+        setup.contains(spec_driven_docs::self_depend::SYNC_LINE),
+        "the router quotes a sync line the binary does not write"
+    );
+    assert!(
+        setup.contains(spec_driven_docs::self_depend::ENVRC),
+        "the router names a loader file the status verb does not read"
+    );
+    // The seeding verb writes nothing without the flag, so no line may
+    // offer it as the thing that lands the wire.
+    for (number, line) in setup.lines().enumerate() {
+        if !line.contains("self-depend add") {
+            continue;
+        }
+        assert!(
+            line.contains("--apply")
+                || line.contains("prints the fragment")
+                || line.contains("read-only"),
+            "line {}: `self-depend add` without `--apply` is offered as a write",
+            number + 1
+        );
     }
     // The operator's path asks the same question in the same words.
     for shared in [

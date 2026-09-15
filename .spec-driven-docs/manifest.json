@@ -10,7 +10,7 @@
     {
       "source": ".markdownlint/adr.markdownlint-cli2.jsonc",
       "destination": ".markdownlint/adr.markdownlint-cli2.jsonc",
-      "sha256": "40ce5af8fc9ac349e2d8efb17a8c735463b6ed59469afabc6bf8c09b1c65359e"
+      "sha256": "da99cbdcd3f892569eea322db121ac0e790b425485b3b35f550c1129c51e95ed"
     },
     {
       "source": ".markdownlint/relative-links.markdownlint-cli2.jsonc",
@@ -20,12 +20,12 @@
     {
       "source": ".markdownlint/spec.markdownlint-cli2.jsonc",
       "destination": ".markdownlint/spec.markdownlint-cli2.jsonc",
-      "sha256": "85c5697b30b980e6f130f6dfa79960d16eb5a12c77e141ff23b63b0c0e6b055a"
+      "sha256": "4d46522836e03d1a7b1e286ca4b81de5d71a1bbd3067fdcb1b45ec2366636337"
     },
     {
       "source": "skills/sdd-setup/SKILL.md",
       "destination": "skills/sdd-setup/SKILL.md",
-      "sha256": "75ec19dbca28d09fe83850b9594eb6dcd8f6266b5edda99ba7bffad997662cb6"
+      "sha256": "4080a14176c4f5258f55d77058551abd0c99205dcc8149c05fcd9f1213185636"
     },
     {
       "source": "skills/sdd-write-docs/SKILL.md",
@@ -47,8 +47,8 @@
     {
       "source": "_docs/specs/SPEC-acquisition.md",
       "destination": "_docs/specs/SPEC-acquisition.md",
-      "sha256": "81eb9117325f0be0579936f17e14d88fa7e12041b37ebd8f946e032305c6defc",
-      "baseline_sha256": "81eb9117325f0be0579936f17e14d88fa7e12041b37ebd8f946e032305c6defc"
+      "sha256": "4e0d6209633dc75aa058b341d3f35fd9b1176e9c091142f6c34f4e322caade30",
+      "baseline_sha256": "4e0d6209633dc75aa058b341d3f35fd9b1176e9c091142f6c34f4e322caade30"
     },
     {
       "source": "_docs/specs/SPEC-budget-debt.md",
@@ -71,8 +71,8 @@
     {
       "source": "_docs/specs/SPEC-distribution.md",
       "destination": "_docs/specs/SPEC-distribution.md",
-      "sha256": "8d87979078dd4bdfe6f1149d767d43233ca104fd0e1eb11c06ba7727aa96bac5",
-      "baseline_sha256": "8d87979078dd4bdfe6f1149d767d43233ca104fd0e1eb11c06ba7727aa96bac5"
+      "sha256": "e84043054316e9206cf53354ae79c0d946e0b00e9143ccaaa120c617554c241b",
+      "baseline_sha256": "e84043054316e9206cf53354ae79c0d946e0b00e9143ccaaa120c617554c241b"
     },
     {
       "source": "_docs/specs/SPEC-docs-discovery.md",

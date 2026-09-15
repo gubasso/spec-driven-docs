@@ -187,3 +187,175 @@ fn every_seeded_verification_names_a_hook_the_landing_wires() {
         missing.join("\n")
     );
 }
+
+/// One wired markdownlint hook: the configuration it loads and the paths it
+/// judges. An entry with no `files:` judges every markdown file.
+struct LinterHook {
+    config: String,
+    files: Option<String>,
+}
+
+/// Every markdownlint hook the landing wired, minus the ones whose
+/// configuration names a custom rule.
+///
+/// A custom rule is an npm module pre-commit installs into the hook's own
+/// environment. This suite installs nothing, so a hook that needs one is
+/// out of its reach and stays out of its claims.
+fn linter_hooks(fixture: &Fixture) -> Vec<LinterHook> {
+    let block = fixture.read(".pre-commit-config.yaml");
+    let mut hooks = Vec::new();
+    let mut config: Option<String> = None;
+    let mut files: Option<String> = None;
+    let mut close = |config: &mut Option<String>, files: &mut Option<String>| {
+        if let Some(config) = config.take() {
+            hooks.push(LinterHook {
+                config,
+                files: files.take(),
+            });
+        } else {
+            *files = None;
+        }
+    };
+    for line in block.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("- id: ") {
+            close(&mut config, &mut files);
+        } else if let Some(rest) = trimmed.strip_prefix("args: ['--config', '") {
+            config = rest.split('\'').next().map(str::to_string);
+        } else if let Some(rest) = trimmed.strip_prefix("files: '") {
+            files = rest
+                .rsplit_once('\'')
+                .map(|(pattern, _)| pattern.to_string());
+        }
+    }
+    close(&mut config, &mut files);
+    hooks.retain(|hook| !fixture.read(&hook.config).contains("customRules"));
+    hooks
+}
+
+/// Every markdown path in the landed tree the pattern selects, relative to
+/// the target and sorted, as pre-commit would pass them.
+fn judged_paths(fixture: &Fixture, pattern: Option<&str>) -> Vec<String> {
+    // pre-commit matches with `re.search`, so the pattern is unanchored
+    // unless it anchors itself, which is what `is_match` does here.
+    let selector = pattern.map(|pattern| {
+        regex::Regex::new(pattern)
+            .unwrap_or_else(|error| panic!("a wired hook carries an unreadable pattern: {error}"))
+    });
+    let mut paths = Vec::new();
+    for entry in walkdir::WalkDir::new(fixture.path())
+        .into_iter()
+        .filter_entry(|entry| entry.file_name() != ".git")
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_type().is_file())
+    {
+        let Ok(relative) = entry.path().strip_prefix(fixture.path()) else {
+            continue;
+        };
+        let Some(relative) = relative.to_str() else {
+            continue;
+        };
+        if !relative.ends_with(".md") {
+            continue;
+        }
+        if selector.as_ref().is_none_or(|rule| rule.is_match(relative)) {
+            paths.push(relative.to_string());
+        }
+    }
+    paths.sort();
+    paths
+}
+
+/// Run the delivered linter over the given paths, from inside the target.
+///
+/// The binary comes from the devshell. Where it is absent the test fails
+/// rather than passes: a proof that runs nowhere proves nothing.
+fn markdownlint(fixture: &Fixture, config: &str, paths: &[String]) -> std::process::Output {
+    std::process::Command::new("markdownlint-cli2")
+        .current_dir(fixture.path())
+        .arg("--config")
+        .arg(config)
+        .args(paths)
+        .output()
+        .unwrap_or_else(|error| {
+            panic!("markdownlint-cli2 did not run: {error}; it comes from the devshell")
+        })
+}
+
+/// VERIFIES distribution:a-delivered-configuration-serves-a-delivered-rule
+///
+/// The linter itself, over the tree the landing wrote, with no
+/// configuration the adopter owns. `every_linter_hook_reads_a_configuration_the_landing_wrote`
+/// proves each configuration exists and parses, which is a different claim
+/// from the linter accepting the payload's own files under it. The defect
+/// this holds against: a delivered configuration left MD013 on, and the
+/// unwrapped prose `docs-format` requires failed the hook the same landing
+/// wired.
+#[test]
+fn every_delivered_configuration_passes_over_the_seeds_the_landing_wrote() {
+    for profile in ["codebase", "knowledge-base"] {
+        let fixture = Fixture::new();
+        fixture.install(profile);
+        assert!(
+            !fixture.path().join(".markdownlint-cli2.jsonc").is_file(),
+            "the landing wrote a base configuration, so this run would judge the merge rather than what the payload delivers"
+        );
+
+        let mut judged = 0;
+        for hook in linter_hooks(&fixture) {
+            let paths = judged_paths(&fixture, hook.files.as_deref());
+            if paths.is_empty() {
+                continue;
+            }
+            judged += paths.len();
+            let output = markdownlint(&fixture, &hook.config, &paths);
+            assert!(
+                output.status.success(),
+                "a fresh {profile} landing fails the hook reading {}:\n{}{}",
+                hook.config,
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+        // A pattern that matched nothing would report every hook clean.
+        assert!(
+            judged > 0,
+            "no landed file matched any wired linter pattern, so the {profile} run judged nothing"
+        );
+    }
+}
+
+/// VERIFIES distribution:a-delivered-configuration-serves-a-delivered-rule
+///
+/// The gate the configuration exists for survives the change that silenced
+/// the defaults. Without this, the phase above passes by disabling
+/// everything.
+#[test]
+fn a_wrong_heading_shape_still_fails_the_delivered_configuration() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+
+    let spec = "_docs/specs/SPEC-instance.md";
+    let text = fixture.read(spec).replace("## Purpose", "## Wrong");
+    fixture.write(spec, &text);
+
+    let hooks = linter_hooks(&fixture);
+    let hook = hooks
+        .iter()
+        .find(|hook| {
+            judged_paths(&fixture, hook.files.as_deref())
+                .iter()
+                .any(|path| path == spec)
+        })
+        .expect("no wired hook judges the seeded specs");
+    let output = markdownlint(&fixture, &hook.config, &[spec.to_string()]);
+    let report = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        !output.status.success() && report.contains("MD043"),
+        "a spec with the wrong heading shape passed the shape gate:\n{report}"
+    );
+}

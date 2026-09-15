@@ -150,10 +150,18 @@ Verify: `cargo nextest run -E 'binary(cmd_self_depend)'`
 
 Where a target is wired to one manager and carries no sync line, the setup skill MUST raise the wire as a decision the operator answers before the task closes, stating what the line does, that it attempts at most one bump a day, and that it leaves a diff for review. Where no manager is wired, the skill MUST say nothing. An answer of no MUST leave the landing complete and be recorded in the task's close.
 
+On an answer of yes the setup path MUST place the sync line in the target's shell loader itself, under the operator's approval, and MUST NOT report a command that cannot place it. The verb seeds that file only where the target has none, so a target that already carries one is the case the skill writes itself.
+
 #### Scenario: A landing ends with the wire absent
 
 - GIVEN a target whose manager file pins this tool and whose shell loader carries no sync line
 - WHEN the setup skill reaches its close
 - THEN the operator has been asked about the wire, and the status verb reports `line-absent` until the line lands or the answer is recorded
+
+#### Scenario: The target already carries a shell loader
+
+- GIVEN an operator who answered yes in a target whose `.envrc` the verb refuses to edit
+- WHEN the setup skill lands the wire
+- THEN the skill appends the line itself under approval, because a path that reported the verb alone would leave the operator re-observing a state nothing writes
 
 Verify: `cargo nextest run -E 'test(the_setup_skill_offers_the_freshness_wire) | test(the_setup_offer_follows_the_wiring_state)'`

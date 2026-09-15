@@ -6,6 +6,11 @@
 // value, including false: it is merged over this file and would silently
 // disable the contract.
 //
+// `default` is false because this file gates one rule. Every other rule stays
+// off here, so the project's own configuration governs general linting and no
+// default contradicts a rule this tool delivers. MD013 is the one that did:
+// its 80-column limit refuses the unwrapped prose `docs-format` requires.
+//
 // `?` is the varying title — exactly one heading, where `*` would also admit a
 // spec with no title. `+` covers the requirement and scenario headings, which
 // MD043 sees too, and fails a spec with no requirement in it. `match_case` is
@@ -13,6 +18,7 @@
 // whole job is the shape.
 {
   "config": {
+    "default": false,
     "MD043": {
       "headings": [
         "?",

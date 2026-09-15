@@ -27,6 +27,7 @@
   - [`distribution:the-payload-roots-are-declared-once` — The payload roots are declared once](#distributionthe-payload-roots-are-declared-once--the-payload-roots-are-declared-once)
   - [`distribution:a-seeded-rule-runs-no-canon-command` — A seeded rule runs no canon command](#distributiona-seeded-rule-runs-no-canon-command--a-seeded-rule-runs-no-canon-command)
   - [`distribution:the-declaration-is-seeded-once-and-then-owned` — The declaration is seeded once and then owned](#distributionthe-declaration-is-seeded-once-and-then-owned--the-declaration-is-seeded-once-and-then-owned)
+  - [`distribution:a-delivered-configuration-serves-a-delivered-rule` — A delivered configuration serves a delivered rule](#distributiona-delivered-configuration-serves-a-delivered-rule--a-delivered-configuration-serves-a-delivered-rule)
 
 <!--TOC-->
 
@@ -182,9 +183,7 @@ Verify: `cargo nextest run -E 'binary(cmd_skill)'`
 
 ### `distribution:a-skill-install-restores-on-failure` — A skill install stops honestly
 
-An apply of `sdd skill install` or `sdd skill uninstall` MUST hold the user-scope lock for its whole run and MUST refuse at once, naming the holder, where another process holds it. It MUST replace each destination in that destination's own directory, MUST refuse a destination reached through a link whatever `--force` says, and MUST re-check that immediately before each write. Where it stops partway it MUST name every destination it observed itself finish, MUST leave the previous receipt in place, and MUST finish the rest when it runs again.
-
-There is no journal and no backup store. A run leaves whole files, and what the next run needs is the payload, the receipt, and the disk, which are the three references it already reads. Recovery after power loss rests on the persistence order and on the platform's sync semantics, and is claimed no further.
+An apply of `sdd skill install` or `sdd skill uninstall` MUST hold the user-scope lock for its whole run and MUST refuse at once, naming the holder, where another process holds it. It MUST replace each destination in that destination's own directory, MUST refuse a destination reached through a link whatever `--force` says, and MUST re-check that immediately before each write. Where it stops partway it MUST name every destination it observed itself finish, MUST leave the previous receipt in place, and MUST finish the rest when it runs again. There is no journal and no backup store. A run leaves whole files, and what the next run needs is the payload, the receipt, and the disk, which are the three references it already reads. Recovery after power loss rests on the persistence order and on the platform's sync semantics, and is claimed no further.
 
 #### Scenario: The second skill root cannot be written
 
@@ -317,3 +316,15 @@ The boundary is the actor, not the file. An automatic write to an adopted file d
 - THEN the upgrade neither conflicts on the file nor drops the reservation, because the declaration is adopted rather than managed and the block is rendered rather than hand-edited
 
 Verify: `pre-commit run cargo-test --all-files`
+
+### `distribution:a-delivered-configuration-serves-a-delivered-rule` — A delivered configuration serves a delivered rule
+
+Every configuration file the payload lands MUST enable the checks it exists to make and leave every other check off, so that no default it carries contradicts a rule this tool delivers. A target that holds no configuration of its own MUST pass every hook the landing wired, over the files that same landing wrote.
+
+#### Scenario: A delivered linter configuration leaves the tool's defaults on
+
+- GIVEN a delivered configuration naming one linter rule and a target with no configuration of its own
+- WHEN the hook the landing wired runs over the seed the landing wrote
+- THEN the seed fails on a default the payload never chose, so the adopter cannot commit the landing and reaches for the repairs the method forbids
+
+Verify: `cargo nextest run -E 'binary(cmd_landed_tree)'`

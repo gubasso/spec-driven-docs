@@ -6,7 +6,11 @@
 # committed Cargo.lock. A workspace root fails by name below rather than
 # throwing on a missing attribute: point the importTOML call at the member
 # crate's Cargo.toml and set mainProgram yourself.
-{ lib, rustPlatform }:
+{
+  lib,
+  rustPlatform,
+  markdownlint-cli2,
+}:
 
 let
   cargoToml = lib.importTOML ../Cargo.toml;
@@ -39,6 +43,12 @@ rustPlatform.buildRustPackage {
       ];
   };
   cargoLock.lockFile = ../Cargo.lock;
+
+  # The landed-tree suite runs the delivered markdown linter over the tree a
+  # landing writes, so the check phase needs the same binary the devshell
+  # carries. Without it that suite would fail in the sandbox, and a version
+  # that skipped instead would prove nothing here.
+  nativeCheckInputs = [ markdownlint-cli2 ];
 
   meta = {
     # The first [[bin]] name where one is declared, else the package
