@@ -7,8 +7,12 @@ on:
     branches: [master]
 
 jobs:
-  # The job name is the status-check context branch protection requires.
+  # The job name is the status-check context branch protection requires, and
+  # the check the release gate waits on. It runs unless cancelled, so a job
+  # added later as a need cannot turn a failure into a skip the forge reads
+  # as success.
   test:
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
