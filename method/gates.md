@@ -165,7 +165,7 @@ The chapter loop is what stops a shelf from absorbing a subject by growing. A ca
 
 ```yaml
 - repo: https://github.com/frnmst/md-toc
-  rev: 9.0.0
+  rev: 9.0.1
   hooks:
     - id: md-toc
       args: [-p, -c, --skip-lines, '1', github, -l, '3']
