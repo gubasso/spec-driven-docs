@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.2](https://github.com/gubasso/spec-driven-docs/compare/v0.12.1...v0.12.2) - 2026-09-29
+
+### Other
+
+- *(release-kit)* Integrate locally and refresh the hook pins ([#121](https://github.com/gubasso/spec-driven-docs/pull/121))
+
 ## [0.12.1](https://github.com/gubasso/spec-driven-docs/compare/v0.12.0...v0.12.1) - 2026-09-15
 
 ### Fixed
