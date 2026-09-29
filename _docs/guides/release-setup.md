@@ -45,6 +45,7 @@ One-time bootstrap for automated releases under the release-kit convention. Run 
    rk setup --target . --apply --required-check test
    rk setup check --target .
    # check: every step reports satisfied; protect-release-lines reports skipped while no older line exists
+   # install-bot reports unknown on a host without the App key: expected once step 3 ran, because only the App reads its own installation
    # single-trunk refuses a candidate: it is not an ancestor of master, so land its work first; the guard failing closed is the stop, not an obstacle
    ```
 
@@ -52,7 +53,7 @@ One-time bootstrap for automated releases under the release-kit convention. Run 
 
    ```bash
    rk status --check --target .
-   # check: exits 0 and reports the worktree mode
+   # check: exits 0 and reports the linked-worktree checkout mode and local integration
    # drift on an rk-owned file: rk upgrade --target . --apply takes the landing to the binary's payload
    ```
 
@@ -76,6 +77,8 @@ One-time bootstrap for automated releases under the release-kit convention. Run 
 ## Verification
 
 ```bash
-rk setup check --target . && rk status --check --target .
-# check: both exit 0
+rk setup check --target .
+# check: no step reports unsatisfied; install-bot reads unknown on a host without the App key
+rk status --check --target .
+# check: exits 0
 ```

@@ -40,6 +40,7 @@ This repository is the canonical knowledge product for spec-driven documentation
 - Run `just check` before handoff. It lints, tests, and installs into a scratch target.
 - Run `just manifest` after editing anything the canon manifest records: `.markdownlint/`, `_docs/specs/`, the recorded templates, or the managed pre-commit block. `sdd verify` reports the omission as a note rather than a failure, because an instance owns its adopted files. Here `release:the-canon-record-describes-its-tree` fails instead.
 - `Cargo.toml` is the release source of truth. Write Conventional Commits, and release-plz derives the version, the changelog, and the tag. Never author a tag: `_docs/guides/release.md` owns the sequence.
+- The forge setup is complete, `install-bot` included. `rk setup check` reads `install-bot` as unknown on every host that lacks the App key `.envrc.local` names. That result is expected, so never report it as a gap and never ask for the key. `_docs/guides/release-setup.md` owns the setup.
 - Manage dependencies through cargo (`cargo add`, `cargo remove`, `cargo update`). Never hand-edit versions in `Cargo.toml`.
 
 ## Routing
