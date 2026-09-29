@@ -32,7 +32,7 @@ const LANGUAGE: &str = "system";
 const MARKDOWNLINT_REPO: &str = "https://github.com/DavidAnson/markdownlint-cli2";
 
 /// The linter revision this release wires.
-const MARKDOWNLINT_REV: &str = "v0.23.2";
+const MARKDOWNLINT_REV: &str = "v0.23.3";
 
 /// Where the landing puts the configurations those hooks read.
 const MARKDOWNLINT_DIR: &str = ".spec-driven-docs/markdownlint";

@@ -21,6 +21,8 @@ exclude = [
     "/scripts",
     "/tests",
     "/AGENTS.md",
+    "/GLOSSARY.md",
+    "/.release-kit",
     "/CLAUDE.md",
     "/flake.nix",
     "/flake.lock",

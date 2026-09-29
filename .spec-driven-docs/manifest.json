@@ -167,14 +167,14 @@
     {
       "source": "templates/TEMPLATE-tracking.yaml",
       "destination": "_docs/reference/tracking.yaml",
-      "sha256": "5d39add790850931a2de6b6551ee4bb4343a2639bd570a13ffd223d9be4c188a",
+      "sha256": "408cc60b8742c2ee9a249ebaaab5e0c97ae4f8046b03d9d9ee80d3c7fe7babd0",
       "baseline_sha256": "02dda0bbcaedb41598132fb8af48f11fe1e0f774870097687722664b08523388"
     }
   ],
   "integration_blocks": [
     {
       "path": ".pre-commit-config.yaml",
-      "marker_hash": "21ebfe79a18930b902dfd950a27f922a017aca46dcd76b6fb6c97e15eafcd3b4"
+      "marker_hash": "9af20f209310c7bc393ae98abb89e0f46c942ad668625d61d28a4a60d8906d53"
     }
   ]
 }
