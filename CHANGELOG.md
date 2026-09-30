@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - *(landing)* [**breaking**] Render seeds for their root and lint through discovery
 
+### Fixed
+
+- *(instance)* Refuse a symlinked lint configuration in verify
+
 ### What this release asks of an instance
 
 - The three managed files under `.spec-driven-docs/markdownlint/` are retired, and `<root>/.markdownlint-cli2.jsonc` is the new managed file. An instance that edited one of the three restores the recorded bytes before the upgrade, because the upgrade refuses while the edit stands.
