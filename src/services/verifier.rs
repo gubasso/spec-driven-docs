@@ -411,8 +411,10 @@ pub fn verify(target: &Utf8Path) -> Result<VerifyReport, AppError> {
 /// grammar is parsed.
 ///
 /// A symbolic link counts by its own name, because the linter reads a
-/// configuration through one. The walk never follows a link, so a linked
-/// directory is not descended and a cycle cannot hold it.
+/// configuration through one. The scan skips a linked documentation root
+/// or subtree before reading beneath it, and [`linked_lint_scan_roots`]
+/// names it instead. The walk follows neither root nor nested links, so a
+/// linked directory is not descended and a cycle cannot hold it.
 ///
 /// SATISFIES instance:the-lint-configuration-composes
 #[must_use]
@@ -423,6 +425,9 @@ pub fn lint_configurations_that_break_composition(
     use crate::domain::markdownlint::{LIBRARY_NAMES, discovery_names};
 
     let root = Utf8Path::new(docs_root.as_str());
+    if reached_through_symlink(target, root) {
+        return Vec::new();
+    }
     let mut found: Vec<camino::Utf8PathBuf> = LIBRARY_NAMES
         .iter()
         .map(|name| root.join(name))
@@ -431,8 +436,13 @@ pub fn lint_configurations_that_break_composition(
         })
         .collect();
     for subtree in ["specs", "decisions"] {
-        for entry in walkdir::WalkDir::new(target.join(root).join(subtree))
+        let subtree = root.join(subtree);
+        if reached_through_symlink(target, &subtree) {
+            continue;
+        }
+        for entry in walkdir::WalkDir::new(target.join(subtree))
             .follow_links(false)
+            .follow_root_links(false)
             .into_iter()
             .filter_map(Result::ok)
             .filter(|entry| !entry.file_type().is_dir())
@@ -454,7 +464,38 @@ pub fn lint_configurations_that_break_composition(
     found
 }
 
+/// The documentation root or scan roots reached through a symbolic link.
+///
+/// The linter reads a configuration through the link, and the composition
+/// scan does not follow it, so such a directory is a place no check can see
+/// into. Naming it keeps the failure with the rule it breaks rather than
+/// leaving it to whichever ownership check happens to cover a recorded file
+/// beneath it. A linked documentation root is named alone, because both
+/// scan roots sit beneath it.
+///
+/// SATISFIES instance:the-lint-configuration-composes
+#[must_use]
+pub fn linked_lint_scan_roots(
+    target: &Utf8Path,
+    docs_root: crate::domain::profile::DocsRoot,
+) -> Vec<camino::Utf8PathBuf> {
+    let root = Utf8Path::new(docs_root.as_str());
+    if reached_through_symlink(target, root) {
+        return vec![root.to_path_buf()];
+    }
+    ["specs", "decisions"]
+        .into_iter()
+        .map(|subtree| root.join(subtree))
+        .filter(|subtree| reached_through_symlink(target, subtree))
+        .collect()
+}
+
 fn check_lint_composition(target: &Utf8Path, manifest: &Manifest, report: &mut VerifyReport) {
+    for path in linked_lint_scan_roots(target, manifest.docs_root) {
+        report.fail(format!(
+            "FAIL {path} is reached through a symlink, so no check sees the lint configuration beneath it; replace the link with the directory (instance:the-lint-configuration-composes)"
+        ));
+    }
     for path in lint_configurations_that_break_composition(target, manifest.docs_root) {
         report.fail(format!(
             "FAIL {path} replaces the delivered lint configuration and turns the heading shapes off; fold it into the root .markdownlint-cli2.jsonc (instance:the-lint-configuration-composes)"
@@ -617,6 +658,80 @@ mod tests {
             source: path.into(),
             destination: path.into(),
             sha256: Sha256::of(path.as_bytes()),
+        }
+    }
+
+    /// VERIFIES instance:the-lint-configuration-composes
+    ///
+    /// Neither a linked scan root nor its documentation-root ancestor may
+    /// expose external configurations to the composition scan.
+    #[test]
+    fn the_lint_scan_does_not_follow_its_roots_or_their_ancestors() {
+        use crate::domain::profile::DocsRoot;
+
+        for docs_root in [DocsRoot::Docs, DocsRoot::UnderscoreDocs] {
+            for boundary in ["", "specs", "decisions"] {
+                let target = tempfile::tempdir().unwrap();
+                let target = Utf8Path::from_path(target.path()).unwrap();
+                let outside = tempfile::tempdir().unwrap();
+                // A linked documentation root could expose both the direct
+                // library configuration and either recursive scan.
+                for relative in [
+                    ".markdownlint.json",
+                    "specs/.markdownlint-cli2.jsonc",
+                    "decisions/.markdownlint.yaml",
+                ] {
+                    let path = outside.path().join(relative);
+                    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+                    std::fs::write(path, "{}\n").unwrap();
+                }
+                let link = if boundary.is_empty() {
+                    target.join(docs_root.as_str())
+                } else {
+                    target.join(docs_root.as_str()).join(boundary)
+                };
+                std::fs::create_dir_all(link.parent().unwrap()).unwrap();
+                std::os::unix::fs::symlink(outside.path(), &link).unwrap();
+
+                assert!(
+                    lint_configurations_that_break_composition(target, docs_root).is_empty(),
+                    "{docs_root}/{boundary}: the scan followed a directory link"
+                );
+                let linked = if boundary.is_empty() {
+                    camino::Utf8PathBuf::from(docs_root.as_str())
+                } else {
+                    Utf8Path::new(docs_root.as_str()).join(boundary)
+                };
+                assert_eq!(linked_lint_scan_roots(target, docs_root), [linked]);
+            }
+        }
+    }
+
+    /// VERIFIES instance:the-lint-configuration-composes
+    #[test]
+    fn the_lint_scan_skips_nested_directory_links_and_cycles() {
+        use crate::domain::profile::DocsRoot;
+
+        for docs_root in [DocsRoot::Docs, DocsRoot::UnderscoreDocs] {
+            let target = tempfile::tempdir().unwrap();
+            let target = Utf8Path::from_path(target.path()).unwrap();
+            let specs = target.join(docs_root.as_str()).join("specs");
+            std::fs::create_dir_all(&specs).unwrap();
+            let outside = tempfile::tempdir().unwrap();
+            std::fs::write(outside.path().join(".markdownlint-cli2.jsonc"), "{}\n").unwrap();
+            std::os::unix::fs::symlink(outside.path(), specs.join("linked")).unwrap();
+            std::os::unix::fs::symlink(&specs, specs.join("cycle")).unwrap();
+            // Skipping linked directories must still count a configuration
+            // link by its own filename, even where its target is absent.
+            let config = specs.join(".markdownlint.yaml");
+            std::os::unix::fs::symlink(outside.path().join("absent.yaml"), &config).unwrap();
+
+            assert_eq!(
+                lint_configurations_that_break_composition(target, docs_root),
+                [config.strip_prefix(target).unwrap()]
+            );
+            // A link nested inside a scan root is not a linked scan root.
+            assert!(linked_lint_scan_roots(target, docs_root).is_empty());
         }
     }
 

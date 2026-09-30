@@ -50,6 +50,8 @@ The project MUST NOT keep a `.markdownlint.*` file at the documentation root, or
 
 The documentation root's managed configuration carries the heading shapes, and markdownlint-cli2 lets a configuration in those locations replace it. A configuration at the repository root merges beneath it, so it cannot disable the shapes, and the project keeps it.
 
+Verification counts a configuration link by its own filename, including a dangling link. It does not scan through a linked directory. It fails naming a documentation root, `specs/`, or `decisions/` reached through a link, because the linter reads the configuration beneath that link and no check sees it.
+
 #### Scenario: A project relaxes a rule for its specs
 
 - GIVEN a project that adds `.markdownlint-cli2.jsonc` beside its specs to relax one rule

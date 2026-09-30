@@ -379,6 +379,48 @@ fn a_symlinked_configuration_fails_like_a_regular_one() {
     }
 }
 
+/// Linked scan roots and their ancestors stay outside the composition scan,
+/// and verification names the link itself as the failure.
+/// VERIFIES instance:the-lint-configuration-composes
+#[test]
+fn a_linked_directory_fails_ownership_without_scanning_its_contents() {
+    for (profile, root) in [("codebase", "docs"), ("knowledge-base", "_docs")] {
+        for boundary in ["", "specs", "decisions"] {
+            let fixture = Fixture::new();
+            fixture.install(profile);
+            let relative = if boundary.is_empty() {
+                std::path::PathBuf::from(root)
+            } else {
+                std::path::Path::new(root).join(boundary)
+            };
+            let outside = tempfile::tempdir().unwrap();
+            let moved = outside.path().join("held");
+            std::fs::rename(fixture.path().join(&relative), &moved).unwrap();
+            std::fs::write(moved.join(".markdownlint.json"), "{}\n").unwrap();
+            std::os::unix::fs::symlink(&moved, fixture.path().join(&relative)).unwrap();
+
+            let assert = fixture
+                .cmd()
+                .args(["verify", "--target", &fixture.target()])
+                .assert()
+                .code(1);
+            let stdout = String::from_utf8_lossy(&assert.get_output().stdout);
+            let linked = relative.display();
+            assert!(
+                stdout.contains(&format!(
+                    "FAIL {linked} is reached through a symlink, so no check sees the lint configuration beneath it"
+                )),
+                "{profile}/{boundary}: the linked directory was not named:\n{stdout}"
+            );
+            assert!(stdout.contains("(instance:the-lint-configuration-composes)"));
+            assert!(
+                !stdout.contains("replaces the delivered lint configuration"),
+                "{profile}/{boundary}: the scan enumerated external contents:\n{stdout}"
+            );
+        }
+    }
+}
+
 /// The repository root is the project's: a configuration there merges
 /// beneath the documentation root's and cannot turn the shapes off.
 #[test]
