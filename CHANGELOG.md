@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0](https://github.com/gubasso/spec-driven-docs/compare/v0.12.2...v0.13.0) - 2026-09-30
+
+### Added
+
+- *(landing)* [**breaking**] Render seeds for their root and lint through discovery
+
 ## [0.12.2](https://github.com/gubasso/spec-driven-docs/compare/v0.12.1...v0.12.2) - 2026-09-29
 
 ### Other
