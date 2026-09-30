@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.2](https://github.com/gubasso/spec-driven-docs/compare/v0.13.1...v0.13.2) - 2026-09-30
+
+### Fixed
+
+- *(instance)* Keep lint scans out of linked directories
+
 ## [0.13.1](https://github.com/gubasso/spec-driven-docs/compare/v0.13.0...v0.13.1) - 2026-09-30
 
 ### Fixed
