@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - *(instance)* Keep lint scans out of linked directories
 
+### What this release asks of an instance
+
+- `sdd verify` now fails where the documentation root, its `specs/` directory, or its `decisions/` directory is reached through a symbolic link, citing `instance:the-lint-configuration-composes`. Replace the link with the directory, then fold any markdownlint configuration beneath it into the root `.markdownlint-cli2.jsonc`.
+
 ## [0.13.1](https://github.com/gubasso/spec-driven-docs/compare/v0.13.0...v0.13.1) - 2026-09-30
 
 ### Fixed
