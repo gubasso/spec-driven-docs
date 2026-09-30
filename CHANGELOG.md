@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0](https://github.com/gubasso/spec-driven-docs/compare/v0.12.2...v0.13.0) - 2026-09-30
+
+### Added
+
+- *(landing)* [**breaking**] Render seeds for their root and lint through discovery
+
+### What this release asks of an instance
+
+- The three managed files under `.spec-driven-docs/markdownlint/` are retired, and `<root>/.markdownlint-cli2.jsonc` is the new managed file. An instance that edited one of the three restores the recorded bytes before the upgrade, because the upgrade refuses while the edit stands.
+- A root `.markdownlint-cli2.jsonc` is seeded to load the relative-links rule, only where the root holds no markdownlint configuration of either family. Where one exists, the seed yields and the setup skill proposes the loader.
+- The rendered hook block replaces the `md-spec`, `md-adr`, and `md-relative-links` hooks with one `markdownlint-cli2` hook that reads configuration through discovery.
+- relative-links now judges every relative link outside the decision records, and MD040 judges fences under the documentation root.
+- The rendered `AGENTS.md` block ends each item with a line-local MD013 suppression, which an upgrade writes inside the markers only. A created `AGENTS.md` opens with a `# AGENTS` title.
+- New rule IDs: `staging:a-seed-lands-rendered-for-its-root`, `instance:the-lint-configuration-composes`, `docs-specs:a-spec-follows-the-heading-shape`, and `decision-records:a-record-follows-the-heading-shape`.
+- `SPEC-tracking.md`, `SPEC-docs-specs.md`, and `SPEC-decision-records.md` are reworded. An instance reconciles them by reading `sdd spec <domain>`.
+- `sdd verify` fails on a `.markdownlint.*` file at the documentation root, and on any markdownlint configuration beneath its `specs/` or `decisions/` directory.
+
 ## [0.12.2](https://github.com/gubasso/spec-driven-docs/compare/v0.12.1...v0.12.2) - 2026-09-29
 
 ### Other
