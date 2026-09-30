@@ -37,9 +37,7 @@ Read a chapter with `sdd docs <topic>` or its shelf verb. Never copy one here: a
 
 ## 1. Observe
 
-The pre-flight gate already ran `sdd status --target . --json`. Hold what it returned, including any invalid-instance diagnostic. It is routing evidence, not a verdict: the planner re-observes the same target, and a record nobody can read is not an absent one.
-
-The report's `paths` section is where every path this skill needs comes from, so nothing below spells one. `paths.user` carries the roots under the user's home with the variable that moved each. `paths.active` is the landed instance, or `null`. `paths.candidates` carries one destination set per profile, and `paths.proposals` what this target offers for the docs scratch. Every entry names its source.
+The pre-flight gate already ran `sdd status --target . --json`. Hold what it returned, including any invalid-instance diagnostic. It is routing evidence, not a verdict: the planner re-observes the same target, and a record nobody can read is not an absent one. The report's `paths` section is where every path this skill needs comes from, so nothing below spells one. `paths.user` carries the roots under the user's home with the variable that moved each. `paths.active` is the landed instance, or `null`. `paths.candidates` carries one destination set per profile, and `paths.proposals` what this target offers for the docs scratch. Every entry names its source.
 
 ## 2. Acquire the version, then stage it
 
@@ -53,9 +51,7 @@ The stage writes nothing into the target. It holds every destination the candida
 
 ## 3. Compare and prepare
 
-Read the target's tree, its record, the Git history of what the candidate would touch, the stage, and only the topics the work needs. Then classify each destination by its provenance: the record and the history agreeing is attribution, and a landing refreshes it; one of the two missing is reduced confidence, presented to the operator; neither is bounded best effort, said plainly and never converted into an automatic overwrite.
-
-Prepare what the project owns now, while nothing is written: its documents, its declaration entries, the ignore lines the scratch needs. A landing refuses before its first write when a destination holds bytes no record accounts for, and this step is what prevents that.
+Read the target's tree, its record, the Git history of what the candidate would touch, the stage, and only the topics the work needs. Then classify each destination by its provenance: the record and the history agreeing is attribution, and a landing refreshes it; one of the two missing is reduced confidence, presented to the operator; neither is bounded best effort, said plainly and never converted into an automatic overwrite. Prepare what the project owns now, while nothing is written: its documents, its declaration entries, the ignore lines the scratch needs. A landing refuses before its first write when a destination holds bytes no record accounts for, and this step is what prevents that.
 
 ## 4. Land
 
@@ -82,17 +78,13 @@ Inactive state an older release left is shown with the evidence that no operatio
 
 Load `sdd docs migration`. It owns the classification, the inventory, the loop, and the close, and every step below is one of its sections.
 
-With a sweep, author the migration checklist into the location the operator names, in the shape the chapter's inventory section gives, and drive the chapter's loop. A read-only sweep of every populated documentation root completes the inventory before the checklist freezes, covering files of any extension, wiki exports, README files, and contributor guides.
-
-With an incremental scope, land the instance, record the inherited budget violations with `sdd debt baseline --apply`, and close the task naming the two standing rules: recorded debt tightens as a document shrinks, and prose converts the next time somebody edits it. Author no checklist, because nothing retires.
+With a sweep, author the migration checklist into the location the operator names, in the shape the chapter's inventory section gives, and drive the chapter's loop. A read-only sweep of every populated documentation root completes the inventory before the checklist freezes, covering files of any extension, wiki exports, README files, and contributor guides. With an incremental scope, land the instance, record the inherited budget violations with `sdd debt baseline --apply`, and close the task naming the two standing rules: recorded debt tightens as a document shrinks, and prose converts the next time somebody edits it. Author no checklist, because nothing retires.
 
 A numbered document, `01-intro.md` or `ADR-0007-thing.md`, is renamed to a slug drawn from its subject inside the migration, never as a follow-up. The rename repairs every inbound link in the same change. Where the corpus has a reading order, that order moves into the directory's `README.md` as prose before the numbers come off.
 
 ## An upgrade, drift, or current classification
 
-Load `sdd docs reconcile`. It owns the three reconciliations, and none of them is a single verb. Managed drift blocks the plan and carries the three-way comparison to present. Adopted drift is kept and its baseline moves, which is the ownership working. A retired rule ID is re-pointed by the operator, and the citation gate fails until it is.
-
-Install the newer `sdd` before landing a newer release, because the binary lands only itself. An instance ahead of this binary stops the task: no verb here is safe from an older engine.
+Load `sdd docs reconcile`. It owns the three reconciliations, and none of them is a single verb. Managed drift blocks the plan and carries the three-way comparison to present. Adopted drift is kept and its baseline moves, which is the ownership working. A retired rule ID is re-pointed by the operator, and the citation gate fails until it is. Install the newer `sdd` before landing a newer release, because the binary lands only itself. An instance ahead of this binary stops the task: no verb here is safe from an older engine.
 
 ## An invalid classification
 
@@ -104,11 +96,19 @@ A record or declaration nobody can read is a stop. `sdd status --target . --json
 
 ## Declare what the gates judge
 
-The declaration `paths.active.destinations.declaration` names states which paths no delivered gate judges and which filters a named gate takes. The landing writes it once and never again, so it is the project's from the moment it lands. `reserved:` lists paths no gate judges, for a region another tool renders or hashes. `gates:` names a gate and gives it `include` or `exclude` globs, and a gate absent there takes its registry default.
+The declaration `paths.active.destinations.declaration` names states which paths no delivered gate judges and which filters a named gate takes. The landing writes it once and never again, so it is the project's from the moment it lands. `reserved:` lists paths no gate judges, for a region another tool renders or hashes. `gates:` names a gate and gives it `include` or `exclude` globs, and a gate absent there takes its registry default. `reserved:` covers the gates `sdd` delivers, not the Markdown linter, whose scope lives in its own `ignores`.
 
 Four layers compose, highest last: the registry default, the `gates:` entry, a `--include` or `--exclude` flag, then `reserved:`. Every `exclude` layer extends. A `gates:` `include` replaces the registry default rather than adding to it, because extending a whitelist could only widen what the gate judges.
 
 Edit the file, then run `sdd hooks --apply`, which renders the managed block from the declaration. `sdd verify` fails and names the gate whose wiring disagrees. `sdd gate --explain <PATH>` names the pattern and layer behind each answer, and it is the first thing to run after a surprising result. Ask the operator whether another tool owns a region of any file before the landing, because that is the case reservations exist for.
+
+## Compose the lint configuration
+
+1. Read every location below from `lint_discovery` in the destination set of the profile being landed, under `paths.candidates` or `paths.active`, and gate each edit for the operator. Before the landing, where a file `refused_at_docs_root` lists exists, or a `.markdownlint.*` or `.markdownlint-cli2.*` file sits at any depth beneath a directory `refused_beneath` lists, propose folding it into the root CLI2 configuration and cite `instance:the-lint-configuration-composes`. A configuration at the repository root is not one of these cases, so propose no move for it.
+2. Where the landing notes that the root seed was not seeded, inspect every file of both families `repository_root` lists before proposing an edit. `customRules` belongs to the `.markdownlint-cli2.*` family and a `.markdownlint.*` file holds rule configuration alone, as the [pinned upstream configuration contract](https://github.com/DavidAnson/markdownlint-cli2/blob/v0.23.3/README.md#configuration) states. With a CLI2 file, merge `markdownlint-rule-relative-links` into its `customRules` and keep every existing entry. With a library-family file alone, keep it and propose a companion CLI2 file at the repository root that carries the loader. Enable `"relative-links": true` in the effective rules: the library-family file where one exists, otherwise the CLI2 `config`. Never add `customRules` to a library-family file or migrate one only to load a rule, and propose nothing where the rule is already loaded and enabled.
+3. After the operator approves those edits, prove the rule loads: lint a scratch file at the repository root holding a deliberately broken relative link and read a failure citing `relative-links`, then lint a valid link and read a pass. A broken link that lints clean is a failed proof, not completion. No verify rule covers this, because the binary does not parse the project's configuration grammar, so this proof is what catches a silently absent check.
+4. Where the project reserves a path that holds Markdown, propose adding it to `ignores` in the effective root CLI2 configuration, keeping existing entries. `ignores` is not a library-family key, so reuse the companion loader where the root holds no CLI2 file.
+5. Before an upgrade, where the record lists an edited file in the retired `markdownlint/` directory of the instance directory, propose copying the edit aside and restoring the recorded bytes, then run the upgrade. `distribution:upgrade-conflicts-are-atomic` makes the upgrade refuse and write nothing while any managed file differs from its recorded hash, retired files included. Port the saved edit into the root CLI2 configuration only after the upgrade succeeds, with approval at each step.
 
 ## Land the variables
 
@@ -151,6 +151,6 @@ Gate each of these: print the exact command or edit, say what it changes and why
 - One instance per repository, at the repository root.
 - Every write comes from a plan the operator approved, and the landing renders that plan's candidate afresh.
 - Prefer `sdd status --json` and `sdd stage --json` for machine decisions. Each prints one JSON object.
-- Leave managed files alone: everything under the instance directory `paths.active.destinations.instance_dir` names belongs to the canon.
+- Leave managed files alone: every file the record lists as managed belongs to the canon, the lint configuration `paths.active.destinations.lint_config` names included, not only what sits under the instance directory `paths.active.destinations.instance_dir` names.
 - An instance carries no skill file. The skills live at user scope, in the roots `paths.user.agent_roots` names, where `sdd skill install` puts them.
 - Never widen an approved scope inline: a discovered document, an extra split, a version move is its own plan, approved at its own size.

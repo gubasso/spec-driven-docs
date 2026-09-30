@@ -1,0 +1,17 @@
+// The repository's Markdown lint configuration, seeded once by
+// spec-driven-docs. The project owns this file: edit it freely, and a later
+// landing keeps its bytes.
+//
+// It loads the relative-links rule, which fails a relative link whose target
+// does not exist. Every other rule takes the linter's default here, and the
+// documentation root's own configuration merges over this one beneath it.
+//
+// Put a Markdown path the linter must skip in `ignores`. The `reserved:` list
+// in .spec-driven-docs/config.yaml scopes sdd's own gates, not this linter.
+{
+  "customRules": ["markdownlint-rule-relative-links"],
+  "config": {
+    "relative-links": true
+  },
+  "ignores": []
+}

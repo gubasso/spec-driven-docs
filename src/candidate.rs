@@ -19,10 +19,13 @@ use crate::domain::instance_config::{InstanceConfig, WritingStyle};
 use crate::domain::manifest::{CANON_SOURCE, MANIFEST_PATH, Manifest, SCHEMA_VERSION};
 use crate::domain::ownership::{AdoptedEntry, IntegrationBlock, ManagedEntry, Sha256};
 use crate::domain::paths::{AGENTS_DIGEST_PATH, HOOKS_CONFIG_PATH};
-use crate::domain::profile::{DocsRoot, ProfileId, resolve_destination};
+use crate::domain::profile::{DocsRoot, ProfileId, render_root, resolve_destination};
 use crate::domain::version::CanonVersion;
 use crate::error::AppError;
 use crate::services::hooks_render::{RenderOptions, render_block};
+
+/// The title a root `AGENTS.md` this landing creates opens with.
+pub const AGENTS_TITLE: &str = "# AGENTS";
 
 /// Who owns a destination's bytes after the landing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -108,6 +111,13 @@ pub struct Evidence {
     pub hooks_host: String,
     /// The root author-instructions file the target holds, or nothing.
     pub agents_host: String,
+    /// Whether the root author-instructions file exists at all.
+    ///
+    /// An absent file and an existing empty one both leave `agents_host`
+    /// empty, and only the absent one is created with a title.
+    pub agents_exists: bool,
+    /// Which names of every declared yield set exist at the target root.
+    pub present_at_root: Vec<String>,
 }
 
 /// What a landing was asked to render.
@@ -157,7 +167,7 @@ pub fn project(input: &Input) -> Result<Candidate, AppError> {
 
     for projection in declared.managed {
         let bytes = source_bytes(&projection.source)?;
-        let path = Utf8PathBuf::from(&projection.destination);
+        let path = resolve_destination(&projection.destination, docs_root);
         managed_entries.push(ManagedEntry {
             source: projection.source.clone().into(),
             destination: path.clone(),
@@ -173,16 +183,38 @@ pub fn project(input: &Input) -> Result<Candidate, AppError> {
     }
 
     for projection in declared.adopted {
-        let seed = source_bytes(&projection.source)?;
+        let seed = rendered_seed(&projection.source, docs_root)?;
         let path = resolve_destination(&projection.destination, docs_root);
+        let recorded = input
+            .evidence
+            .recorded_adopted
+            .iter()
+            .any(|recorded| recorded == path.as_str());
+        // A seed the record already attributes keeps its entry, its held
+        // bytes, and its baseline, like any other adopted file. The yield
+        // decides only whether to introduce one, and the seed's own name is
+        // in the set it yields to, so asking first would stop owning it at
+        // the second landing.
+        if !recorded
+            && let Some(cause) = projection.yield_set().and_then(|set| {
+                set.names().find(|name| {
+                    input
+                        .evidence
+                        .present_at_root
+                        .iter()
+                        .any(|held| held == name)
+                })
+            })
+        {
+            notes.push(format!(
+                "note: {path} was not seeded, because the target root already holds {cause}; that configuration stays the project's, and 'sdd method gates' states what it needs to load the relative-links rule"
+            ));
+            continue;
+        }
         let held = input.evidence.existing.get(&path);
         if let Some(held) = held
             && held != &seed
-            && !input
-                .evidence
-                .recorded_adopted
-                .iter()
-                .any(|recorded| recorded == path.as_str())
+            && !recorded
         {
             notes.push(format!(
                 "note: {path} already exists and is kept; the seed was not written, so read it with 'sdd spec' and reconcile by hand"
@@ -268,8 +300,14 @@ pub fn project(input: &Input) -> Result<Candidate, AppError> {
 
     let agents_block =
         crate::services::agents_render::render_block(&docs_root.to_string(), &writing_style);
-    let agents =
+    let mut agents =
         crate::domain::marker::place_agents_block(&input.evidence.agents_host, &agents_block)?;
+    // A file this landing creates opens with a title, because a Markdown
+    // file whose first line is not one fails the linter's default. A host
+    // that exists, even an empty one, is the project's, and gets none.
+    if !input.evidence.agents_exists {
+        agents = format!("{AGENTS_TITLE}\n\n{agents}");
+    }
     let agents_hash = crate::domain::marker::block_hash_with(
         &agents,
         crate::domain::marker::AGENTS_BEGIN,
@@ -372,6 +410,26 @@ pub fn source_bytes(source: &str) -> Result<Vec<u8>, AppError> {
         })
 }
 
+/// One adopted seed as it lands for a documentation root.
+///
+/// A seed names the instance's root by the placeholder, and the landing is
+/// the one moment that knows the root, so the landed bytes, the held-bytes
+/// comparison, and the recorded baseline all use this rendering. A seed
+/// that is not text carries no placeholder and lands as it is.
+///
+/// SATISFIES staging:a-seed-lands-rendered-for-its-root
+///
+/// # Errors
+///
+/// [`AppError::Refused`] where this release does not carry the source.
+pub fn rendered_seed(source: &str, docs_root: DocsRoot) -> Result<Vec<u8>, AppError> {
+    let bytes = source_bytes(source)?;
+    let rendered = std::str::from_utf8(&bytes)
+        .ok()
+        .map(|text| render_root(text, docs_root.as_str()).into_bytes());
+    Ok(rendered.unwrap_or(bytes))
+}
+
 /// Refuse two sources aimed at one destination before any writer runs.
 fn one_destination_each(destinations: &[Destination]) -> Result<(), AppError> {
     let mut seen: Vec<&Utf8PathBuf> = Vec::with_capacity(destinations.len());
@@ -437,14 +495,32 @@ mod tests {
     fn one_documentation_root_serves_the_whole_candidate() {
         let candidate = project(&input(ProfileId::KnowledgeBase)).unwrap();
         let root = candidate.manifest.docs_root;
-        for entry in &candidate.manifest.adopted_files {
-            if entry.destination == crate::domain::paths::CONFIG_PATH {
+        let root_seeds: Vec<&str> = crate::domain::profile::DECLARATION
+            .adopted
+            .iter()
+            .filter(|projection| projection.yield_set().is_some())
+            .map(|projection| projection.destination.as_str())
+            .collect();
+        assert_eq!(root_seeds, [".markdownlint-cli2.jsonc"]);
+        for entry in candidate
+            .manifest
+            .managed_files
+            .iter()
+            .map(|entry| &entry.destination)
+            .chain(
+                candidate
+                    .manifest
+                    .adopted_files
+                    .iter()
+                    .map(|entry| &entry.destination),
+            )
+        {
+            if entry == crate::domain::paths::CONFIG_PATH || root_seeds.contains(&entry.as_str()) {
                 continue;
             }
             assert!(
-                entry.destination.as_str().starts_with(&format!("{root}/")),
-                "{} is outside the recorded root {root}",
-                entry.destination
+                entry.as_str().starts_with(&format!("{root}/")),
+                "{entry} is outside the recorded root {root}"
             );
         }
     }
@@ -509,6 +585,7 @@ mod tests {
     fn a_marked_region_preserves_every_byte_outside_it() {
         let mut held = input(ProfileId::Codebase);
         held.evidence.agents_host = "# Project\n\nOur own paragraph.\n".to_string();
+        held.evidence.agents_exists = true;
         let candidate = project(&held).unwrap();
         let agents = candidate
             .destinations
@@ -543,6 +620,146 @@ mod tests {
         held.reserve = vec!["vendor/**".to_string()];
         let error = project(&held).unwrap_err();
         assert!(error.to_string().contains("does not parse"), "{error}");
+    }
+
+    const ROOT_SEED: &str = ".markdownlint-cli2.jsonc";
+
+    #[test]
+    fn a_yielding_seed_the_record_does_not_name_is_not_introduced() {
+        let mut held = input(ProfileId::Codebase);
+        held.evidence.present_at_root = vec![".markdownlint.yaml".to_string()];
+        let candidate = project(&held).unwrap();
+        assert!(
+            !candidate
+                .destinations
+                .iter()
+                .any(|destination| destination.path == ROOT_SEED)
+        );
+        assert!(
+            !candidate
+                .manifest
+                .adopted_files
+                .iter()
+                .any(|entry| entry.destination == ROOT_SEED)
+        );
+        assert!(
+            candidate
+                .notes
+                .iter()
+                .any(|note| note.contains(&format!("{ROOT_SEED} was not seeded"))
+                    && note.contains("already holds .markdownlint.yaml")),
+            "{:?}",
+            candidate.notes
+        );
+    }
+
+    #[test]
+    fn a_yielding_seed_the_record_names_stays_adopted() {
+        let mut held = input(ProfileId::Codebase);
+        let seed = rendered_seed("instance/seeds/markdownlint-cli2.jsonc", DocsRoot::Docs).unwrap();
+        // The seed's own name is in the set it yields to, which is why the
+        // record is asked first.
+        held.evidence.present_at_root = vec![ROOT_SEED.to_string()];
+        held.evidence.existing.insert(
+            Utf8PathBuf::from(ROOT_SEED),
+            b"{ \"edited\": true }\n".to_vec(),
+        );
+        held.evidence.recorded_adopted.push(ROOT_SEED.to_string());
+
+        let candidate = project(&held).unwrap();
+        let kept = candidate
+            .destinations
+            .iter()
+            .find(|destination| destination.path == ROOT_SEED)
+            .unwrap();
+        assert_eq!(kept.bytes, b"{ \"edited\": true }\n");
+        assert_eq!(kept.ownership, Ownership::Adopted);
+        let entry = candidate
+            .manifest
+            .adopted_files
+            .iter()
+            .find(|entry| entry.destination == ROOT_SEED)
+            .unwrap();
+        assert_eq!(entry.baseline_sha256, Sha256::of(&seed));
+        assert!(candidate.notes.is_empty(), "{:?}", candidate.notes);
+    }
+
+    fn agents_bytes(candidate: &Candidate) -> String {
+        let agents = candidate
+            .destinations
+            .iter()
+            .find(|destination| destination.path == AGENTS_DIGEST_PATH)
+            .unwrap();
+        String::from_utf8(agents.bytes.clone()).unwrap()
+    }
+
+    #[test]
+    fn only_an_absent_host_receives_the_title() {
+        let absent = project(&input(ProfileId::Codebase)).unwrap();
+        let text = agents_bytes(&absent);
+        assert!(
+            text.starts_with(&format!("{AGENTS_TITLE}\n\n<!-- BEGIN")),
+            "{text}"
+        );
+
+        let mut empty = input(ProfileId::Codebase);
+        empty.evidence.agents_exists = true;
+        let text = agents_bytes(&project(&empty).unwrap());
+        assert!(text.starts_with("<!-- BEGIN"), "{text}");
+        assert!(!text.contains(AGENTS_TITLE), "{text}");
+        assert_ne!(agents_bytes(&absent), text);
+    }
+
+    #[test]
+    fn an_unmarked_documentation_section_is_kept_and_noted_without_a_title() {
+        let mut held = input(ProfileId::Codebase);
+        held.evidence.agents_exists = true;
+        held.evidence.agents_host = "## Documentation\n\n- Our own routing.\n".to_string();
+        let candidate = project(&held).unwrap();
+        let text = agents_bytes(&candidate);
+        assert!(
+            text.starts_with("## Documentation\n\n- Our own routing.\n\n<!-- BEGIN"),
+            "{text}"
+        );
+        assert!(!text.contains(AGENTS_TITLE), "{text}");
+        assert!(
+            candidate
+                .notes
+                .iter()
+                .any(|note| note.contains("unmarked '## Documentation' section")),
+            "{:?}",
+            candidate.notes
+        );
+    }
+
+    #[test]
+    fn a_seed_lands_rendered_for_its_root() {
+        let candidate = project(&input(ProfileId::Codebase)).unwrap();
+        let registry = candidate
+            .destinations
+            .iter()
+            .find(|destination| destination.path == "docs/reference/tracking.yaml")
+            .unwrap();
+        let text = String::from_utf8(registry.bytes.clone()).unwrap();
+        assert!(
+            text.contains("path: docs/reference/model-pricing.md"),
+            "{text}"
+        );
+        assert!(
+            !text.contains(crate::domain::profile::DOCS_ROOT_PLACEHOLDER),
+            "{text}"
+        );
+        let recorded = candidate
+            .manifest
+            .adopted_files
+            .iter()
+            .find(|entry| entry.destination == "docs/reference/tracking.yaml")
+            .unwrap();
+        assert_eq!(recorded.baseline_sha256, Sha256::of(&registry.bytes));
+        assert_ne!(
+            recorded.baseline_sha256,
+            Sha256::of(&source_bytes("templates/TEMPLATE-tracking.yaml").unwrap())
+        );
     }
 
     #[test]

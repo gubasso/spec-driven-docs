@@ -13,10 +13,10 @@ This repository is the canonical knowledge product for spec-driven documentation
 ## Ownership boundaries
 
 - `method/`, `comparison-docs/`, `templates/`, `reference/`, and `skills/` are canon product files.
-- `src/` is the distribution: the `sdd` binary embeds the payload at compile time from the authored paths, so canon and binary cannot drift. The payload is spec seeds, templates, `.markdownlint/` configurations, `instance/snippets/`, `skills/`, and `method/`.
+- `src/` is the distribution: the `sdd` binary embeds the payload at compile time from the authored paths, so canon and binary cannot drift. The payload is spec seeds, templates, the documentation-root lint configuration `_docs/.markdownlint-cli2.jsonc`, `instance/`, `skills/`, and `method/`.
 - `skill-shared/` is the one authored source of what every skill shares. The installer materializes it into every skill package as `references/<file>`, so a skill names a gate by a path relative to its own root and a fix still lands in one file. The plan gate every skill routes to lives there.
 - The delivered gate set is declared once, in the registry in `src/gates.rs`. The managed block an instance receives is rendered from the registry at install time and committed nowhere, so there is no copy to hold equal. This repository publishes no `.pre-commit-hooks.yaml`: the gates serve instances, not repositories that reference them remotely.
-- This repository is an instance of itself, and the one whose block no installer wrote: the managed region of its own `.pre-commit-config.yaml` is maintained by hand, so a new gate is wired there in the same change. The release checks hold that region to the registry.
+- This repository is an instance of itself whose managed region no installer wrote: `just hooks` applies the same render with the entry prefix `cargo run -q --`, and a cargo test holds the region to it. Hooks only this repository runs sit outside the markers.
 - Checks of invariants only this repository has (the license split, version alignment) are cargo tests under `tests/`, never delivered (ADR-split-gates-by-delivery-domain).
 - `_docs/specs/`, `_docs/decisions/`, marker-delimited integrations, and the debt file `SPEC-budget-debt.md` governs are local overlays after installation.
 - Keep each durable fact in one owner and link to it elsewhere.
@@ -38,7 +38,7 @@ This repository is the canonical knowledge product for spec-driven documentation
 - Rust follows the exobrain CLI conventions: clap derive in `src/cli/`, one handler per subcommand in `src/commands/`, typed errors with a tested exit-code matrix in `src/error.rs`.
 - Every gate change lands with its unit tests, and every failure message a gate prints cites a rule ID that a spec defines. The registry test holds the citable set to the specs.
 - Run `just check` before handoff. It lints, tests, and installs into a scratch target.
-- Run `just manifest` after editing anything the canon manifest records: `.markdownlint/`, `_docs/specs/`, the recorded templates, or the managed pre-commit block. `sdd verify` reports the omission as a note rather than a failure, because an instance owns its adopted files. Here `release:the-canon-record-describes-its-tree` fails instead.
+- Run `just manifest` after editing the declaration or anything the canon manifest records: `_docs/.markdownlint-cli2.jsonc`, `_docs/specs/`, the recorded templates, or the managed pre-commit block. It applies the managed region first, then regenerates the record. `sdd verify` reports the omission as a note rather than a failure, because an instance owns its adopted files. Here `release:the-canon-record-describes-its-tree` fails instead.
 - `Cargo.toml` is the release source of truth. Write Conventional Commits, and release-plz derives the version, the changelog, and the tag. Never author a tag: `_docs/guides/release.md` owns the sequence.
 - The forge setup is complete, `install-bot` included. `rk setup check` reads `install-bot` as unknown on every host that lacks the App key `.envrc.local` names. That result is expected, so never report it as a gap and never ask for the key. `_docs/guides/release-setup.md` owns the setup.
 - Manage dependencies through cargo (`cargo add`, `cargo remove`, `cargo update`). Never hand-edit versions in `Cargo.toml`.

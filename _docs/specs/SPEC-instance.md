@@ -44,9 +44,25 @@ The project MUST keep `<root>/reference/tracking.yaml` valid against its schema 
 
 Verify: `pre-commit run tracking-registry --all-files`
 
+### `instance:the-lint-configuration-composes` — The lint configuration composes
+
+The project MUST NOT keep a `.markdownlint.*` file at the documentation root, or a markdownlint configuration of either family anywhere beneath `<root>/specs/` or `<root>/decisions/`, and MUST fold the rules it wants into its configuration at the repository root instead.
+
+The documentation root's managed configuration carries the heading shapes, and markdownlint-cli2 lets a configuration in those locations replace it. A configuration at the repository root merges beneath it, so it cannot disable the shapes, and the project keeps it.
+
+#### Scenario: A project relaxes a rule for its specs
+
+- GIVEN a project that adds `.markdownlint-cli2.jsonc` beside its specs to relax one rule
+- WHEN `sdd verify` runs
+- THEN it fails naming that path, because the nested file replaces the delivered overrides and no spec there is held to its shape any longer
+
+Verify: `sdd verify --target .`
+
 ### `instance:the-project-declares-what-its-gates-judge` — The project declares what its gates judge
 
 The project MAY state, in `.spec-driven-docs/config.yaml`, which paths no delivered gate judges and which filters a named gate takes, and the tool MUST apply that statement to every route a subject path reaches a gate by. A declaration that does not parse, or that names a gate this version does not deliver, MUST fail once and name the key, never fall back to the default.
+
+The declaration scopes the gates `sdd` delivers. The Markdown linter takes its scope from the `ignores` of its own configuration, so a Markdown path it must skip goes there, and `reserved:` does not reach it.
 
 #### Scenario: Another tool owns a region of a file at the project root
 

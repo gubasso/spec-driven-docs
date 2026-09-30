@@ -17,10 +17,10 @@ Load this file, find the owning document below, then read that document and the 
 
 ## Where the rules live
 
-| Question the agent arrives with | Owning document                       |
-| ------------------------------- | ------------------------------------- |
-| <question>                      | `<root>/specs/SPEC-<domain>.md`       |
-| <question>                      | `<root>/specs/SPEC-<other-domain>.md` |
+| Question the agent arrives with | Owning document                      |
+| ------------------------------- | ------------------------------------ |
+| <question>                      | `_docs/specs/SPEC-<domain>.md`       |
+| <question>                      | `_docs/specs/SPEC-<other-domain>.md` |
 
 ## Non-negotiables
 

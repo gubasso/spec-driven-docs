@@ -1,6 +1,6 @@
 # Template — Spec
 
-Copy the block below to `<root>/specs/SPEC-<domain>.md`. One spec per domain, at or below 300 lines, with a `<!--TOC-->` marker added above 100 lines. The shape is fixed and gated.
+Copy the block below to `{docs_root}/specs/SPEC-<domain>.md`. One spec per domain, at or below 300 lines, with a `<!--TOC-->` marker added above 100 lines. The shape is fixed and gated.
 
 ```markdown
 # <Domain> Specification

@@ -319,7 +319,7 @@ Verify: `pre-commit run cargo-test --all-files`
 
 ### `distribution:a-delivered-configuration-serves-a-delivered-rule` — A delivered configuration serves a delivered rule
 
-Every configuration file the payload lands MUST enable the checks it exists to make and leave every other check off, so that no default it carries contradicts a rule this tool delivers. A target that holds no configuration of its own MUST pass every hook the landing wired, over the files that same landing wrote.
+Every configuration file the payload lands or seeds MUST set only what a delivered rule requires, so that no setting it carries contradicts a rule this tool delivers. A target that holds no markdownlint configuration of its own MUST pass every hook the landing wired, over the files that same landing wrote.
 
 #### Scenario: A delivered linter configuration leaves the tool's defaults on
 

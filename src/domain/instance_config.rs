@@ -181,6 +181,10 @@ impl WritingStyle {
 #[serde(deny_unknown_fields)]
 pub struct InstanceConfig {
     /// Paths no delivered gate judges. Another tool owns these.
+    ///
+    /// The list covers the gates `sdd` delivers. The Markdown linter reads
+    /// its scope from the `ignores` of its own configuration, so a Markdown
+    /// path it must skip goes in the root `.markdownlint-cli2.jsonc`.
     #[serde(default)]
     pub reserved: Vec<String>,
     /// Per-gate filters, keyed by gate id. A gate not named here takes its

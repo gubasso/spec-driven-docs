@@ -10,9 +10,9 @@ use camino::Utf8Path;
 
 use crate::adapters::fs::sha256_file;
 use crate::domain::manifest::{CANON_SOURCE, MANIFEST_PATH, Manifest, SCHEMA_VERSION};
-use crate::domain::ownership::{AdoptedEntry, IntegrationBlock, ManagedEntry};
+use crate::domain::ownership::{AdoptedEntry, IntegrationBlock, ManagedEntry, Sha256};
 use crate::domain::paths::HOOKS_CONFIG_PATH;
-use crate::domain::profile::{DocsRoot, ProfileId};
+use crate::domain::profile::{DocsRoot, ProfileId, render_root, resolve_destination};
 use crate::domain::version::CanonVersion;
 use crate::error::AppError;
 
@@ -72,18 +72,21 @@ pub fn regenerate(root: &Utf8Path) -> Result<String, AppError> {
     }
 
     let mut managed = Vec::new();
-    // The payload convention is lowercase; the shell glob this replaces was
-    // case-sensitive too.
-    #[allow(
-        clippy::case_sensitive_file_extension_comparisons,
-        reason = "the payload convention is lowercase, as the glob it replaces was"
-    )]
-    let jsonc = |name: &str| name.ends_with(".jsonc");
-    for path in sorted_files(root, ".markdownlint", jsonc) {
+    // The declaration names every managed projection. Here each one lands
+    // where it is authored, because this repository's documentation root is
+    // the one the knowledge-base profile resolves.
+    for projection in &crate::domain::profile::DECLARATION.managed {
+        let destination = resolve_destination(&projection.destination, DocsRoot::UnderscoreDocs);
+        if destination.as_str() != projection.source {
+            return Err(AppError::Refused(format!(
+                "the managed projection {} resolves to {destination} here, not to its own source",
+                projection.source
+            )));
+        }
         managed.push(ManagedEntry {
-            source: path.clone().into(),
-            destination: path.clone().into(),
-            sha256: sha256_file(&root.join(&path))?,
+            source: projection.source.clone().into(),
+            destination: destination.clone(),
+            sha256: sha256_file(&root.join(&destination))?,
         });
     }
     for path in skill_files(root) {
@@ -123,15 +126,18 @@ pub fn regenerate(root: &Utf8Path) -> Result<String, AppError> {
         });
     }
     // The dogfood tracking registry: the canon owns its populated bytes, and
-    // the tracking template is the baseline an instance seeds from.
+    // the tracking template, rendered for this root, is the baseline an
+    // instance seeds from.
     let registry = "_docs/reference/tracking.yaml";
     let registry_baseline = "templates/TEMPLATE-tracking.yaml";
     if root.join(registry).is_file() {
+        let template = std::fs::read_to_string(root.join(registry_baseline))?;
+        let rendered = render_root(&template, DocsRoot::UnderscoreDocs.as_str());
         adopted.push(AdoptedEntry {
             source: registry_baseline.into(),
             destination: registry.into(),
             sha256: sha256_file(&root.join(registry))?,
-            baseline_sha256: sha256_file(&root.join(registry_baseline))?,
+            baseline_sha256: Sha256::of(rendered.as_bytes()),
         });
     }
 

@@ -13,6 +13,7 @@ pub mod finding;
 pub mod gate_id;
 pub mod instance_config;
 pub mod manifest;
+pub mod markdownlint;
 pub mod marker;
 pub mod ownership;
 pub mod path_filter;

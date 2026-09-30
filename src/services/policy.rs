@@ -149,6 +149,9 @@ pub struct Plan {
     pub reconciliation: Reconciliation,
     /// The action.
     pub action: Action,
+    /// The owning seed as rendered for the instance's root: the baseline a
+    /// record added for the destination carries.
+    pub seed: Vec<u8>,
 }
 
 /// The sentinel's rule block, from the heading to the line before the next
@@ -205,7 +208,7 @@ pub fn plan(target: &Utf8Path, docs_root: DocsRoot) -> Result<Vec<Plan>, AppErro
     let mut plans = Vec::new();
     for reconciliation in needed(target, docs_root)? {
         let sentinel = reconciliation.sentinel;
-        let seed = crate::candidate::source_bytes(&sentinel.source)?;
+        let seed = crate::candidate::rendered_seed(&sentinel.source, docs_root)?;
         let seed_text = std::str::from_utf8(&seed).map_err(anyhow::Error::from)?;
         let block = rule_block(seed_text, sentinel.rule).ok_or_else(|| {
             anyhow::anyhow!("{} does not define {}", sentinel.source, sentinel.rule)
@@ -236,6 +239,7 @@ pub fn plan(target: &Utf8Path, docs_root: DocsRoot) -> Result<Vec<Plan>, AppErro
         plans.push(Plan {
             reconciliation,
             action,
+            seed,
         });
     }
     Ok(plans)
@@ -277,7 +281,9 @@ fn with_adopted_record(
     Ok(())
 }
 
-type Write = (Utf8PathBuf, Vec<u8>, &'static Sentinel);
+/// One destination's bytes, the sentinel they answer, and the rendered seed
+/// the record's baseline takes.
+type Write = (Utf8PathBuf, Vec<u8>, &'static Sentinel, Vec<u8>);
 
 /// The writes a set of plans amounts to, every destination checked to stay
 /// inside the target, or the refusal that stops the whole apply.
@@ -287,7 +293,12 @@ fn preflight(target: &Utf8Path, plans: &[Plan]) -> Result<Vec<Write>, AppError> 
         let sentinel = plan.reconciliation.sentinel;
         match &plan.action {
             Action::Seed { destination, bytes } => {
-                writes.push((destination.clone(), bytes.clone(), sentinel));
+                writes.push((
+                    destination.clone(),
+                    bytes.clone(),
+                    sentinel,
+                    plan.seed.clone(),
+                ));
             }
             Action::Append {
                 destination,
@@ -297,6 +308,7 @@ fn preflight(target: &Utf8Path, plans: &[Plan]) -> Result<Vec<Write>, AppError> 
                 destination.clone(),
                 rewritten.clone().into_bytes(),
                 sentinel,
+                plan.seed.clone(),
             )),
             Action::Checklist { destination, .. } => {
                 return Err(AppError::Refused(format!(
@@ -305,7 +317,7 @@ fn preflight(target: &Utf8Path, plans: &[Plan]) -> Result<Vec<Write>, AppError> 
             }
         }
     }
-    for (destination, _, _) in &writes {
+    for (destination, _, _, _) in &writes {
         crate::adapters::fs::check_destination(target, destination)
             .map_err(|refusal| AppError::Refused(format!("{destination}: {refusal}")))?;
     }
@@ -376,7 +388,7 @@ pub fn apply_all(target: &Utf8Path, plans: &[Plan]) -> Result<Vec<Utf8PathBuf>, 
 
     let mut backups: Vec<(Utf8PathBuf, Option<Vec<u8>>)> = Vec::new();
     let mut attempt = |backups: &mut Vec<(Utf8PathBuf, Option<Vec<u8>>)>| -> Result<(), AppError> {
-        for (destination, bytes, sentinel) in &writes {
+        for (destination, bytes, sentinel, seed) in &writes {
             let full = target.join(destination);
             let previous = if full.is_file() {
                 Some(std::fs::read(&full)?)
@@ -392,8 +404,7 @@ pub fn apply_all(target: &Utf8Path, plans: &[Plan]) -> Result<Vec<Utf8PathBuf>, 
                     sentinel.rule
                 )));
             }
-            let seed = crate::candidate::source_bytes(&sentinel.source)?;
-            with_adopted_record(&mut document, &sentinel.source, destination, bytes, &seed)?;
+            with_adopted_record(&mut document, &sentinel.source, destination, bytes, seed)?;
         }
         backups.push((
             manifest_relative.to_path_buf(),
@@ -426,7 +437,7 @@ pub fn apply_all(target: &Utf8Path, plans: &[Plan]) -> Result<Vec<Utf8PathBuf>, 
     }
     Ok(writes
         .into_iter()
-        .map(|(destination, _, _)| destination)
+        .map(|(destination, _, _, _)| destination)
         .collect())
 }
 

@@ -81,7 +81,9 @@ repos:
         alias: ec
         args: [-disable-insert-final-newline]
         exclude: '\.md$'
-# BEGIN spec-driven-docs managed
+# Hooks only this repository runs sit outside the managed region at the end
+# of this file. That region is the render `just hooks` applies, and a cargo
+# test holds it there.
   - repo: local
     hooks:
       - id: dprint
@@ -118,7 +120,7 @@ repos:
         name: cargo nextest
         entry: cargo nextest run
         language: system
-        files: '^(src/|tests/|build\.rs$|Cargo\.(toml|lock)$|_docs/specs/|templates/|\.markdownlint/|instance/|method/|skills/|migrations/|LICENSE|\.pre-commit-config\.yaml$)'
+        files: '^(src/|tests/|build\.rs$|Cargo\.(toml|lock)$|_docs/specs/|_docs/\.markdownlint-cli2\.jsonc$|templates/|instance/|method/|skills/|migrations/|LICENSE|\.pre-commit-config\.yaml$)'
         pass_filenames: false
   - repo: https://github.com/frnmst/md-toc
     rev: 9.0.1
@@ -126,210 +128,6 @@ repos:
       - id: md-toc
         args: [-p, -c, --skip-lines, '1', github, -l, '3']
         files: '^_docs/specs/SPEC-.*\.md$'
-  - repo: https://github.com/DavidAnson/markdownlint-cli2
-    rev: v0.23.3
-    hooks:
-      - id: markdownlint-cli2
-      - id: markdownlint-cli2
-        alias: md-relative-links
-        name: markdownlint relative links
-        additional_dependencies: ['markdownlint-rule-relative-links']
-        args: ['--config', '.markdownlint/relative-links.markdownlint-cli2.jsonc']
-        exclude: '^_docs/decisions/'
-      - id: markdownlint-cli2
-        alias: md-spec
-        name: markdownlint spec heading shape
-        files: '^_docs/specs/SPEC-[a-z0-9-]+\.md$'
-        args: ['--config', '.markdownlint/spec.markdownlint-cli2.jsonc']
-      - id: markdownlint-cli2
-        alias: md-adr
-        name: markdownlint decision heading shape
-        files: '^_docs/decisions/ADR-[a-z-]+\.md$'
-        args: ['--config', '.markdownlint/adr.markdownlint-cli2.jsonc']
-  - repo: local
-    hooks:
-      - id: spec-driven-docs-verify
-        name: verify spec-driven docs instance
-        entry: cargo run -q -- verify
-        language: system
-        always_run: true
-        pass_filenames: false
-      - id: no-personal-path
-        name: no personal path
-        entry: cargo run -q -- gate no-personal-path
-        language: system
-        types: [text]
-      - id: no-self-narration
-        name: documents state the present
-        entry: cargo run -q -- gate no-self-narration
-        language: system
-        files: '^_docs/(?:specs|decisions|guides|reference|explanation)/(?:.*/)?[^/]*\.md$'
-        types: [markdown]
-        exclude: '^_docs/decisions/.*$'
-      - id: prose-stays-unwrapped
-        name: prose lines stay unwrapped
-        entry: cargo run -q -- gate prose-stays-unwrapped
-        language: system
-        files: '^_docs/(?:specs|decisions|guides|reference|explanation)/(?:.*/)?[^/]*\.md$'
-        types: [markdown]
-        exclude: '^(?:.*/)?CHANGELOG\.md$'
-      - id: adr-cites-a-live-rule
-        name: decision record citations resolve
-        entry: cargo run -q -- gate adr-cites-a-live-rule
-        language: system
-        always_run: true
-        pass_filenames: false
-      - id: adr-filename-shape
-        name: decision record filename shape
-        entry: cargo run -q -- gate adr-filename-shape
-        language: system
-        files: '^_docs/decisions/[^/]*\.md$'
-      - id: adr-word-cap
-        name: decision record word cap
-        entry: cargo run -q -- gate adr-word-cap
-        language: system
-        always_run: true
-        pass_filenames: false
-      - id: agents-digest-size
-        name: agent digest size
-        entry: cargo run -q -- gate agents-digest-size
-        language: system
-        always_run: true
-        pass_filenames: false
-      - id: chapter-size-cap
-        name: chapter and catalog size
-        entry: cargo run -q -- gate chapter-size-cap
-        language: system
-        always_run: true
-        pass_filenames: false
-      - id: spec-requirement-parts
-        name: spec requirement parts
-        entry: cargo run -q -- gate spec-requirement-parts
-        language: system
-        files: '^_docs/specs/SPEC-[^/]*\.md$'
-      - id: spec-rule-id-unique
-        name: spec rule IDs are unique
-        entry: cargo run -q -- gate spec-rule-id-unique
-        language: system
-        always_run: true
-        pass_filenames: false
-      - id: spec-size-cap
-        name: spec size cap
-        entry: cargo run -q -- gate spec-size-cap
-        language: system
-        always_run: true
-        pass_filenames: false
-      - id: spec-verify-hooks-exist
-        name: spec hook references exist
-        entry: cargo run -q -- gate spec-verify-hooks-exist
-        language: system
-        always_run: true
-        pass_filenames: false
-      - id: suppression-names-its-case
-        name: suppressions name a known issue
-        entry: cargo run -q -- gate suppression-names-its-case
-        language: system
-        always_run: true
-        pass_filenames: false
-        args: ['tests/fixtures']
-      - id: ki-filename-shape
-        name: known issue filename shape
-        entry: cargo run -q -- gate ki-filename-shape
-        language: system
-        files: '^(?:_docs/reference/known-issues/KI-[^/]*\.md|tests/fixtures/KI-[^/]*\.md)$'
-      - id: ki-filing
-        name: known issue filing state
-        entry: cargo run -q -- gate ki-filing
-        language: system
-        always_run: true
-        pass_filenames: false
-        args: ['tests/fixtures']
-      - id: ki-mechanism-walkthrough
-        name: known issue mechanism walkthrough
-        entry: cargo run -q -- gate ki-mechanism-walkthrough
-        language: system
-        always_run: true
-        pass_filenames: false
-        args: ['tests/fixtures']
-      - id: ki-report-body
-        name: known issue report body
-        entry: cargo run -q -- gate ki-report-body
-        language: system
-        always_run: true
-        pass_filenames: false
-        args: ['tests/fixtures']
-      - id: ki-retire-when
-        name: known issue retirement condition
-        entry: cargo run -q -- gate ki-retire-when
-        language: system
-        always_run: true
-        pass_filenames: false
-        args: ['tests/fixtures']
-      - id: ki-state
-        name: known issue state
-        entry: cargo run -q -- gate ki-state
-        language: system
-        always_run: true
-        pass_filenames: false
-        args: ['tests/fixtures']
-      - id: ki-bugzilla-report-width
-        name: Bugzilla report width
-        entry: cargo run -q -- gate ki-bugzilla-report-width
-        language: system
-        always_run: true
-        pass_filenames: false
-        args: ['tests/fixtures']
-      - id: ki-checked-date
-        name: known issue last-check date
-        entry: cargo run -q -- gate ki-checked-date
-        language: system
-        always_run: true
-        pass_filenames: false
-        args: ['tests/fixtures']
-      - id: comparison-dated-tables
-        name: comparison tables are dated
-        entry: cargo run -q -- gate comparison-dated-tables
-        language: system
-        files: '^templates/TEMPLATE-comparison\.md$'
-      - id: comparison-escaped-pipes
-        name: comparison table pipes are escaped
-        entry: cargo run -q -- gate comparison-escaped-pipes
-        language: system
-        files: '^templates/TEMPLATE-comparison\.md$'
-      - id: comparison-legend
-        name: comparison legend
-        entry: cargo run -q -- gate comparison-legend
-        language: system
-        files: '^templates/TEMPLATE-comparison\.md$'
-      - id: comparison-one-reference-per-cell
-        name: one reference per comparison cell
-        entry: cargo run -q -- gate comparison-one-reference-per-cell
-        language: system
-        files: '^templates/TEMPLATE-comparison\.md$'
-      - id: comparison-verdict-word
-        name: comparison verdict word
-        entry: cargo run -q -- gate comparison-verdict-word
-        language: system
-        files: '^templates/TEMPLATE-comparison\.md$'
-      - id: instance-manifest
-        name: instance manifest
-        entry: cargo run -q -- gate instance-manifest
-        language: system
-        always_run: true
-        pass_filenames: false
-      - id: gate-message-cites-a-rule
-        name: gate messages cite a rule
-        entry: cargo run -q -- gate gate-message-cites-a-rule
-        language: system
-        always_run: true
-        pass_filenames: false
-      - id: tracking-registry
-        name: tracking registry is valid and current
-        entry: cargo run -q -- gate tracking-registry
-        language: system
-        always_run: true
-        pass_filenames: false
-# END spec-driven-docs managed
   - repo: https://github.com/crate-ci/typos
     rev: v1.50.3
     hooks:
@@ -361,3 +159,185 @@ repos:
       - id: committed
         language: system
         stages: [commit-msg]
+# BEGIN spec-driven-docs managed
+  - repo: local
+    hooks:
+      - id: spec-driven-docs-verify
+        name: verify spec-driven docs instance
+        entry: cargo run -q -- verify
+        language: system
+        always_run: true
+        pass_filenames: false
+      - id: adr-cites-a-live-rule
+        name: 'decision record citations resolve'
+        entry: cargo run -q -- gate adr-cites-a-live-rule
+        language: system
+        always_run: true
+        pass_filenames: false
+      - id: adr-filename-shape
+        name: 'decision record filename shape'
+        entry: cargo run -q -- gate adr-filename-shape
+        language: system
+        files: '^_docs/decisions/[^/]*\.md$'
+      - id: adr-word-cap
+        name: 'decision record word cap'
+        entry: cargo run -q -- gate adr-word-cap
+        language: system
+        always_run: true
+        pass_filenames: false
+      - id: agents-digest-size
+        name: 'agent digest size'
+        entry: cargo run -q -- gate agents-digest-size
+        language: system
+        always_run: true
+        pass_filenames: false
+      - id: chapter-size-cap
+        name: 'chapter and catalog size'
+        entry: cargo run -q -- gate chapter-size-cap
+        language: system
+        always_run: true
+        pass_filenames: false
+      - id: comparison-dated-tables
+        name: 'comparison tables are dated'
+        entry: cargo run -q -- gate comparison-dated-tables
+        language: system
+        files: '^templates/TEMPLATE-comparison\.md$'
+      - id: comparison-escaped-pipes
+        name: 'comparison table pipes are escaped'
+        entry: cargo run -q -- gate comparison-escaped-pipes
+        language: system
+        files: '^templates/TEMPLATE-comparison\.md$'
+      - id: comparison-legend
+        name: 'comparison legend'
+        entry: cargo run -q -- gate comparison-legend
+        language: system
+        files: '^templates/TEMPLATE-comparison\.md$'
+      - id: comparison-one-reference-per-cell
+        name: 'one reference per comparison cell'
+        entry: cargo run -q -- gate comparison-one-reference-per-cell
+        language: system
+        files: '^templates/TEMPLATE-comparison\.md$'
+      - id: comparison-verdict-word
+        name: 'comparison verdict word'
+        entry: cargo run -q -- gate comparison-verdict-word
+        language: system
+        files: '^templates/TEMPLATE-comparison\.md$'
+      - id: gate-message-cites-a-rule
+        name: 'gate messages cite a rule'
+        entry: cargo run -q -- gate gate-message-cites-a-rule
+        language: system
+        always_run: true
+        pass_filenames: false
+      - id: instance-manifest
+        name: 'instance manifest'
+        entry: cargo run -q -- gate instance-manifest
+        language: system
+        always_run: true
+        pass_filenames: false
+      - id: ki-bugzilla-report-width
+        name: 'Bugzilla report width'
+        entry: cargo run -q -- gate ki-bugzilla-report-width
+        language: system
+        always_run: true
+        pass_filenames: false
+      - id: ki-checked-date
+        name: 'known issue last-check date'
+        entry: cargo run -q -- gate ki-checked-date
+        language: system
+        always_run: true
+        pass_filenames: false
+      - id: ki-filename-shape
+        name: 'known issue filename shape'
+        entry: cargo run -q -- gate ki-filename-shape
+        language: system
+        files: '^(?:_docs/reference/known-issues/KI-[^/]*\.md|tests/fixtures/KI-[^/]*\.md)$'
+      - id: ki-filing
+        name: 'known issue filing state'
+        entry: cargo run -q -- gate ki-filing
+        language: system
+        always_run: true
+        pass_filenames: false
+      - id: ki-mechanism-walkthrough
+        name: 'known issue mechanism walkthrough'
+        entry: cargo run -q -- gate ki-mechanism-walkthrough
+        language: system
+        always_run: true
+        pass_filenames: false
+      - id: ki-report-body
+        name: 'known issue report body'
+        entry: cargo run -q -- gate ki-report-body
+        language: system
+        always_run: true
+        pass_filenames: false
+      - id: ki-retire-when
+        name: 'known issue retirement condition'
+        entry: cargo run -q -- gate ki-retire-when
+        language: system
+        always_run: true
+        pass_filenames: false
+      - id: ki-state
+        name: 'known issue state'
+        entry: cargo run -q -- gate ki-state
+        language: system
+        always_run: true
+        pass_filenames: false
+      - id: no-personal-path
+        name: 'no personal path'
+        entry: cargo run -q -- gate no-personal-path
+        language: system
+        types: [text]
+      - id: no-self-narration
+        name: 'documents state the present'
+        entry: cargo run -q -- gate no-self-narration
+        language: system
+        files: '^_docs/(?:specs|decisions|guides|reference|explanation)/(?:.*/)?[^/]*\.md$'
+        types: [markdown]
+        exclude: '^_docs/decisions/.*$'
+      - id: prose-stays-unwrapped
+        name: 'prose lines stay unwrapped'
+        entry: cargo run -q -- gate prose-stays-unwrapped
+        language: system
+        files: '^_docs/(?:specs|decisions|guides|reference|explanation)/(?:.*/)?[^/]*\.md$'
+        types: [markdown]
+        exclude: '^(?:.*/)?CHANGELOG\.md$'
+      - id: spec-requirement-parts
+        name: 'spec requirement parts'
+        entry: cargo run -q -- gate spec-requirement-parts
+        language: system
+        files: '^_docs/specs/SPEC-[^/]*\.md$'
+      - id: spec-rule-id-unique
+        name: 'spec rule IDs are unique'
+        entry: cargo run -q -- gate spec-rule-id-unique
+        language: system
+        always_run: true
+        pass_filenames: false
+      - id: spec-size-cap
+        name: 'spec size cap'
+        entry: cargo run -q -- gate spec-size-cap
+        language: system
+        always_run: true
+        pass_filenames: false
+      - id: spec-verify-hooks-exist
+        name: 'spec hook references exist'
+        entry: cargo run -q -- gate spec-verify-hooks-exist
+        language: system
+        always_run: true
+        pass_filenames: false
+      - id: suppression-names-its-case
+        name: 'suppressions name a known issue'
+        entry: cargo run -q -- gate suppression-names-its-case
+        language: system
+        always_run: true
+        pass_filenames: false
+      - id: tracking-registry
+        name: 'tracking registry is valid and current'
+        entry: cargo run -q -- gate tracking-registry
+        language: system
+        always_run: true
+        pass_filenames: false
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.23.3
+    hooks:
+      - id: markdownlint-cli2
+        additional_dependencies: ['markdownlint-rule-relative-links@5.1.3']
+# END spec-driven-docs managed

@@ -27,14 +27,6 @@ fn docs_root_at(root: &Utf8Path) -> String {
         .map_or_else(|_| "_docs".to_string(), |m| m.docs_root.to_string())
 }
 
-#[allow(
-    clippy::literal_string_with_formatting_args,
-    reason = "the braces are the wiring template's placeholder, not a formatting argument"
-)]
-fn substitute_root(pattern: &str, docs_root: &str) -> String {
-    pattern.replace("{docs_root}", docs_root)
-}
-
 /// Build one gate's subject filter from every layer.
 ///
 /// The registry is the first layer, the project's declaration the second and
@@ -52,12 +44,12 @@ fn filter_for(
     let registry_include: Vec<String> = row
         .include
         .iter()
-        .map(|g| substitute_root(g, docs_root))
+        .map(|g| crate::domain::profile::render_root(g, docs_root))
         .collect();
     let registry_exclude: Vec<String> = row
         .exclude
         .iter()
-        .map(|g| substitute_root(g, docs_root))
+        .map(|g| crate::domain::profile::render_root(g, docs_root))
         .collect();
     instance_config::resolve(
         &registry_include,

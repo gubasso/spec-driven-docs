@@ -719,18 +719,15 @@ fn an_upgrade_never_reconciles() {
 fn a_current_instance_with_managed_drift_reports_the_conflict() {
     let fixture = Fixture::new();
     fixture.install("knowledge-base");
-    fixture.write(
-        ".spec-driven-docs/markdownlint/adr.markdownlint-cli2.jsonc",
-        "{ \"edited\": true }\n",
-    );
+    fixture.write("_docs/.markdownlint-cli2.jsonc", "{ \"edited\": true }\n");
 
     fixture
         .upgrade()
         .assert()
         .failure()
-        .stdout(predicate::str::contains("adr.markdownlint-cli2.jsonc"));
+        .stdout(predicate::str::contains("_docs/.markdownlint-cli2.jsonc"));
     assert_eq!(
-        fixture.read(".spec-driven-docs/markdownlint/adr.markdownlint-cli2.jsonc"),
+        fixture.read("_docs/.markdownlint-cli2.jsonc"),
         "{ \"edited\": true }\n",
         "the conflict report changed the file it named"
     );
@@ -747,4 +744,145 @@ fn a_dry_run_names_the_version_move_and_writes_nothing() {
         .success()
         .stdout(predicate::str::contains("DRY RUN upgrade 0.1.6 to"));
     assert_eq!(digest, fixture.tree_digest(), "a dry run changed bytes");
+}
+
+/// The three configurations the private-directory layout managed.
+const RETIRED_LINT: [&str; 3] = [
+    "adr.markdownlint-cli2.jsonc",
+    "spec.markdownlint-cli2.jsonc",
+    "relative-links.markdownlint-cli2.jsonc",
+];
+
+/// An instance as the private-directory layout left it: three managed
+/// configurations under the instance directory, no documentation-root
+/// configuration, and no root seed.
+fn private_lint_layout_instance() -> Fixture {
+    use spec_driven_docs::domain::ownership::Sha256;
+
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    std::fs::remove_file(fixture.path().join("_docs/.markdownlint-cli2.jsonc")).unwrap();
+    std::fs::remove_file(fixture.path().join(".markdownlint-cli2.jsonc")).unwrap();
+    let mut manifest: serde_json::Value =
+        serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
+    let mut managed = Vec::new();
+    for name in RETIRED_LINT {
+        let destination = format!(".spec-driven-docs/markdownlint/{name}");
+        let bytes = format!("{{ \"config\": {{ \"default\": false }}, \"name\": \"{name}\" }}\n");
+        fixture.write(&destination, &bytes);
+        managed.push(serde_json::json!({
+            "source": format!(".markdownlint/{name}"),
+            "destination": destination,
+            "sha256": Sha256::of(bytes.as_bytes()).to_string(),
+        }));
+    }
+    manifest["managed_files"] = serde_json::Value::Array(managed);
+    manifest["adopted_files"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|entry| entry["destination"] != ".markdownlint-cli2.jsonc");
+    manifest["canon_version"] = serde_json::json!("0.12.1");
+    fixture.write(
+        ".spec-driven-docs/manifest.json",
+        &format!("{}\n", serde_json::to_string_pretty(&manifest).unwrap()),
+    );
+    fixture
+}
+
+/// VERIFIES distribution:upgrade-conflicts-are-atomic
+///
+/// An upgrade retires the private directory the recorded bytes vouch for and
+/// lands the documentation-root configuration and the root seed.
+#[test]
+fn an_upgrade_retires_the_private_lint_directory_and_lands_the_new_pair() {
+    let fixture = private_lint_layout_instance();
+    fixture.upgrade().assert().success();
+    for name in RETIRED_LINT {
+        assert!(
+            !fixture
+                .path()
+                .join(".spec-driven-docs/markdownlint")
+                .join(name)
+                .exists(),
+            "{name} survived the upgrade"
+        );
+    }
+    assert!(
+        !fixture
+            .path()
+            .join(".spec-driven-docs/markdownlint")
+            .exists(),
+        "the emptied directory was not pruned"
+    );
+    assert!(
+        fixture
+            .path()
+            .join("_docs/.markdownlint-cli2.jsonc")
+            .is_file()
+    );
+    assert!(fixture.path().join(".markdownlint-cli2.jsonc").is_file());
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .success();
+}
+
+/// VERIFIES distribution:upgrade-conflicts-are-atomic
+///
+/// A retired file is still a managed file the record vouches for, so an edit
+/// in it stops the whole upgrade before any byte moves.
+#[test]
+fn an_edited_retired_lint_file_refuses_the_upgrade_and_writes_nothing() {
+    let fixture = private_lint_layout_instance();
+    fixture.write(
+        ".spec-driven-docs/markdownlint/spec.markdownlint-cli2.jsonc",
+        "{ \"config\": { \"MD013\": true } }\n",
+    );
+    let digest = fixture.tree_digest();
+    fixture
+        .upgrade()
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains(
+            ".spec-driven-docs/markdownlint/spec.markdownlint-cli2.jsonc",
+        ));
+    assert_eq!(
+        digest,
+        fixture.tree_digest(),
+        "a refused upgrade wrote bytes"
+    );
+}
+
+/// A root seed the record attributes stays adopted across an upgrade: the
+/// project's bytes, its entry, and the rendered baseline all survive, even
+/// though the seed's own name is in the set it yields to.
+#[test]
+fn a_recorded_root_seed_stays_adopted_across_an_upgrade() {
+    let fixture = Fixture::new();
+    fixture.install("codebase");
+    let seed = fixture.read(".markdownlint-cli2.jsonc");
+    let edited = seed.replace("\"ignores\": []", "\"ignores\": [\"vendor/**\"]");
+    assert_ne!(seed, edited);
+    fixture.write(".markdownlint-cli2.jsonc", &edited);
+    let manifest = fixture
+        .read(".spec-driven-docs/manifest.json")
+        .replace(env!("CARGO_PKG_VERSION"), "0.12.1");
+    fixture.write(".spec-driven-docs/manifest.json", &manifest);
+
+    fixture.upgrade().assert().success();
+
+    assert_eq!(fixture.read(".markdownlint-cli2.jsonc"), edited);
+    let record: serde_json::Value =
+        serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
+    let entry = record["adopted_files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|entry| entry["destination"] == ".markdownlint-cli2.jsonc")
+        .expect("the root seed is still recorded");
+    let digest =
+        |text: &str| spec_driven_docs::domain::ownership::Sha256::of(text.as_bytes()).to_string();
+    assert_eq!(entry["baseline_sha256"], digest(&seed).as_str());
+    assert_eq!(entry["sha256"], digest(&edited).as_str());
 }

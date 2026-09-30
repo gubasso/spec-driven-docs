@@ -6,7 +6,8 @@
 //! alignment, the boundary keeping a canon check out of the delivery, and
 //! the two obligations this repository carries because it is an instance of
 //! itself: its record is regenerated rather than owned, and its managed
-//! block is hand-maintained rather than installed.
+//! block is the render applied with this checkout's entry prefix rather
+//! than installed.
 
 // Integration tests: assertion style is the point, so the production
 // restrictions on unwrap/panic and string building do not apply here.
@@ -193,22 +194,117 @@ fn the_canon_record_hashes_every_file_the_tree_carries() {
 
 /// SATISFIES release:the-delivered-gate-set-is-declared-once
 ///
-/// This repository is an instance of itself, but the one whose managed block
-/// is maintained by hand rather than rendered by an installer, so nothing but
-/// this holds that copy to the registry it is a copy of.
+/// This repository is an instance of itself whose managed block no
+/// installer wrote: `just hooks` applies the render with this checkout's
+/// entry prefix. The check is the same one an instance runs, so the region
+/// is the render byte for byte, not a copy held to it gate by gate.
 #[test]
-fn the_canon_managed_block_wires_every_registered_gate() {
-    let (_, block) =
-        spec_driven_docs::domain::marker::split_block(&read(".pre-commit-config.yaml"))
-            .expect("malformed managed markers");
-    let block = block.expect("no managed block in .pre-commit-config.yaml");
-    for gate in spec_driven_docs::gates::GATES {
+fn the_canon_managed_block_is_the_render() {
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_sdd"))
+        .args(["hooks", "--check", "--entry", "cargo run -q --", "--target"])
+        .arg(canon())
+        .output()
+        .expect("sdd runs");
+    assert!(
+        output.status.success(),
+        "the managed region is not the render; run 'just hooks':\n{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+/// The gates that judge known-issue records, which this repository holds
+/// to its fixture records because it keeps no record zone of its own.
+const RECORD_GATES: [&str; 8] = [
+    "suppression-names-its-case",
+    "ki-filing",
+    "ki-mechanism-walkthrough",
+    "ki-report-body",
+    "ki-retire-when",
+    "ki-state",
+    "ki-bugzilla-report-width",
+    "ki-checked-date",
+];
+
+/// The fixture records pass every gate that judges a record, run with the
+/// fixture directory as their record root. This is the coverage a hook
+/// argument once gave; the managed region is now the render, which passes
+/// no argument, so a repository-only test carries it.
+#[test]
+fn the_record_gates_pass_over_the_fixture_records() {
+    for gate in RECORD_GATES {
+        let output = std::process::Command::new(env!("CARGO_BIN_EXE_sdd"))
+            .args(["gate", gate, "tests/fixtures"])
+            .current_dir(canon())
+            .output()
+            .expect("sdd runs");
         assert!(
-            block.contains(&format!("- id: {}\n", gate.id)),
-            "{} is registered but this repository's managed block does not wire it",
-            gate.id
+            output.status.success(),
+            "{gate} fails over tests/fixtures:\n{}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
         );
     }
+}
+
+/// The worked examples cite a case the way a project would, and the case
+/// they cite is a fixture record. The declaration keeps `examples/` out of
+/// the suppression gate, so this holds each token to a record instead.
+#[test]
+fn every_known_issue_token_under_the_examples_names_a_fixture_record() {
+    let token = regex::Regex::new(r"(?:^|[^A-Za-z0-9-])(KI-[a-z0-9]+(?:-[a-z0-9]+)*)\b").unwrap();
+    let mut cited = 0;
+    for entry in walkdir::WalkDir::new(canon().join("examples"))
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_type().is_file())
+    {
+        let Ok(text) = std::fs::read_to_string(entry.path()) else {
+            continue;
+        };
+        for found in token.captures_iter(&text) {
+            let case = &found[1];
+            cited += 1;
+            assert!(
+                canon()
+                    .join("tests/fixtures")
+                    .join(format!("{case}.md"))
+                    .is_file(),
+                "{} cites {case}, and tests/fixtures holds no such record",
+                entry.path().display()
+            );
+        }
+    }
+    assert!(
+        cited > 0,
+        "the examples cite no case, so this proves nothing"
+    );
+}
+
+/// The relative-links rule is pinned in two languages: the Rust constant the
+/// rendered hook reads, and the Nix derivation the devshell and the check
+/// phase run. Nix cannot read the constant, so this holds the three equal.
+#[test]
+fn the_relative_links_pin_is_one_version_everywhere() {
+    use spec_driven_docs::domain::markdownlint::{RELATIVE_LINKS_PACKAGE, RELATIVE_LINKS_VERSION};
+    use spec_driven_docs::services::hooks_render::{RenderOptions, render_block};
+
+    let derivation = read("nix/markdownlint.nix");
+    let bundled = derivation
+        .lines()
+        .find_map(|line| line.trim().strip_prefix("ruleVersion = \""))
+        .and_then(|rest| rest.split('"').next())
+        .expect("nix/markdownlint.nix names ruleVersion");
+    assert_eq!(
+        bundled, RELATIVE_LINKS_VERSION,
+        "the devshell bundles another version"
+    );
+    assert!(
+        render_block(&RenderOptions::default()).contains(&format!(
+            "'{RELATIVE_LINKS_PACKAGE}@{RELATIVE_LINKS_VERSION}'"
+        )),
+        "the rendered hook pins another version"
+    );
 }
 
 /// SATISFIES release:a-delivered-gate-reads-what-the-convention-owns
@@ -1789,8 +1885,8 @@ fn the_declaration_is_the_projection_this_release_lands() {
         DECLARATION.docs_root(ProfileId::KnowledgeBase),
         Some(DocsRoot::UnderscoreDocs)
     );
-    assert_eq!(DECLARATION.managed.len(), 3, "the managed set moved");
-    assert_eq!(DECLARATION.adopted.len(), 21, "the adopted set moved");
+    assert_eq!(DECLARATION.managed.len(), 1, "the managed set moved");
+    assert_eq!(DECLARATION.adopted.len(), 22, "the adopted set moved");
     assert_eq!(DECLARATION.canon_templates.len(), 2);
     assert_eq!(DECLARATION.sentinels.len(), 2);
     for entry in &DECLARATION.sentinels {
@@ -1812,9 +1908,9 @@ fn the_declaration_roots_equal_the_payload_roots() {
 
     for entry in DECLARATION.managed.iter().chain(&DECLARATION.adopted) {
         assert!(
-            PAYLOAD_ROOTS
-                .iter()
-                .any(|root| entry.source.starts_with(&format!("{root}/"))),
+            PAYLOAD_ROOTS.iter().any(|root| {
+                entry.source == *root || entry.source.starts_with(&format!("{root}/"))
+            }),
             "{} is projected from outside every declared payload root",
             entry.source
         );
@@ -1883,6 +1979,151 @@ fn only_the_candidate_renders_the_bytes_a_landing_writes() {
     );
 }
 
+/// The registry example the lifecycle chapter shows is one a reader can
+/// copy: it passes the parser the gate uses and the schema the landing
+/// delivers.
+#[test]
+fn the_lifecycle_tracking_example_passes_the_schema() {
+    let chapter = read("method/lifecycle.md");
+    let section = chapter
+        .split_once("## Perishable facts")
+        .expect("the lifecycle chapter has a Perishable facts section")
+        .1;
+    let fence = section
+        .split_once("```yaml\n")
+        .and_then(|(_, rest)| rest.split_once("```"))
+        .expect("the Perishable facts section carries a YAML fence")
+        .0;
+    spec_driven_docs::domain::tracking::parse(fence)
+        .unwrap_or_else(|error| panic!("the lifecycle example does not parse: {error}"));
+
+    let scratch = tempfile::tempdir().unwrap();
+    let instance = scratch.path().join("tracking.yaml");
+    std::fs::write(&instance, fence).unwrap();
+    let output = std::process::Command::new("check-jsonschema")
+        .arg("--schemafile")
+        .arg(canon().join("_docs/specs/SPEC-tracking/tracking.schema.json"))
+        .arg(&instance)
+        .output()
+        .unwrap_or_else(|error| {
+            panic!("check-jsonschema did not run: {error}; it comes from the devshell")
+        });
+    assert!(
+        output.status.success(),
+        "the lifecycle example fails the schema:\n{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+/// The documentation root is substituted in one place, so a second
+/// substitution cannot render a seed one way and a wiring pattern another.
+#[test]
+fn only_the_profile_module_substitutes_the_documentation_root() {
+    for (relative, text) in production_rust() {
+        if relative == "src/domain/profile.rs" {
+            continue;
+        }
+        for needle in ["replace(\"{docs_root}\"", "replace(DOCS_ROOT_PLACEHOLDER"] {
+            assert!(
+                !text.contains(needle),
+                "{relative} substitutes the documentation root itself; call render_root"
+            );
+        }
+    }
+}
+
+/// A placeholder in payload content is rendered only where a landing
+/// renders it: an adopted seed, the `AGENTS.md` snippet, and the
+/// declaration's destination templates. Anywhere else it would reach an
+/// instance, or a reader of `sdd docs`, as a literal brace.
+///
+/// SATISFIES staging:a-seed-lands-rendered-for-its-root
+#[test]
+fn the_root_placeholder_appears_only_where_a_landing_renders_it() {
+    use spec_driven_docs::domain::profile::{DECLARATION, DOCS_ROOT_PLACEHOLDER};
+
+    let seeds: Vec<&str> = DECLARATION
+        .adopted
+        .iter()
+        .map(|entry| entry.source.as_str())
+        .collect();
+    for (relative, text) in payload_files() {
+        if !text.contains(DOCS_ROOT_PLACEHOLDER) {
+            continue;
+        }
+        assert!(
+            seeds.contains(&relative.as_str())
+                || relative.starts_with("instance/snippets/")
+                || relative == "instance/projection.toml",
+            "{relative} carries {DOCS_ROOT_PLACEHOLDER}, and no landing renders it"
+        );
+    }
+}
+
+/// Paths a seeded spec may name under a profile root because they are not
+/// an assumption about the instance's root.
+///
+/// `docs/STYLE.md` is the location of a project's own style guide in a
+/// scenario, not the resolved documentation root. A new exemption is a
+/// decision, so the list names each path rather than a pattern.
+const ROOT_NAMING_EXEMPTIONS: &[(&str, &str)] =
+    &[("_docs/specs/SPEC-writing-policy.md", "docs/STYLE.md")];
+
+/// Whether `line` names `root` as a path token rather than as the tail of
+/// a longer name, such as the `docs/` inside `.spec-driven-docs/`.
+fn names_root_token(line: &str, root: &str) -> Vec<usize> {
+    line.match_indices(root)
+        .filter(|(at, _)| {
+            line[..*at].chars().next_back().is_none_or(|before| {
+                !(before.is_ascii_alphanumeric() || matches!(before, '-' | '_' | '.' | '/'))
+            })
+        })
+        .map(|(at, _)| at)
+        .collect()
+}
+
+#[test]
+fn a_root_token_is_matched_on_path_boundaries() {
+    assert_eq!(names_root_token("see `docs/specs/`", "docs/"), vec![5]);
+    assert!(names_root_token("see `_docs/specs/`", "docs/").is_empty());
+    assert!(names_root_token(".spec-driven-docs/config.yaml", "docs/").is_empty());
+    assert_eq!(names_root_token("_docs/specs/", "_docs/"), vec![0]);
+}
+
+/// A seeded spec lands in either profile, so a sentence that names one
+/// profile's root as the reader's root is wrong in the other.
+///
+/// SATISFIES staging:a-seed-lands-rendered-for-its-root
+#[test]
+fn no_seeded_spec_names_a_profile_root_as_the_readers_root() {
+    use spec_driven_docs::domain::profile::DECLARATION;
+
+    for entry in &DECLARATION.adopted {
+        let source = entry.source.as_str();
+        if !(source.starts_with("_docs/specs/SPEC-") && source.ends_with(".md")) {
+            continue;
+        }
+        for (number, line) in read(source).lines().enumerate() {
+            if line.starts_with("Verify:") {
+                continue;
+            }
+            for root in ["_docs/", "docs/"] {
+                for at in names_root_token(line, root) {
+                    let exempt = ROOT_NAMING_EXEMPTIONS
+                        .iter()
+                        .any(|(file, path)| *file == source && line[at..].starts_with(path));
+                    assert!(
+                        exempt,
+                        "{source}:{} names {root} as the reader's root; write <root>/ instead: {line}",
+                        number + 1
+                    );
+                }
+            }
+        }
+    }
+}
+
 /// SATISFIES bundle:a-pre-schema-release-is-cataloged-or-unavailable
 ///
 /// The packaging configuration is what decides this, and it is readable
@@ -1933,7 +2174,7 @@ fn the_published_crate_carries_the_payload() {
         assert!(
             files
                 .lines()
-                .any(|line| line.starts_with(&format!("{root}/"))),
+                .any(|line| line == root || line.starts_with(&format!("{root}/"))),
             "the published crate carries no {root}"
         );
     }

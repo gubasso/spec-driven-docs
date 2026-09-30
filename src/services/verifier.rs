@@ -92,15 +92,6 @@ fn reached_through_symlink(target: &Utf8Path, destination: &Utf8Path) -> bool {
     )
 }
 
-/// The manifest must record every projection the profile declares — an
-/// omitted record is an owned file the verifier would silently stop
-/// holding. Applies when the instance is at this binary's version, in
-/// whichever of the two layouts the record claims: the installed layout,
-/// or the canon's self-manifest layout where every owned file sits at its
-/// authored path. Either way the complete expected set for that layout is
-/// required, so no hand edit of the record can shrink what is held —
-/// masquerading as the other layout only changes which files must exist
-/// and hash clean.
 /// The declaration and the managed block must say the same thing.
 ///
 /// The block is rendered from the declaration, so a difference means the
@@ -171,9 +162,10 @@ fn check_declaration(target: &Utf8Path, manifest: &Manifest, report: &mut Verify
             ..crate::services::hooks_render::RenderOptions::default()
         },
     );
-    // Compare per gate rather than over the whole region. A region may
-    // carry hooks this renderer never emits, and this repository's own does,
-    // so byte equality would report every such instance as stale.
+    // Compare per gate rather than over the whole region. A block an older
+    // release rendered carries hooks this renderer no longer emits, and the
+    // upgrade rewrites those; what this names is the wiring a declaration
+    // edit left stale.
     let expected = crate::services::hooks_render::selectors(&rendered);
     let Some(region) = crate::domain::marker::block_region(&host) else {
         return;
@@ -192,9 +184,34 @@ fn check_declaration(target: &Utf8Path, manifest: &Manifest, report: &mut Verify
     }
 }
 
+/// Where the canon's own record keeps the artifacts every skill shares.
+///
+/// `sdd self-manifest` records them as managed entries at their authored
+/// paths, and no consumer landing writes anything there, so their presence
+/// is what tells the two layouts apart.
+const CANON_ONLY_ROOT: &str = "skill-shared/";
+
+/// The manifest must record every projection the profile declares — an
+/// omitted record is an owned file the verifier would silently stop
+/// holding. Applies when the instance is at this binary's version, in
+/// whichever of the two layouts the record claims.
+///
+/// The layout is read from what only the canon's self-manifest records: a
+/// managed entry under `skill-shared/`. That recognizes the ordinary canon
+/// and consumer records. It authenticates nothing, because the record is a
+/// file a user can edit, and changing the claimed layout changes which
+/// obligations this check enforces. The canon branch requires the managed
+/// projection sources, the embedded specs, the canon templates, and the
+/// pre-commit block. The consumer branch requires every declared
+/// destination and both integration blocks. Neither set contains the
+/// other, and the canon branch does not require the whole skill inventory.
+///
+/// A seed that yields, and that the record does not name, is not owed:
+/// the target root held a file of its set, so the landing did not write it.
 fn check_projection_against(
     released: &crate::domain::projection::Declaration,
     manifest: &Manifest,
+    present_at_root: &[String],
     report: &mut VerifyReport,
 ) {
     if manifest.canon_version != CanonVersion::current() {
@@ -214,10 +231,9 @@ fn check_projection_against(
         .map(|entry| entry.destination.as_str())
         .collect();
 
-    let self_layout = declaration
-        .managed
+    let self_layout = managed
         .iter()
-        .all(|projection| managed.contains(projection.source.as_str()));
+        .any(|destination| destination.starts_with(CANON_ONLY_ROOT));
 
     let mut expected: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
     let mut missing: Vec<String> = Vec::new();
@@ -240,8 +256,12 @@ fn check_projection_against(
         }
     } else {
         for projection in declaration.managed {
-            if !managed.contains(projection.destination.as_str()) {
-                missing.push(projection.destination.clone());
+            let destination = crate::domain::profile::resolve_destination(
+                &projection.destination,
+                manifest.docs_root,
+            );
+            if !managed.contains(destination.as_str()) {
+                missing.push(destination.to_string());
             }
         }
         for projection in declaration.adopted {
@@ -249,7 +269,14 @@ fn check_projection_against(
                 &projection.destination,
                 manifest.docs_root,
             );
-            if !adopted.contains(destination.as_str()) {
+            if adopted.contains(destination.as_str()) {
+                continue;
+            }
+            let yielded = projection.yield_set().is_some_and(|set| {
+                set.names()
+                    .any(|name| present_at_root.iter().any(|held| held == name))
+            });
+            if !yielded {
                 missing.push(destination.to_string());
             }
         }
@@ -260,8 +287,8 @@ fn check_projection_against(
         ));
     }
     // Every installed instance carries both integration blocks. The canon's
-    // own layout carries the pre-commit block by hand; its root AGENTS.md is
-    // release-kit-owned and outside this projection.
+    // own layout carries the pre-commit block, which `just hooks` renders;
+    // its root AGENTS.md is release-kit-owned and outside this projection.
     let required: &[&str] = if self_layout {
         &[HOOKS_CONFIG_PATH]
     } else {
@@ -337,9 +364,15 @@ pub fn verify(target: &Utf8Path) -> Result<VerifyReport, AppError> {
         }
     }
 
-    check_projection_against(released, &manifest, &mut report);
+    check_projection_against(
+        released,
+        &manifest,
+        &crate::services::installer::present_at_root(target),
+        &mut report,
+    );
     check_integration(target, &manifest, &mut report)?;
     check_specs(target, &manifest, &mut report)?;
+    check_lint_composition(target, &manifest, &mut report);
     check_debt(target, &mut report);
     for reconciliation in crate::services::policy::needed(target, manifest.docs_root)? {
         report.note(reconciliation.note(manifest.docs_root));
@@ -365,6 +398,62 @@ pub fn verify(target: &Utf8Path) -> Result<VerifyReport, AppError> {
         ));
     }
     Ok(report)
+}
+
+/// Every markdownlint configuration that would replace the delivered one.
+///
+/// A `.markdownlint.*` file beside the documentation root's configuration
+/// replaces its `config`, and any configuration beneath `specs/` or
+/// `decisions/` replaces its `overrides` for that directory. Either one
+/// silently turns the heading shapes off. The repository root is allowed:
+/// a configuration there merges beneath the documentation root's, and it
+/// cannot disable the shapes. Only filenames are read, so no configuration
+/// grammar is parsed.
+///
+/// SATISFIES instance:the-lint-configuration-composes
+#[must_use]
+pub fn lint_configurations_that_break_composition(
+    target: &Utf8Path,
+    docs_root: crate::domain::profile::DocsRoot,
+) -> Vec<camino::Utf8PathBuf> {
+    use crate::domain::markdownlint::{LIBRARY_NAMES, discovery_names};
+
+    let root = Utf8Path::new(docs_root.as_str());
+    let mut found: Vec<camino::Utf8PathBuf> = LIBRARY_NAMES
+        .iter()
+        .map(|name| root.join(name))
+        .filter(|path| target.join(path).is_file())
+        .collect();
+    for subtree in ["specs", "decisions"] {
+        for entry in walkdir::WalkDir::new(target.join(root).join(subtree))
+            .follow_links(false)
+            .into_iter()
+            .filter_map(Result::ok)
+            .filter(|entry| entry.file_type().is_file())
+        {
+            let Some(name) = entry.file_name().to_str() else {
+                continue;
+            };
+            if !discovery_names().any(|known| known == name) {
+                continue;
+            }
+            if let Ok(relative) = entry.path().strip_prefix(target.as_std_path())
+                && let Some(relative) = camino::Utf8Path::from_path(relative)
+            {
+                found.push(relative.to_path_buf());
+            }
+        }
+    }
+    found.sort();
+    found
+}
+
+fn check_lint_composition(target: &Utf8Path, manifest: &Manifest, report: &mut VerifyReport) {
+    for path in lint_configurations_that_break_composition(target, manifest.docs_root) {
+        report.fail(format!(
+            "FAIL {path} replaces the delivered lint configuration and turns the heading shapes off; fold it into the root .markdownlint-cli2.jsonc (instance:the-lint-configuration-composes)"
+        ));
+    }
 }
 
 /// The debt file must be readable, and it must be the only debt format.
@@ -483,4 +572,174 @@ fn check_specs(
         ));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(
+        clippy::unwrap_used,
+        reason = "a test panics as its failure signal, not as control flow"
+    )]
+
+    use super::*;
+    use crate::candidate::{Evidence, Input, project};
+    use crate::domain::ownership::{ManagedEntry, Sha256};
+    use crate::domain::profile::{DECLARATION, ProfileId};
+
+    fn consumer(profile: ProfileId) -> Manifest {
+        project(&Input {
+            profile,
+            version: CanonVersion::current(),
+            installed_at: "2026-01-01T00:00:00Z".to_string(),
+            docs_scratch: None,
+            reserve: Vec::new(),
+            writing_style: None,
+            evidence: Evidence::default(),
+        })
+        .unwrap()
+        .manifest
+    }
+
+    fn failures(manifest: &Manifest) -> Vec<String> {
+        let mut report = VerifyReport::default();
+        check_projection_against(&DECLARATION, manifest, &[], &mut report);
+        report.lines
+    }
+
+    fn managed(path: &str) -> ManagedEntry {
+        ManagedEntry {
+            source: path.into(),
+            destination: path.into(),
+            sha256: Sha256::of(path.as_bytes()),
+        }
+    }
+
+    /// A knowledge-base record whose managed destinations equal their
+    /// sources satisfied the old discriminator, which then demanded the
+    /// canon's specs and templates and dropped the `AGENTS.md` block.
+    #[test]
+    fn a_consumer_whose_managed_destination_equals_its_source_is_still_a_consumer() {
+        let mut manifest = consumer(ProfileId::KnowledgeBase);
+        for projection in &DECLARATION.managed {
+            if !manifest
+                .managed_files
+                .iter()
+                .any(|entry| entry.destination == projection.source.as_str())
+            {
+                manifest.managed_files.push(managed(&projection.source));
+            }
+        }
+        assert!(failures(&manifest).is_empty(), "{:?}", failures(&manifest));
+
+        let mut without_block = manifest.clone();
+        without_block
+            .integration_blocks
+            .retain(|block| block.path != AGENTS_DIGEST_PATH);
+        assert!(
+            failures(&without_block)
+                .iter()
+                .any(|line| line.contains("no integration block for AGENTS.md")),
+            "{:?}",
+            failures(&without_block)
+        );
+
+        let mut without_seed = manifest;
+        let dropped = without_seed.adopted_files.remove(1).destination;
+        assert!(
+            failures(&without_seed)
+                .iter()
+                .any(|line| line.ends_with(dropped.as_str())),
+            "{:?}",
+            failures(&without_seed)
+        );
+    }
+
+    #[test]
+    fn the_canon_record_is_read_as_the_canon() {
+        let text =
+            std::fs::read_to_string(Utf8Path::new(env!("CARGO_MANIFEST_DIR")).join(MANIFEST_PATH))
+                .unwrap();
+        let mut manifest = Manifest::parse(&text).unwrap();
+        manifest.canon_version = CanonVersion::current();
+        assert!(failures(&manifest).is_empty(), "{:?}", failures(&manifest));
+    }
+
+    #[test]
+    fn a_consumer_omitting_a_declared_seed_fails() {
+        let mut manifest = consumer(ProfileId::Codebase);
+        let dropped = manifest.adopted_files.pop().unwrap().destination;
+        let lines = failures(&manifest);
+        assert!(
+            lines.contains(&format!(
+                "FAIL manifest omits a declared projection: {dropped}"
+            )),
+            "{lines:?}"
+        );
+    }
+
+    /// The marker recognizes a layout and authenticates nothing: a record
+    /// that claims the canon layout is held to the canon's obligations, and
+    /// those do not include the `AGENTS.md` block.
+    #[test]
+    fn a_claimed_canon_layout_changes_which_obligations_are_held() {
+        let mut manifest = consumer(ProfileId::KnowledgeBase);
+        manifest
+            .integration_blocks
+            .retain(|block| block.path != AGENTS_DIGEST_PATH);
+        manifest
+            .managed_files
+            .push(managed("skill-shared/plan-gate.md"));
+        let lines = failures(&manifest);
+        assert!(
+            lines
+                .iter()
+                .any(|line| line
+                    .contains("omits a declared projection: _docs/specs/SPEC-release.md")),
+            "the canon branch owes the canon-only specs: {lines:?}"
+        );
+
+        for projection in &DECLARATION.managed {
+            manifest.managed_files.push(managed(&projection.source));
+        }
+        for file in crate::embedded::SPECS.files() {
+            let name = file.path().to_str().unwrap();
+            manifest
+                .managed_files
+                .push(managed(&format!("_docs/specs/{name}")));
+        }
+        for template in crate::domain::profile::CANON_TEMPLATES.iter() {
+            manifest.managed_files.push(managed(template));
+        }
+        let lines = failures(&manifest);
+        assert!(lines.is_empty(), "{lines:?}");
+    }
+
+    #[test]
+    fn a_yielded_seed_the_record_does_not_name_is_not_owed() {
+        let Some(yielding) = DECLARATION
+            .adopted
+            .iter()
+            .find(|projection| projection.yield_set().is_some())
+        else {
+            return;
+        };
+        let mut manifest = consumer(ProfileId::Codebase);
+        let destination =
+            crate::domain::profile::resolve_destination(&yielding.destination, manifest.docs_root);
+        manifest
+            .adopted_files
+            .retain(|entry| entry.destination != destination);
+        assert!(!failures(&manifest).is_empty());
+
+        let mut report = VerifyReport::default();
+        let cause = yielding
+            .yield_set()
+            .unwrap()
+            .names()
+            .last()
+            .unwrap()
+            .to_string();
+        check_projection_against(&DECLARATION, &manifest, &[cause], &mut report);
+        assert!(report.lines.is_empty(), "{:?}", report.lines);
+    }
 }

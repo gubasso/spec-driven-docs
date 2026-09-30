@@ -144,6 +144,41 @@ fn an_absent_owning_specification_is_seeded_and_recorded() {
         .stdout(predicate::str::contains("DRIFT").not());
 }
 
+/// A seed the record does not yet name is recorded against the bytes the
+/// reconciler wrote, which are the seed rendered for the instance's root.
+///
+/// SATISFIES staging:a-seed-lands-rendered-for-its-root
+#[test]
+fn a_seeded_sentinel_spec_is_recorded_with_the_rendered_baseline() {
+    let fixture = needing_reconciliation();
+    std::fs::remove_file(fixture.path().join(SPEC)).unwrap();
+    let manifest_path = ".spec-driven-docs/manifest.json";
+    let mut record: serde_json::Value = serde_json::from_str(&fixture.read(manifest_path)).unwrap();
+    record["adopted_files"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|entry| entry["destination"] != SPEC);
+    fixture.write(
+        manifest_path,
+        &format!("{}\n", serde_json::to_string_pretty(&record).unwrap()),
+    );
+
+    reconcile(&fixture, true).success();
+
+    let written = fixture.read(SPEC);
+    assert!(!written.contains("{docs_root}"), "{written}");
+    let record: serde_json::Value = serde_json::from_str(&fixture.read(manifest_path)).unwrap();
+    let entry = record["adopted_files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|entry| entry["destination"] == SPEC)
+        .expect("the seeded spec is recorded");
+    let digest = spec_driven_docs::domain::ownership::Sha256::of(written.as_bytes()).to_string();
+    assert_eq!(entry["baseline_sha256"], digest.as_str());
+    assert_eq!(entry["sha256"], digest.as_str());
+}
+
 #[test]
 fn reconcile_is_a_no_op_where_every_sentinel_resolves() {
     let fixture = Fixture::new();

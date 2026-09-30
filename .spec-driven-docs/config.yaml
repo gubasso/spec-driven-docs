@@ -4,9 +4,10 @@
 # .pre-commit-config.yaml is rendered from here, so it stays wholly owned by
 # sdd and an upgrade never meets your edit.
 #
-# This repository is the exception: its managed region carries canon-only
-# hooks no installer writes, so the region is maintained by hand and the
-# per-gate wiring below is kept equal to it by `sdd verify`.
+# This repository applies the same render with its own entry prefix:
+# `just hooks` runs `sdd hooks --apply --entry 'cargo run -q --'`, and a
+# cargo test holds the region to that render. Hooks only this repository
+# runs sit outside the markers.
 #
 # `sdd gate --explain <path>` answers why a gate judged a path, or did not,
 # and names the pattern that decided.
@@ -25,7 +26,9 @@
 # default rather than adding to it, because an include is a whitelist and
 # extending one could only widen what the gate judges.
 
-# Paths no delivered gate judges. Another tool owns these.
+# Paths no delivered gate judges. Another tool owns these. The list covers
+# sdd's own gates, not the Markdown linter: a Markdown path the linter must
+# skip goes in the `ignores` of the root .markdownlint-cli2.jsonc.
 reserved: []
 
 # Per-gate filters. A gate not named here takes its registry default.
@@ -51,12 +54,17 @@ gates:
 
   # Every `KI-` token this repository writes outside the documentation root
   # is a fixture or a worked example, never a live citation. The method
-  # chapters teach the citation form, and the unit and integration tests
-  # build records in temporary directories. This repository keeps no
-  # known-issue zone of its own, so it cites no case. A project that adopts
-  # one narrows this list to the paths whose tokens are fixtures.
+  # chapters teach the citation form, the unit and integration tests build
+  # records in temporary directories, and the worked examples cite the
+  # fixture record under tests/fixtures. This repository keeps no
+  # known-issue zone of its own, so it cites no case, and the record gates
+  # find no record here. Cargo tests in tests/canon.rs run the record gates
+  # over tests/fixtures and hold every example token to a fixture record. A
+  # project that adopts a zone narrows this list to the paths whose tokens
+  # are fixtures.
   suppression-names-its-case:
     exclude:
+      - examples/**
       - method/**
       - src/**
       - tests/**

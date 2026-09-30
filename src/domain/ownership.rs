@@ -92,7 +92,8 @@ pub struct AdoptedEntry {
     pub destination: Utf8PathBuf,
     /// The instance's installed bytes.
     pub sha256: Sha256,
-    /// What upstream shipped; an edit reports drift until reconciled.
+    /// What upstream shipped, as the seed rendered for the instance's
+    /// documentation root; an edit reports drift until reconciled.
     pub baseline_sha256: Sha256,
 }
 

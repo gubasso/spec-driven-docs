@@ -41,6 +41,9 @@
       };
       toolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
       rk = release-kit.packages.${system}.default;
+      # The Markdown linter with the relative-links rule bundled beside it,
+      # so the devshell and the package's check phase run one derivation.
+      markdownlint-cli2 = pkgs.callPackage ./nix/markdownlint.nix { };
     in
     {
       # What belongs here: a tool this project pins, a runtime pre-commit
@@ -67,7 +70,7 @@
           pkgs.python3Packages.md-toc
           pkgs.typos
           pkgs.committed
-          pkgs.markdownlint-cli2
+          markdownlint-cli2
           pkgs.lychee
           pkgs.ripsecrets
           pkgs.shellcheck
@@ -83,6 +86,7 @@
       # package and the devshell compile with the one pinned toolchain
       # rather than whatever nixpkgs carries.
       packages.${system}.default = pkgs.callPackage ./nix/package.nix {
+        inherit markdownlint-cli2;
         rustPlatform = pkgs.makeRustPlatform {
           cargo = toolchain;
           rustc = toolchain;

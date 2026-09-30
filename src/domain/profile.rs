@@ -92,14 +92,27 @@ impl fmt::Display for DocsRoot {
     }
 }
 
-/// Substitute the profile's documentation root into a destination template.
-#[must_use]
+/// The placeholder that names the instance's documentation root.
+///
+/// A destination template, an adopted seed, a wiring pattern, and the
+/// `AGENTS.md` snippet all name the root by it, and [`render_root`] is the
+/// one place that substitutes it.
 #[allow(
     clippy::literal_string_with_formatting_args,
-    reason = "the braces are the destination template's placeholder, not a formatting argument"
+    reason = "the braces are the template placeholder, not a formatting argument"
 )]
+pub const DOCS_ROOT_PLACEHOLDER: &str = "{docs_root}";
+
+/// Substitute the documentation root for every placeholder in `text`.
+#[must_use]
+pub fn render_root(text: &str, docs_root: &str) -> String {
+    text.replace(DOCS_ROOT_PLACEHOLDER, docs_root)
+}
+
+/// Substitute the profile's documentation root into a destination template.
+#[must_use]
 pub fn resolve_destination(destination: &str, docs_root: DocsRoot) -> Utf8PathBuf {
-    Utf8PathBuf::from(destination.replace("{docs_root}", docs_root.as_str()))
+    Utf8PathBuf::from(render_root(destination, docs_root.as_str()))
 }
 
 /// What one profile installs, as one declaration describes it.
@@ -174,12 +187,21 @@ mod tests {
             Utf8PathBuf::from("docs/specs/SPEC-distribution.md")
         );
         assert_eq!(
-            resolve_destination(
-                ".spec-driven-docs/markdownlint/x.jsonc",
-                DocsRoot::UnderscoreDocs
-            ),
-            Utf8PathBuf::from(".spec-driven-docs/markdownlint/x.jsonc")
+            resolve_destination(".spec-driven-docs/config.yaml", DocsRoot::UnderscoreDocs),
+            Utf8PathBuf::from(".spec-driven-docs/config.yaml")
         );
+    }
+
+    #[test]
+    fn rendering_replaces_every_placeholder_and_nothing_else() {
+        assert_eq!(
+            render_root(
+                "see {docs_root}/specs/ and {docs_root}/guides/, not {writing_style} or {docs}",
+                "docs"
+            ),
+            "see docs/specs/ and docs/guides/, not {writing_style} or {docs}"
+        );
+        assert_eq!(render_root("no placeholder", "_docs"), "no placeholder");
     }
 
     #[test]
@@ -195,20 +217,26 @@ mod tests {
     }
 
     #[test]
-    fn destination_templates_only_use_the_placeholder_in_adopted_paths() {
+    fn every_destination_lies_under_the_instance_or_the_documentation_root() {
         let profile = ProfileId::KnowledgeBase.profile();
         for entry in profile.managed {
             assert!(
-                !entry.destination.contains('{'),
-                "{} is templated",
+                entry
+                    .destination
+                    .starts_with(&format!("{DOCS_ROOT_PLACEHOLDER}/"))
+                    || entry
+                        .destination
+                        .starts_with(&format!("{}/", crate::domain::paths::INSTANCE_DIR)),
+                "{} is neither under the instance directory nor rooted at the documentation root",
                 entry.destination
             );
         }
         for entry in profile.adopted {
-            // The declaration is the one adopted file outside the corpus: it
-            // configures the tool rather than being documentation, so no
-            // documentation root names it.
-            if entry.destination == crate::domain::paths::CONFIG_PATH {
+            // The declaration and the root lint seed are the adopted files
+            // outside the corpus: they configure tools rather than being
+            // documentation, so no documentation root names them.
+            if entry.destination == crate::domain::paths::CONFIG_PATH || entry.yield_set().is_some()
+            {
                 continue;
             }
             assert!(

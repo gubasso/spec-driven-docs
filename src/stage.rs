@@ -46,7 +46,7 @@ const REFERENCE_ROOTS: [&str; 8] = [
     "comparison-docs",
     "reference/prior-art",
     "reference/tracker-markup",
-    ".markdownlint",
+    "_docs/.markdownlint-cli2.jsonc",
 ];
 
 /// What a stage was asked to render.

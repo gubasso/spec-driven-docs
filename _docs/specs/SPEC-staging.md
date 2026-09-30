@@ -16,6 +16,7 @@
   - [`staging:every-path-stays-under-the-target` — Every path stays under the target](#stagingevery-path-stays-under-the-target--every-path-stays-under-the-target)
   - [`staging:a-partial-failure-reports-what-it-completed` — A partial failure reports what it completed](#staginga-partial-failure-reports-what-it-completed--a-partial-failure-reports-what-it-completed)
   - [`staging:one-documentation-root-serves-the-run` — One documentation root serves the run](#stagingone-documentation-root-serves-the-run--one-documentation-root-serves-the-run)
+  - [`staging:a-seed-lands-rendered-for-its-root` — A seed lands rendered for its root](#staginga-seed-lands-rendered-for-its-root--a-seed-lands-rendered-for-its-root)
   - [`staging:a-user-scope-receipt-shares-no-engine` — A user-scope receipt shares no engine](#staginga-user-scope-receipt-shares-no-engine--a-user-scope-receipt-shares-no-engine)
   - [`staging:owner-only-state-is-checked-on-linux` — Owner-only state is checked on Linux](#stagingowner-only-state-is-checked-on-linux--owner-only-state-is-checked-on-linux)
 
@@ -190,6 +191,20 @@ The resolved documentation root the candidate will record MUST be the root that 
 - THEN findings, projection, and the landed declaration all name the new root, because a run that measures one root and configures another reports about a tree it did not write
 
 Verify: `cargo nextest run -E 'binary(cmd_upgrade) + binary(cmd_status)'`
+
+### `staging:a-seed-lands-rendered-for-its-root` — A seed lands rendered for its root
+
+The candidate MUST substitute the resolved documentation root for every root placeholder in an adopted seed's content and destination, and MUST record the rendered bytes as the seed's baseline.
+
+A seed is copied once, so the landing is the one moment that knows the root it names. The rendering never rewrites an adopted file that already exists, because `distribution:the-declaration-is-seeded-once-and-then-owned` gives those bytes to the project.
+
+#### Scenario: A codebase instance receives the tracking registry
+
+- GIVEN a codebase profile whose documentation root is `docs`
+- WHEN `sdd init --apply` lands the tracking template
+- THEN its example names `docs/reference/model-pricing.md` and the record's baseline is the digest of those bytes, because an example naming a root the instance does not have fails the gate that judges it
+
+Verify: `cargo nextest run -E 'binary(cmd_landed_tree) + binary(cmd_policy)'`
 
 ### `staging:a-user-scope-receipt-shares-no-engine` — A user-scope receipt shares no engine
 

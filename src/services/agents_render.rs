@@ -10,6 +10,15 @@
 use crate::domain::instance_config::WritingStyle;
 use crate::domain::marker::{AGENTS_BEGIN, AGENTS_END};
 
+/// What every rendered instruction item ends with.
+///
+/// The block's items are unwrapped prose, which `docs-format:prose-stays-unwrapped`
+/// requires and the linter's default 80-column rule refuses. The
+/// suppression is line-local, so the project's own lines around the markers
+/// stay judged. It is appended here rather than written into the snippet,
+/// which `sdd docs` serves as readable prose.
+pub const LINE_LENGTH_SUPPRESSION: &str = "<!-- markdownlint-disable-line MD013 -->";
+
 /// The list item that stands for the route in the snippet. It is a list
 /// item rather than a bare placeholder so a markdown formatter reads the
 /// snippet as the list it is.
@@ -37,13 +46,9 @@ pub fn route_line(selection: &WritingStyle) -> Option<String> {
 /// The complete marked block for the given documentation root and
 /// writing-style selection, newline-terminated.
 #[must_use]
-#[allow(
-    clippy::literal_string_with_formatting_args,
-    reason = "the braces are the block template's placeholder, not a formatting argument"
-)]
 pub fn render_block(docs_root: &str, selection: &WritingStyle) -> String {
     let mut body = String::new();
-    for line in snippet().replace("{docs_root}", docs_root).lines() {
+    for line in crate::domain::profile::render_root(snippet(), docs_root).lines() {
         let line = if line == ROUTE_PLACEHOLDER {
             match route_line(selection) {
                 Some(route) => route,
@@ -53,6 +58,10 @@ pub fn render_block(docs_root: &str, selection: &WritingStyle) -> String {
             line.to_string()
         };
         body.push_str(&line);
+        if line.starts_with("- ") {
+            body.push(' ');
+            body.push_str(LINE_LENGTH_SUPPRESSION);
+        }
         body.push('\n');
     }
     let body = body.trim_end_matches('\n');
@@ -84,6 +93,45 @@ mod tests {
             "Read the writing style before you author or edit prose: `sdd method writing-style`."
         ));
         assert!(block.contains("`_docs/specs/SPEC-<domain>.md`"));
+    }
+
+    #[test]
+    fn every_instruction_item_carries_the_suppression_and_nothing_else_does() {
+        for selection in [
+            WritingStyle::default(),
+            WritingStyle {
+                source: WritingSource::Project,
+                path: Some("docs/STYLE.md".to_string()),
+            },
+            WritingStyle {
+                source: WritingSource::None,
+                path: None,
+            },
+        ] {
+            let block = render_block("docs", &selection);
+            let mut items = 0;
+            for line in block.lines() {
+                if line.starts_with("- ") {
+                    items += 1;
+                    assert!(
+                        line.ends_with(&format!(". {LINE_LENGTH_SUPPRESSION}")),
+                        "{line}"
+                    );
+                } else {
+                    assert!(!line.contains(LINE_LENGTH_SUPPRESSION), "{line}");
+                }
+                assert_ne!(
+                    line.trim(),
+                    LINE_LENGTH_SUPPRESSION,
+                    "an empty suppressed line"
+                );
+            }
+            assert!(items >= 7, "{block}");
+        }
+        let routed = render_block("docs", &WritingStyle::default());
+        assert!(routed.contains(&format!(
+            "- Read the writing style before you author or edit prose: `sdd method writing-style`. {LINE_LENGTH_SUPPRESSION}\n"
+        )));
     }
 
     #[test]

@@ -70,12 +70,15 @@ The registry is machine-readable, one entry per artifact. It records enough for 
 
 ```yaml
 # <root>/reference/tracking.yaml
+schema_version: 1
 tracked:
-  - path: _docs/reference/model-pricing.md
+  - id: model-pricing
+    path: _docs/reference/model-pricing.md
     last_checked: 2026-06-20
-    cadence: 30d
+    cadence_days: 30
     why: provider prices change without notice
-    revalidate: re-fetch from the provider's official pricing page
+    revalidate:
+      - re-fetch from the provider's official pricing page
     dependents:
       - _docs/guides/cost-estimation.md
 ```

@@ -15,7 +15,6 @@ lint:
     dprint check
     editorconfig-checker -disable-insert-final-newline -exclude "^third-party/"
     typos
-    markdownlint-cli2 "**/*.md" "#tests/fixtures/**" "#target/**" "#third-party/**"
     check-jsonschema --schemafile instance/manifest.schema.json .spec-driven-docs/manifest.json
     pre-commit validate-config .pre-commit-config.yaml
     SKIP=no-commit-to-branch,rk-worktree-location pre-commit run --files $(rg --files --hidden -g '!.git' -g '!.git/**')
@@ -23,7 +22,12 @@ lint:
 test:
     cargo nextest run
 
-manifest:
+# Apply the managed pre-commit region this repository runs: the same render
+# an instance receives, with this checkout's own entry prefix.
+hooks:
+    cargo run -q -- hooks --apply --entry 'cargo run -q --'
+
+manifest: hooks
     cargo run -q -- self-manifest
     dprint fmt .spec-driven-docs/manifest.json
 

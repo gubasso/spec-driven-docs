@@ -20,29 +20,24 @@ set -- _docs/specs/SPEC-*.md
 
 ## Heading shapes
 
-`MD043 required-headings` holds the fixed heading lists. It takes one `headings` array, so each shape needs its own configuration file and hook entry. First remove every mention of `MD043` from the project's `.markdownlint-cli2.jsonc`, including `"MD043": false`. That file merges over the `--config` base. A mention left there disables every shape below, and the hooks keep reporting success.
+`MD043 required-headings` holds the fixed heading lists. It takes one `headings` array per configuration, so the landing puts both shapes in one managed file at the documentation root, `<root>/.markdownlint-cli2.jsonc`. Each shape is an entry in its `overrides`: the spec shape filters `specs/SPEC-*.md` and the record shape filters `decisions/ADR-*.md`. A filter resolves from the directory of the file that carries it, and it matches the top level of that directory only. The same file turns `MD013` off and `MD040` on under the documentation root, because `docs-format` requires unwrapped prose and a fence language there.
 
-Each configuration sets `"default": false` beside its `MD043` entry, so it judges the heading shape and nothing else. A project with no `.markdownlint-cli2.jsonc` of its own is a supported state: the delivered file is then the whole configuration, and every other markdown rule stays off. A project that wants general linting writes its own file, which merges over the delivered one.
-
-Each configuration is `{"config": {"default": false, "MD043": {"headings": [...]}}}` with one array. For a spec that array is `["?", "## Purpose", "## Requirements", "+"]`. For a record it is `"?"` followed by the five section headings in order, with no trailing wildcard. Scope the record hook to `ADR-` alone. A template holds the shape inside a fence so an author can copy it, and MD043 counts a fenced heading as no heading at all.
+For a spec the array is `["?", "## Purpose", "## Requirements", "+"]`. For a record it is `"?"` followed by the five section headings in order, with no trailing wildcard. A template holds the shape inside a fence so an author can copy it, and MD043 counts a fenced heading as no heading at all.
 
 MD043 checks every heading level, so the array covers requirement and scenario headings too. Tokens are `?` for exactly one, `+` for one or more, `*` for zero or more. `+` fails an empty spec. Set `match_case: true`. Its default is false, and without it a record headed `## status` passes.
 
-```yaml
-- id: markdownlint-cli2
-  alias: md-spec
-  name: markdownlint (spec heading shape)
-  files: '^_docs/specs/SPEC-[a-z0-9-]+\.md$'
-  args: ['--config', '.markdownlint/spec.markdownlint-cli2.jsonc']
+The linter finds the file itself. markdownlint-cli2 reads the configuration in every directory from the repository root down to the file it judges, and merges each one over the one above it. A hook run, a direct run, and an editor therefore read the same settings. The landing renders one plain hook with no `--config`, and `sdd hooks` prints it.
 
-- id: markdownlint-cli2
-  alias: md-adr
-  name: markdownlint (decision record heading shape)
-  files: '^_docs/decisions/ADR-[a-z0-9-]+\.md$'
-  args: ['--config', '.markdownlint/adr.markdownlint-cli2.jsonc']
-```
+The landing also seeds `.markdownlint-cli2.jsonc` at the repository root, which loads the relative-links rule. It seeds it only where the root holds no markdownlint configuration of either family, and the project owns it from then on. Where the project's own root configuration made the seed yield, that configuration stays, and the setup skill proposes the edit that loads the rule there.
 
-Reuse the id of the project's existing markdownlint hook so its settings carry over.
+A project configuration composes. The repository root's rules judge every file, the documentation root's settings merge over them, and each override merges over both. A root override that matches the same spec does not defeat the delivered one, as observed with markdownlint-cli2 0.23.3. Two locations do break the shapes, because the linter lets a file there replace the managed one:
+
+- A `.markdownlint.*` file at the documentation root replaces its `config`.
+- Any markdownlint configuration beneath `specs/` or `decisions/` replaces its `overrides` for that directory.
+
+`sdd verify` fails on both, citing `instance:the-lint-configuration-composes`. A configuration at the repository root stays. Whether the project loads the relative-links rule is outside that check: the answer lives in the project's own configuration grammar, which the binary does not parse, so the setup skill proves it with a deliberately broken link.
+
+The linter's scope lives in its own `ignores`. The `reserved:` list in the declaration scopes the gates `sdd` delivers and never reaches the linter hook, so a Markdown path the linter must skip goes in the root configuration's `ignores`.
 
 ## Filenames
 

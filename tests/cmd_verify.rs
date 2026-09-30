@@ -58,17 +58,14 @@ fn a_version_one_manifest_points_at_upgrade() {
 fn managed_drift_fails_red() {
     let fixture = Fixture::new();
     fixture.install("knowledge-base");
-    fixture.write(
-        ".spec-driven-docs/markdownlint/spec.markdownlint-cli2.jsonc",
-        "{}\n",
-    );
+    fixture.write("_docs/.markdownlint-cli2.jsonc", "{}\n");
     fixture
         .cmd()
         .args(["verify", "--target", &fixture.target()])
         .assert()
         .code(1)
         .stdout(predicate::str::contains(
-            "FAIL managed drift: .spec-driven-docs/markdownlint/spec.markdownlint-cli2.jsonc",
+            "FAIL managed drift: _docs/.markdownlint-cli2.jsonc",
         ));
 }
 
@@ -153,7 +150,7 @@ fn a_symlinked_managed_file_fails_red() {
     let fixture = Fixture::new();
     fixture.install("knowledge-base");
     let outside = tempfile::tempdir().unwrap();
-    let managed = ".spec-driven-docs/markdownlint/spec.markdownlint-cli2.jsonc";
+    let managed = "_docs/.markdownlint-cli2.jsonc";
     std::fs::copy(
         fixture.path().join(managed),
         outside.path().join("spec.jsonc"),
@@ -181,13 +178,10 @@ fn a_manifest_omitting_a_declared_projection_fails_red() {
     fixture.install("knowledge-base");
     let mut manifest: serde_json::Value =
         serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
-    let managed = manifest["managed_files"].as_array_mut().unwrap();
-    managed.retain(|entry| {
-        !entry["destination"]
-            .as_str()
-            .unwrap()
-            .contains("spec.markdownlint")
-    });
+    manifest["adopted_files"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|entry| entry["destination"] != "_docs/specs/SPEC-instance.md");
     fixture.write(
         ".spec-driven-docs/manifest.json",
         &(serde_json::to_string_pretty(&manifest).unwrap() + "\n"),
@@ -198,7 +192,7 @@ fn a_manifest_omitting_a_declared_projection_fails_red() {
         .assert()
         .code(1)
         .stdout(predicate::str::contains(
-            "FAIL manifest omits a declared projection: .spec-driven-docs/markdownlint/spec.markdownlint-cli2.jsonc",
+            "FAIL manifest omits a declared projection: _docs/specs/SPEC-instance.md",
         ));
 }
 
@@ -239,13 +233,10 @@ fn a_canon_looking_cargo_toml_does_not_exempt_projection_completeness() {
     );
     let mut manifest: serde_json::Value =
         serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
-    let managed = manifest["managed_files"].as_array_mut().unwrap();
-    managed.retain(|entry| {
-        !entry["destination"]
-            .as_str()
-            .unwrap()
-            .contains("spec.markdownlint")
-    });
+    manifest["adopted_files"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|entry| entry["destination"] != "_docs/specs/SPEC-instance.md");
     fixture.write(
         ".spec-driven-docs/manifest.json",
         &(serde_json::to_string_pretty(&manifest).unwrap() + "\n"),
@@ -260,19 +251,20 @@ fn a_canon_looking_cargo_toml_does_not_exempt_projection_completeness() {
         ));
 }
 
+/// A record whose managed destinations are rewritten to their authored
+/// paths still reads as a consumer's, because the canon's record is told
+/// apart by what only it records, not by where a managed file sits.
 #[test]
-fn forging_the_self_manifest_layout_does_not_shrink_the_held_set() {
+fn a_record_rewritten_to_authored_paths_is_still_held_as_a_consumer() {
     let fixture = Fixture::new();
     fixture.install("knowledge-base");
     let mut manifest: serde_json::Value =
         serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
+    manifest["adopted_files"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|entry| entry["destination"] != "_docs/specs/SPEC-instance.md");
     let managed = manifest["managed_files"].as_array_mut().unwrap();
-    managed.retain(|entry| {
-        !entry["destination"]
-            .as_str()
-            .unwrap()
-            .contains("spec.markdownlint")
-    });
     for entry in managed.iter_mut() {
         entry["destination"] = entry["source"].clone();
     }
@@ -288,6 +280,86 @@ fn forging_the_self_manifest_layout_does_not_shrink_the_held_set() {
         .stdout(predicate::str::contains(
             "FAIL manifest omits a declared projection",
         ));
+}
+
+/// SATISFIES instance:the-lint-configuration-composes
+#[test]
+fn a_library_configuration_at_the_documentation_root_fails_naming_it() {
+    let fixture = Fixture::new();
+    fixture.install("codebase");
+    fixture.write("docs/.markdownlint.jsonc", "{ \"MD013\": true }\n");
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .code(1)
+        .stdout(predicate::str::contains(
+            "FAIL docs/.markdownlint.jsonc replaces the delivered lint configuration",
+        ))
+        .stdout(predicate::str::contains(
+            "(instance:the-lint-configuration-composes)",
+        ));
+}
+
+/// SATISFIES instance:the-lint-configuration-composes
+///
+/// The walk is recursive: a configuration nested deeper than the directory
+/// itself replaces the shapes for everything beneath it just the same.
+#[test]
+fn a_configuration_beneath_the_specs_or_the_records_fails_at_any_depth() {
+    let fixture = Fixture::new();
+    fixture.install("codebase");
+    fixture.write("docs/specs/.markdownlint-cli2.jsonc", "{}\n");
+    fixture.write(
+        "docs/decisions/archive/old/.markdownlint.yaml",
+        "MD043: false\n",
+    );
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .code(1)
+        .stdout(predicate::str::contains(
+            "FAIL docs/specs/.markdownlint-cli2.jsonc replaces",
+        ))
+        .stdout(predicate::str::contains(
+            "FAIL docs/decisions/archive/old/.markdownlint.yaml replaces",
+        ));
+}
+
+/// The repository root is the project's: a configuration there merges
+/// beneath the documentation root's and cannot turn the shapes off.
+#[test]
+fn a_configuration_at_the_repository_root_passes() {
+    let fixture = Fixture::new();
+    fixture.install("codebase");
+    fixture.write(".markdownlint.yaml", "MD043: false\n");
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .success();
+}
+
+/// The managed destination is templated, so a knowledge-base instance holds
+/// it at the path the canon authors it at. That equality once read the
+/// instance as the canon, which owes specs and templates no instance holds.
+#[test]
+fn a_fresh_knowledge_base_landing_verifies() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    assert!(
+        fixture
+            .path()
+            .join("_docs/.markdownlint-cli2.jsonc")
+            .is_file()
+    );
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("FAIL").not());
 }
 
 /// A project overruling a specification it owns is exercising ownership:

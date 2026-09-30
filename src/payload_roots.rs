@@ -1,4 +1,5 @@
-// The payload inventory: every authored root the binary embeds.
+// The payload inventory: every authored root the binary embeds. A root is a
+// directory or a single file.
 //
 // One declaration, three readers. `embedded` must embed each root and a
 // unit test there holds its statics to this list; `build.rs` `include!`s
@@ -13,7 +14,7 @@
 pub const PAYLOAD_ROOTS: [&str; 10] = [
     "_docs/specs",
     "templates",
-    ".markdownlint",
+    "_docs/.markdownlint-cli2.jsonc",
     "instance",
     "method",
     "skills",

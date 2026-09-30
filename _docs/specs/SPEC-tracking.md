@@ -17,7 +17,7 @@
 
 ## Purpose
 
-Rules governing the tracking registry, the machine-readable record of facts that expire. The registry lives at `<root>/reference/tracking.yaml`. It records each perishable source: when it was last checked, how often to check it, how to revalidate it, and its dependents. A source derived from an upstream Git repository also pins the exact revision the local copy came from. The registry never becomes a second copy of the fact it tracks. This spec owns the registry's shape, its freshness gate, and the split between offline freshness and an explicit network check. The network command that compares a pinned revision to its upstream is `sdd track check`. The lifecycle reasons behind perishable facts belong to the method.
+Rules governing the tracking registry, the machine-readable record of facts that expire. The registry lives at `<root>/reference/tracking.yaml`. An entry's `path` and `dependents` are relative to the repository root, not to the documentation root. It records each perishable source: when it was last checked, how often to check it, how to revalidate it, and its dependents. A source derived from an upstream Git repository also pins the exact revision the local copy came from. The registry never becomes a second copy of the fact it tracks. This spec owns the registry's shape, its freshness gate, and the split between offline freshness and an explicit network check. The network command that compares a pinned revision to its upstream is `sdd track check`. The lifecycle reasons behind perishable facts belong to the method.
 
 ## Requirements
 
@@ -83,7 +83,7 @@ Verify: `pre-commit run tracking-registry --all-files`
 
 ### `tracking:a-declared-dependent-exists` — A declared dependent exists
 
-The gate MUST fail where an entry's `path` or a `dependent` names a file that is absent or escapes the tree.
+The gate MUST resolve an entry's `path` and every `dependent` from the repository root, and MUST fail where one names a file that is absent or escapes the tree.
 
 #### Scenario: A dependent path is renamed and the entry is not
 

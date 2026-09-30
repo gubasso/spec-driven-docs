@@ -1,10 +1,16 @@
 // markdownlint-cli2 config — tuned for a free-form knowledge base / docs repo.
 // Rule reference: https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
 //
-// Single source of truth: this .jsonc is the ONLY markdownlint config. Do not add
-// a `.markdownlint.{yaml,json,...}` — when both exist, the `.markdownlint.*` rules
-// win and silently override the `config` block below. (markdownlint-cli2 also
-// reads this file in VS Code, so editor + pre-commit stay in sync.)
+// This is the repository's own configuration. `_docs/.markdownlint-cli2.jsonc`
+// is the managed one spec-driven-docs delivers: markdownlint-cli2 discovers it
+// for the files under `_docs/` and merges it over this one. Do not add a
+// `.markdownlint.{yaml,json,...}` beside either file: in the same directory
+// its rules win and silently replace that file's `config` block. (The editor
+// extension reads the same files, so editor and pre-commit stay in sync.)
+//
+// It loads the relative-links custom rule, which fails a relative link whose
+// target does not exist. The pre-commit hook pins the rule as a dependency,
+// and the devshell's markdownlint-cli2 bundles the same version.
 //
 // Tooling split (researched): markdownlint is a LINTER with surgical per-span
 // autofixes, NOT a formatter. It cannot reflow/unwrap prose, normalize GFM table
@@ -22,8 +28,10 @@
 // Non-fixable rules are unaffected and still gate (report-only).
 {
   "fix": true,
+  "customRules": ["markdownlint-rule-relative-links"],
   "config": {
     "default": true,
+    "relative-links": true,
 
     // Ordered-list numbering: 1.→2.→3. (one=1/1/1, ordered=1/2/3, zero=0/0/0).
     // The ONLY rule left fixable, so this is the only autofix that ever fires.

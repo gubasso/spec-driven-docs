@@ -213,6 +213,27 @@ pub fn resolved_target(target: &Utf8Path) -> Result<Utf8PathBuf, AppError> {
     canonical_target(target)
 }
 
+/// Which names of every yield set this release declares exist at the
+/// target root.
+///
+/// A seed that yields reads nothing from these files but their presence:
+/// the project's own configuration governs, whatever its grammar.
+#[must_use]
+pub fn present_at_root(target: &Utf8Path) -> Vec<String> {
+    let mut present: Vec<String> = Vec::new();
+    for projection in &crate::domain::profile::DECLARATION.adopted {
+        let Some(set) = projection.yield_set() else {
+            continue;
+        };
+        for name in set.names() {
+            if target.join(name).is_file() && !present.iter().any(|held| held == name) {
+                present.push(name.to_string());
+            }
+        }
+    }
+    present
+}
+
 /// Read the target once, so the projection never has to.
 fn gather(target: &Utf8Path, options: &InitOptions) -> Result<crate::candidate::Input, AppError> {
     let docs_root = crate::candidate::docs_root_of(options.profile)?;
@@ -241,6 +262,8 @@ fn gather(target: &Utf8Path, options: &InitOptions) -> Result<crate::candidate::
         }
     }
 
+    let present_at_root = present_at_root(target);
+
     let hooks_path = target.join(HOOKS_CONFIG_PATH);
     let hooks_host = if hooks_path.is_file() {
         std::fs::read_to_string(&hooks_path)?
@@ -258,7 +281,8 @@ fn gather(target: &Utf8Path, options: &InitOptions) -> Result<crate::candidate::
                 .to_string(),
         ));
     }
-    let agents_host = if agents_path.is_file() {
+    let agents_exists = agents_path.is_file();
+    let agents_host = if agents_exists {
         std::fs::read_to_string(&agents_path)?
     } else {
         String::new()
@@ -276,6 +300,8 @@ fn gather(target: &Utf8Path, options: &InitOptions) -> Result<crate::candidate::
             recorded_adopted,
             hooks_host,
             agents_host,
+            agents_exists,
+            present_at_root,
         },
     })
 }

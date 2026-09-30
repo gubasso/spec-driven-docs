@@ -107,4 +107,5 @@ fn render_paths(paths: &Paths) {
     entry("hook configuration", &held.hooks_config);
     entry("agent digest", &held.agents_digest);
     entry("documentation root", &held.docs_root);
+    entry("lint configuration", &held.lint_config);
 }

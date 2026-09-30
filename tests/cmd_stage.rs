@@ -283,3 +283,113 @@ fn clean_removes_the_stage_and_refuses_the_target() {
         .success();
     assert!(!path.exists());
 }
+
+/// A stage of a target that is not an instance yet, under one profile.
+fn stage_as(fixture: &Fixture, profile: &str) -> serde_json::Value {
+    let path = stage_path(fixture);
+    let output = fixture
+        .cmd()
+        .args([
+            "stage",
+            "--target",
+            &fixture.target(),
+            "--profile",
+            profile,
+            "--output",
+            path.to_str().unwrap(),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    serde_json::from_slice(&output).unwrap()
+}
+
+/// VERIFIES staging:a-stage-writes-only-the-stage
+///
+/// The title belongs to the candidate, so a stage renders it and never
+/// writes it into the target, and the landing that follows writes the same
+/// bytes the stage showed.
+#[test]
+fn a_staged_agents_file_is_titled_only_where_the_target_has_none() {
+    for profile in ["codebase", "knowledge-base"] {
+        let absent = Fixture::new();
+        let before = absent.tree_digest();
+        stage_as(&absent, profile);
+        assert_eq!(
+            before,
+            absent.tree_digest(),
+            "{profile}: the stage wrote the target"
+        );
+        let staged =
+            std::fs::read_to_string(stage_path(&absent).join("artifacts/AGENTS.md")).unwrap();
+        assert!(
+            staged.starts_with("# AGENTS\n\n<!-- BEGIN"),
+            "{profile}: {staged}"
+        );
+        absent.install(profile);
+        assert_eq!(
+            staged,
+            absent.read("AGENTS.md"),
+            "{profile}: production differs"
+        );
+
+        let empty = Fixture::new();
+        empty.write("AGENTS.md", "");
+        stage_as(&empty, profile);
+        let staged =
+            std::fs::read_to_string(stage_path(&empty).join("artifacts/AGENTS.md")).unwrap();
+        assert!(staged.starts_with("<!-- BEGIN"), "{profile}: {staged}");
+        assert!(!staged.contains("# AGENTS"), "{profile}: {staged}");
+        assert_eq!(
+            empty.read("AGENTS.md"),
+            "",
+            "{profile}: the stage wrote the host"
+        );
+        empty.install(profile);
+        assert_eq!(
+            staged,
+            empty.read("AGENTS.md"),
+            "{profile}: production differs"
+        );
+    }
+}
+
+/// VERIFIES staging:a-stage-carries-the-whole-candidate
+///
+/// The delivered lint configuration is canon an adopting project reads while
+/// it migrates, so the stage carries it as reference whether or not the
+/// root seed lands.
+#[test]
+fn the_stage_carries_the_delivered_lint_configuration_as_reference() {
+    let source = spec_driven_docs::embedded::asset("_docs/.markdownlint-cli2.jsonc").unwrap();
+    for profile in ["codebase", "knowledge-base"] {
+        for yields in [false, true] {
+            let fixture = Fixture::new();
+            if yields {
+                fixture.write(".markdownlint.yaml", "MD041: false\n");
+            }
+            let receipt = stage_as(&fixture, profile);
+            let reference = stage_path(&fixture).join("reference/_docs/.markdownlint-cli2.jsonc");
+            assert_eq!(std::fs::read(&reference).unwrap(), source, "{profile}");
+            assert!(
+                receipt["reference"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|entry| entry == "reference/_docs/.markdownlint-cli2.jsonc"),
+                "{profile}: {}",
+                receipt["reference"]
+            );
+            assert_eq!(
+                stage_path(&fixture)
+                    .join("artifacts/.markdownlint-cli2.jsonc")
+                    .is_file(),
+                !yields,
+                "{profile}: the root seed staged where it should yield, or the reverse"
+            );
+        }
+    }
+}

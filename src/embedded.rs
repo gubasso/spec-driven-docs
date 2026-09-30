@@ -16,8 +16,9 @@ pub use crate::payload_roots::PAYLOAD_ROOTS;
 pub static SPECS: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/_docs/specs");
 /// The stable document templates.
 pub static TEMPLATES: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/templates");
-/// The markdownlint configurations the instance receives managed.
-pub static MARKDOWNLINT: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/.markdownlint");
+/// The documentation root's lint configuration, which an instance receives
+/// managed.
+pub static MARKDOWNLINT: &[u8] = include_bytes!("../_docs/.markdownlint-cli2.jsonc");
 /// What a release says about itself, plus what it seeds and splices.
 ///
 /// One root rather than a root per subdirectory: the projection
@@ -50,14 +51,14 @@ pub static THIRD_PARTY_NOTICES: &str = include_str!("../THIRD_PARTY_NOTICES.md")
 /// The release notes, which a stage carries as this version's own history.
 pub static CHANGELOG: &str = include_str!("../CHANGELOG.md");
 
-/// Every embedded root paired with the authored path it came from, in
-/// [`PAYLOAD_ROOTS`] order. A unit test holds the two equal, so a root
-/// embedded here but missing from the declaration — or the reverse — fails
-/// the build rather than shipping unscanned.
+/// Every embedded directory root paired with the authored path it came
+/// from. With [`EMBEDDED_FILES`] it is [`PAYLOAD_ROOTS`] in order: a unit test
+/// holds the union equal to the declaration, so a root embedded here but
+/// missing from the declaration — or the reverse — fails the build rather
+/// than shipping unscanned.
 const EMBEDDED_ROOTS: &[(&str, &Dir<'static>)] = &[
     ("_docs/specs", &SPECS),
     ("templates", &TEMPLATES),
-    (".markdownlint", &MARKDOWNLINT),
     ("instance", &INSTANCE),
     ("method", &METHOD),
     ("skills", &SKILLS),
@@ -66,6 +67,13 @@ const EMBEDDED_ROOTS: &[(&str, &Dir<'static>)] = &[
     ("reference/prior-art", &PRIOR_ART),
     ("reference/tracker-markup", &TRACKER_MARKUP),
 ];
+
+/// Every payload root that is one file, paired with its bytes.
+///
+/// A directory static cannot hold a file that sits beside other authored
+/// content, such as a configuration at the top of the documentation root,
+/// so such a root is embedded by itself.
+const EMBEDDED_FILES: &[(&str, &[u8])] = &[("_docs/.markdownlint-cli2.jsonc", MARKDOWNLINT)];
 
 /// Every embedded root paired with the authored path it came from.
 ///
@@ -144,18 +152,26 @@ pub fn shared_artifacts() -> Vec<(String, &'static [u8])> {
 /// embedded bytes.
 #[must_use]
 pub fn asset(source: &str) -> Option<&'static [u8]> {
-    EMBEDDED_ROOTS.iter().find_map(|(root, dir)| {
-        let rest = source.strip_prefix(root)?.strip_prefix('/')?;
-        dir.get_file(rest).map(include_dir::File::contents)
-    })
+    EMBEDDED_FILES
+        .iter()
+        .find_map(|(path, bytes)| (*path == source).then_some(*bytes))
+        .or_else(|| {
+            EMBEDDED_ROOTS.iter().find_map(|(root, dir)| {
+                let rest = source.strip_prefix(root)?.strip_prefix('/')?;
+                dir.get_file(rest).map(include_dir::File::contents)
+            })
+        })
 }
 
 /// Every file under one embedded root, by the logical path that names it.
 ///
-/// The paths come back sorted, so a caller that copies them writes the same
-/// tree every time.
+/// A root that is one file yields that file alone. The paths come back
+/// sorted, so a caller that copies them writes the same tree every time.
 #[must_use]
 pub fn assets_under(root: &str) -> Vec<(String, &'static [u8])> {
+    if let Some((path, bytes)) = EMBEDDED_FILES.iter().find(|(path, _)| *path == root) {
+        return vec![((*path).to_string(), *bytes)];
+    }
     let Some((name, dir)) = EMBEDDED_ROOTS.iter().find(|(name, _)| *name == root) else {
         return Vec::new();
     };
@@ -226,12 +242,27 @@ mod tests {
 
     #[test]
     fn the_embedded_roots_are_the_declared_payload_roots() {
-        let embedded: Vec<&str> = EMBEDDED_ROOTS.iter().map(|(root, _)| *root).collect();
+        let mut embedded: Vec<&str> = EMBEDDED_ROOTS
+            .iter()
+            .map(|(root, _)| *root)
+            .chain(EMBEDDED_FILES.iter().map(|(path, _)| *path))
+            .collect();
+        embedded.sort_unstable();
+        let mut declared = PAYLOAD_ROOTS.to_vec();
+        declared.sort_unstable();
         assert_eq!(
-            embedded,
-            PAYLOAD_ROOTS.to_vec(),
+            embedded, declared,
             "payload_roots.rs and the embedded statics disagree; a root missing from the declaration ships unscanned"
         );
+    }
+
+    #[test]
+    fn a_single_file_root_resolves_through_both_readers() {
+        for (path, bytes) in EMBEDDED_FILES {
+            assert_eq!(asset(path), Some(*bytes), "{path}");
+            assert_eq!(assets_under(path), vec![((*path).to_string(), *bytes)]);
+        }
+        assert!(asset("_docs/.markdownlint-cli2.jsonc/x").is_none());
     }
 
     #[test]

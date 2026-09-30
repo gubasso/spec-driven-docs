@@ -27,8 +27,8 @@ pub enum DeclarationError {
 
 /// One payload projection: an embedded source and its instance destination.
 ///
-/// An adopted destination may carry a `{docs_root}` placeholder, resolved
-/// per profile by [`crate::domain::profile::resolve_destination`].
+/// A destination may carry a `{docs_root}` placeholder, resolved per
+/// profile by [`crate::domain::profile::resolve_destination`].
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Projection {
@@ -36,6 +36,47 @@ pub struct Projection {
     pub source: String,
     /// The destination, relative to the instance root.
     pub destination: String,
+    /// The named set of files whose presence at the target root makes an
+    /// adopted seed yield: the landing does not introduce it there.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub yields_to: Option<String>,
+}
+
+impl Projection {
+    /// The set this projection yields to, where it names one this engine
+    /// knows.
+    #[must_use]
+    pub fn yield_set(&self) -> Option<YieldSet> {
+        self.yields_to.as_deref().and_then(YieldSet::parse)
+    }
+}
+
+/// A named set of files that makes an adopted seed yield.
+///
+/// A set is named in the declaration and resolved here, so the declaration
+/// stays readable and the file names stay in the module that owns them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum YieldSet {
+    /// Every markdownlint configuration name of both discovery families.
+    MarkdownlintConfiguration,
+}
+
+impl YieldSet {
+    /// The set a declaration names, where this engine knows it.
+    #[must_use]
+    pub fn parse(name: &str) -> Option<Self> {
+        match name {
+            "markdownlint-configuration" => Some(Self::MarkdownlintConfiguration),
+            _ => None,
+        }
+    }
+
+    /// The file names, relative to the target root, the set holds.
+    pub fn names(self) -> impl Iterator<Item = &'static str> {
+        match self {
+            Self::MarkdownlintConfiguration => crate::domain::markdownlint::discovery_names(),
+        }
+    }
 }
 
 /// One profile the release offers.
@@ -105,13 +146,21 @@ impl Declaration {
                 "no profile is declared".to_string(),
             ));
         }
-        for entry in &self.managed {
-            if entry.destination.contains('{') {
+        for entry in self.managed.iter().chain(&self.adopted) {
+            if let Some(name) = &entry.yields_to
+                && YieldSet::parse(name).is_none()
+            {
                 return Err(DeclarationError::Inconsistent(format!(
-                    "the managed destination {} is templated, and only an adopted destination may be",
+                    "{} yields to {name}, a set this engine does not know",
                     entry.destination
                 )));
             }
+        }
+        if let Some(entry) = self.managed.iter().find(|entry| entry.yields_to.is_some()) {
+            return Err(DeclarationError::Inconsistent(format!(
+                "the managed destination {} yields, and only an adopted seed may",
+                entry.destination
+            )));
         }
         let mut seen: Vec<&str> = Vec::new();
         for entry in self.managed.iter().chain(&self.adopted) {
@@ -184,11 +233,47 @@ docs_root = "docs"
     }
 
     #[test]
-    fn a_templated_managed_destination_is_inconsistent() {
+    fn a_templated_managed_destination_parses() {
         let text =
             format!("{MINIMAL}\n[[managed]]\nsource = \"a\"\ndestination = \"{{docs_root}}/a\"\n");
+        let held = Declaration::parse(text.as_bytes()).unwrap();
+        assert_eq!(held.managed[0].destination, "{docs_root}/a");
+    }
+
+    #[test]
+    fn a_known_yield_set_resolves_to_its_names() {
+        let text = format!(
+            "{MINIMAL}\n[[adopted]]\nsource = \"a\"\ndestination = \"a\"\nyields_to = \"markdownlint-configuration\"\n"
+        );
+        let held = Declaration::parse(text.as_bytes()).unwrap();
+        let set = held.adopted[0].yield_set().unwrap();
+        assert!(set.names().any(|name| name == ".markdownlint-cli2.jsonc"));
+        assert!(set.names().any(|name| name == ".markdownlint.yaml"));
+    }
+
+    #[test]
+    fn an_unknown_yield_set_is_inconsistent() {
+        let text = format!(
+            "{MINIMAL}\n[[adopted]]\nsource = \"a\"\ndestination = \"a\"\nyields_to = \"everything\"\n"
+        );
         let error = Declaration::parse(text.as_bytes()).unwrap_err();
-        assert!(error.to_string().contains("is templated"), "{error}");
+        assert!(
+            matches!(error, DeclarationError::Inconsistent(_)),
+            "{error}"
+        );
+        assert!(error.to_string().contains("everything"), "{error}");
+    }
+
+    #[test]
+    fn a_yielding_managed_file_is_inconsistent() {
+        let text = format!(
+            "{MINIMAL}\n[[managed]]\nsource = \"a\"\ndestination = \"a\"\nyields_to = \"markdownlint-configuration\"\n"
+        );
+        let error = Declaration::parse(text.as_bytes()).unwrap_err();
+        assert!(
+            error.to_string().contains("only an adopted seed"),
+            "{error}"
+        );
     }
 
     #[test]

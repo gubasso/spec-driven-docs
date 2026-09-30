@@ -10,6 +10,7 @@
   lib,
   rustPlatform,
   markdownlint-cli2,
+  check-jsonschema,
 }:
 
 let
@@ -26,8 +27,8 @@ rustPlatform.buildRustPackage {
   # else, so the build directories are named here. They must not reach the
   # store: each one changes on every local build and would rebuild the
   # package for no source change. Everything else is source, because build.rs
-  # embeds the payload — method/, templates/, skills/, instance/snippets/,
-  # and .markdownlint/ — at compile time.
+  # embeds the payload — method/, templates/, skills/, instance/, and the
+  # managed _docs/.markdownlint-cli2.jsonc — at compile time.
   src = lib.cleanSourceWith {
     src = lib.cleanSource ../.;
     filter =
@@ -45,10 +46,17 @@ rustPlatform.buildRustPackage {
   cargoLock.lockFile = ../Cargo.lock;
 
   # The landed-tree suite runs the delivered markdown linter over the tree a
-  # landing writes, so the check phase needs the same binary the devshell
-  # carries. Without it that suite would fail in the sandbox, and a version
-  # that skipped instead would prove nothing here.
-  nativeCheckInputs = [ markdownlint-cli2 ];
+  # landing writes, and holds every delivered tracking example to the
+  # delivered schema, so the check phase needs the same binaries the
+  # devshell carries. flake.nix passes the markdownlint-cli2 that
+  # nix/markdownlint.nix builds, with the relative-links rule bundled, so the
+  # suite judges links here with no network. Without these the suites would
+  # fail in the sandbox, and a version that skipped instead would prove
+  # nothing here.
+  nativeCheckInputs = [
+    markdownlint-cli2
+    check-jsonschema
+  ];
 
   meta = {
     # The first [[bin]] name where one is declared, else the package

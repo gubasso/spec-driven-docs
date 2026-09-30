@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Rules governing decision records under `_docs/decisions/`. Covers naming, permanence, and size. The record template covers what a record's body contains. The rules a record's decision enforces live in whichever spec owns them.
+Rules governing decision records under `<root>/decisions/`. Covers naming, permanence, and size. The record template covers what a record's body contains. The rules a record's decision enforces live in whichever spec owns them.
 
 ## Requirements
 
@@ -17,6 +17,20 @@ When an author creates a decision record, the author MUST name it `ADR-<slug>.md
 - THEN two records claim one identity, which a slug name makes impossible
 
 Verify: `pre-commit run adr-filename-shape --all-files`
+
+### `decision-records:a-record-follows-the-heading-shape` — A record follows the heading shape
+
+The author MUST give every `ADR-*.md` one title followed by `## Context and Problem Statement`, `## Considered Options`, `## Decision Outcome`, `## Consequences`, and `## Status`, in that order and case, and no other heading.
+
+The documentation root's managed lint configuration holds the shape with case matched.
+
+#### Scenario: A record gains a sixth section
+
+- GIVEN a record whose author adds `## Notes` after its status
+- WHEN the linter runs over the record
+- THEN the heading-shape rule fails it, because the five sections are the whole record and a note belongs inside one of them
+
+Verify: `pre-commit run markdownlint-cli2 --all-files`
 
 ### `decision-records:a-citation-resolves-to-a-rule` — A citation resolves to a rule
 

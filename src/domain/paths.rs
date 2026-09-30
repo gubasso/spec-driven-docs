@@ -17,6 +17,7 @@ use std::collections::BTreeMap;
 use camino::{Utf8Path, Utf8PathBuf};
 use serde::Serialize;
 
+use crate::domain::markdownlint;
 use crate::domain::profile::{DocsRoot, ProfileId};
 
 /// The variable naming the invoking user's home directory.
@@ -335,6 +336,31 @@ pub struct InstancePaths {
     pub reference: PathEntry,
     /// Where the step-by-step guides sit.
     pub guides: PathEntry,
+    /// The documentation root's lint configuration, which the landing
+    /// manages.
+    pub lint_config: PathEntry,
+    /// Where the Markdown linter discovers configuration, and which of those
+    /// locations would replace the managed one.
+    pub lint_discovery: LintDiscovery,
+}
+
+/// The locations the Markdown linter discovers configuration in, sorted by
+/// what a project may keep there.
+///
+/// The names come from [`crate::domain::markdownlint`], so a caller that
+/// needs one reads it here rather than spelling it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct LintDiscovery {
+    /// Every configuration name of both families at the repository root.
+    /// The project keeps whatever it holds here, and the first name is where
+    /// the landing seeds one where the root holds none.
+    pub repository_root: Vec<PathEntry>,
+    /// Every file at the documentation root that would replace the managed
+    /// configuration's settings.
+    pub refused_at_docs_root: Vec<PathEntry>,
+    /// The directories beneath which a configuration of either family, at
+    /// any depth, would replace the managed heading shapes.
+    pub refused_beneath: Vec<PathEntry>,
 }
 
 /// One landed instance's paths, as the record and the environment leave them.
@@ -534,6 +560,17 @@ pub fn instance_paths(docs_root: DocsRoot) -> InstancePaths {
         decisions: under("decisions"),
         reference: under("reference"),
         guides: under("guides"),
+        lint_config: under(markdownlint::CLI2_NAMES[0]),
+        lint_discovery: LintDiscovery {
+            repository_root: markdownlint::discovery_names()
+                .map(PathEntry::default_at)
+                .collect(),
+            refused_at_docs_root: markdownlint::LIBRARY_NAMES
+                .iter()
+                .map(|name| under(name))
+                .collect(),
+            refused_beneath: vec![under("specs"), under("decisions")],
+        },
     }
 }
 
@@ -547,7 +584,12 @@ pub fn recorded_paths(docs_root: DocsRoot) -> InstancePaths {
         &mut paths.decisions,
         &mut paths.reference,
         &mut paths.guides,
-    ] {
+        &mut paths.lint_config,
+    ]
+    .into_iter()
+    .chain(&mut paths.lint_discovery.refused_at_docs_root)
+    .chain(&mut paths.lint_discovery.refused_beneath)
+    {
         entry.source = PathSource::Recorded;
     }
     paths

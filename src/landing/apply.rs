@@ -564,12 +564,8 @@ mod tests {
         let target = target(&dir);
         let outside = target.join("outside");
         std::fs::create_dir_all(&outside).unwrap();
-        std::fs::create_dir_all(target.join(".spec-driven-docs")).unwrap();
-        std::os::unix::fs::symlink(
-            outside.as_std_path(),
-            target.join(".spec-driven-docs/markdownlint").as_std_path(),
-        )
-        .unwrap();
+        std::os::unix::fs::symlink(outside.as_std_path(), target.join("docs").as_std_path())
+            .unwrap();
 
         let error = land(&target, &candidate(), &Recorded::default()).unwrap_err();
         assert!(error.to_string().contains("symlink"), "{error}");

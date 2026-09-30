@@ -14,7 +14,9 @@
 use std::fmt::Write as _;
 
 use crate::domain::instance_config::InstanceConfig;
+use crate::domain::markdownlint;
 use crate::domain::marker;
+use crate::domain::profile::render_root;
 use crate::gates::GATES;
 
 /// The pre-commit language every delivered gate declares.
@@ -22,20 +24,6 @@ use crate::gates::GATES;
 /// An instance runs `sdd` from its own PATH, which is what `system` means;
 /// no other language has a caller.
 const LANGUAGE: &str = "system";
-
-/// The markdown linter the delivered configurations are written for.
-///
-/// The landing writes three configurations under the instance directory,
-/// so it wires the hooks that read them. A configuration whose wiring a
-/// project has to guess is a file that does nothing, and the shapes it
-/// holds are ones no delivered gate reads.
-const MARKDOWNLINT_REPO: &str = "https://github.com/DavidAnson/markdownlint-cli2";
-
-/// The linter revision this release wires.
-const MARKDOWNLINT_REV: &str = "v0.23.3";
-
-/// Where the landing puts the configurations those hooks read.
-const MARKDOWNLINT_DIR: &str = ".spec-driven-docs/markdownlint";
 
 /// Everything a render depends on.
 #[derive(Debug, Clone)]
@@ -68,14 +56,6 @@ impl Default for RenderOptions {
 /// A single-quoted YAML scalar; an apostrophe is escaped by doubling it.
 fn quoted(value: &str) -> String {
     format!("'{}'", value.replace('\'', "''"))
-}
-
-#[allow(
-    clippy::literal_string_with_formatting_args,
-    reason = "the braces are the wiring template's placeholder, not a formatting argument"
-)]
-fn substitute_root(pattern: &str, docs_root: &str) -> String {
-    pattern.replace("{docs_root}", docs_root)
 }
 
 /// Escape one literal character for a regex.
@@ -182,7 +162,7 @@ fn glob_to_regex(glob: &str) -> String {
 fn render_patterns(globs: &[&str], docs_root: &str) -> Option<String> {
     let rendered: Vec<String> = globs
         .iter()
-        .map(|glob| glob_to_regex(&substitute_root(glob, docs_root)))
+        .map(|glob| glob_to_regex(&render_root(glob, docs_root)))
         .collect();
     match rendered.len() {
         0 => None,
@@ -256,10 +236,9 @@ fn render_gates(options: &RenderOptions) -> String {
 
 /// The `files:` and `exclude:` a hook entry declares, by hook id.
 ///
-/// Read from rendered or hand-maintained YAML alike, so the two can be
-/// compared. A region may carry hooks this renderer never emits — this
-/// repository's own does — so the comparison is per gate rather than over
-/// the whole region.
+/// Read from rendered or installed YAML alike, so the two can be compared.
+/// A block an older release rendered may carry hooks this renderer never
+/// emits, so the comparison is per gate rather than over the whole region.
 #[must_use]
 pub fn selectors(
     block: &str,
@@ -310,59 +289,28 @@ pub fn render_block(options: &RenderOptions) -> String {
     out
 }
 
-/// Wire the markdown linter to the configurations the landing writes.
+/// Wire the markdown linter, which reads its configuration through its own
+/// discovery.
+///
+/// One plain hook, with no `--config`, no `files:`, and no `exclude:`. The
+/// landing's configurations sit where the linter discovers them, so a hook
+/// run, a direct run, and an editor read the same settings. The linter's
+/// scope lives in its own `ignores`, so `reserved:` does not reach this hook:
+/// a commit that skipped a file a direct run still judged would put the
+/// scope in two places. The one dependency is the custom rule the root seed
+/// loads, pinned, because pre-commit installs it into the hook's own
+/// environment.
 fn render_markdownlint(options: &RenderOptions) -> String {
     let indent = &options.indent;
-    let docs_root = &options.docs_root;
     let mut out = String::new();
-    let _ = writeln!(out, "{indent}- repo: {MARKDOWNLINT_REPO}");
-    let _ = writeln!(out, "{indent}  rev: {MARKDOWNLINT_REV}");
+    let _ = writeln!(out, "{indent}- repo: {}", markdownlint::REPO);
+    let _ = writeln!(out, "{indent}  rev: {}", markdownlint::REV);
     let _ = writeln!(out, "{indent}  hooks:");
-
     let _ = writeln!(out, "{indent}    - id: markdownlint-cli2");
-    let _ = writeln!(out, "{indent}      alias: md-relative-links");
-    let _ = writeln!(out, "{indent}      name: markdownlint relative links");
     let _ = writeln!(
         out,
-        "{indent}      additional_dependencies: ['markdownlint-rule-relative-links']"
-    );
-    let _ = writeln!(
-        out,
-        "{indent}      args: ['--config', '{MARKDOWNLINT_DIR}/relative-links.markdownlint-cli2.jsonc']"
-    );
-    let _ = writeln!(
-        out,
-        "{indent}      exclude: {}",
-        quoted(&format!("^{docs_root}/decisions/"))
-    );
-
-    let _ = writeln!(out, "{indent}    - id: markdownlint-cli2");
-    let _ = writeln!(out, "{indent}      alias: md-spec");
-    let _ = writeln!(out, "{indent}      name: markdownlint spec heading shape");
-    let _ = writeln!(
-        out,
-        "{indent}      files: {}",
-        quoted(&format!("^{docs_root}/specs/SPEC-[a-z0-9-]+\\.md$"))
-    );
-    let _ = writeln!(
-        out,
-        "{indent}      args: ['--config', '{MARKDOWNLINT_DIR}/spec.markdownlint-cli2.jsonc']"
-    );
-
-    let _ = writeln!(out, "{indent}    - id: markdownlint-cli2");
-    let _ = writeln!(out, "{indent}      alias: md-adr");
-    let _ = writeln!(
-        out,
-        "{indent}      name: markdownlint decision heading shape"
-    );
-    let _ = writeln!(
-        out,
-        "{indent}      files: {}",
-        quoted(&format!("^{docs_root}/decisions/ADR-[a-z-]+\\.md$"))
-    );
-    let _ = writeln!(
-        out,
-        "{indent}      args: ['--config', '{MARKDOWNLINT_DIR}/adr.markdownlint-cli2.jsonc']"
+        "{indent}      additional_dependencies: [{}]",
+        quoted(&markdownlint::relative_links_dependency())
     );
     out
 }
@@ -372,31 +320,56 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_linter_reads_the_configurations_the_landing_writes() {
+    fn the_linter_is_one_plain_hook_that_carries_the_pin() {
         let out = render_markdownlint(&RenderOptions::default());
-        assert!(out.contains(MARKDOWNLINT_REPO), "{out}");
-        for name in ["relative-links", "spec", "adr"] {
-            assert!(
-                out.contains(&format!(
-                    "{MARKDOWNLINT_DIR}/{name}.markdownlint-cli2.jsonc"
-                )),
-                "{name} is not wired: {out}"
-            );
-        }
-        assert!(
-            out.contains("'^_docs/specs/SPEC-[a-z0-9-]+\\.md$'"),
-            "{out}"
+        assert_eq!(
+            out,
+            "  - repo: https://github.com/DavidAnson/markdownlint-cli2\n    rev: v0.23.3\n    hooks:\n      - id: markdownlint-cli2\n        additional_dependencies: ['markdownlint-rule-relative-links@5.1.3']\n"
         );
+        for absent in ["--config", "files:", "exclude:", "alias:", "args:"] {
+            assert!(!out.contains(absent), "{absent} in {out}");
+        }
     }
 
+    /// The linter's scope lives in its own configuration, so a reserved
+    /// path reaches sdd's gates and leaves the linter hook alone.
     #[test]
-    fn the_documentation_root_reaches_the_linter_wiring() {
-        let out = render_markdownlint(&RenderOptions {
-            docs_root: "docs".to_string(),
+    fn a_reserved_path_leaves_the_linter_hook_unchanged() {
+        let declared = RenderOptions {
+            declaration: InstanceConfig::parse("reserved: ['vendor/**']\n").unwrap(),
             ..RenderOptions::default()
-        });
-        assert!(out.contains("'^docs/decisions/ADR-[a-z-]+\\.md$'"), "{out}");
-        assert!(!out.contains("_docs/"), "{out}");
+        };
+        assert_eq!(
+            render_markdownlint(&declared),
+            render_markdownlint(&RenderOptions::default())
+        );
+        assert!(render_gates(&declared).contains("vendor/"));
+    }
+
+    /// A rule the root seed loads is a module the hook's environment must
+    /// hold, or the hook exits on an import error before it judges a file.
+    #[test]
+    fn every_rule_the_root_seed_loads_is_a_hook_dependency() {
+        let seed = std::str::from_utf8(
+            crate::embedded::asset("instance/seeds/markdownlint-cli2.jsonc").unwrap(),
+        )
+        .unwrap();
+        let json: String = seed
+            .lines()
+            .filter(|line| !line.trim_start().starts_with("//"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let rules = parsed["customRules"].as_array().unwrap();
+        assert!(!rules.is_empty());
+        let out = render_markdownlint(&RenderOptions::default());
+        for rule in rules {
+            let rule = rule.as_str().unwrap();
+            assert!(
+                out.contains(&format!("'{rule}@")),
+                "{rule} is not a dependency: {out}"
+            );
+        }
     }
 
     #[test]
@@ -480,11 +453,11 @@ mod tests {
             let filter = PathFilter::build(
                 gate.include
                     .iter()
-                    .map(|g| Pattern::new(substitute_root(g, "_docs"), Layer::Registry))
+                    .map(|g| Pattern::new(render_root(g, "_docs"), Layer::Registry))
                     .collect(),
                 gate.exclude
                     .iter()
-                    .map(|g| Pattern::new(substitute_root(g, "_docs"), Layer::Registry))
+                    .map(|g| Pattern::new(render_root(g, "_docs"), Layer::Registry))
                     .collect(),
             )
             .expect("every registry pattern compiles");

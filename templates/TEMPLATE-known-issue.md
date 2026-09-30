@@ -1,6 +1,6 @@
 # Template — Known-issue record
 
-Copy the block below to `<root>/reference/known-issues/KI-<slug>.md`. The filename is the case id, and it is what a suppression cites from source. A record opens at `state: investigating` and `filing: gathering`, and it is deleted, not archived, when its retire condition is met.
+Copy the block below to `{docs_root}/reference/known-issues/KI-<slug>.md`. The filename is the case id, and it is what a suppression cites from source. A record opens at `state: investigating` and `filing: gathering`, and it is deleted, not archived, when its retire condition is met.
 
 ```markdown
 ---

@@ -36,7 +36,7 @@ fn regenerates_a_current_schema_manifest_in_a_canon_shaped_checkout() {
         "Cargo.toml",
         "[package]\nname = \"spec-driven-docs\"\nversion = \"0.2.0\"\n",
     );
-    fixture.write(".markdownlint/spec.markdownlint-cli2.jsonc", "{}\n");
+    fixture.write("_docs/.markdownlint-cli2.jsonc", "{}\n");
     fixture.write("skill-shared/plan-gate.md", "# The plan gate\n");
     fixture.write("skill-shared/pre-flight-gate.md", "# The pre-flight gate\n");
     fixture.write(
@@ -76,7 +76,7 @@ fn regenerates_a_current_schema_manifest_in_a_canon_shaped_checkout() {
     assert!(manifest.contains("\"schema_version\": 3"));
     assert!(manifest.contains("\"installed_at\": \"2026-01-01T00:00:00Z\""));
     assert!(manifest.contains("_docs/specs/SPEC-sample.md"));
-    assert!(manifest.contains(".markdownlint/spec.markdownlint-cli2.jsonc"));
+    assert!(manifest.contains("\"destination\": \"_docs/.markdownlint-cli2.jsonc\""));
     assert!(manifest.contains("skill-shared/plan-gate.md"));
     assert!(manifest.contains("skill-shared/pre-flight-gate.md"));
     assert!(manifest.contains("_docs/reference/tracking.yaml"));

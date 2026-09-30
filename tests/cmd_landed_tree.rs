@@ -63,6 +63,85 @@ fn a_landing_into_an_empty_repository_passes_every_gate_it_delivered() {
     }
 }
 
+/// The commented example in the landed registry, uncommented into its
+/// `tracked:` list, as an adopter following the comment would write it.
+fn uncommented_example(registry: &str) -> String {
+    let entry: String = registry
+        .lines()
+        .filter(|line| line.starts_with("#   "))
+        .map(|line| format!("{}\n", &line[1..]))
+        .collect();
+    assert!(!entry.is_empty(), "the landed registry carries no example");
+    registry.replace("tracked: []\n", &format!("tracked:\n{entry}"))
+}
+
+/// Every delivered tracking example passes the schema, the parser, and the
+/// gate, in the instance it landed in.
+///
+/// VERIFIES staging:a-seed-lands-rendered-for-its-root
+#[test]
+fn every_landed_tracking_example_passes_the_gate() {
+    for (profile, root) in [("codebase", "docs"), ("knowledge-base", "_docs")] {
+        let fixture = Fixture::new();
+        fixture.install(profile);
+        let relative = format!("{root}/reference/tracking.yaml");
+        let registry = uncommented_example(&fixture.read(&relative));
+        assert!(
+            !registry.contains("{docs_root}"),
+            "{profile}: a placeholder survived the landing:\n{registry}"
+        );
+        fixture.write(&relative, &registry);
+
+        let parsed = spec_driven_docs::domain::tracking::parse(&registry)
+            .unwrap_or_else(|error| panic!("{profile}: the example does not parse: {error}"));
+        assert_eq!(parsed.tracked.len(), 1, "{profile}: one example entry");
+        let entry = &parsed.tracked[0];
+        for path in std::iter::once(&entry.path).chain(&entry.dependents) {
+            assert!(
+                path.starts_with(&format!("{root}/")),
+                "{profile}: {path} does not start at the documentation root {root}/"
+            );
+            fixture.write(path, "# Tracked\n");
+        }
+
+        let schema = fixture
+            .path()
+            .join(format!("{root}/specs/SPEC-tracking/tracking.schema.json"));
+        let output = std::process::Command::new("check-jsonschema")
+            .arg("--schemafile")
+            .arg(&schema)
+            .arg(fixture.path().join(&relative))
+            .output()
+            .unwrap_or_else(|error| {
+                panic!("check-jsonschema did not run: {error}; it comes from the devshell")
+            });
+        assert!(
+            output.status.success(),
+            "{profile}: the example fails the schema:\n{}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        let as_of: jiff::civil::Date = entry.last_checked.parse().unwrap();
+        let report = spec_driven_docs::services::tracking::evaluate(
+            camino::Utf8Path::from_path(fixture.path()).unwrap(),
+            camino::Utf8Path::new(root),
+            as_of,
+        )
+        .unwrap();
+        assert!(
+            !report.has_failures(),
+            "{profile}: the gate refuses the example: {:?} {:?}",
+            report.fatal,
+            report
+                .entries
+                .iter()
+                .flat_map(|assessed| &assessed.problems)
+                .collect::<Vec<_>>()
+        );
+    }
+}
+
 /// VERIFIES distribution:initialization-preserves-project-content
 #[test]
 fn a_fresh_landing_verifies_and_reports_no_drift() {
@@ -74,70 +153,6 @@ fn a_fresh_landing_verifies_and_reports_no_drift() {
         .args(["verify", "--target", &fixture.target()])
         .assert()
         .success();
-}
-
-/// VERIFIES distribution:initialization-preserves-project-content
-///
-/// The gates the landing wires are not all its own. It also wires three
-/// markdown-linter hooks, and the defect this suite exists to prevent was
-/// exactly one of those failing after verification passed. Running the
-/// linter itself needs pre-commit's own network fetch, which this suite
-/// does not do, so what it holds is everything short of that: each hook
-/// reads a configuration the same landing wrote, and each configuration
-/// parses.
-#[test]
-fn every_linter_hook_reads_a_configuration_the_landing_wrote() {
-    let fixture = Fixture::new();
-    fixture.install("knowledge-base");
-    let block = fixture.read(".pre-commit-config.yaml");
-
-    let mut configs = 0;
-    for line in block.lines() {
-        let Some(rest) = line.trim().strip_prefix("args: ['--config', '") else {
-            continue;
-        };
-        let Some(relative) = rest.split('\'').next() else {
-            continue;
-        };
-        configs += 1;
-        let path = fixture.path().join(relative);
-        assert!(
-            path.is_file(),
-            "a wired hook reads {relative}, which the landing did not write"
-        );
-        // Parsed, not grepped: a broken token in a configuration the
-        // landing wrote is exactly the failure this suite exists to catch,
-        // and a substring check would pass over it. The linter reads JSONC,
-        // so line comments come off before the parse.
-        let text = std::fs::read_to_string(&path).unwrap();
-        let stripped: String = text
-            .lines()
-            .filter(|line| !line.trim_start().starts_with("//"))
-            .collect::<Vec<_>>()
-            .join("\n");
-        let parsed: serde_json::Value = serde_json::from_str(&stripped)
-            .unwrap_or_else(|error| panic!("{relative} does not parse: {error}"));
-        assert!(
-            parsed.get("config").is_some(),
-            "{relative} carries no linter configuration"
-        );
-    }
-    assert_eq!(
-        configs, 3,
-        "the landing wired {configs} linter configurations"
-    );
-
-    // Every file the three hooks judge is a file the landing wrote, so a
-    // pattern that matched nothing would be a silent pass.
-    for judged in [
-        "_docs/specs/SPEC-docs-format.md",
-        "_docs/specs/SPEC-instance.md",
-    ] {
-        assert!(
-            fixture.path().join(judged).is_file(),
-            "{judged} is not in the landed tree, so the spec hook judges nothing"
-        );
-    }
 }
 
 /// VERIFIES docs-specs:verification-names-a-live-hook
@@ -188,174 +203,421 @@ fn every_seeded_verification_names_a_hook_the_landing_wires() {
     );
 }
 
-/// One wired markdownlint hook: the configuration it loads and the paths it
-/// judges. An entry with no `files:` judges every markdown file.
-struct LinterHook {
-    config: String,
-    files: Option<String>,
+/// A Markdown file whose headings follow the spec shape.
+const SPEC_SHAPE: &str =
+    "# SPEC a\n\n## Purpose\n\nText.\n\n## Requirements\n\n### Requirement: a\n\nText.\n";
+
+/// A spec whose second section is not the one the shape requires.
+const SPEC_WRONG: &str = "# SPEC a\n\n## Purpose\n\nText.\n\n## Wrong\n\nText.\n";
+
+/// A record carrying two of the five sections.
+const RECORD_WRONG: &str =
+    "# ADR a\n\n## Context and Problem Statement\n\nText.\n\n## Status\n\nAccepted.\n";
+
+/// What one linter run printed, and whether it passed.
+struct Lint {
+    passed: bool,
+    report: String,
 }
 
-/// Every markdownlint hook the landing wired, minus the ones whose
-/// configuration names a custom rule.
+/// Run the delivered linter the way a developer or an editor does: from the
+/// target root, reading configuration through its own discovery, with no
+/// `--config` and no module path.
 ///
-/// A custom rule is an npm module pre-commit installs into the hook's own
-/// environment. This suite installs nothing, so a hook that needs one is
-/// out of its reach and stays out of its claims.
-fn linter_hooks(fixture: &Fixture) -> Vec<LinterHook> {
-    let block = fixture.read(".pre-commit-config.yaml");
-    let mut hooks = Vec::new();
-    let mut config: Option<String> = None;
-    let mut files: Option<String> = None;
-    let mut close = |config: &mut Option<String>, files: &mut Option<String>| {
-        if let Some(config) = config.take() {
-            hooks.push(LinterHook {
-                config,
-                files: files.take(),
-            });
-        } else {
-            *files = None;
-        }
-    };
-    for line in block.lines() {
-        let trimmed = line.trim();
-        if trimmed.starts_with("- id: ") {
-            close(&mut config, &mut files);
-        } else if let Some(rest) = trimmed.strip_prefix("args: ['--config', '") {
-            config = rest.split('\'').next().map(str::to_string);
-        } else if let Some(rest) = trimmed.strip_prefix("files: '") {
-            files = rest
-                .rsplit_once('\'')
-                .map(|(pattern, _)| pattern.to_string());
-        }
-    }
-    close(&mut config, &mut files);
-    hooks.retain(|hook| !fixture.read(&hook.config).contains("customRules"));
-    hooks
-}
-
-/// Every markdown path in the landed tree the pattern selects, relative to
-/// the target and sorted, as pre-commit would pass them.
-fn judged_paths(fixture: &Fixture, pattern: Option<&str>) -> Vec<String> {
-    // pre-commit matches with `re.search`, so the pattern is unanchored
-    // unless it anchors itself, which is what `is_match` does here.
-    let selector = pattern.map(|pattern| {
-        regex::Regex::new(pattern)
-            .unwrap_or_else(|error| panic!("a wired hook carries an unreadable pattern: {error}"))
-    });
-    let mut paths = Vec::new();
-    for entry in walkdir::WalkDir::new(fixture.path())
-        .into_iter()
-        .filter_entry(|entry| entry.file_name() != ".git")
-        .filter_map(Result::ok)
-        .filter(|entry| entry.file_type().is_file())
-    {
-        let Ok(relative) = entry.path().strip_prefix(fixture.path()) else {
-            continue;
-        };
-        let Some(relative) = relative.to_str() else {
-            continue;
-        };
-        if !relative.ends_with(".md") {
-            continue;
-        }
-        if selector.as_ref().is_none_or(|rule| rule.is_match(relative)) {
-            paths.push(relative.to_string());
-        }
-    }
-    paths.sort();
-    paths
-}
-
-/// Run the delivered linter over the given paths, from inside the target.
-///
-/// The binary comes from the devshell. Where it is absent the test fails
-/// rather than passes: a proof that runs nowhere proves nothing.
-fn markdownlint(fixture: &Fixture, config: &str, paths: &[String]) -> std::process::Output {
-    std::process::Command::new("markdownlint-cli2")
+/// The binary comes from the devshell, which bundles the relative-links
+/// rule. Where it is absent the test fails rather than passes: a proof that
+/// runs nowhere proves nothing.
+fn lint(fixture: &Fixture, args: &[&str]) -> Lint {
+    let output = std::process::Command::new("markdownlint-cli2")
         .current_dir(fixture.path())
-        .arg("--config")
-        .arg(config)
-        .args(paths)
+        .env_remove("NODE_PATH")
+        .args(args)
         .output()
         .unwrap_or_else(|error| {
             panic!("markdownlint-cli2 did not run: {error}; it comes from the devshell")
-        })
-}
-
-/// VERIFIES distribution:a-delivered-configuration-serves-a-delivered-rule
-///
-/// The linter itself, over the tree the landing wrote, with no
-/// configuration the adopter owns. `every_linter_hook_reads_a_configuration_the_landing_wrote`
-/// proves each configuration exists and parses, which is a different claim
-/// from the linter accepting the payload's own files under it. The defect
-/// this holds against: a delivered configuration left MD013 on, and the
-/// unwrapped prose `docs-format` requires failed the hook the same landing
-/// wired.
-#[test]
-fn every_delivered_configuration_passes_over_the_seeds_the_landing_wrote() {
-    for profile in ["codebase", "knowledge-base"] {
-        let fixture = Fixture::new();
-        fixture.install(profile);
-        assert!(
-            !fixture.path().join(".markdownlint-cli2.jsonc").is_file(),
-            "the landing wrote a base configuration, so this run would judge the merge rather than what the payload delivers"
-        );
-
-        let mut judged = 0;
-        for hook in linter_hooks(&fixture) {
-            let paths = judged_paths(&fixture, hook.files.as_deref());
-            if paths.is_empty() {
-                continue;
-            }
-            judged += paths.len();
-            let output = markdownlint(&fixture, &hook.config, &paths);
-            assert!(
-                output.status.success(),
-                "a fresh {profile} landing fails the hook reading {}:\n{}{}",
-                hook.config,
-                String::from_utf8_lossy(&output.stdout),
-                String::from_utf8_lossy(&output.stderr)
-            );
-        }
-        // A pattern that matched nothing would report every hook clean.
-        assert!(
-            judged > 0,
-            "no landed file matched any wired linter pattern, so the {profile} run judged nothing"
-        );
-    }
-}
-
-/// VERIFIES distribution:a-delivered-configuration-serves-a-delivered-rule
-///
-/// The gate the configuration exists for survives the change that silenced
-/// the defaults. Without this, the phase above passes by disabling
-/// everything.
-#[test]
-fn a_wrong_heading_shape_still_fails_the_delivered_configuration() {
-    let fixture = Fixture::new();
-    fixture.install("knowledge-base");
-
-    let spec = "_docs/specs/SPEC-instance.md";
-    let text = fixture.read(spec).replace("## Purpose", "## Wrong");
-    fixture.write(spec, &text);
-
-    let hooks = linter_hooks(&fixture);
-    let hook = hooks
-        .iter()
-        .find(|hook| {
-            judged_paths(&fixture, hook.files.as_deref())
-                .iter()
-                .any(|path| path == spec)
-        })
-        .expect("no wired hook judges the seeded specs");
-    let output = markdownlint(&fixture, &hook.config, &[spec.to_string()]);
+        });
     let report = format!(
         "{}{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(
-        !output.status.success() && report.contains("MD043"),
-        "a spec with the wrong heading shape passed the shape gate:\n{report}"
+        !report.contains("Unable to import module"),
+        "the linter cannot load the relative-links rule, so the bundled derivation lost it:\n{report}"
     );
+    Lint {
+        passed: output.status.success(),
+        report,
+    }
+}
+
+/// A landed configuration, parsed. The linter reads JSONC, and the landed
+/// files carry comments on their own lines only.
+fn jsonc(fixture: &Fixture, relative: &str) -> serde_json::Value {
+    let text = fixture.read(relative);
+    let stripped: String = text
+        .lines()
+        .filter(|line| !line.trim_start().starts_with("//"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    serde_json::from_str(&stripped)
+        .unwrap_or_else(|error| panic!("{relative} does not parse: {error}"))
+}
+
+/// VERIFIES distribution:a-delivered-configuration-serves-a-delivered-rule
+#[test]
+fn both_landed_lint_configurations_parse_and_merge() {
+    for (profile, root) in [("codebase", "docs"), ("knowledge-base", "_docs")] {
+        let fixture = Fixture::new();
+        fixture.install(profile);
+
+        let seed = jsonc(&fixture, ".markdownlint-cli2.jsonc");
+        assert_eq!(
+            seed["customRules"],
+            serde_json::json!(["markdownlint-rule-relative-links"])
+        );
+        assert_eq!(seed["config"]["relative-links"], true);
+
+        let managed = jsonc(&fixture, &format!("{root}/.markdownlint-cli2.jsonc"));
+        assert_eq!(managed["config"]["MD013"], false);
+        assert_eq!(managed["config"]["MD040"], true);
+        let overrides = managed["overrides"].as_array().unwrap();
+        let filters: Vec<&serde_json::Value> =
+            overrides.iter().map(|entry| &entry["filter"]).collect();
+        assert_eq!(
+            filters,
+            [
+                &serde_json::json!(["specs/SPEC-*.md"]),
+                &serde_json::json!(["decisions/ADR-*.md"])
+            ]
+        );
+        for entry in overrides {
+            assert_eq!(entry["combine"], "merge", "{entry}");
+            assert_eq!(entry["config"]["MD043"]["match_case"], true, "{entry}");
+        }
+        assert_eq!(overrides[1]["config"]["relative-links"], false);
+    }
+}
+
+/// VERIFIES distribution:a-delivered-configuration-serves-a-delivered-rule
+///
+/// The linter itself, over every Markdown file the landing wrote, the root
+/// `AGENTS.md` included, with no file passed over and no rule disabled by
+/// the test. The defect this holds against: a landing verified and the
+/// project's first hook run failed on the payload's own files.
+#[test]
+fn a_fresh_landing_passes_the_native_lint_run() {
+    for (profile, root) in [("codebase", "docs"), ("knowledge-base", "_docs")] {
+        let fixture = Fixture::new();
+        fixture.install(profile);
+        assert!(
+            fixture
+                .read("AGENTS.md")
+                .starts_with("# AGENTS\n\n<!-- BEGIN"),
+            "{profile}: a created AGENTS.md opens with its title"
+        );
+
+        let run = lint(&fixture, &["**/*.md"]);
+        assert!(
+            run.passed,
+            "a fresh {profile} landing fails the linter:\n{}",
+            run.report
+        );
+        let version = run
+            .report
+            .split_whitespace()
+            .find_map(|word| word.strip_prefix("v0."))
+            .and_then(|rest| rest.split('.').next())
+            .and_then(|minor| minor.parse::<u32>().ok())
+            .expect("the linter prints its version");
+        assert!(
+            version >= 23,
+            "the linter is older than 0.23.0:\n{}",
+            run.report
+        );
+        let linted: usize = run
+            .report
+            .lines()
+            .find_map(|line| line.strip_prefix("Linting: "))
+            .and_then(|rest| rest.split_whitespace().next())
+            .and_then(|count| count.parse().ok())
+            .expect("the linter reports what it linted");
+        assert!(
+            linted >= 15,
+            "the run judged only {linted} files:\n{}",
+            run.report
+        );
+
+        // The shapes still judge: without this the run above passes by
+        // disabling everything.
+        fixture.write(&format!("{root}/specs/SPEC-right.md"), SPEC_SHAPE);
+        fixture.write(&format!("{root}/specs/SPEC-wrong.md"), SPEC_WRONG);
+        fixture.write(&format!("{root}/decisions/ADR-wrong.md"), RECORD_WRONG);
+        for held in ["specs", "decisions"] {
+            fixture.write(&format!("{root}/{held}/README.md"), "# Readme\n\nText.\n");
+        }
+        let run = lint(&fixture, &["**/*.md"]);
+        assert!(!run.passed);
+        let shape_failures = run
+            .report
+            .lines()
+            .filter(|line| line.contains("MD043"))
+            .count();
+        assert_eq!(shape_failures, 2, "{}", run.report);
+        assert!(run.report.contains(&format!("{root}/specs/SPEC-wrong.md")));
+        assert!(
+            run.report
+                .contains(&format!("{root}/decisions/ADR-wrong.md"))
+        );
+        for passing in [
+            "SPEC-right.md",
+            "TEMPLATE-spec.md",
+            "TEMPLATE-adr.md",
+            "README.md",
+        ] {
+            assert!(
+                !run.report.lines().any(|line| line.contains(passing)),
+                "{passing} was judged:\n{}",
+                run.report
+            );
+        }
+    }
+}
+
+/// VERIFIES distribution:a-delivered-configuration-serves-a-delivered-rule
+///
+/// A broken link fails citing the rule, not a module-import error, which
+/// would mean the bundled linter lost the rule. The fixture sits outside the
+/// linter's own closure and the run unsets `NODE_PATH`, so the rule resolves
+/// from the linter's location or nowhere. Records are frozen history, so the
+/// check does not judge their links.
+#[test]
+fn the_relative_links_rule_judges_links_outside_the_records() {
+    let fixture = Fixture::new();
+    fixture.install("codebase");
+    fixture.write("valid.md", "# Valid\n\nSee [the agents file](AGENTS.md).\n");
+    fixture.write("broken.md", "# Broken\n\nSee [nothing](missing.md).\n");
+    fixture.write(
+        "docs/decisions/ADR-frozen.md",
+        &RECORD_WRONG.replace("Text.", "See [gone](gone.md).").replace(
+            "## Status",
+            "## Considered Options\n\nText.\n\n## Decision Outcome\n\nText.\n\n## Consequences\n\nText.\n\n## Status",
+        ),
+    );
+
+    let run = lint(&fixture, &["valid.md", "docs/decisions/ADR-frozen.md"]);
+    assert!(run.passed, "{}", run.report);
+    let run = lint(&fixture, &["broken.md"]);
+    assert!(!run.passed);
+    assert!(
+        run.report.contains("broken.md:3 error relative-links"),
+        "{}",
+        run.report
+    );
+}
+
+/// A host the project already keeps is the project's: the landing adds its
+/// block and no title, and the tree still lints clean.
+#[test]
+fn a_landing_into_an_existing_agents_file_adds_no_title() {
+    let fixture = Fixture::new();
+    fixture.write("AGENTS.md", "# Project agents\n\nShort project text.\n");
+    fixture.install("codebase");
+    let host = fixture.read("AGENTS.md");
+    assert!(
+        host.starts_with("# Project agents\n\nShort project text.\n\n<!-- BEGIN"),
+        "{host}"
+    );
+    assert!(!host.contains("# AGENTS\n"), "{host}");
+
+    let run = lint(&fixture, &["**/*.md"]);
+    assert!(run.passed, "{}", run.report);
+}
+
+/// The block's suppression is line-local: project prose before and after
+/// the markers is still held to the project's line length.
+#[test]
+fn the_block_suppression_reaches_the_block_alone() {
+    let long = "project prose ".repeat(8);
+    let fixture = Fixture::new();
+    fixture.write(
+        "AGENTS.md",
+        &format!("# Project agents\n\n{}\n", long.trim_end()),
+    );
+    fixture.install("codebase");
+    let host = fixture.read("AGENTS.md");
+    fixture.write("AGENTS.md", &format!("{host}\n{}\n", long.trim_end()));
+
+    let run = lint(&fixture, &["AGENTS.md"]);
+    let length: Vec<&str> = run
+        .report
+        .lines()
+        .filter(|line| line.contains("MD013"))
+        .collect();
+    let lines = fixture.read("AGENTS.md").lines().count();
+    assert_eq!(
+        length,
+        [
+            "AGENTS.md:3:81 error MD013/line-length Line length [Expected: 80; Actual: 111]",
+            format!("AGENTS.md:{lines}:81 error MD013/line-length Line length [Expected: 80; Actual: 111]").as_str(),
+        ],
+        "{}",
+        run.report
+    );
+}
+
+/// VERIFIES instance:the-lint-configuration-composes
+///
+/// Every root configuration a project may keep composes with the managed
+/// one: a root that turns every default on, a complete root override for
+/// the same spec, and a library-family file that tries to turn the shapes
+/// off all leave them firing.
+#[test]
+fn a_project_root_configuration_cannot_turn_the_shapes_off() {
+    let roots: [(&str, &str); 5] = [
+        (
+            ".markdownlint-cli2.jsonc",
+            r#"{ "customRules": ["markdownlint-rule-relative-links"], "config": { "default": true, "MD013": true, "relative-links": true } }"#,
+        ),
+        (
+            ".markdownlint-cli2.jsonc",
+            r#"{ "customRules": ["markdownlint-rule-relative-links"], "config": { "relative-links": true }, "overrides": [ { "filter": ["docs/specs/SPEC-wrong.md"], "config": { "MD043": false }, "combine": "merge" } ] }"#,
+        ),
+        (
+            ".markdownlint-cli2.jsonc",
+            r#"{ "config": { "MD043": false } }"#,
+        ),
+        (".markdownlint.jsonc", r#"{ "MD043": false }"#),
+        (".markdownlint.jsonc", r#"{ "default": false }"#),
+    ];
+    for (name, body) in roots {
+        let fixture = Fixture::new();
+        fixture.install("codebase");
+        fixture.write(name, &format!("{body}\n"));
+        fixture.write("docs/specs/SPEC-wrong.md", SPEC_WRONG);
+        let run = lint(&fixture, &["docs/specs/SPEC-wrong.md"]);
+        assert!(
+            !run.passed && run.report.contains("MD043"),
+            "a root {name} holding {body} turned the spec shape off:\n{}",
+            run.report
+        );
+    }
+}
+
+/// The linter's scope lives in its own configuration: a file the root
+/// `ignores` names is skipped even when a caller passes it by name, which is
+/// what pre-commit does.
+#[test]
+fn a_path_the_root_ignores_is_skipped_when_passed_by_name() {
+    let fixture = Fixture::new();
+    fixture.install("codebase");
+    let seed = fixture
+        .read(".markdownlint-cli2.jsonc")
+        .replace("\"ignores\": []", "\"ignores\": [\"vendor/**\"]");
+    fixture.write(".markdownlint-cli2.jsonc", &seed);
+    fixture.write(
+        "vendor/notes.md",
+        "no heading\n\n\n\nSee [x](missing.md).\n",
+    );
+    let run = lint(&fixture, &["vendor/notes.md"]);
+    assert!(run.passed, "{}", run.report);
+    assert!(run.report.contains("Linting: 0 files"), "{}", run.report);
+}
+
+/// One proposed root: its name, the files it writes, and whether the rule
+/// loads under it.
+type ProposedRoot = (&'static str, &'static [(&'static str, &'static str)], bool);
+
+/// The configurations the setup skill proposes where the project's own root
+/// configuration made the seed yield. `customRules` belongs to the CLI2
+/// family alone, so a library-family file keeps its rules and a companion
+/// CLI2 file carries the loader. The last case is the negative control: the
+/// loader written into the library file is ignored, and the broken link
+/// passes, which is why the companion is necessary. These test the proposed
+/// configuration, not an edit `sdd` makes.
+#[test]
+fn the_proposed_relative_links_configurations_load_the_rule() {
+    let cases: [ProposedRoot; 4] = [
+        (
+            "CLI2 only, loader merged",
+            &[(
+                ".markdownlint-cli2.jsonc",
+                r#"{ "customRules": ["./rules/noop.cjs", "markdownlint-rule-relative-links"], "config": { "MD041": false, "relative-links": true } }"#,
+            )],
+            true,
+        ),
+        (
+            "library only, companion loader",
+            &[
+                (".markdownlint.yaml", "MD041: false\nrelative-links: true\n"),
+                (
+                    ".markdownlint-cli2.jsonc",
+                    r#"{ "customRules": ["markdownlint-rule-relative-links"] }"#,
+                ),
+            ],
+            true,
+        ),
+        (
+            "both families",
+            &[
+                (".markdownlint.yaml", "MD041: false\nrelative-links: true\n"),
+                (
+                    ".markdownlint-cli2.jsonc",
+                    r#"{ "customRules": ["./rules/noop.cjs", "markdownlint-rule-relative-links"], "config": { "MD012": false } }"#,
+                ),
+            ],
+            true,
+        ),
+        (
+            "library only, loader in the wrong family",
+            &[(
+                ".markdownlint.yaml",
+                "customRules:\n  - markdownlint-rule-relative-links\nMD041: false\nrelative-links: true\n",
+            )],
+            false,
+        ),
+    ];
+    for (case, files, loads) in cases {
+        let fixture = Fixture::new();
+        fixture.write(
+            "rules/noop.cjs",
+            "module.exports = { names: [\"noop-rule\"], description: \"noop\", tags: [\"x\"], parser: \"none\", function: () => {} };\n",
+        );
+        for (name, body) in files {
+            fixture.write(name, &format!("{body}\n"));
+        }
+        fixture.install("codebase");
+        assert!(
+            files
+                .iter()
+                .all(|(name, body)| fixture.read(name) == format!("{body}\n")),
+            "{case}: the landing touched the project's configuration"
+        );
+        fixture.write(
+            "valid.md",
+            "No heading, which MD041 would refuse.\n\nSee [the agents file](AGENTS.md).\n",
+        );
+        fixture.write("broken.md", "# Broken\n\nSee [nothing](missing.md).\n");
+
+        let run = lint(&fixture, &["valid.md"]);
+        assert!(
+            run.passed,
+            "{case}: an unrelated rule or a valid link failed:\n{}",
+            run.report
+        );
+        let run = lint(&fixture, &["broken.md"]);
+        if loads {
+            assert!(
+                !run.passed && run.report.contains("broken.md:3 error relative-links"),
+                "{case}: the broken link was not judged:\n{}",
+                run.report
+            );
+        } else {
+            assert!(
+                run.passed,
+                "{case}: the negative control judged the link:\n{}",
+                run.report
+            );
+        }
+    }
 }

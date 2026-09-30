@@ -6,6 +6,7 @@
 - [Requirements](#requirements)
   - [`docs-specs:requirement-carries-five-parts` — A requirement carries five parts](#docs-specsrequirement-carries-five-parts--a-requirement-carries-five-parts)
   - [`docs-specs:statement-uses-an-ears-pattern` — A statement uses one EARS pattern](#docs-specsstatement-uses-an-ears-pattern--a-statement-uses-one-ears-pattern)
+  - [`docs-specs:a-spec-follows-the-heading-shape` — A spec follows the heading shape](#docs-specsa-spec-follows-the-heading-shape--a-spec-follows-the-heading-shape)
   - [`docs-specs:rule-id-is-unique-and-slugged` — A rule ID is a slug pair and is unique](#docs-specsrule-id-is-unique-and-slugged--a-rule-id-is-a-slug-pair-and-is-unique)
   - [`docs-specs:rule-id-outlives-its-sentence` — A rule ID survives rewording](#docs-specsrule-id-outlives-its-sentence--a-rule-id-survives-rewording)
   - [`docs-specs:requirement-carries-a-verification` — A requirement carries a verification](#docs-specsrequirement-carries-a-verification--a-requirement-carries-a-verification)
@@ -18,7 +19,7 @@
 
 ## Purpose
 
-Rules governing specification files under `_docs/specs/`. Covers the requirement block, its grammar, its identifier, and its verification. Where a spec is placed and how it is named belong to `SPEC-docs-foundations.md`. The markdown a spec is written in belongs to `SPEC-docs-format.md`.
+Rules governing specification files under `<root>/specs/`. Covers the requirement block, its grammar, its identifier, and its verification. Where a spec is placed and how it is named belong to `SPEC-docs-foundations.md`. The markdown a spec is written in belongs to `SPEC-docs-format.md`.
 
 ## Requirements
 
@@ -45,6 +46,20 @@ The author MUST write every requirement statement as one sentence in an EARS pat
 - THEN the statement names no actor and no threshold, and the gate rejects it
 
 Verify: ``rg -UIo -r '$1' '^### `[a-z0-9-]+:[a-z0-9-]+`[^\n]*\n\n([^\n]+)' . --glob 'SPEC-*.md' | rg -v '(MUST|SHOULD|MAY)' | grep . && exit 1 || exit 0``
+
+### `docs-specs:a-spec-follows-the-heading-shape` — A spec follows the heading shape
+
+The author MUST give every `SPEC-*.md` one title, then `## Purpose`, then `## Requirements`, then at least one further heading, each written in the case shown here.
+
+The documentation root's managed lint configuration holds the shape as `["?", "## Purpose", "## Requirements", "+"]` with case matched. The trailing `+` covers the requirement and scenario headings, so a spec with no requirement fails.
+
+#### Scenario: A spec gains a section above its purpose
+
+- GIVEN a spec whose author adds `## Background` between the title and `## Purpose`
+- WHEN the linter runs over the spec
+- THEN the heading-shape rule fails it, because a fixed order is what lets a reader and a tool find the requirements
+
+Verify: `pre-commit run markdownlint-cli2 --all-files`
 
 ### `docs-specs:rule-id-is-unique-and-slugged` — A rule ID is a slug pair and is unique
 

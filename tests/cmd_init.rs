@@ -31,8 +31,16 @@ fn installs_both_profiles_and_they_verify() {
         assert!(
             fixture
                 .path()
+                .join(root)
+                .join(".markdownlint-cli2.jsonc")
+                .is_file()
+        );
+        assert!(
+            !fixture
+                .path()
                 .join(".spec-driven-docs/markdownlint")
-                .is_dir()
+                .exists(),
+            "the retired lint directory was landed"
         );
         // VERIFIES distribution:a-skill-has-one-owner: an instance carries no
         // skill, so a session opened here sees the user-scope copy alone.
@@ -414,7 +422,7 @@ fn a_managed_destination_nothing_accounts_for_refuses_before_the_first_write() {
     // record to vouch for it. The landing has no way to tell it from
     // somebody's own work, so it refuses rather than guessing.
     fixture.write(
-        ".spec-driven-docs/markdownlint/adr.markdownlint-cli2.jsonc",
+        "_docs/.markdownlint-cli2.jsonc",
         "{ \"somebody\": \"else\" }\n",
     );
     let digest = fixture.tree_digest();
@@ -431,7 +439,7 @@ fn a_managed_destination_nothing_accounts_for_refuses_before_the_first_write() {
         .assert()
         .code(73)
         .stderr(predicate::str::contains("hold bytes no record vouches for"))
-        .stderr(predicate::str::contains("adr.markdownlint-cli2.jsonc"));
+        .stderr(predicate::str::contains("_docs/.markdownlint-cli2.jsonc"));
     assert_eq!(
         digest,
         fixture.tree_digest(),
@@ -473,6 +481,102 @@ fn creates_a_root_agents_file_with_the_managed_block() {
         "Name a document by a slug drawn from its subject, never by a number. Where its directory holds documents with no kind prefix, give that directory a `README.md`"
     ));
     assert!(!agents.contains("simple-english"));
+}
+
+/// A file the landing creates opens with a title, because the linter's
+/// default refuses a Markdown file whose first line is not one. A file the
+/// project already keeps is the project's, and its first line stays.
+#[test]
+fn a_created_agents_file_is_titled_and_an_existing_one_keeps_its_first_line() {
+    let created = Fixture::new();
+    created.install("codebase");
+    assert!(
+        created
+            .read("AGENTS.md")
+            .starts_with("# AGENTS\n\n<!-- BEGIN spec-driven-docs docs -->\n")
+    );
+
+    let kept = Fixture::new();
+    kept.write("AGENTS.md", "Local policy, no heading.\n");
+    kept.install("codebase");
+    assert!(
+        kept.read("AGENTS.md")
+            .starts_with("Local policy, no heading.\n\n<!-- BEGIN")
+    );
+}
+
+/// Gathering reads and never writes, so a preview leaves an absent host
+/// absent, and the same choices applied write the titled candidate.
+#[test]
+fn a_preview_leaves_an_absent_agents_file_absent() {
+    let fixture = Fixture::new();
+    let digest = fixture.tree_digest();
+    fixture
+        .cmd()
+        .args([
+            "init",
+            "--target",
+            &fixture.target(),
+            "--profile",
+            "codebase",
+            "--dry-run",
+        ])
+        .assert()
+        .success();
+    assert!(!fixture.path().join("AGENTS.md").exists());
+    assert_eq!(digest, fixture.tree_digest());
+
+    fixture.install("codebase");
+    assert!(fixture.read("AGENTS.md").starts_with("# AGENTS\n\n"));
+}
+
+/// An empty file exists, so it is the project's and gets no title.
+#[test]
+fn an_existing_empty_agents_file_receives_the_block_without_a_title() {
+    let fixture = Fixture::new();
+    fixture.write("AGENTS.md", "");
+    fixture.install("codebase");
+    let agents = fixture.read("AGENTS.md");
+    assert!(
+        agents.starts_with("<!-- BEGIN spec-driven-docs docs -->\n"),
+        "{agents}"
+    );
+    assert!(!agents.contains("# AGENTS"), "{agents}");
+}
+
+/// A root configuration is the project's to keep: the seed yields, the
+/// landing says so, and the instance verifies without it.
+#[test]
+fn a_root_markdownlint_configuration_makes_the_seed_yield() {
+    let fixture = Fixture::new();
+    fixture.write(".markdownlint.yaml", "MD041: false\n");
+    fixture
+        .cmd()
+        .args([
+            "init",
+            "--target",
+            &fixture.target(),
+            "--profile",
+            "codebase",
+            "--apply",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            ".markdownlint-cli2.jsonc was not seeded, because the target root already holds .markdownlint.yaml",
+        ));
+    assert!(!fixture.path().join(".markdownlint-cli2.jsonc").exists());
+    assert_eq!(fixture.read(".markdownlint.yaml"), "MD041: false\n");
+    assert!(
+        !fixture
+            .read(".spec-driven-docs/manifest.json")
+            .contains("\"destination\": \".markdownlint-cli2.jsonc\"")
+    );
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .success();
 }
 
 #[test]

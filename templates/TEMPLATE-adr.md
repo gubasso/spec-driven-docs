@@ -1,6 +1,6 @@
 # Template — Decision record
 
-Copy the block below to `<root>/decisions/ADR-<slug>.md`. A project that keeps its own copy names it `TEMPLATE-adr.md`. The prefix distinguishes the seed from the records it seeds, so no template reads as a decision the project made. A filled body is at or below 350 words.
+Copy the block below to `{docs_root}/decisions/ADR-<slug>.md`. A project that keeps its own copy names it `TEMPLATE-adr.md`. The prefix distinguishes the seed from the records it seeds, so no template reads as a decision the project made. A filled body is at or below 350 words.
 
 ```markdown
 # <Short title naming the choice, not the task>
