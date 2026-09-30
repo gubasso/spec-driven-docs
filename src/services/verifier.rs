@@ -410,6 +410,10 @@ pub fn verify(target: &Utf8Path) -> Result<VerifyReport, AppError> {
 /// cannot disable the shapes. Only filenames are read, so no configuration
 /// grammar is parsed.
 ///
+/// A symbolic link counts by its own name, because the linter reads a
+/// configuration through one. The walk never follows a link, so a linked
+/// directory is not descended and a cycle cannot hold it.
+///
 /// SATISFIES instance:the-lint-configuration-composes
 #[must_use]
 pub fn lint_configurations_that_break_composition(
@@ -422,14 +426,16 @@ pub fn lint_configurations_that_break_composition(
     let mut found: Vec<camino::Utf8PathBuf> = LIBRARY_NAMES
         .iter()
         .map(|name| root.join(name))
-        .filter(|path| target.join(path).is_file())
+        .filter(|path| {
+            std::fs::symlink_metadata(target.join(path)).is_ok_and(|held| !held.is_dir())
+        })
         .collect();
     for subtree in ["specs", "decisions"] {
         for entry in walkdir::WalkDir::new(target.join(root).join(subtree))
             .follow_links(false)
             .into_iter()
             .filter_map(Result::ok)
-            .filter(|entry| entry.file_type().is_file())
+            .filter(|entry| !entry.file_type().is_dir())
         {
             let Some(name) = entry.file_name().to_str() else {
                 continue;

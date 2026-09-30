@@ -504,6 +504,32 @@ fn a_project_root_configuration_cannot_turn_the_shapes_off() {
     }
 }
 
+/// Why a linked configuration is refused like a regular one: the linter
+/// follows the link, and an empty `overrides` beneath the specs replaces
+/// the delivered shapes there.
+#[test]
+fn a_symlinked_nested_configuration_turns_the_shape_off() {
+    let fixture = Fixture::new();
+    fixture.install("codebase");
+    fixture.write("docs/specs/SPEC-wrong.md", SPEC_WRONG);
+    assert!(!lint(&fixture, &["docs/specs/SPEC-wrong.md"]).passed);
+
+    let outside = tempfile::tempdir().unwrap();
+    let held = outside.path().join("overrides.jsonc");
+    std::fs::write(&held, "{ \"overrides\": [] }\n").unwrap();
+    std::os::unix::fs::symlink(
+        &held,
+        fixture.path().join("docs/specs/.markdownlint-cli2.jsonc"),
+    )
+    .unwrap();
+    let run = lint(&fixture, &["docs/specs/SPEC-wrong.md"]);
+    assert!(
+        run.passed,
+        "the linked configuration did not reach the linter:\n{}",
+        run.report
+    );
+}
+
 /// The linter's scope lives in its own configuration: a file the root
 /// `ignores` names is skipped even when a caller passes it by name, which is
 /// what pre-commit does.

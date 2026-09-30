@@ -327,6 +327,58 @@ fn a_configuration_beneath_the_specs_or_the_records_fails_at_any_depth() {
         ));
 }
 
+/// SATISFIES instance:the-lint-configuration-composes
+///
+/// The linter reads a configuration through a symbolic link, so a linked
+/// one replaces the shapes exactly as a regular file does, in either
+/// profile, and verification names it by the path the link sits at.
+#[test]
+fn a_symlinked_configuration_fails_like_a_regular_one() {
+    for root in ["docs", "_docs"] {
+        let profile = if root == "docs" {
+            "codebase"
+        } else {
+            "knowledge-base"
+        };
+        let fixture = Fixture::new();
+        fixture.install(profile);
+        let outside = tempfile::tempdir().unwrap();
+        let held = outside.path().join("overrides.jsonc");
+        std::fs::write(&held, "{ \"overrides\": [] }\n").unwrap();
+        for link in [
+            format!("{root}/specs/.markdownlint-cli2.jsonc"),
+            format!("{root}/.markdownlint.json"),
+        ] {
+            std::os::unix::fs::symlink(&held, fixture.path().join(&link)).unwrap();
+        }
+        // A dangling link is still a configuration the linter tries to read.
+        std::os::unix::fs::symlink(
+            outside.path().join("absent.yaml"),
+            fixture
+                .path()
+                .join(format!("{root}/decisions/.markdownlint.yaml")),
+        )
+        .unwrap();
+        let assert = fixture
+            .cmd()
+            .args(["verify", "--target", &fixture.target()])
+            .assert()
+            .code(1);
+        let stdout = String::from_utf8_lossy(&assert.get_output().stdout).to_string();
+        for named in [
+            format!("FAIL {root}/specs/.markdownlint-cli2.jsonc replaces"),
+            format!("FAIL {root}/.markdownlint.json replaces"),
+            format!("FAIL {root}/decisions/.markdownlint.yaml replaces"),
+        ] {
+            assert!(
+                stdout.contains(&named),
+                "{profile}: missing '{named}':\n{stdout}"
+            );
+        }
+        assert!(stdout.contains("(instance:the-lint-configuration-composes)"));
+    }
+}
+
 /// The repository root is the project's: a configuration there merges
 /// beneath the documentation root's and cannot turn the shapes off.
 #[test]
