@@ -63,9 +63,18 @@ fn track_cmd(fixture: &Fixture, path_dir: &std::path::Path, args: &[&str]) -> Co
 fn status_reports_freshness_offline() {
     let fixture = Fixture::new();
     install_with_registry(&fixture, PINNED);
+    // A date inside the fixture's 30-day cadence, so the verdict does not
+    // depend on the day the suite runs.
     fixture
         .cmd()
-        .args(["track", "status", "--target", &fixture.target()])
+        .args([
+            "track",
+            "status",
+            "--target",
+            &fixture.target(),
+            "--as-of",
+            "2026-09-15",
+        ])
         .assert()
         .success()
         .stdout(predicate::str::contains("dep: current"))
