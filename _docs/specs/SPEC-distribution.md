@@ -75,7 +75,7 @@ Verify: `cargo nextest run -E 'binary(cmd_verify) + binary(cmd_upgrade)'`
 
 ### `distribution:upgrade-conflicts-are-atomic` — Upgrade conflicts are atomic
 
-If a managed file differs from its installed hash, then the upgrader MUST abort without changing the target. It names every conflict in one pass, and it decides before its first write, which `SPEC-staging.md` states as the rule a landing holds for any destination it cannot account for.
+If a managed file differs from its installed hash and the operator did not name it with `--replace`, then the upgrader MUST abort without changing the target. It names every conflict in one pass, and it decides before its first write, which `SPEC-staging.md` states as the rule a landing holds for any destination it cannot account for, beside the rule that keeps a named conflict's bytes.
 
 #### Scenario: One managed configuration is edited locally
 
@@ -111,7 +111,7 @@ Verify: `cargo nextest run -E 'binary(cmd_init) + binary(cmd_skill)'`
 
 ### `distribution:a-skill-obeys-the-portable-format` — A skill obeys the portable format
 
-Every skill MUST carry only the portable Agent Skills frontmatter fields, a `name` matching its directory name, and a body at or below 150 lines.
+Every skill MUST carry only the portable Agent Skills frontmatter fields, a `name` matching its directory name, and a manual and reference files within the character budget `SPEC-skill-format.md` states.
 
 #### Scenario: A skill gains an agent-specific field
 
@@ -123,7 +123,7 @@ Verify: `cargo nextest run -E 'binary(canon)'`
 
 ### `distribution:a-landing-classifies-its-target-first` — A landing classifies its target first
 
-The landing MUST read a target's classification from the target alone, never from the verb the caller ran, and each front verb MUST refuse a classification it does not serve, naming what was found and what serves it. After the shared pre-flight gate, a skill reads the classification rather than routing by verb. `sdd assess` MUST keep its three-verdict projection: it reports its evidence and exactly one of `brownfield`, `greenfield`, or `needs-decision`, writes nothing, and exits 0.
+The landing MUST read a target's classification from the target alone, never from the verb the caller ran, and each front verb MUST refuse a classification it does not serve, naming what was found and what serves it. `sdd status --json` reports that one classification as `classification`, one of `setup`, `migration`, `needs-decision`, `upgrade`, `drift`, `current`, or `invalid`, or `null` where the instance is newer than the binary, and a skill reads it rather than routing by verb. `sdd assess` MUST keep its three-verdict projection: it reports its evidence and exactly one of `brownfield`, `greenfield`, or `needs-decision`, writes nothing, and exits 0.
 
 #### Scenario: A landing verb meets a target it does not serve
 
@@ -131,7 +131,7 @@ The landing MUST read a target's classification from the target alone, never fro
 - WHEN `sdd init --target . --profile codebase --apply` runs
 - THEN the command refuses, names the target as a migration, and points at `sdd stage` and the setup skill, so no seed lands beside the corpus
 
-Verify: `cargo nextest run -E 'binary(cmd_assess) + binary(cmd_stage) + binary(canon)'`
+Verify: `cargo nextest run -E 'binary(cmd_assess) + binary(cmd_status) + binary(cmd_stage) + binary(canon)'`
 
 ### `distribution:a-skill-checks-its-host-before-it-plans` — A skill checks its host before it plans
 
@@ -159,11 +159,11 @@ Verify: `cargo nextest run -E 'binary(cmd_doctor)'`
 
 ### `distribution:a-skill-plans-before-it-acts` — A skill plans before it acts
 
-Every skill MUST open its body with one section that precedes every other section. That section MUST direct the agent to read the two gates in order before the first action of a task, each named by its path inside the skill's own package: the pre-flight gate first, then the plan gate. It MUST also direct the agent to hold the plan gate's three phases, plan, validate, and execute, for the whole task.
+Every skill MUST open its body, after its opening paragraph, with one section that directs the agent to read the pre-flight gate before any other action, and MUST name the point after the pre-flight and before the first write at which the agent reads the plan gate, each gate named by its path inside the skill's own package. The plan gate holds its three phases, plan, validate, and execute, for the whole task.
 
-#### Scenario: A skill gains a section above the gate
+#### Scenario: A skill gains a section above the pre-flight
 
-- GIVEN a skill edited so another section precedes the gate section
+- GIVEN a skill edited so another section precedes the pre-flight section
 - WHEN the canon test suite runs
 - THEN the conformance test fails naming the skill, because an agent acts on the first instruction it reads
 
@@ -231,15 +231,15 @@ Verify: `cargo nextest run -E 'binary(cmd_skill)'`
 
 ### `distribution:a-skill-package-is-self-contained` — A skill package is self-contained
 
-Every installed skill MUST be one directory holding `SKILL.md` and every shared artifact under `references/`, materialized by the installer from the one authored source. Every skill MUST name a shared artifact by a path relative to its own root, and no skill may name one outside its own directory.
+Every installed skill MUST be one directory holding `SKILL.md`, and under `references/` the skill's own reference files and every shared artifact, materialized by the installer from the one authored source of each, and the installer MUST refuse a reference name that both sources claim. Every skill MUST name a reference by a path relative to its own root, and no skill may name one outside its own directory. The first install that copies the shared artifacts into every agent root removes the copies an earlier release installed once under the retired shared root, where the receipt vouches for them. A run limited to one agent family leaves that root alone, because an older manual under the other family's root still reads the gates there.
 
 #### Scenario: A skill is installed under one agent root
 
 - GIVEN an agent root and a completed `sdd skill install --apply`
 - WHEN the installed package is read
-- THEN it holds `SKILL.md` and a `references/` directory carrying both gates, so the skill resolves them the way the format resolves a supporting file
+- THEN it holds `SKILL.md` and a `references/` directory carrying the skill's own reference files and both gates, so the skill resolves each the way the format resolves a supporting file
 
-Verify: `cargo nextest run -E 'binary(cmd_skill)'`
+Verify: `cargo nextest run -E 'binary(cmd_skill) | test(a_skill_reference_lands_beside_the_shared_artifacts)'`
 
 ### `distribution:a-user-scope-receipt-is-required-state` — A user-scope receipt is required state
 

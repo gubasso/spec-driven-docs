@@ -250,7 +250,7 @@ pub fn plan(target: &Utf8Path, docs_root: DocsRoot) -> Result<Vec<Plan>, AppErro
 ///
 /// A write that left the record behind would report the instance as drifted
 /// the moment it was made correct.
-fn with_adopted_record(
+pub(crate) fn with_adopted_record(
     document: &mut serde_json::Value,
     source: &str,
     destination: &Utf8Path,

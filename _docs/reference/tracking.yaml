@@ -39,3 +39,16 @@ tracked:
       - update the catalog and advance last_checked
     dependents:
       - README.md
+  - id: skill-format-sources
+    path: _docs/reference/REFERENCE-skill-format-sources.md
+    last_checked: 2026-10-08
+    cadence_days: 90
+    why: vendor skill guidance and loader limits change between releases
+    revalidate:
+      - read each source the file lists against its current page
+      - update its finding, and every rule of the spec that rests on it
+      - advance last_checked
+    dependents:
+      - _docs/specs/SPEC-skill-format.md
+      - skills/sdd-setup/SKILL.md
+      - skills/sdd-write-docs/SKILL.md

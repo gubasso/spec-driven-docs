@@ -53,6 +53,7 @@ This repository is the canonical knowledge product for spec-driven documentation
 - Pinning this tool from a consumer: `_docs/specs/SPEC-acquisition.md`.
 - Format and budgets: `_docs/specs/SPEC-docs-format.md`.
 - Decision records: `_docs/specs/SPEC-decision-records.md`.
+- Skill packages and how a skill is written: `_docs/specs/SPEC-skill-format.md`.
 - Cutting a release: `_docs/guides/release.md`.
 - Step-by-step guides: `_docs/specs/SPEC-guides.md`.
 

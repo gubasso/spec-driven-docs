@@ -1,5 +1,19 @@
 # Instance Specification
 
+<!--TOC-->
+
+- [Purpose](#purpose)
+- [Requirements](#requirements)
+  - [`instance:the-manifest-stays-readable` — The manifest stays readable](#instancethe-manifest-stays-readable--the-manifest-stays-readable)
+  - [`instance:the-agents-block-stays-managed` — The managed AGENTS block stays intact](#instancethe-agents-block-stays-managed--the-managed-agents-block-stays-intact)
+  - [`instance:the-tracking-registry-stays-valid` — The tracking registry stays valid](#instancethe-tracking-registry-stays-valid--the-tracking-registry-stays-valid)
+  - [`instance:the-lint-configuration-composes` — The lint configuration composes](#instancethe-lint-configuration-composes--the-lint-configuration-composes)
+  - [`instance:the-root-lint-configuration-loads-relative-links` — The root lint configuration loads relative-links](#instancethe-root-lint-configuration-loads-relative-links--the-root-lint-configuration-loads-relative-links)
+  - [`instance:the-project-declares-what-its-gates-judge` — The project declares what its gates judge](#instancethe-project-declares-what-its-gates-judge--the-project-declares-what-its-gates-judge)
+  - [`instance:the-managed-block-agrees-with-the-declaration` — The managed block agrees with the declaration](#instancethe-managed-block-agrees-with-the-declaration--the-managed-block-agrees-with-the-declaration)
+
+<!--TOC-->
+
 ## Purpose
 
 Rules a project owes the instance installed in it. Covers the installation record the installer writes into the project, and the managed regions the installer keeps inside project-owned files. It also covers the tracking registry the project owns, and every ownership check that reads these back. Every rule here is one the project itself can violate, and every verification runs with what the install wires. How the installer produces that record, and what the binary owes at install and upgrade time, belong to `SPEC-distribution.md`, which no instance adopts. The writing convention the project follows belongs to `SPEC-writing-style.md` and `sdd method writing-style`. The registry's own shape belongs to `SPEC-tracking.md`.
@@ -59,6 +73,20 @@ Verification counts a configuration link by its own filename, including a dangli
 - THEN it fails naming that path, because the nested file replaces the delivered overrides and no spec there is held to its shape any longer
 
 Verify: `sdd verify --target .`
+
+### `instance:the-root-lint-configuration-loads-relative-links` — The root lint configuration loads relative-links
+
+The project MUST keep `markdownlint-rule-relative-links` loaded through a `.markdownlint-cli2.*` file at the repository root and `relative-links` enabled in the rules that file's directory resolves, because that rule is what fails a relative link whose target does not exist.
+
+A `.markdownlint.*` file at the root replaces the CLI2 file's `config`, so the rule is enabled there where one exists. `sdd lint` names each configuration that does not load or enable the rule, and `sdd lint prove` proves the rule fires.
+
+#### Scenario: A project's own root configuration replaces the seed
+
+- GIVEN a repository root holding its own `.markdownlint-cli2.jsonc` without the rule
+- WHEN `sdd lint prove` runs
+- THEN it fails, because a broken relative link lints clean and no other check sees the missing rule
+
+Verify: `sdd lint prove`
 
 ### `instance:the-project-declares-what-its-gates-judge` — The project declares what its gates judge
 

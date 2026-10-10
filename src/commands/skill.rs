@@ -28,7 +28,7 @@ fn layout(agent: Agent) -> Result<Layout, AppError> {
         roots: roots(&env, agent),
         receipt: state_root.join(SKILL_RECEIPT_FILE),
         legacy_receipt: home.join(LEGACY_SKILL_RECEIPT_PATH),
-        legacy_shared: home.join(LEGACY_SHARED_ROOT),
+        legacy_shared: (agent == Agent::All).then(|| home.join(LEGACY_SHARED_ROOT)),
         state_root,
     })
 }

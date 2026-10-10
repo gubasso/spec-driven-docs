@@ -36,6 +36,12 @@ pub struct InitOptions {
     /// The writing-style selection to record in the declaration. `None`
     /// keeps whatever is recorded.
     pub writing_style: Option<crate::domain::instance_config::WritingStyle>,
+    /// The acquisition decision to record in the declaration. `None` keeps
+    /// whatever is recorded.
+    pub acquisition: Option<crate::domain::instance_config::Acquisition>,
+    /// Destinations the operator named for replacement. The caller saves
+    /// each one's bytes before the landing runs.
+    pub replace: Vec<String>,
 }
 
 /// What an installation did.
@@ -295,6 +301,7 @@ fn gather(target: &Utf8Path, options: &InitOptions) -> Result<crate::candidate::
         docs_scratch: resolved_docs_scratch(target, options.docs_scratch.as_ref())?,
         reserve: options.reserve.clone(),
         writing_style: options.writing_style.clone(),
+        acquisition: options.acquisition.clone(),
         evidence: crate::candidate::Evidence {
             existing,
             recorded_adopted,
@@ -395,7 +402,9 @@ pub fn init_holding(
         });
     }
 
-    let outcome = crate::landing::apply::land(&target, &candidate, &recorded(&target))?;
+    let mut vouched = recorded(&target);
+    vouched.replace.clone_from(&options.replace);
+    let outcome = crate::landing::apply::land(&target, &candidate, &vouched)?;
     drop(held);
     Ok(InitOutcome {
         lines,
@@ -413,6 +422,7 @@ pub(crate) fn recorded(target: &Utf8Path) -> crate::landing::apply::Recorded {
     crate::landing::apply::Recorded {
         managed: digests(target, "managed_files", "destination", "sha256"),
         integration: digests(target, "integration_blocks", "path", "marker_hash"),
+        replace: Vec::new(),
     }
 }
 

@@ -45,6 +45,14 @@ aliases = ["clean up the stage", "discard the workbench"]
 target = { command = ["stage", "clean", "--help"] }
 
 [[topic]]
+id = "stage-compare"
+title = "Compare a stage against its target"
+summary = "Per destination: whether the target holds the staged bytes, who owns them, what vouches for an edit."
+kind = "operator-task"
+aliases = ["provenance", "what would the landing refuse"]
+target = { command = ["stage", "compare", "--help"] }
+
+[[topic]]
 id = "verify"
 title = "Check an installed instance"
 summary = "Compare the tree against the record offline, and report drift by ownership class."
@@ -59,6 +67,38 @@ summary = "Read where every path this tool names comes from, rather than writing
 kind = "operator-task"
 aliases = ["paths", "where does this write"]
 target = { command = ["status", "--help"] }
+
+[[topic]]
+id = "env"
+title = "Report or write the gates' environment"
+summary = "Read the shell loader a repository records and the docs scratch items, and write one through it."
+kind = "operator-task"
+aliases = ["docs scratch variable", "envrc", "scratch ignore entry"]
+target = { command = ["env", "--help"] }
+
+[[topic]]
+id = "lint"
+title = "Report what the Markdown linter reads"
+summary = "Name each lint configuration that breaks the shapes or drops relative-links, with its rule and edit."
+kind = "operator-task"
+aliases = ["markdownlint configuration", "stray lint config"]
+target = { command = ["lint", "--help"] }
+
+[[topic]]
+id = "lint-prove"
+title = "Prove the link rule runs"
+summary = "Lint a broken relative link, then a valid one, through the delivered hook, then remove the file."
+kind = "operator-task"
+aliases = ["relative-links proof"]
+target = { command = ["lint", "prove", "--help"] }
+
+[[topic]]
+id = "migrate"
+title = "Archive a corpus and rebuild it"
+summary = "Move the old documentation into an archive, track each source's rebuild, and close the migration."
+kind = "operator-task"
+aliases = ["archive the corpus", "migration registry", "close a migration"]
+target = { command = ["migrate", "--help"] }
 
 [[topic]]
 id = "skills"
@@ -361,12 +401,28 @@ aliases = ["release rules", "versioning"]
 target = { document = { shelf = "spec", name = "release" } }
 
 [[topic]]
+id = "spec-skill-format"
+title = "How a skill is packaged and written"
+summary = "The files a skill package holds, how its manual links them, and how its instructions read."
+kind = "spec-seed"
+aliases = ["skill format", "skill rules"]
+target = { document = { shelf = "spec", name = "skill-format" } }
+
+[[topic]]
 id = "spec-staging"
 title = "Staging and direct landing"
 summary = "The candidate this binary renders, the stage an agent reads, and how a landing writes."
 kind = "spec-seed"
 aliases = ["staging rules", "landing rules"]
 target = { document = { shelf = "spec", name = "staging" } }
+
+[[topic]]
+id = "spec-setup"
+title = "The verbs a setup run reads"
+summary = "What an older release left on the host, the environment report and its writes, and the lint report."
+kind = "spec-seed"
+aliases = ["setup rules", "env rules", "lint rules"]
+target = { document = { shelf = "spec", name = "setup" } }
 
 [[topic]]
 id = "spec-spec-to-code"

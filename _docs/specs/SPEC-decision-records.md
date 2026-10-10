@@ -64,6 +64,8 @@ Verify: `git log --format=%H -- '*/decisions/ADR-*' | head -50 | xargs -I{} git 
 
 The author MUST NOT delete or rename a merged decision record.
 
+A decision record of a previous convention is a migration source, not a record of this instance: a migration archives it and may merge it with others into one new record. Once a record lands in the instance, this rule binds it.
+
 #### Scenario: A record's decision is reversed
 
 - GIVEN a record whose choice the project later abandons

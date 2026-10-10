@@ -17,6 +17,34 @@ pub fn sha256_file(path: &Utf8Path) -> std::io::Result<Sha256> {
     Ok(Sha256::of(&std::fs::read(path)?))
 }
 
+/// Claim a directory of this run's own under `parent`, named by `stamp`.
+///
+/// The directory is created exclusively, so two runs never share one. Where
+/// `stamp` is taken, the next free name follows it: `<stamp>-2`, `<stamp>-3`,
+/// and so on, so the names still sort by time.
+///
+/// # Errors
+///
+/// Any I/O error creating `parent` or the run directory, other than the
+/// name being taken.
+pub fn claim_run_dir(parent: &Utf8Path, stamp: &str) -> std::io::Result<camino::Utf8PathBuf> {
+    std::fs::create_dir_all(parent)?;
+    let mut counter = 1_u32;
+    loop {
+        let name = if counter == 1 {
+            stamp.to_string()
+        } else {
+            format!("{stamp}-{counter}")
+        };
+        let candidate = parent.join(name);
+        match std::fs::create_dir(&candidate) {
+            Ok(()) => return Ok(candidate),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => counter += 1,
+            Err(error) => return Err(error),
+        }
+    }
+}
+
 /// Write a file, creating its parent directories.
 ///
 /// # Errors
@@ -170,6 +198,20 @@ pub fn check_destination(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn two_runs_in_one_second_each_claim_a_directory_of_their_own() {
+        let dir = tempfile::tempdir().unwrap();
+        let parent = camino::Utf8Path::from_path(dir.path())
+            .unwrap()
+            .join("snapshots");
+        let first = claim_run_dir(&parent, "20261009T213000Z").unwrap();
+        let second = claim_run_dir(&parent, "20261009T213000Z").unwrap();
+        let third = claim_run_dir(&parent, "20261009T213000Z").unwrap();
+        assert_eq!(first.file_name(), Some("20261009T213000Z"));
+        assert_eq!(second.file_name(), Some("20261009T213000Z-2"));
+        assert_eq!(third.file_name(), Some("20261009T213000Z-3"));
+    }
+
     use camino::Utf8PathBuf;
 
     use super::*;

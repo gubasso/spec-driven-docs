@@ -17,9 +17,10 @@ pub struct StageArgs {
     #[arg(long, default_value = ".")]
     pub target: Utf8PathBuf,
 
-    /// The profile to project.
-    #[arg(long, value_enum, default_value_t = ProfileId::Codebase)]
-    pub profile: ProfileId,
+    /// The profile to project: the recorded one where an instance exists,
+    /// which a different value refuses; codebase where nothing is recorded.
+    #[arg(long, value_enum)]
+    pub profile: Option<ProfileId>,
 
     /// Where to write the stage; absolute.
     #[arg(long)]
@@ -33,13 +34,26 @@ pub struct StageArgs {
     #[arg(long)]
     pub reserve: Vec<String>,
 
-    /// The writing-style selection the candidate would record.
+    /// The writing-style selection the candidate would record, unless the
+    /// declaration already holds it; a missing key holds `builtin`.
     #[arg(long)]
     pub writing_style: Option<String>,
+
+    /// Record that every host installs sdd itself, at this release or newer,
+    /// where no manager file pins it.
+    #[arg(long, value_enum)]
+    pub acquisition: Option<AcquisitionChoice>,
 
     /// Print one JSON object instead of text.
     #[arg(long)]
     pub json: bool,
+}
+
+/// How the project obtains `sdd`, where no manager file records it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub enum AcquisitionChoice {
+    /// Each host installs `sdd` itself.
+    Host,
 }
 
 /// The verbs `sdd stage` offers beyond rendering one.
@@ -47,6 +61,24 @@ pub struct StageArgs {
 pub enum StageCommand {
     /// Remove one stage this tool wrote.
     Clean(StageCleanArgs),
+    /// Compare one stage against its target, one row per destination.
+    Compare(StageCompareArgs),
+}
+
+/// Compare one stage against the target it was rendered for.
+#[derive(Debug, clap::Args)]
+pub struct StageCompareArgs {
+    /// The stage directory to read; absolute.
+    pub root: Utf8PathBuf,
+
+    /// The repository the stage was rendered for; absolute, or the working
+    /// directory.
+    #[arg(long, default_value = ".")]
+    pub target: Utf8PathBuf,
+
+    /// Print one JSON object instead of text.
+    #[arg(long)]
+    pub json: bool,
 }
 
 /// Remove one stage this tool wrote.

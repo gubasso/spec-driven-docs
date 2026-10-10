@@ -11,11 +11,13 @@
 //! one, and only after the receipt inside it says this tool wrote it.
 
 use camino::{Utf8Path, Utf8PathBuf};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::domain::manifest::MANIFEST_PATH;
 use crate::domain::profile::ProfileId;
 use crate::error::AppError;
+
+pub mod compare;
 
 /// The machine schema `stage.json` declares.
 pub const STAGE_SCHEMA: &str = "sdd.stage/1";
@@ -58,8 +60,9 @@ const REFERENCE_ROOTS: [&str; 8] = [
 pub struct Request {
     /// The repository to render a candidate for.
     pub target: Utf8PathBuf,
-    /// The profile to project.
-    pub profile: ProfileId,
+    /// The profile to project. `None` takes the recorded profile, or the
+    /// codebase profile where nothing is recorded.
+    pub profile: Option<ProfileId>,
     /// The stage directory the operator named.
     pub output: Option<Utf8PathBuf>,
     /// The documentation scratch the candidate would record.
@@ -68,6 +71,8 @@ pub struct Request {
     pub reserve: Vec<String>,
     /// The writing-style selection the candidate would record.
     pub writing_style: Option<crate::domain::instance_config::WritingStyle>,
+    /// The acquisition decision the candidate would record.
+    pub acquisition: Option<crate::domain::instance_config::Acquisition>,
 }
 
 /// Which rule chose the stage root, for the report that names it.
@@ -118,6 +123,8 @@ pub struct Receipt {
     pub reserve: Vec<String>,
     /// The writing source the candidate's own declaration selects.
     pub writing_style: String,
+    /// The acquisition decision the candidate's own declaration records.
+    pub acquisition: Option<crate::domain::instance_config::Acquisition>,
     /// Every destination the candidate would land.
     pub artifacts: Vec<Artifact>,
     /// Every reference root copied, relative to the stage.
@@ -231,7 +238,7 @@ fn scratch_beside(root: &Utf8Path) -> Result<Utf8PathBuf, AppError> {
 ///
 /// Two checkouts of one repository stage side by side, and neither name is
 /// guessed from the other.
-fn stage_name(target: &Utf8Path) -> String {
+pub(crate) fn stage_name(target: &Utf8Path) -> String {
     let digest = crate::domain::ownership::Sha256::of(target.as_str().as_bytes()).to_string();
     let leaf = target.file_name().unwrap_or("target");
     format!("{leaf}-{}", &digest[..12])
@@ -271,14 +278,17 @@ pub fn create(request: &Request, state_root: &Utf8Path) -> Result<Receipt, AppEr
         )));
     }
 
+    let profile = staged_profile(&target, request.profile)?;
     let options = crate::services::installer::InitOptions {
         target: target.clone(),
-        profile: request.profile,
+        profile,
         apply: false,
         dry_run: true,
         docs_scratch: request.docs_scratch.clone(),
         reserve: request.reserve.clone(),
         writing_style: request.writing_style.clone(),
+        acquisition: request.acquisition.clone(),
+        replace: Vec::new(),
     };
     let candidate = crate::services::installer::candidate_for(&target, &options)?;
 
@@ -287,7 +297,7 @@ pub fn create(request: &Request, state_root: &Utf8Path) -> Result<Receipt, AppEr
     // The scratch name is this run's own: a predictable one would make the
     // command remove a sibling nothing proves it wrote.
     let partial = scratch_beside(&root)?;
-    let render = render(&partial, &target, &root, root_source, &candidate, request);
+    let render = render(&partial, &target, &root, root_source, &candidate, profile);
     match render {
         Ok(receipt) => finish(&partial, &root, receipt),
         Err(error) => {
@@ -322,7 +332,7 @@ fn render(
     root: &Utf8Path,
     root_source: RootSource,
     candidate: &crate::candidate::Candidate,
-    request: &Request,
+    profile: ProfileId,
 ) -> Result<Receipt, AppError> {
     let mut artifacts = Vec::new();
     for destination in &candidate.destinations {
@@ -359,9 +369,7 @@ fn render(
     // authored tree: a skill names its gates relative to its own root, and
     // a copy that split them would carry two broken references.
     for name in crate::embedded::skill_names() {
-        let Some(package) = crate::embedded::skill_package(name) else {
-            continue;
-        };
+        let package = crate::embedded::skill_package(name).map_err(anyhow::Error::from)?;
         for (relative, bytes) in package {
             crate::adapters::fs::write_file(
                 &partial
@@ -407,7 +415,7 @@ fn render(
         schema: STAGE_SCHEMA,
         version: crate::domain::version::CanonVersion::current().to_string(),
         target: target.to_owned(),
-        profile: request.profile,
+        profile,
         root: root.to_owned(),
         root_source,
         recorded_version: crate::services::installer::recorded_field(target, "canon_version")
@@ -416,6 +424,7 @@ fn render(
         docs_scratch: candidate.manifest.docs_scratch.clone(),
         reserve: candidate.declaration.reserved.clone(),
         writing_style: writing_style_of(&candidate.declaration),
+        acquisition: candidate.declaration.acquisition.clone(),
         artifacts,
         reference,
         notes: candidate.notes.clone(),
@@ -425,6 +434,157 @@ fn render(
     crate::adapters::fs::write_file(&partial.join(RECEIPT_FILE), json.as_bytes())?;
 
     Ok(receipt)
+}
+
+/// The profile a stage projects: the recorded one wherever an instance is.
+///
+/// A stage over an instance is evidence for that instance's next landing,
+/// so it projects the profile the record names. A different `--profile`
+/// refuses, because moving a profile moves the documentation root, which is
+/// a migration to ask for deliberately rather than an upgrade's candidate.
+///
+/// SATISFIES staging:a-stage-takes-the-recorded-choices
+///
+/// # Errors
+///
+/// [`AppError::Refused`] where the flag names another profile than the
+/// record.
+fn staged_profile(target: &Utf8Path, flag: Option<ProfileId>) -> Result<ProfileId, AppError> {
+    let recorded =
+        crate::services::installer::recorded_field(target, "profile").and_then(|value| {
+            ProfileId::every().find(|profile| Some(profile.as_str()) == value.as_str())
+        });
+    match (recorded, flag) {
+        (Some(recorded), Some(asked)) if recorded != asked => Err(AppError::Refused(format!(
+            "{target} records the {recorded} profile and this stage asks for {asked}; \
+             moving a profile moves the documentation root, which is a migration to ask for deliberately"
+        ))),
+        (Some(recorded), _) => Ok(recorded),
+        (None, Some(asked)) => Ok(asked),
+        (None, None) => Ok(ProfileId::Codebase),
+    }
+}
+
+/// The choices one stage receipt records, as a landing takes them.
+#[derive(Debug, Clone)]
+pub struct StagedChoices {
+    /// The target the stage was rendered for.
+    pub target: Utf8PathBuf,
+    /// The profile it projected.
+    pub profile: ProfileId,
+    /// The documentation scratch the candidate records.
+    pub docs_scratch: Option<Utf8PathBuf>,
+    /// The paths the candidate's declaration reserves.
+    pub reserve: Vec<String>,
+    /// The writing-style selection the candidate's declaration records.
+    pub writing_style: crate::domain::instance_config::WritingStyle,
+    /// The acquisition decision the candidate's declaration records.
+    pub acquisition: Option<crate::domain::instance_config::Acquisition>,
+    /// Every destination the stage rendered, with its ownership.
+    pub artifacts: Vec<HeldArtifact>,
+}
+
+/// One destination a receipt lists.
+#[derive(Debug, Clone, Deserialize)]
+pub struct HeldArtifact {
+    /// The destination, relative to the target.
+    pub path: String,
+    /// Who owns the bytes after a landing, as the receipt spells it.
+    pub ownership: String,
+}
+
+/// The receipt fields a landing reads, and nothing else.
+#[derive(Debug, Deserialize)]
+struct HeldReceipt {
+    schema: String,
+    version: String,
+    target: Utf8PathBuf,
+    profile: ProfileId,
+    root: Utf8PathBuf,
+    docs_scratch: Option<Utf8PathBuf>,
+    #[serde(default)]
+    reserve: Vec<String>,
+    writing_style: String,
+    #[serde(default)]
+    acquisition: Option<crate::domain::instance_config::Acquisition>,
+    #[serde(default)]
+    artifacts: Vec<HeldArtifact>,
+}
+
+/// Read the choices a stage recorded, for a landing that takes them.
+///
+/// The receipt is the one file of a stage a landing reads, and only for the
+/// choices it names: every byte the landing writes is rendered again from
+/// this binary's own sources. A receipt another release wrote describes a
+/// candidate this binary does not carry, and a receipt for another target
+/// describes a landing nobody asked for here, so both refuse.
+///
+/// SATISFIES staging:a-landing-takes-the-choices-its-stage-recorded
+///
+/// # Errors
+///
+/// [`AppError::Usage`] for a relative path, and [`AppError::Refused`] where
+/// the path holds no receipt this tool wrote, where another release wrote
+/// it, or where it names another target than `target`.
+pub fn read_choices(root: &Utf8Path, target: &Utf8Path) -> Result<StagedChoices, AppError> {
+    if !root.is_absolute() {
+        return Err(AppError::Usage(format!(
+            "the stage path must be absolute: {root}"
+        )));
+    }
+    let path = root.join(RECEIPT_FILE);
+    let text = std::fs::read_to_string(&path).map_err(|source| {
+        AppError::Refused(format!(
+            "{path} is not readable, so {root} is not a stage this tool wrote: {source}"
+        ))
+    })?;
+    let held: HeldReceipt = serde_json::from_str(&text).map_err(|source| {
+        AppError::Refused(format!(
+            "{path} is not a receipt this release reads: {source}"
+        ))
+    })?;
+    if held.schema != STAGE_SCHEMA {
+        return Err(AppError::Refused(format!(
+            "{path} does not declare {STAGE_SCHEMA}, so this is not a stage"
+        )));
+    }
+    if held.root != root {
+        return Err(AppError::Refused(format!(
+            "{path} declares the root {}, and this path is {root}",
+            held.root
+        )));
+    }
+    let current = crate::domain::version::CanonVersion::current().to_string();
+    if held.version != current {
+        return Err(AppError::Refused(format!(
+            "the stage at {root} was rendered by sdd {}, and this is sdd {current}; stage again with this binary",
+            held.version
+        )));
+    }
+    let target = crate::services::installer::resolved_target(target)?;
+    if held.target != target {
+        return Err(AppError::Refused(format!(
+            "the stage at {root} was rendered for {}, and this landing targets {target}",
+            held.target
+        )));
+    }
+    let writing_style = crate::domain::instance_config::WritingStyle::parse_flag(
+        &held.writing_style,
+    )
+    .map_err(|error| {
+        AppError::Refused(format!(
+            "{path} records a writing style this release refuses: {error}"
+        ))
+    })?;
+    Ok(StagedChoices {
+        target,
+        profile: held.profile,
+        docs_scratch: held.docs_scratch,
+        reserve: held.reserve,
+        writing_style,
+        acquisition: held.acquisition,
+        artifacts: held.artifacts,
+    })
 }
 
 /// Remove one stage this tool wrote, and refuse anything else.

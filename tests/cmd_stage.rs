@@ -393,3 +393,396 @@ fn the_stage_carries_the_delivered_lint_configuration_as_reference() {
         }
     }
 }
+
+/// VERIFIES staging:a-stage-takes-the-recorded-choices
+#[test]
+fn a_stage_over_an_instance_projects_its_recorded_profile() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    let receipt = stage(&fixture);
+    assert_eq!(receipt["profile"], "knowledge-base");
+    assert_eq!(receipt["docs_root"], "_docs");
+
+    let elsewhere = stage_path(&fixture).with_file_name("stage-other-profile");
+    fixture
+        .cmd()
+        .args([
+            "stage",
+            "--target",
+            &fixture.target(),
+            "--profile",
+            "codebase",
+            "--output",
+            elsewhere.to_str().unwrap(),
+        ])
+        .assert()
+        .code(73)
+        .stderr(predicate::str::contains("knowledge-base"));
+    assert!(!elsewhere.exists());
+}
+
+fn compare(fixture: &Fixture) -> serde_json::Value {
+    let output = fixture
+        .cmd()
+        .args([
+            "stage",
+            "compare",
+            stage_path(fixture).to_str().unwrap(),
+            "--target",
+            &fixture.target(),
+            "--json",
+        ])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    serde_json::from_slice(&output).unwrap()
+}
+
+fn row<'a>(report: &'a serde_json::Value, path: &str) -> &'a serde_json::Value {
+    report["rows"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["path"] == path)
+        .unwrap_or_else(|| panic!("no row for {path}: {report}"))
+}
+
+/// Run git in the fixture alone.
+fn git(fixture: &Fixture, args: &[&str]) -> bool {
+    support::git(fixture.path())
+        .args(args)
+        .output()
+        .is_ok_and(|out| out.status.success())
+}
+
+/// A fixture whose tree is one real commit, where `git` runs.
+fn committed(fixture: &Fixture) -> bool {
+    std::fs::remove_dir_all(fixture.path().join(".git")).unwrap();
+    git(fixture, &["init", "-q"])
+        && git(fixture, &["add", "-A"])
+        && git(fixture, &["commit", "-q", "-m", "x"])
+}
+
+/// VERIFIES staging:compare-reports-every-destination-the-stage-carries
+#[test]
+fn compare_reports_each_state_ownership_and_provenance() {
+    let fixture = Fixture::new();
+    fixture.install("codebase");
+    let history = committed(&fixture);
+    // Edited after the record: the record no longer vouches, history does.
+    fixture.write("docs/.markdownlint-cli2.jsonc", "// edited\n");
+    // Gone: nothing to vouch for.
+    std::fs::remove_file(fixture.path().join("docs/specs/SPEC-docs-format.md")).unwrap();
+    stage(&fixture);
+    let report = compare(&fixture);
+    assert_eq!(report["schema"], "sdd.stage-compare/1");
+    assert_eq!(report["history"]["available"], history);
+
+    let managed = row(&report, "docs/.markdownlint-cli2.jsonc");
+    assert_eq!(managed["state"], "differs");
+    assert_eq!(managed["ownership"], "managed");
+    assert_eq!(managed["vouched"], false);
+    assert_eq!(
+        managed["provenance"],
+        if history { "reduced" } else { "unknown" }
+    );
+
+    let adopted = row(&report, "docs/specs/SPEC-docs-format.md");
+    assert_eq!(adopted["state"], "absent");
+    assert_eq!(adopted["ownership"], "adopted");
+    assert_eq!(adopted["provenance"], serde_json::Value::Null);
+
+    let integration = row(&report, ".pre-commit-config.yaml");
+    assert_eq!(integration["state"], "equal");
+    assert_eq!(integration["ownership"], "integration");
+
+    // An unrecorded file at a managed destination is unvouched and has no
+    // history either.
+    let fresh = Fixture::new();
+    fresh.write("docs/.markdownlint-cli2.jsonc", "{}\n");
+    stage(&fresh);
+    let report = compare(&fresh);
+    let unknown = row(&report, "docs/.markdownlint-cli2.jsonc");
+    assert_eq!(unknown["state"], "differs");
+    assert_eq!(unknown["provenance"], "unknown");
+    if !report["history"]["available"].as_bool().unwrap() {
+        assert!(report["history"]["reason"].as_str().is_some());
+    }
+}
+
+/// The record half is the landing's own check, so the comparison and the
+/// landing's refusal name the same destinations, and a landing that
+/// resolves them leaves every managed and integration row equal.
+#[test]
+fn the_comparison_agrees_with_the_landing_and_proves_it_afterwards() {
+    let fixture = Fixture::new();
+    fixture.write("docs/.markdownlint-cli2.jsonc", "{}\n");
+    stage(&fixture);
+    let report = compare(&fixture);
+    let unvouched: Vec<&str> = report["rows"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|row| {
+            row["state"] == "differs" && row["vouched"] == false && row["ownership"] != "adopted"
+        })
+        .map(|row| row["path"].as_str().unwrap())
+        .collect();
+    assert_eq!(unvouched, ["docs/.markdownlint-cli2.jsonc"]);
+    fixture
+        .cmd()
+        .args([
+            "init",
+            "--target",
+            &fixture.target(),
+            "--profile",
+            "codebase",
+            "--apply",
+        ])
+        .assert()
+        .code(73)
+        .stderr(predicate::str::contains("docs/.markdownlint-cli2.jsonc"));
+
+    std::fs::remove_file(fixture.path().join("docs/.markdownlint-cli2.jsonc")).unwrap();
+    fixture
+        .cmd()
+        .current_dir(fixture.path())
+        .args([
+            "init",
+            "--stage",
+            stage_path(&fixture).to_str().unwrap(),
+            "--apply",
+        ])
+        .assert()
+        .success();
+    let after = compare(&fixture);
+    for row in after["rows"].as_array().unwrap() {
+        if row["ownership"] != "adopted" {
+            assert_eq!(row["state"], "equal", "{row}");
+        }
+    }
+}
+
+/// A conflict the upgrade takes a name for is replaceable. A conflict at
+/// a path the landing cannot write, here a managed region's host turned
+/// into a symlink, is not, and the upgrade refuses that name before it saves or
+/// writes anything. A first landing takes no name at all.
+///
+/// VERIFIES staging:compare-reports-every-destination-the-stage-carries
+#[test]
+fn compare_marks_only_the_conflicts_a_replace_name_resolves() {
+    let fixture = Fixture::new();
+    fixture.install("codebase");
+    let edited = "docs/.markdownlint-cli2.jsonc";
+    fixture.write(edited, "// edited\n");
+    let linked = ".pre-commit-config.yaml".to_string();
+    let outside = fixture.path().parent().unwrap().join("outside.yaml");
+    std::fs::write(&outside, "repos:\n  - repo: local\n    hooks: []\n").unwrap();
+    std::fs::remove_file(fixture.path().join(&linked)).unwrap();
+    std::os::unix::fs::symlink(&outside, fixture.path().join(&linked)).unwrap();
+
+    stage(&fixture);
+    let report = compare(&fixture);
+    assert_eq!(row(&report, edited)["replaceable"], true, "{report}");
+    assert_eq!(row(&report, &linked)["replaceable"], false, "{report}");
+    for row in report["rows"].as_array().unwrap() {
+        if row["path"] != edited {
+            assert_eq!(row["replaceable"], false, "{row}");
+        }
+    }
+
+    let before = fixture.tree_digest();
+    fixture
+        .upgrade()
+        .args(["--stage", stage_path(&fixture).to_str().unwrap()])
+        .args(["--replace", edited, "--replace", &linked])
+        .assert()
+        .code(73)
+        .stderr(predicate::str::contains("cannot write"));
+    assert_eq!(fixture.tree_digest(), before);
+    assert_eq!(
+        std::fs::read_to_string(&outside).unwrap(),
+        "repos:\n  - repo: local\n    hooks: []\n"
+    );
+
+    // Before any instance the landing verb is init, which takes no name.
+    let fresh = Fixture::new();
+    fresh.write(edited, "{}\n");
+    stage(&fresh);
+    let report = compare(&fresh);
+    assert_eq!(row(&report, edited)["state"], "differs");
+    assert_eq!(row(&report, edited)["replaceable"], false);
+}
+
+/// Wherever the upgrade refuses before it scans, no name resolves
+/// anything, so no row is replaceable: here a readable record that names
+/// an absolute destination, which the upgrade's front gate reads invalid.
+#[test]
+fn no_row_is_replaceable_where_the_upgrade_refuses_first() {
+    let fixture = Fixture::new();
+    fixture.install("codebase");
+    let edited = "docs/.markdownlint-cli2.jsonc";
+    fixture.write(edited, "// edited\n");
+    stage(&fixture);
+    let record_path = ".spec-driven-docs/manifest.json";
+    let mut record: serde_json::Value = serde_json::from_str(&fixture.read(record_path)).unwrap();
+    record["adopted_files"][0]["destination"] = serde_json::json!("/elsewhere/notes.md");
+    fixture.write(record_path, &serde_json::to_string_pretty(&record).unwrap());
+    fixture
+        .upgrade()
+        .args(["--stage", stage_path(&fixture).to_str().unwrap()])
+        .args(["--replace", edited])
+        .assert()
+        .failure();
+    let report = compare(&fixture);
+    for row in report["rows"].as_array().unwrap() {
+        assert_eq!(row["replaceable"], false, "{row}");
+    }
+}
+
+/// A retired destination outside the roots the landing prunes is one the
+/// landing leaves alone, so a name for it is accepted whatever its path is:
+/// its bytes are kept, and the upgrade proceeds without following the link.
+#[test]
+fn a_retired_link_the_landing_leaves_alone_stays_replaceable() {
+    let fixture = Fixture::new();
+    fixture.install("codebase");
+    let retired = "docs/retired.md";
+    let outside = fixture.path().parent().unwrap().join("outside-retired.md");
+    std::fs::write(&outside, "# Kept\n").unwrap();
+    std::os::unix::fs::symlink(&outside, fixture.path().join(retired)).unwrap();
+    let record_path = ".spec-driven-docs/manifest.json";
+    let mut record: serde_json::Value = serde_json::from_str(&fixture.read(record_path)).unwrap();
+    record["managed_files"]
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::json!({
+            "source": "retired.md",
+            "destination": retired,
+            "sha256": "0".repeat(64),
+        }));
+    fixture.write(record_path, &serde_json::to_string_pretty(&record).unwrap());
+    stage(&fixture);
+    let report = compare(&fixture);
+    assert_eq!(row(&report, retired)["state"], "retired");
+    assert_eq!(row(&report, retired)["replaceable"], true, "{report}");
+    fixture
+        .upgrade()
+        .args(["--stage", stage_path(&fixture).to_str().unwrap()])
+        .args(["--replace", retired])
+        .assert()
+        .success();
+    assert_eq!(std::fs::read_to_string(&outside).unwrap(), "# Kept\n");
+}
+
+/// Every destination the record names gets a row, readable or not.
+#[test]
+fn compare_reports_a_retired_destination_it_cannot_read() {
+    let fixture = Fixture::new();
+    fixture.install("codebase");
+    let gone = "docs/gone.md";
+    let unreadable = "docs/unreadable.md";
+    // A directory where the file was cannot be read as one, whoever runs
+    // the test.
+    std::fs::create_dir_all(fixture.path().join(unreadable)).unwrap();
+    let record_path = ".spec-driven-docs/manifest.json";
+    let mut record: serde_json::Value = serde_json::from_str(&fixture.read(record_path)).unwrap();
+    for destination in [gone, unreadable] {
+        record["managed_files"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({
+                "source": destination,
+                "destination": destination,
+                "sha256": "0".repeat(64),
+            }));
+    }
+    fixture.write(record_path, &serde_json::to_string_pretty(&record).unwrap());
+    stage(&fixture);
+    let report = compare(&fixture);
+    // No commit touches the gone file, so the Git half reads unknown.
+    assert_eq!(row(&report, gone)["state"], "retired");
+    assert_eq!(row(&report, gone)["provenance"], "unknown");
+    assert!(row(&report, gone)["vouched"].is_null());
+    assert_eq!(row(&report, unreadable)["state"], "retired");
+    assert_eq!(row(&report, unreadable)["provenance"], "unknown");
+    assert!(row(&report, unreadable)["vouched"].is_null());
+}
+
+#[test]
+fn compare_reports_a_retired_file_with_its_provenance() {
+    let fixture = Fixture::new();
+    fixture.install("codebase");
+    // A managed file the record names and this release does not land: what
+    // an older release left, edited since.
+    let path = ".spec-driven-docs/markdownlint/spec.markdownlint-cli2.jsonc";
+    fixture.write(path, "// edited\n");
+    let record_path = ".spec-driven-docs/manifest.json";
+    let mut record: serde_json::Value = serde_json::from_str(&fixture.read(record_path)).unwrap();
+    record["managed_files"]
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::json!({
+            "source": ".markdownlint/spec.markdownlint-cli2.jsonc",
+            "destination": path,
+            "sha256": "0".repeat(64),
+        }));
+    fixture.write(record_path, &serde_json::to_string_pretty(&record).unwrap());
+    stage(&fixture);
+    let report = compare(&fixture);
+    let retired = row(&report, path);
+    assert_eq!(retired["state"], "retired");
+    assert_eq!(retired["vouched"], false);
+    let provenance = retired["provenance"].as_str().unwrap();
+    assert!(
+        provenance == "reduced" || provenance == "unknown",
+        "{provenance}"
+    );
+}
+
+/// VERIFIES acquisition:a-host-install-is-a-recorded-decision
+#[test]
+fn a_host_answer_is_refused_where_a_manager_pins_the_tool() {
+    let pin = "[tools]\n\"cargo:spec-driven-docs\" = \"0.10.1\"\n";
+    let pinned = Fixture::new();
+    pinned.write("mise.toml", pin);
+    pinned
+        .cmd()
+        .args([
+            "stage",
+            "--target",
+            &pinned.target(),
+            "--acquisition",
+            "host",
+        ])
+        .assert()
+        .code(73)
+        .stderr(predicate::str::contains("mise already pins this tool"));
+
+    // A pin that arrives after the stage stops the landing that reads it.
+    let late = Fixture::new();
+    let path = stage_path(&late);
+    late.cmd()
+        .args([
+            "stage",
+            "--target",
+            &late.target(),
+            "--output",
+            path.to_str().unwrap(),
+            "--acquisition",
+            "host",
+        ])
+        .assert()
+        .success();
+    late.write("mise.toml", pin);
+    let before = late.tree_digest();
+    late.cmd()
+        .current_dir(late.path())
+        .args(["init", "--stage", path.to_str().unwrap(), "--apply"])
+        .assert()
+        .code(73)
+        .stderr(predicate::str::contains("mise already pins this tool"));
+    assert_eq!(late.tree_digest(), before);
+}

@@ -34,6 +34,9 @@ pub const OFFLINE_VAR: &str = "SDD_OFFLINE";
 pub const DOCS_SCRATCH_VAR: &str = "SDD_DOCS_SCRATCH";
 /// The variable an operator sets to hold the consumer pin where it is.
 pub const SELF_DEPEND_OFF_VAR: &str = "SDD_SELF_DEPEND_OFF";
+/// The command `sdd lint prove` runs in place of the delivered hook, as
+/// whitespace-separated words, for a host that runs the hook another way.
+pub const LINT_PROVE_RUNNER_VAR: &str = "SDD_LINT_PROVE_RUNNER";
 /// The variable a continuous-integration environment sets, where the pin
 /// is whatever the checkout carries.
 pub const CI_VAR: &str = "CI";

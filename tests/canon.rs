@@ -669,7 +669,7 @@ fn split_frontmatter(text: &str) -> (Vec<&str>, Vec<&str>) {
 
 /// SATISFIES distribution:a-skill-obeys-the-portable-format
 #[test]
-fn every_skill_carries_the_portable_frontmatter_and_stays_within_budget() {
+fn every_skill_carries_the_portable_frontmatter() {
     let allowed = [
         "name",
         "description",
@@ -679,7 +679,7 @@ fn every_skill_carries_the_portable_frontmatter_and_stays_within_budget() {
         "allowed-tools",
     ];
     for (dir, text) in skill_dirs() {
-        let (frontmatter, body) = split_frontmatter(&text);
+        let (frontmatter, _) = split_frontmatter(&text);
         let mut fields = std::collections::BTreeMap::new();
         for line in &frontmatter {
             if line.starts_with([' ', '\t']) {
@@ -730,17 +730,269 @@ fn every_skill_carries_the_portable_frontmatter_and_stays_within_budget() {
                 "{dir}: compatibility is empty or over 500 characters"
             );
         }
+    }
+}
+
+/// Every skill package the payload carries, file by file, as the installer
+/// composes it: the manual, the skill's own references, and the shared ones.
+fn skill_packages() -> Vec<(String, Vec<(String, String)>)> {
+    spec_driven_docs::embedded::skill_names()
+        .into_iter()
+        .map(|name| {
+            let files = spec_driven_docs::embedded::skill_package(name)
+                .unwrap_or_else(|error| panic!("{error}"))
+                .into_iter()
+                .map(|(path, bytes)| (path, String::from_utf8(bytes.to_vec()).unwrap()))
+                .collect();
+            (name.to_string(), files)
+        })
+        .collect()
+}
+
+/// SATISFIES skill-format:a-package-holds-the-manual-and-its-references
+#[test]
+fn every_skill_directory_holds_the_manual_and_its_references() {
+    use spec_driven_docs::domain::paths::{SKILL_FILE, SKILL_REFERENCES_DIR};
+
+    for (dir, _) in skill_dirs() {
+        let root = canon().join("skills").join(&dir);
+        for entry in walkdir::WalkDir::new(&root).min_depth(1) {
+            let entry = entry.unwrap();
+            let relative = entry.path().strip_prefix(&root).unwrap();
+            let relative = relative.to_str().unwrap();
+            let allowed = if entry.file_type().is_dir() {
+                relative == SKILL_REFERENCES_DIR
+            } else {
+                relative == SKILL_FILE
+                    || relative
+                        .strip_prefix(&format!("{SKILL_REFERENCES_DIR}/"))
+                        .is_some_and(|file| !file.contains('/') && file.ends_with(".md"))
+            };
+            assert!(
+                allowed,
+                "skills/{dir}/{relative}: a package holds SKILL.md and Markdown under references/ only (skill-format:a-package-holds-the-manual-and-its-references)"
+            );
+        }
+    }
+}
+
+/// SATISFIES skill-format:shared-content-is-authored-once
+#[test]
+fn every_skill_package_composes() {
+    for name in spec_driven_docs::embedded::skill_names() {
+        if let Err(error) = spec_driven_docs::embedded::skill_package(name) {
+            panic!("{error}");
+        }
+    }
+}
+
+/// SATISFIES skill-format:the-manual-links-every-reference-directly
+#[test]
+fn every_reference_file_is_linked_from_its_manual() {
+    use spec_driven_docs::domain::paths::SKILL_FILE;
+
+    for (dir, files) in skill_packages() {
+        let manual = &files
+            .iter()
+            .find(|(path, _)| path == SKILL_FILE)
+            .expect("every package carries its manual")
+            .1;
+        for (path, _) in &files {
+            if path == SKILL_FILE {
+                continue;
+            }
+            assert!(
+                manual.contains(&format!("`{path}`")),
+                "{dir}: SKILL.md does not link {path}, which its package carries (skill-format:the-manual-links-every-reference-directly)"
+            );
+        }
+    }
+}
+
+/// The acronyms a skill may write in capitals. Every other word in
+/// capitals is emphasis.
+const ACRONYMS: &[&str] = &[
+    "API", "CI", "CLI", "EARS", "HTTP", "HTTPS", "ID", "JSON", "OIDC", "PATH", "SSH", "TOML",
+    "URL", "UTF", "YAML",
+];
+
+/// Drop the frontmatter, every fenced block, indented ones included, every
+/// code span, and every link target, which quote rather than instruct.
+fn prose_only(text: &str) -> String {
+    let text = text.strip_prefix("---\n").map_or(text, |rest| {
+        rest.split_once("\n---\n").map_or(rest, |(_, body)| body)
+    });
+    let mut kept = Vec::new();
+    let mut fenced = false;
+    for line in text.lines() {
+        if line.trim_start().starts_with("```") {
+            fenced = !fenced;
+            continue;
+        }
+        if fenced {
+            continue;
+        }
+        let spans: Vec<&str> = line.split('`').collect();
+        let mut prose = spans
+            .iter()
+            .step_by(2)
+            .copied()
+            .collect::<Vec<_>>()
+            .join(" ");
+        for (open, close) in [("](", ')'), ("<http", '>')] {
+            while let Some(at) = prose.find(open) {
+                let end = prose[at..]
+                    .find(close)
+                    .map_or(prose.len(), |end| at + end + 1);
+                prose.replace_range(at..end, " ");
+            }
+        }
+        kept.push(prose);
+    }
+    kept.join("\n")
+}
+
+/// Every word in capitals of `line`: a maximal run of ASCII letters and
+/// digits holding two letters or more, every one of them uppercase.
+fn words_in_capitals(line: &str) -> Vec<&str> {
+    line.split(|c: char| !c.is_ascii_alphanumeric())
+        .filter(|word| {
+            word.chars().filter(char::is_ascii_alphabetic).count() >= 2
+                && !word.chars().any(|c| c.is_ascii_lowercase())
+        })
+        .collect()
+}
+
+/// The capitals contract, case by case: each input and the words the check
+/// rejects in it.
+#[test]
+fn the_capitals_contract_holds_its_cases() {
+    let cases: [(&str, &[&str]); 6] = [
+        ("Never write MUST-NOT here.", &["MUST", "NOT"]),
+        ("Step A1 runs first.", &[]),
+        ("Read [the gate](#NEVER) first.", &[]),
+        ("Run it:\n\n  ```text\n  NEVER\n  ```\n", &[]),
+        ("Write the JSON report.", &[]),
+        ("Stage the candidate, then Compare it.", &[]),
+    ];
+    for (input, rejected) in cases {
+        let prose = prose_only(input);
+        let found: Vec<&str> = prose
+            .lines()
+            .flat_map(words_in_capitals)
+            .filter(|word| !ACRONYMS.contains(word))
+            .collect();
+        assert_eq!(found, rejected, "{input}");
+    }
+}
+
+/// SATISFIES skill-format:a-hard-rule-is-a-check-not-capitals
+#[test]
+fn no_skill_file_uses_capitals_for_emphasis() {
+    for (dir, files) in skill_packages() {
+        for (path, text) in files {
+            for (index, line) in prose_only(&text).lines().enumerate() {
+                for word in words_in_capitals(line) {
+                    assert!(
+                        ACRONYMS.contains(&word),
+                        "{dir}/{path}:{}: '{word}' is written in capitals; write it as a word, or make the rule a check (skill-format:a-hard-rule-is-a-check-not-capitals)",
+                        index + 1
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn prose_only_drops_code_and_keeps_the_sentence() {
+    let kept = prose_only(
+        "---\nlicense: CC-BY-4.0\n---\nRun `NEVER` once.\n```text\nMUST\n```\nThen NOT [a](https://x/README.md).",
+    );
+    assert!(!kept.contains("CC") && !kept.contains("NEVER") && !kept.contains("MUST"));
+    assert!(!kept.contains("README"));
+    assert_eq!(words_in_capitals(&kept), ["NOT"]);
+    assert!(
+        words_in_capitals("UTF-8 and JSON, not Json")
+            .iter()
+            .all(|word| ACRONYMS.contains(word))
+    );
+}
+
+/// SATISFIES skill-format:the-description-says-what-then-when
+#[test]
+fn every_skill_description_says_what_then_when() {
+    for (dir, text) in skill_dirs() {
+        let (frontmatter, _) = split_frontmatter(&text);
+        let description = frontmatter
+            .iter()
+            .find_map(|line| line.strip_prefix("description:"))
+            .unwrap_or_else(|| panic!("{dir}: no description"))
+            .trim();
+        let rule = "skill-format:the-description-says-what-then-when";
         assert!(
-            body.len() <= 150,
-            "{dir}: body is {} lines, budget is 150",
-            body.len()
+            description.chars().count() <= 1024,
+            "{dir}: the description is over 1,024 characters ({rule})"
+        );
+        assert!(
+            !description.contains(['<', '>']),
+            "{dir}: the description carries an angle bracket ({rule})"
+        );
+        let first = description
+            .split_whitespace()
+            .next()
+            .unwrap_or_default()
+            .trim_end_matches(',');
+        assert!(
+            first != "Use" && first.ends_with('s'),
+            "{dir}: the description opens with '{first}', not with what the skill does in the third person ({rule})"
+        );
+        let what = description.find(". ").unwrap_or(description.len());
+        let when = description.find("Use when").unwrap_or_else(|| {
+            panic!("{dir}: the description never says when to use the skill ({rule})")
+        });
+        assert!(
+            what < when,
+            "{dir}: the description says when before it says what ({rule})"
         );
     }
 }
 
+/// The text of one file the `sdd-setup` package carries.
+fn setup_file(relative: &str) -> String {
+    read(&format!("skills/sdd-setup/{relative}"))
+}
+
+/// Every file of the `sdd-setup` package, joined, for a phrase whose owner
+/// is the package rather than one file.
+fn setup_package_text() -> String {
+    skill_packages()
+        .into_iter()
+        .find(|(name, _)| name == "sdd-setup")
+        .expect("the payload carries sdd-setup")
+        .1
+        .into_iter()
+        .map(|(_, text)| text)
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// The lines of one `## ` section of a body, heading included.
+fn section<'a>(body: &[&'a str], heading: &str) -> Vec<&'a str> {
+    let start = body
+        .iter()
+        .position(|line| *line == heading)
+        .unwrap_or_else(|| panic!("no '{heading}' section"));
+    let end = body[start + 1..]
+        .iter()
+        .position(|line| line.starts_with("## "))
+        .map_or(body.len(), |offset| start + 1 + offset);
+    body[start..end].to_vec()
+}
+
 /// SATISFIES distribution:a-skill-plans-before-it-acts
 #[test]
-fn every_skill_routes_to_the_plan_gate_before_acting() {
+fn every_skill_routes_to_the_pre_flight_first_and_names_the_plan_gate() {
     for (dir, text) in skill_dirs() {
         let (_, body) = split_frontmatter(&text);
         let sections: Vec<usize> = body
@@ -752,39 +1004,240 @@ fn every_skill_routes_to_the_plan_gate_before_acting() {
         let first = *sections
             .first()
             .unwrap_or_else(|| panic!("{dir}: the body has no sections"));
-        assert_eq!(
-            body[first], "## Before acting",
-            "{dir}: the plan gate does not lead every other section"
-        );
         let end = sections.get(1).copied().unwrap_or(body.len());
-        let section = body[first..end].join("\n");
+        let opening = body[first..end].join("\n");
         // Both gates are named by the path they carry inside the package,
         // relative to the skill's own root, which is what every documented
         // host resolves a supporting file against.
-        for artifact in ["pre-flight-gate.md", "plan-gate.md"] {
-            let named = format!("references/{artifact}");
-            assert!(
-                section.contains(&named),
-                "{dir}: the gate section does not name {named}"
-            );
-        }
-        // The spec binds the order too: the pre-flight is read first,
-        // because the plan gate takes its findings as inputs.
-        let pre_flight = section
+        assert!(
+            opening.contains("references/pre-flight-gate.md"),
+            "{dir}: the first section does not route to references/pre-flight-gate.md"
+        );
+        assert!(
+            opening.contains("No flag skips it"),
+            "{dir}: the first section does not state that the pre-flight is unconditional"
+        );
+        // The plan gate is read after the pre-flight, at the point the skill
+        // names, so it is named after the pre-flight gate.
+        let rest = body[first..].join("\n");
+        let pre_flight = rest
             .find("references/pre-flight-gate.md")
             .unwrap_or_default();
-        let plan = section.find("references/plan-gate.md").unwrap_or_default();
+        let plan = rest
+            .find("references/plan-gate.md")
+            .unwrap_or_else(|| panic!("{dir}: the body never names references/plan-gate.md"));
         assert!(
             pre_flight < plan,
-            "{dir}: the gate section names the plan gate before the pre-flight gate"
+            "{dir}: the plan gate is named before the pre-flight gate"
+        );
+    }
+}
+
+/// SATISFIES skill-format:a-manual-stays-within-12000-characters
+#[test]
+fn every_manual_stays_within_12000_characters() {
+    for (dir, text) in skill_dirs() {
+        let count = body_of(&text).chars().count();
+        assert!(
+            count <= 12_000,
+            "{dir}: the SKILL.md body holds {count} characters, the cap is 12,000 (skill-format:a-manual-stays-within-12000-characters)"
+        );
+    }
+}
+
+/// The text of a manual after its frontmatter, every character kept, so the
+/// count includes the final newline.
+fn body_of(text: &str) -> &str {
+    text.strip_prefix("---\n")
+        .and_then(|rest| rest.split_once("\n---\n"))
+        .map_or(text, |(_, body)| body)
+}
+
+/// The text of one `## ` section of a manual, up to the next one.
+fn section_of<'a>(manual: &'a str, heading: &str) -> Option<&'a str> {
+    let start = manual.find(&format!("\n## {heading}\n"))? + 1;
+    let rest = &manual[start..];
+    Some(rest.find("\n## ").map_or(rest, |end| &rest[..end]))
+}
+
+/// Whether a reference file opens with a list naming each of its sections.
+fn opens_with_its_sections(text: &str) -> bool {
+    let headings: Vec<&str> = text
+        .lines()
+        .filter_map(|line| line.strip_prefix("## "))
+        .collect();
+    let head: Vec<&str> = text
+        .lines()
+        .take_while(|line| !line.starts_with("## "))
+        .collect();
+    headings.iter().all(|heading| {
+        head.iter()
+            .any(|line| line.starts_with("- ") && line.contains(heading))
+    })
+}
+
+/// SATISFIES skill-format:a-reference-stays-within-32000-characters
+#[test]
+fn every_reference_file_stays_within_32000_characters() {
+    for (dir, files) in skill_packages() {
+        for (path, text) in files.iter().filter(|(path, _)| path != "SKILL.md") {
+            let count = text.chars().count();
+            let rule = "skill-format:a-reference-stays-within-32000-characters";
+            assert!(
+                count <= 32_000,
+                "{dir}/{path}: {count} characters, the cap is 32,000 ({rule})"
+            );
+            assert!(
+                count <= 8_000 || opens_with_its_sections(text),
+                "{dir}/{path}: {count} characters and no opening list of its sections ({rule})"
+            );
+        }
+    }
+}
+
+#[test]
+fn a_section_list_names_every_heading() {
+    assert!(opens_with_its_sections(
+        "# T\n\n- One\n- Two\n\n## One\n\n## Two\n"
+    ));
+    assert!(!opens_with_its_sections("# T\n\nProse.\n\n## One\n"));
+}
+
+/// SATISFIES skill-format:the-manual-links-every-reference-directly
+#[test]
+fn no_reference_file_links_another() {
+    for (dir, files) in skill_packages() {
+        let references: Vec<&String> = files
+            .iter()
+            .map(|(path, _)| path)
+            .filter(|path| *path != "SKILL.md")
+            .collect();
+        for (path, text) in files.iter().filter(|(path, _)| path != "SKILL.md") {
+            for other in references.iter().filter(|other| **other != path) {
+                assert!(
+                    !text.contains(other.as_str()),
+                    "{dir}/{path} names {other}; only SKILL.md links a reference (skill-format:the-manual-links-every-reference-directly)"
+                );
+            }
+        }
+    }
+}
+
+/// SATISFIES skill-format:a-reference-link-carries-its-condition
+///
+/// Every own reference file is read by a line that opens with `If ` and
+/// reads it by name. The two shared gates are named where a run meets
+/// them: the pre-flight gate opens the pre-flight, and the plan gate is
+/// read in the gate section, each by a sentence that says when.
+#[test]
+fn every_reference_link_carries_its_condition() {
+    let shared: Vec<String> = spec_driven_docs::embedded::shared_artifacts()
+        .into_iter()
+        .map(|(name, _)| name)
+        .collect();
+    for (dir, files) in skill_packages() {
+        let manual = &files
+            .iter()
+            .find(|(path, _)| path == "SKILL.md")
+            .unwrap_or_else(|| panic!("{dir}: no SKILL.md"))
+            .1;
+        for (path, _) in files.iter().filter(|(path, _)| path != "SKILL.md") {
+            let named = format!("`{path}`");
+            let gate = shared
+                .iter()
+                .find(|artifact| *path == format!("references/{artifact}"));
+            if let Some(artifact) = gate {
+                let (section, opening) = if artifact == "pre-flight-gate.md" {
+                    ("Pre-flight", "Before ")
+                } else {
+                    ("Gate", "After ")
+                };
+                let body = section_of(manual, section)
+                    .unwrap_or_else(|| panic!("{dir}: no '## {section}' section"));
+                let linked = body.lines().any(|line| {
+                    let line = line.trim_start().trim_start_matches(|c: char| {
+                        c.is_ascii_digit() || matches!(c, '.' | '-' | ' ')
+                    });
+                    line.starts_with(opening) && line.contains(&named)
+                });
+                assert!(
+                    linked,
+                    "{dir}: '## {section}' does not name {path} with its condition (skill-format:a-reference-link-carries-its-condition)"
+                );
+                continue;
+            }
+            let linked = manual.lines().any(|line| {
+                let line = line.trim_start();
+                let line = line.strip_prefix("- ").unwrap_or(line);
+                line.starts_with("If ") && line.contains(&format!(", read {named}"))
+            });
+            assert!(
+                linked,
+                "{dir}: no line reads {path} as 'If <condition>, read {named}' (skill-format:a-reference-link-carries-its-condition)"
+            );
+        }
+    }
+}
+
+/// The sections every manual carries, in the order a run takes them.
+const STAGE_ORDER: &[&str] = &[
+    "## Pre-flight",
+    "## General rules",
+    "## Gate",
+    "## Tasks",
+    "## Post-flight",
+];
+
+/// SATISFIES skill-format:the-manual-follows-the-stage-order
+#[test]
+fn every_manual_follows_the_stage_order() {
+    for (dir, text) in skill_dirs() {
+        let (_, body) = split_frontmatter(&text);
+        let sections: Vec<&str> = body
+            .iter()
+            .copied()
+            .filter(|line| line.starts_with("## "))
+            .collect();
+        assert_eq!(
+            sections, STAGE_ORDER,
+            "{dir}: the sections do not follow the stage order (skill-format:the-manual-follows-the-stage-order)"
+        );
+        let opening = body
+            .iter()
+            .take_while(|line| !line.starts_with("## "))
+            .any(|line| !line.is_empty() && !line.starts_with("# "));
+        assert!(opening, "{dir}: no opening paragraph above the pre-flight");
+    }
+}
+
+/// The gate table names a task only where its file exists, so the gate can
+/// never pick a task the agent has no procedure for.
+#[test]
+fn the_setup_gate_names_only_tasks_whose_file_exists() {
+    let text = setup_file("SKILL.md");
+    let (_, body) = split_frontmatter(&text);
+    let gate = section(&body, "## Gate");
+    let mut named = std::collections::BTreeSet::new();
+    for row in gate.iter().filter(|line| line.starts_with("| `")) {
+        for cell in row.split('|').skip(2) {
+            for (index, token) in cell.split('`').enumerate() {
+                if index % 2 == 1 {
+                    named.insert(token.to_string());
+                }
+            }
+        }
+    }
+    named.insert("provision".to_string());
+    assert!(named.contains("land") && named.contains("tune-gates"));
+    for task in named {
+        let reference = format!("references/{task}.md");
+        assert!(
+            canon().join("skills/sdd-setup").join(&reference).is_file(),
+            "the gate names {task}, and the package carries no {reference}"
         );
         assert!(
-            section.contains("--no-plan"),
-            "{dir}: the gate section does not state the --no-plan rule"
-        );
-        assert!(
-            section.contains("No flag skips it"),
-            "{dir}: the gate section does not state that the pre-flight is unconditional"
+            text.contains(&format!("`{reference}`")),
+            "SKILL.md never links {reference}"
         );
     }
 }
@@ -792,8 +1245,8 @@ fn every_skill_routes_to_the_plan_gate_before_acting() {
 /// SATISFIES distribution:a-skill-checks-its-host-before-it-plans
 ///
 /// The shared artifacts are files, carried by the payload and installed
-/// once, so correcting one corrects every skill under every agent root.
-/// Each has its own duty and the payload carries both.
+/// into every package, so correcting one corrects every skill under every
+/// agent root. Each has its own duty and the payload carries both.
 #[test]
 fn the_payload_carries_both_shared_gates() {
     let plan = read("skill-shared/plan-gate.md");
@@ -805,7 +1258,7 @@ fn the_payload_carries_both_shared_gates() {
         "the plan gate does not state the --no-plan rule"
     );
     assert!(
-        plan.contains("pre-flight-gate.md"),
+        plan.contains("opens after the pre-flight gate has run"),
         "the plan gate does not take the pre-flight's findings as inputs"
     );
 
@@ -830,9 +1283,15 @@ fn the_payload_carries_both_shared_gates() {
         pre_flight.contains("No flag skips it"),
         "the pre-flight gate does not state that it is unconditional"
     );
+    // Each skill names when its plan begins, so the pre-flight hands control
+    // back rather than sending the agent on to the plan gate.
     assert!(
-        pre_flight.contains("plan-gate.md"),
-        "the pre-flight gate does not hand the task to the plan gate"
+        !pre_flight.contains("plan-gate.md"),
+        "the pre-flight gate sends the agent to the plan gate; the skill names that point"
+    );
+    assert!(
+        pre_flight.contains("The skill decides what a missing binary means"),
+        "the pre-flight gate judges a missing binary instead of reporting it"
     );
 }
 
@@ -851,33 +1310,60 @@ fn the_pre_flight_gate_invokes_no_planner_or_skill() {
 /// SATISFIES staging:a-stage-writes-only-the-stage
 #[test]
 fn the_setup_skill_stages_before_it_compares() {
-    let setup = read("skills/sdd-setup/SKILL.md");
+    let landing = setup_file("references/landing.md");
     assert!(
-        setup.contains("sdd stage --target . --json"),
-        "the router does not stage the candidate"
+        landing.contains("sdd stage --target . --json"),
+        "the landing pipeline does not stage the candidate"
     );
     assert!(
-        setup.contains("The stage writes nothing into the target"),
-        "the router does not say that staging leaves the target alone"
+        landing.contains("The stage writes nothing into the target"),
+        "the landing pipeline does not say that staging leaves the target alone"
     );
     assert!(
-        !setup.contains("sdd assess"),
-        "the router classifies for itself instead of letting the verb refuse"
+        landing.find("## 1. Stage") < landing.find("## 2. Compare"),
+        "the landing pipeline compares before it stages"
+    );
+    assert!(
+        !setup_package_text().contains("sdd assess"),
+        "the skill classifies for itself instead of reading the status report"
     );
 }
 
 /// SATISFIES staging:the-operator-owns-acquisition
+///
+/// The task proposes, the operator picks, and the answer lands in a file
+/// every contributor shares, or in the declaration for a host install.
 #[test]
-fn the_setup_skill_leaves_acquisition_to_the_operator() {
-    let setup = read("skills/sdd-setup/SKILL.md");
-    assert!(
-        setup.contains("Acquisition is the operator's"),
-        "the router does not say who installs the version"
-    );
+fn the_provision_task_offers_each_method_and_records_the_answer() {
+    let provision = setup_file("references/provision.md");
+    for method in [
+        "Nix flake devshell",
+        "mise",
+        "asdf",
+        "devbox",
+        "native host install",
+    ] {
+        assert!(
+            provision.contains(method),
+            "the provision task does not offer {method}"
+        );
+    }
+    for recorded in [
+        "sdd self-depend add --target . --manager <manager>",
+        "sdd self-depend add --target . --host --apply",
+        "--acquisition host",
+        "Ask the operator for the method",
+    ] {
+        assert!(
+            provision.contains(recorded),
+            "the provision task does not state '{recorded}'"
+        );
+    }
+    let package = setup_package_text();
     for absent in ["--to <version>", "--to latest", "sdd payload", "plan-id"] {
         assert!(
-            !setup.contains(absent),
-            "the router still names {absent}, which no verb offers"
+            !package.contains(absent),
+            "the skill still names {absent}, which no verb offers"
         );
     }
 }
@@ -885,57 +1371,77 @@ fn the_setup_skill_leaves_acquisition_to_the_operator() {
 /// SATISFIES distribution:a-landing-classifies-its-target-first
 #[test]
 fn the_setup_skill_routes_each_classification_to_its_chapter() {
-    let setup = read("skills/sdd-setup/SKILL.md");
+    let manual = setup_file("SKILL.md");
     for classification in [
         "setup",
         "migration",
+        "needs-decision",
         "upgrade",
         "drift",
         "current",
         "invalid",
     ] {
         assert!(
-            setup.contains(classification),
-            "the router does not name the {classification} classification"
+            manual.contains(&format!("`{classification}`")),
+            "the gate does not name the {classification} classification"
         );
     }
-    for chapter in ["sdd docs migration", "sdd docs reconcile"] {
+    for (file, chapter) in [
+        ("references/migrate.md", "sdd docs migration"),
+        ("references/upgrade.md", "sdd docs reconcile"),
+        ("references/tune-gates.md", "sdd docs gates"),
+    ] {
         assert!(
-            setup.contains(chapter),
-            "the router does not route a classification to {chapter}"
+            setup_file(file).contains(chapter),
+            "{file} does not route to {chapter}"
         );
     }
 }
 
 #[test]
 fn the_setup_skill_names_the_five_steps() {
-    let setup = read("skills/sdd-setup/SKILL.md");
+    let landing = setup_file("references/landing.md");
     for step in [
-        "## 1. Observe",
-        "## 2. Acquire the version, then stage it",
-        "## 3. Compare and prepare",
+        "## 1. Stage",
+        "## 2. Compare",
+        "## 3. Prepare",
         "## 4. Land",
-        "## 5. Verify, then clean",
+        "## 5. Prove",
     ] {
-        assert!(setup.contains(step), "the router has no '{step}' section");
+        assert!(
+            landing.contains(step),
+            "the landing pipeline has no '{step}' section"
+        );
     }
 }
 
 #[test]
 fn the_setup_skill_declares_its_gated_steps() {
-    let setup = read("skills/sdd-setup/SKILL.md");
-    assert!(setup.contains("## What waits for the operator"));
-    for gated in [
-        "ignore entry for the docs scratch",
-        "sdd stage clean <path>",
-        "before its entry retires anything",
-        "Every retirement of a file the project authored",
-        "Every disposition question",
-        "migration directory at the close",
+    for (file, gated) in [
+        ("SKILL.md", "sdd stage clean <path>"),
+        ("references/land.md", "ignore entry for the docs scratch"),
+        (
+            "references/migrate.md",
+            "`sdd migrate archive --target . --apply` as a gated step",
+        ),
+        (
+            "references/migrate.md",
+            "`sdd migrate close --target . --apply` as a gated step",
+        ),
+        (
+            "references/migrate.md",
+            "for each drop the operator approved",
+        ),
+        (
+            "references/migrate.md",
+            "Keeping or removing the archive is the operator's step",
+        ),
+        ("SKILL.md", "warn once"),
+        ("references/landing.md", "as a gated step"),
     ] {
         assert!(
-            setup.contains(gated),
-            "the router does not gate '{gated}' for the operator"
+            setup_file(file).contains(gated),
+            "{file} does not gate '{gated}' for the operator"
         );
     }
 }
@@ -943,11 +1449,11 @@ fn the_setup_skill_declares_its_gated_steps() {
 /// VERIFIES acquisition:the-setup-path-offers-the-wire
 #[test]
 fn the_setup_skill_offers_the_freshness_wire() {
-    let setup = read("skills/sdd-setup/SKILL.md");
+    let provision = setup_file("references/provision.md");
     let readme = read("instance/README.md");
     assert!(
-        setup.contains("## Offer the freshness wire"),
-        "the router has no freshness-wire step"
+        provision.contains("## Step B: how the dev environment loads"),
+        "the provision task has no step for the environment and its wire"
     );
     for held in [
         // The observation the offer rests on.
@@ -966,28 +1472,31 @@ fn the_setup_skill_offers_the_freshness_wire() {
         "sdd self-depend add --target . --manager <wired>",
         "re-observe with the status verb until `envrc_sync` reads `true`",
         "the landing is complete without the wire",
-        "Record the answer in the close of the task",
+        "Record the answer in the report",
         // Both placement cases, because the verb covers one of them. A
         // rewrite that drops the second sends the operator back to a
         // command that refuses to edit the file it names.
         "gate the same command with `--apply`",
         "you append the line to it yourself",
     ] {
-        assert!(setup.contains(held), "the router does not state '{held}'");
+        assert!(
+            provision.contains(held),
+            "the provision task does not state '{held}'"
+        );
     }
     // The skill quotes the binary's own line and the binary's own file, so
     // a rename in one place cannot leave the other reading almost right.
     assert!(
-        setup.contains(spec_driven_docs::self_depend::SYNC_LINE),
-        "the router quotes a sync line the binary does not write"
+        provision.contains(spec_driven_docs::self_depend::SYNC_LINE),
+        "the provision task quotes a sync line the binary does not write"
     );
     assert!(
-        setup.contains(spec_driven_docs::self_depend::ENVRC),
-        "the router names a loader file the status verb does not read"
+        provision.contains(spec_driven_docs::self_depend::ENVRC),
+        "the provision task names a loader file the status verb does not read"
     );
     // The seeding verb writes nothing without the flag, so no line may
     // offer it as the thing that lands the wire.
-    for (number, line) in setup.lines().enumerate() {
+    for (number, line) in provision.lines().enumerate() {
         if !line.contains("self-depend add") {
             continue;
         }
@@ -995,7 +1504,7 @@ fn the_setup_skill_offers_the_freshness_wire() {
             line.contains("--apply")
                 || line.contains("prints the fragment")
                 || line.contains("read-only"),
-            "line {}: `self-depend add` without `--apply` is offered as a write",
+            "provision.md line {}: `self-depend add` without `--apply` is offered as a write",
             number + 1
         );
     }
@@ -1008,6 +1517,10 @@ fn the_setup_skill_offers_the_freshness_wire() {
         "seeds `.envrc` only where the target has none",
     ] {
         assert!(
+            provision.contains(shared),
+            "the provision task does not carry '{shared}'"
+        );
+        assert!(
             readme.contains(shared),
             "instance/README.md does not carry '{shared}'"
         );
@@ -1016,11 +1529,28 @@ fn the_setup_skill_offers_the_freshness_wire() {
 
 #[test]
 fn the_setup_skill_offers_incremental_only_as_the_plan_does() {
-    let setup = read("skills/sdd-setup/SKILL.md");
     assert!(
-        setup.contains("Author no checklist, because nothing retires"),
-        "the router states a scope rule of its own instead of deferring to the plan"
+        setup_file("references/migrate.md")
+            .contains("Where the operator asks for the incremental scope by name"),
+        "the migrate task states a scope rule of its own instead of deferring to the plan"
     );
+}
+
+/// A host the provision task serves may have no `sdd` at all, so nothing
+/// before the step that gets it may name an `sdd` verb, except under a
+/// condition that `sdd` runs.
+#[test]
+fn the_provision_task_names_no_sdd_verb_before_it_gets_sdd() {
+    let text = setup_file("references/provision.md");
+    let bootstrap = text
+        .find("cargo binstall spec-driven-docs")
+        .expect("the provision task names no way to get sdd");
+    for line in text[..bootstrap].lines() {
+        assert!(
+            !line.contains("`sdd ") || line.contains("Where `sdd` runs"),
+            "the provision task runs sdd before it gets it: {line}"
+        );
+    }
 }
 
 /// SATISFIES docs-discovery:an-instance-is-routed-to-the-index
@@ -1028,19 +1558,21 @@ fn the_setup_skill_offers_incremental_only_as_the_plan_does() {
 fn every_skill_routes_to_a_topic_and_restates_no_catalog_entry() {
     use spec_driven_docs::domain::docs_catalog::{CATALOG, Target};
 
-    for (dir, text) in skill_dirs() {
+    for (dir, files) in skill_packages() {
         assert!(
-            text.contains("sdd docs"),
+            files.iter().any(|(_, text)| text.contains("sdd docs")),
             "{dir}: names no reader verb for the corpus"
         );
-        for topic in &CATALOG.topics {
-            let copied =
-                matches!(topic.target, Target::Document { .. }) && text.contains(&topic.summary);
-            assert!(
-                !copied,
-                "{dir}: copies the catalog summary of '{}'",
-                topic.id
-            );
+        for (path, text) in &files {
+            for topic in &CATALOG.topics {
+                let copied = matches!(topic.target, Target::Document { .. })
+                    && text.contains(&topic.summary);
+                assert!(
+                    !copied,
+                    "{dir}/{path}: copies the catalog summary of '{}'",
+                    topic.id
+                );
+            }
         }
     }
 }
@@ -1059,7 +1591,11 @@ fn the_payload_carries_two_skills() {
 #[test]
 fn every_sdd_invocation_a_skill_cites_names_a_real_subcommand() {
     let subcommands = spec_driven_docs::cli::subcommand_names();
-    for (dir, text) in skill_dirs() {
+    for (dir, path, text) in skill_packages().into_iter().flat_map(|(dir, files)| {
+        files
+            .into_iter()
+            .map(move |(path, text)| (dir.clone(), path, text))
+    }) {
         let mut fenced = false;
         for line in text.lines() {
             if line.starts_with("```") {
@@ -1078,12 +1614,13 @@ fn every_sdd_invocation_a_skill_cites_names_a_real_subcommand() {
                     .chars()
                     .take_while(|c| c.is_ascii_lowercase() || *c == '-')
                     .collect();
-                if word.is_empty() {
+                // A global flag such as `--version` names no subcommand.
+                if word.is_empty() || word.starts_with('-') {
                     continue;
                 }
                 assert!(
                     subcommands.contains(&word),
-                    "{dir}: cites unknown subcommand 'sdd {word}' in: {line}"
+                    "{dir}/{path}: cites unknown subcommand 'sdd {word}' in: {line}"
                 );
             }
         }
@@ -1699,12 +2236,19 @@ fn collect_paths(value: &serde_json::Value, out: &mut std::collections::BTreeSet
     }
 }
 
-/// Every authored skill file, skill by skill and shared file by shared file.
+/// Every authored skill file, the reference files included, and every shared
+/// file.
 fn skill_prose() -> Vec<(String, String)> {
-    let mut files = skill_dirs()
-        .into_iter()
-        .map(|(name, text)| (format!("skills/{name}/SKILL.md"), text))
-        .collect::<Vec<_>>();
+    let mut files = Vec::new();
+    for entry in walkdir::WalkDir::new(canon().join("skills")) {
+        let entry = entry.unwrap();
+        if entry.file_type().is_file() {
+            let relative = entry.path().strip_prefix(canon()).unwrap();
+            let relative = relative.to_str().unwrap().to_string();
+            let text = read(&relative);
+            files.push((relative, text));
+        }
+    }
     for entry in std::fs::read_dir(canon().join("skill-shared")).unwrap() {
         let name = entry.unwrap().file_name().to_str().unwrap().to_string();
         let relative = format!("skill-shared/{name}");
@@ -1839,22 +2383,24 @@ fn every_control_path_constant_has_one_declaration() {
 fn every_skill_names_its_gates_relative_to_its_own_root() {
     use spec_driven_docs::domain::paths::{SKILL_FILE, SKILL_REFERENCES_DIR};
 
-    let package =
-        spec_driven_docs::embedded::skill_package("sdd-setup").expect("sdd-setup is embedded");
-    let references: Vec<String> = package
-        .iter()
-        .map(|(path, _)| path.clone())
-        .filter(|path| path != SKILL_FILE)
-        .collect();
-    assert!(!references.is_empty(), "the package carries no references");
-    for (relative, _) in &package {
-        assert!(
-            relative == SKILL_FILE || relative.starts_with(&format!("{SKILL_REFERENCES_DIR}/")),
-            "{relative} is neither the manual nor a reference"
-        );
-    }
-
     for (dir, text) in skill_dirs() {
+        let package = spec_driven_docs::embedded::skill_package(&dir)
+            .unwrap_or_else(|error| panic!("{error}"));
+        let references: Vec<String> = package
+            .iter()
+            .map(|(path, _)| path.clone())
+            .filter(|path| path != SKILL_FILE)
+            .collect();
+        assert!(
+            !references.is_empty(),
+            "{dir}: the package carries no references"
+        );
+        for (relative, _) in &package {
+            assert!(
+                relative == SKILL_FILE || relative.starts_with(&format!("{SKILL_REFERENCES_DIR}/")),
+                "{dir}: {relative} is neither the manual nor a reference"
+            );
+        }
         for reference in &references {
             assert!(
                 text.contains(reference.as_str()),

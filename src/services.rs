@@ -8,9 +8,12 @@
 pub mod agents_render;
 pub mod assess;
 pub mod budget;
+pub mod env;
 pub mod hooks_render;
 pub mod installer;
 pub mod known_issues;
+pub mod lint;
+pub mod migration;
 pub mod policy;
 pub mod reader;
 pub mod self_manifest;

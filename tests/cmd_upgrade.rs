@@ -886,3 +886,265 @@ fn a_recorded_root_seed_stays_adopted_across_an_upgrade() {
     assert_eq!(entry["baseline_sha256"], digest(&seed).as_str());
     assert_eq!(entry["sha256"], digest(&edited).as_str());
 }
+
+fn upgrade_json(fixture: &Fixture, extra: &[&str]) -> (Option<i32>, serde_json::Value) {
+    let output = fixture
+        .upgrade()
+        .arg("--json")
+        .args(extra)
+        .output()
+        .unwrap();
+    let report = serde_json::from_slice(&output.stdout).unwrap_or(serde_json::Value::Null);
+    (output.status.code(), report)
+}
+
+/// VERIFIES staging:a-landing-takes-the-choices-its-stage-recorded
+#[test]
+fn an_upgrade_from_a_stage_refuses_a_receipt_another_release_wrote() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    let root = fixture.state_root().parent().unwrap().join("stage-upgrade");
+    fixture
+        .cmd()
+        .args([
+            "stage",
+            "--target",
+            &fixture.target(),
+            "--output",
+            root.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+    let receipt_path = root.join("stage.json");
+    let held = std::fs::read_to_string(&receipt_path).unwrap();
+    let mut receipt: serde_json::Value = serde_json::from_str(&held).unwrap();
+    receipt["version"] = serde_json::Value::String("0.0.1".to_string());
+    std::fs::write(&receipt_path, receipt.to_string()).unwrap();
+    let before = fixture.tree_digest();
+    fixture
+        .upgrade()
+        .args(["--stage", root.to_str().unwrap()])
+        .assert()
+        .code(73)
+        .stderr(predicate::str::contains("0.0.1"));
+    assert_eq!(fixture.tree_digest(), before);
+
+    std::fs::write(&receipt_path, held).unwrap();
+    fixture
+        .upgrade()
+        .args(["--stage", root.to_str().unwrap()])
+        .assert()
+        .success();
+}
+
+/// A stage records the resolved choices, and its landing writes only the
+/// ones the declaration lacks: an implicit default stays implicit, a
+/// comment inside a block stays where the operator wrote it, and a flag
+/// naming what the declaration already holds changes no byte.
+///
+/// VERIFIES staging:a-landing-takes-the-choices-its-stage-recorded
+#[test]
+fn a_staged_upgrade_keeps_the_declaration_it_staged() {
+    for (case, declaration, flags) in [
+        ("implicit", "reserved: []\ngates: {}\n", &[][..]),
+        (
+            "explicit default",
+            "reserved: []\ngates: {}\n",
+            &["--writing-style", "builtin"][..],
+        ),
+        (
+            "commented",
+            "reserved: []\ngates: {}\nwriting_style:\n  # the house default\n  source: builtin\n  path: null\n",
+            &[][..],
+        ),
+        (
+            "acquisition",
+            "reserved: []\ngates: {}\nacquisition:\n  # each host installs it\n  source: host\n  minimum: \"0.1.0\"\n",
+            &[][..],
+        ),
+    ] {
+        let fixture = Fixture::new();
+        fixture.install("knowledge-base");
+        fixture.write(".spec-driven-docs/config.yaml", declaration);
+        let manifest = fixture
+            .read(".spec-driven-docs/manifest.json")
+            .replace(env!("CARGO_PKG_VERSION"), "0.7.0");
+        fixture.write(".spec-driven-docs/manifest.json", &manifest);
+        let root = fixture.state_root().parent().unwrap().join("stage-keep");
+        fixture
+            .cmd()
+            .args([
+                "stage",
+                "--target",
+                &fixture.target(),
+                "--output",
+                root.to_str().unwrap(),
+            ])
+            .args(flags)
+            .assert()
+            .success();
+        let staged =
+            std::fs::read_to_string(root.join("artifacts/.spec-driven-docs/config.yaml")).unwrap();
+        assert_eq!(staged, declaration, "{case}: the stage");
+        fixture
+            .upgrade()
+            .args(["--stage", root.to_str().unwrap()])
+            .assert()
+            .success();
+        assert_eq!(
+            fixture.read(".spec-driven-docs/config.yaml"),
+            declaration,
+            "{case}: the landing"
+        );
+    }
+}
+
+/// VERIFIES staging:an-upgrade-lists-every-retired-citation-first
+#[test]
+fn a_dry_run_lists_every_citation_of_a_rule_this_binary_retired() {
+    let fixture = Fixture::new();
+    fixture.install("codebase");
+    fixture.write(
+        "docs/guides/working.md",
+        "# Working\n\nSee `staging:a-rule-no-release-defines` and `staging:a-stage-writes-only-the-stage`.\n\nA local `team:own-rule` is the project's.\n",
+    );
+    fixture.write(
+        "docs/decisions/ADR-old-choice.md",
+        "# Old\n\nThe prose names `staging:a-rule-no-release-defines`.\n\nEnforced by `staging:a-rule-no-release-defines`.\n",
+    );
+    fixture.write(
+        "CHANGELOG.md",
+        "- retired `staging:a-rule-no-release-defines`\n",
+    );
+    let before = fixture.tree_digest();
+    let (code, report) = upgrade_json(&fixture, &["--dry-run"]);
+    assert_eq!(code, Some(0), "{report}");
+    assert_eq!(report["schema"], "sdd.upgrade/1");
+    let cited: Vec<(String, u64)> = report["retired_citations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|citation| {
+            assert_eq!(citation["id"], "staging:a-rule-no-release-defines");
+            (
+                citation["path"].as_str().unwrap().to_string(),
+                citation["line"].as_u64().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        cited,
+        [
+            ("docs/decisions/ADR-old-choice.md".to_string(), 5),
+            ("docs/guides/working.md".to_string(), 3),
+        ]
+    );
+    assert_eq!(fixture.tree_digest(), before);
+}
+
+/// VERIFIES staging:a-replacement-keeps-the-bytes-it-replaces
+#[test]
+fn a_named_conflict_is_saved_then_replaced_and_an_unnamed_one_still_refuses() {
+    let fixture = Fixture::new();
+    fixture.install("codebase");
+    let lint = "docs/.markdownlint-cli2.jsonc";
+    let block = ".pre-commit-config.yaml";
+    let pristine_lint = fixture.read(lint);
+    fixture.write(lint, "// mine\n");
+    let edited_block = fixture.read(block).replace("rev: ", "rev:  ");
+    fixture.write(block, &edited_block);
+    let before = fixture.tree_digest();
+
+    // One named, one not: nothing is written.
+    let (code, report) = upgrade_json(&fixture, &["--replace", lint]);
+    assert_eq!(code, Some(1), "{report}");
+    assert_eq!(report["ok"], false);
+    assert_eq!(report["conflicts"].as_array().unwrap().len(), 2);
+    assert_eq!(fixture.tree_digest(), before);
+
+    // A name that is no conflict answers no question.
+    fixture
+        .upgrade()
+        .args([
+            "--replace",
+            lint,
+            "--replace",
+            block,
+            "--replace",
+            "README.md",
+        ])
+        .assert()
+        .code(64)
+        .stderr(predicate::str::contains("names no conflict"));
+    assert_eq!(fixture.tree_digest(), before);
+
+    // Both named: each is saved first, then replaced.
+    let (code, report) = upgrade_json(&fixture, &["--replace", lint, "--replace", block]);
+    assert_eq!(code, Some(0), "{report}");
+    assert_eq!(fixture.read(lint), pristine_lint);
+    assert!(!fixture.read(block).contains("rev:  "));
+    let replaced = report["replaced"].as_array().unwrap();
+    assert_eq!(replaced.len(), 2);
+    let saved = |path: &str| {
+        let entry = replaced.iter().find(|entry| entry["path"] == path).unwrap();
+        std::path::PathBuf::from(entry["saved_to"].as_str().unwrap())
+    };
+    assert_eq!(std::fs::read_to_string(saved(lint)).unwrap(), "// mine\n");
+    assert_eq!(std::fs::read_to_string(saved(block)).unwrap(), edited_block);
+    let snapshots = fixture.state_root().join("spec-driven-docs/snapshots");
+    assert!(
+        saved(lint).starts_with(&snapshots),
+        "{}",
+        saved(lint).display()
+    );
+    assert!(saved(lint).to_str().unwrap().contains("/replaced/"));
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .success();
+}
+
+#[test]
+fn a_replacement_goes_under_the_declared_docs_scratch() {
+    let fixture = Fixture::new();
+    fixture
+        .cmd()
+        .args([
+            "init",
+            "--target",
+            &fixture.target(),
+            "--profile",
+            "codebase",
+            "--docs-scratch",
+            ".docs-scratch",
+            "--apply",
+        ])
+        .assert()
+        .success();
+    let lint = "docs/.markdownlint-cli2.jsonc";
+    fixture.write(lint, "// mine\n");
+    let (code, report) = upgrade_json(&fixture, &["--replace", lint, "--dry-run"]);
+    assert_eq!(code, Some(0), "{report}");
+    assert_eq!(
+        fixture.read(lint),
+        "// mine\n",
+        "a dry run replaced the file"
+    );
+    let (code, _) = upgrade_json(&fixture, &["--replace", lint]);
+    assert_eq!(code, Some(0));
+    assert_eq!(
+        fixture.read(".docs-scratch/replaced/docs/.markdownlint-cli2.jsonc"),
+        "// mine\n"
+    );
+
+    // A saved copy with other bytes is somebody's earlier answer.
+    fixture.write(lint, "// mine again\n");
+    fixture
+        .upgrade()
+        .args(["--replace", lint])
+        .assert()
+        .code(73)
+        .stderr(predicate::str::contains("already keeps other bytes"));
+    assert_eq!(fixture.read(lint), "// mine again\n");
+}

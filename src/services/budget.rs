@@ -21,12 +21,16 @@ use crate::domain::debt::BUDGET_GATES;
 ///
 /// Whatever the gate refuses while reading the tree.
 pub fn measure_gate(root: &Utf8Path, id: GateId) -> Result<Vec<Measurement>, AppError> {
-    let ctx: GateCtx = crate::commands::gate::context_at(root, id)?;
+    measure_in(&crate::commands::gate::context_at(root, id)?, id)
+}
+
+/// What one budget gate measures in a context.
+fn measure_in(ctx: &GateCtx, id: GateId) -> Result<Vec<Measurement>, AppError> {
     let measured = match id {
-        GateId::AdrWordCap => crate::gates::adr_word_cap::measure(&ctx),
-        GateId::AgentsDigestSize => crate::gates::agents_digest_size::measure(&ctx),
-        GateId::ChapterSizeCap => crate::gates::chapter_size_cap::measure(&ctx),
-        GateId::SpecSizeCap => crate::gates::spec_size_cap::measure(&ctx),
+        GateId::AdrWordCap => crate::gates::adr_word_cap::measure(ctx),
+        GateId::AgentsDigestSize => crate::gates::agents_digest_size::measure(ctx),
+        GateId::ChapterSizeCap => crate::gates::chapter_size_cap::measure(ctx),
+        GateId::SpecSizeCap => crate::gates::spec_size_cap::measure(ctx),
         _ => Ok(Vec::new()),
     };
     Ok(measured?)
@@ -41,6 +45,25 @@ pub fn measure_all(root: &Utf8Path) -> Result<Vec<Measurement>, AppError> {
     let mut all = Vec::new();
     for id in BUDGET_GATES {
         all.extend(measure_gate(root, *id)?);
+    }
+    Ok(all)
+}
+
+/// Every measurement the budget gates take at a root under a declaration
+/// and a documentation root a landing has not written yet.
+///
+/// # Errors
+///
+/// Whatever a gate refuses while reading the tree.
+pub fn measure_all_for(
+    root: &Utf8Path,
+    declaration: &crate::domain::instance_config::InstanceConfig,
+    docs_root: &str,
+) -> Result<Vec<Measurement>, AppError> {
+    let mut all = Vec::new();
+    for id in BUDGET_GATES {
+        let ctx = crate::commands::gate::context_for(root, *id, declaration, docs_root)?;
+        all.extend(measure_in(&ctx, *id)?);
     }
     Ok(all)
 }

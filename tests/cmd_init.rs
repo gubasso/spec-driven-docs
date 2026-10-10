@@ -955,3 +955,116 @@ fn a_writing_style_selection_the_arguments_cannot_mean_is_a_usage_error() {
     }
     assert!(!fixture.path().join("AGENTS.md").exists());
 }
+
+/// Render a stage for `fixture` with extra flags, and return its root.
+fn staged(fixture: &Fixture, name: &str, extra: &[&str]) -> std::path::PathBuf {
+    let root = fixture.state_root().parent().unwrap().join(name);
+    fixture
+        .cmd()
+        .args([
+            "stage",
+            "--target",
+            &fixture.target(),
+            "--output",
+            root.to_str().unwrap(),
+        ])
+        .args(extra)
+        .assert()
+        .success();
+    root
+}
+
+/// Rewrite one receipt field, as another release or another target would
+/// have written it.
+fn receipt_field(root: &std::path::Path, key: &str, value: &str) {
+    let path = root.join("stage.json");
+    let mut receipt: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    receipt[key] = serde_json::Value::String(value.to_string());
+    std::fs::write(&path, serde_json::to_string_pretty(&receipt).unwrap()).unwrap();
+}
+
+/// VERIFIES staging:a-landing-takes-the-choices-its-stage-recorded
+#[test]
+fn init_from_a_stage_lands_the_choices_the_receipt_records() {
+    let fixture = Fixture::new();
+    let root = staged(
+        &fixture,
+        "stage-choices",
+        &[
+            "--profile",
+            "knowledge-base",
+            "--docs-scratch",
+            ".notes",
+            "--reserve",
+            "vendor/**",
+            "--writing-style",
+            "none",
+        ],
+    );
+    fixture
+        .cmd()
+        .current_dir(fixture.path())
+        .args(["init", "--stage", root.to_str().unwrap(), "--apply"])
+        .assert()
+        .success();
+    let record: serde_json::Value =
+        serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
+    assert_eq!(record["profile"], "knowledge-base");
+    assert_eq!(record["docs_scratch"], ".notes");
+    let declaration = fixture.read(".spec-driven-docs/config.yaml");
+    assert!(declaration.contains("'vendor/**'"), "{declaration}");
+    assert!(declaration.contains("source: none"), "{declaration}");
+    // The landing wrote what the stage showed.
+    for artifact in [
+        "_docs/.markdownlint-cli2.jsonc",
+        ".spec-driven-docs/config.yaml",
+    ] {
+        assert_eq!(
+            fixture.read(artifact),
+            std::fs::read_to_string(root.join("artifacts").join(artifact)).unwrap(),
+            "{artifact}"
+        );
+    }
+}
+
+#[test]
+fn init_from_a_stage_refuses_another_release_another_target_and_a_choice_flag() {
+    let fixture = Fixture::new();
+    let root = staged(&fixture, "stage-refusals", &[]);
+    let stage = root.to_str().unwrap();
+
+    receipt_field(&root, "version", "0.0.1");
+    fixture
+        .cmd()
+        .current_dir(fixture.path())
+        .args(["init", "--stage", stage, "--apply"])
+        .assert()
+        .code(73)
+        .stderr(predicate::str::contains("0.0.1"));
+    receipt_field(&root, "version", env!("CARGO_PKG_VERSION"));
+
+    let other = Fixture::new();
+    fixture
+        .cmd()
+        .args([
+            "init",
+            "--stage",
+            stage,
+            "--target",
+            &other.target(),
+            "--apply",
+        ])
+        .assert()
+        .code(73)
+        .stderr(predicate::str::contains("rendered for"));
+
+    fixture
+        .cmd()
+        .current_dir(fixture.path())
+        .args(["init", "--stage", stage, "--profile", "codebase", "--apply"])
+        .assert()
+        .code(2);
+    assert!(!fixture.path().join(".spec-driven-docs").exists());
+    assert!(!other.path().join(".spec-driven-docs").exists());
+}

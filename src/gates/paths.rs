@@ -72,6 +72,9 @@ pub fn docs_scratch_with(ctx: &GateCtx, named: Option<Utf8PathBuf>) -> Option<Ut
 /// The instance's documentation root, relative to the repository.
 #[must_use]
 pub fn docs_root(ctx: &GateCtx) -> Utf8PathBuf {
+    if let Some(named) = ctx.named_docs_root() {
+        return named.to_path_buf();
+    }
     if let Ok(text) = std::fs::read_to_string(ctx.path(MANIFEST_PATH))
         && let Ok(value) = serde_json::from_str::<serde_json::Value>(&text)
         && let Some(root) = value.get("docs_root").and_then(serde_json::Value::as_str)

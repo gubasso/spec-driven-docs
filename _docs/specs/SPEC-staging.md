@@ -8,6 +8,11 @@
   - [`staging:a-stage-writes-only-the-stage` — A stage writes only the stage](#staginga-stage-writes-only-the-stage--a-stage-writes-only-the-stage)
   - [`staging:a-stage-carries-the-whole-candidate` — A stage carries the whole candidate](#staginga-stage-carries-the-whole-candidate--a-stage-carries-the-whole-candidate)
   - [`staging:production-reads-no-staged-byte` — Production reads no staged byte](#stagingproduction-reads-no-staged-byte--production-reads-no-staged-byte)
+  - [`staging:a-stage-takes-the-recorded-choices` — A stage takes the recorded choices](#staginga-stage-takes-the-recorded-choices--a-stage-takes-the-recorded-choices)
+  - [`staging:a-landing-takes-the-choices-its-stage-recorded` — A landing takes the choices its stage recorded](#staginga-landing-takes-the-choices-its-stage-recorded--a-landing-takes-the-choices-its-stage-recorded)
+  - [`staging:compare-reports-every-destination-the-stage-carries` — Compare reports every destination the stage carries](#stagingcompare-reports-every-destination-the-stage-carries--compare-reports-every-destination-the-stage-carries)
+  - [`staging:a-replacement-keeps-the-bytes-it-replaces` — A replacement keeps the bytes it replaces](#staginga-replacement-keeps-the-bytes-it-replaces--a-replacement-keeps-the-bytes-it-replaces)
+  - [`staging:an-upgrade-lists-every-retired-citation-first` — An upgrade lists every retired citation first](#stagingan-upgrade-lists-every-retired-citation-first--an-upgrade-lists-every-retired-citation-first)
   - [`staging:a-stage-persists-until-it-is-cleaned` — A stage persists until it is cleaned](#staginga-stage-persists-until-it-is-cleaned--a-stage-persists-until-it-is-cleaned)
   - [`staging:the-manifest-attributes-every-refresh` — The manifest attributes every refresh](#stagingthe-manifest-attributes-every-refresh--the-manifest-attributes-every-refresh)
   - [`staging:an-unattributed-collision-refuses-first` — An unattributed collision refuses first](#stagingan-unattributed-collision-refuses-first--an-unattributed-collision-refuses-first)
@@ -74,17 +79,87 @@ Verify: `cargo nextest run -E 'binary(cmd_stage)'`
 
 ### `staging:production-reads-no-staged-byte` — Production reads no staged byte
 
-A landing MUST render the candidate again from the binary's own sources, and no landing verb MUST offer an argument that names a stage.
+A landing MUST render the candidate again from the binary's own sources, and MUST read no byte of a stage but the choices its receipt records.
 
-A stage is evidence for a reader. Bytes that reach production through a stage make the stage a cache, and a stale cache lands a version nobody chose. Refusing a stage argument is not enough, because an argument that exists is one somebody will pass: there is none.
+A stage is evidence for a reader. Bytes that reach production through a stage make the stage a cache, and a stale cache lands a version nobody chose. The choices a receipt records are not bytes a landing writes: they are the answers the operator gave once, at the stage, so the landing and the stage cannot disagree about them.
 
-#### Scenario: An operator looks for the way to apply what the agent inspected
+#### Scenario: An operator applies what the agent inspected
 
-- GIVEN a completed stage and a landing to run
-- WHEN the operator reads `sdd init --help` and `sdd upgrade --help`
-- THEN no flag takes a stage, the landing renders the candidate again, and the stage is still there afterwards to compare against
+- GIVEN a completed stage whose artifacts nobody can read, and a landing to run
+- WHEN the operator runs `sdd upgrade`, with or without `--stage` naming that stage
+- THEN the landing renders the candidate again from the binary, and the stage is still there afterwards to compare against
 
 Verify: `cargo nextest run -E 'binary(cmd_stage) + binary(cmd_upgrade)'`
+
+### `staging:a-stage-takes-the-recorded-choices` — A stage takes the recorded choices
+
+Where the target carries an instance, `sdd stage` MUST project the profile, the documentation scratch, the writing style, and the reserved paths the instance records, and MUST refuse a `--profile` that differs from the recorded one.
+
+A stage over an instance is evidence for that instance's next landing. A profile change moves the documentation root, which is a migration somebody asks for by name, never an upgrade's candidate.
+
+#### Scenario: A knowledge-base instance is staged with no flag
+
+- GIVEN an instance that records the `knowledge-base` profile
+- WHEN `sdd stage --target .` runs, and then `sdd stage --target . --profile codebase`
+- THEN the first stages a `knowledge-base` candidate, and the second refuses naming both profiles
+
+Verify: `cargo nextest run -E 'binary(cmd_stage)'`
+
+### `staging:a-landing-takes-the-choices-its-stage-recorded` — A landing takes the choices its stage recorded
+
+Where `sdd init` or `sdd upgrade` names a stage with `--stage`, the landing MUST take the profile, the documentation scratch, the writing style, the reserved paths, and the acquisition decision from that stage's receipt, MUST refuse a flag that sets one of them, and MUST refuse a receipt another release wrote or a receipt for another target.
+
+The operator states each choice once, at the stage, so the bytes the landing writes are the bytes the stage showed. A receipt is ordinary JSON, so it authorizes choices and never bytes.
+
+#### Scenario: A stage from an older binary meets a newer one
+
+- GIVEN a stage rendered by an older `sdd`, and a newer `sdd` installed since
+- WHEN `sdd init --stage <root> --apply` runs
+- THEN it refuses naming both versions, writes nothing, and the operator stages again
+
+Verify: `cargo nextest run -E 'binary(cmd_init) + binary(cmd_upgrade)'`
+
+### `staging:compare-reports-every-destination-the-stage-carries` — Compare reports every destination the stage carries
+
+`sdd stage compare <root>` MUST report one row per destination the stage carries and one per recorded managed file the candidate retires, each with its state, its ownership, and, where the bytes differ or retire, its provenance, and MUST judge the record half with the check the landing refuses on.
+
+The state is `equal`, `absent`, `differs`, or `retired`. The ownership is `managed`, `integration`, or `adopted`, and a marked region is compared by its own bytes. The provenance is `attributed` where the record vouches for the bytes and the history touches the path, `reduced` where one of the two holds, and `unknown` where neither does. Where Git is absent or the target is no repository, the report states why the history half is missing. Each row also carries `replaceable`, true only where the verb that lands the stage accepts the path in `--replace`, judged by the check `sdd upgrade` applies to each name: the path is a conflict that verb lists, and the landing can write it. It is false on every other row, and on every row before an instance exists, because `sdd init` takes no name.
+
+#### Scenario: A landing follows a comparison
+
+- GIVEN a stage, a target with one edited managed file, and a comparison
+- WHEN the landing runs against the same target
+- THEN it refuses exactly the rows the comparison reported as unvouched, and after a landing with the conflict resolved, every managed and integration row reads `equal`
+
+Verify: `cargo nextest run -E 'binary(cmd_stage)'`
+
+### `staging:a-replacement-keeps-the-bytes-it-replaces` — A replacement keeps the bytes it replaces
+
+Where `sdd upgrade --replace <path>` names a conflict, the upgrade MUST save the bytes the target holds there before its first write, MUST report where, MUST refuse while any conflict it was not given remains, and MUST refuse a name that is no conflict.
+
+The copy goes to `replaced/<path>` under the docs scratch the instance declares, or under a snapshot directory beneath the state root where none is declared, and never into a stage. A copy already there with other bytes refuses rather than being overwritten, so no byte is lost.
+
+#### Scenario: An operator keeps one edit and discards another
+
+- GIVEN two edited managed files, one named with `--replace`
+- WHEN `sdd upgrade --replace <path>` runs
+- THEN it refuses naming the other, writes nothing, and a second run naming both saves each before it replaces it
+
+Verify: `cargo nextest run -E 'binary(cmd_upgrade)'`
+
+### `staging:an-upgrade-lists-every-retired-citation-first` — An upgrade lists every retired citation first
+
+`sdd upgrade --dry-run` MUST list every citation of a rule ID in a domain this binary defines that this binary no longer defines, by file and line, before any write.
+
+A rule heading is a definition and is not listed. A decision record is read on its `Enforced by` line alone, a file this tool manages is about to be replaced, and the changelog is history, so none of those is listed. Re-pointing a citation stays the author's, because the tool cannot know which rule the author meant.
+
+#### Scenario: A guide cites a rule the new release retired
+
+- GIVEN a guide citing a rule ID the installed release no longer defines
+- WHEN `sdd upgrade --dry-run --json` runs
+- THEN `retired_citations` names the guide, the line, and the ID, and nothing is written
+
+Verify: `cargo nextest run -E 'binary(cmd_upgrade)'`
 
 ### `staging:a-stage-persists-until-it-is-cleaned` — A stage persists until it is cleaned
 

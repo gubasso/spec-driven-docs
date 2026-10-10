@@ -20,6 +20,9 @@ pub enum Classification {
     Setup,
     /// No instance and a settled corpus: land one and move the corpus.
     Migration,
+    /// No instance, and documents outside any recognized home: the
+    /// operator names where they belong before anything lands.
+    NeedsDecision,
     /// An instance older than the destination.
     Upgrade,
     /// An instance at the destination whose files have moved.
@@ -37,6 +40,7 @@ impl Classification {
         match self {
             Self::Setup => "setup",
             Self::Migration => "migration",
+            Self::NeedsDecision => "needs-decision",
             Self::Upgrade => "upgrade",
             Self::Drift => "drift",
             Self::Current => "current",
@@ -58,6 +62,8 @@ pub enum Intent {
     Reconcile,
     /// A first landing.
     Init,
+    /// A landing beside a corpus that stays, which the operator names.
+    Incremental,
     /// A move to a newer release.
     Upgrade,
     /// A classification alone, writing nothing.
@@ -103,11 +109,17 @@ impl Intent {
             | (
                 Self::Upgrade,
                 Classification::Upgrade | Classification::Drift | Classification::Current,
-            ) => Ok(()),
+            )
+            | (Self::Incremental, Classification::Migration) => Ok(()),
             (Self::Init, _) => Err(IntentRefused {
                 verb: "sdd init",
                 found,
                 next: "sdd stage",
+            }),
+            (Self::Incremental, _) => Err(IntentRefused {
+                verb: "sdd init --incremental",
+                found,
+                next: "sdd init",
             }),
             (Self::Upgrade, _) => Err(IntentRefused {
                 verb: "sdd upgrade",
@@ -120,7 +132,7 @@ impl Intent {
 
 /// What the observation has to say before a classification can be read.
 ///
-/// Five independent answers rather than one enumeration, because the
+/// Six independent answers rather than one enumeration, because the
 /// classification is what combines them and a caller that had to pick a
 /// combined value would be classifying before the classifier does.
 #[expect(
@@ -139,6 +151,8 @@ pub struct Signals {
     pub drifted: bool,
     /// The target documents itself already.
     pub settled: bool,
+    /// Documents sit outside any recognized home.
+    pub scattered: bool,
 }
 
 /// Read the classification from what was observed.
@@ -150,6 +164,9 @@ pub const fn classify(signals: Signals) -> Classification {
     if !signals.installed {
         if signals.settled {
             return Classification::Migration;
+        }
+        if signals.scattered {
+            return Classification::NeedsDecision;
         }
         return Classification::Setup;
     }
@@ -173,7 +190,28 @@ mod tests {
             at_destination: false,
             drifted: false,
             settled: false,
+            scattered: false,
         }
+    }
+
+    #[test]
+    fn documents_outside_any_home_need_a_decision_and_a_corpus_wins() {
+        let scattered = Signals {
+            scattered: true,
+            ..signals()
+        };
+        assert_eq!(classify(scattered), Classification::NeedsDecision);
+        let both = Signals {
+            settled: true,
+            ..scattered
+        };
+        assert_eq!(classify(both), Classification::Migration);
+        assert!(Intent::Init.accepts(Classification::NeedsDecision).is_err());
+        assert!(
+            Intent::Upgrade
+                .accepts(Classification::NeedsDecision)
+                .is_err()
+        );
     }
 
     #[test]
@@ -256,6 +294,7 @@ mod tests {
         for found in [
             Classification::Setup,
             Classification::Migration,
+            Classification::NeedsDecision,
             Classification::Upgrade,
             Classification::Drift,
             Classification::Current,

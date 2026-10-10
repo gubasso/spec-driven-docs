@@ -11,7 +11,7 @@ use camino::Utf8Path;
 use crate::adapters::fs::sha256_file;
 use crate::domain::manifest::{CANON_SOURCE, MANIFEST_PATH, Manifest, SCHEMA_VERSION};
 use crate::domain::ownership::{AdoptedEntry, IntegrationBlock, ManagedEntry, Sha256};
-use crate::domain::paths::HOOKS_CONFIG_PATH;
+use crate::domain::paths::{HOOKS_CONFIG_PATH, SKILL_FILE, SKILL_REFERENCES_DIR};
 use crate::domain::profile::{DocsRoot, ProfileId, render_root, resolve_destination};
 use crate::domain::version::CanonVersion;
 use crate::error::AppError;
@@ -40,7 +40,8 @@ fn sorted_files(root: &Utf8Path, dir: &str, matches: impl Fn(&str) -> bool) -> V
         .collect()
 }
 
-/// Every `skills/<name>/SKILL.md` path in the checkout, sorted by name.
+/// Every authored skill file in the checkout: each `skills/<name>/SKILL.md`
+/// and the reference files beside it, sorted by name.
 fn skill_files(root: &Utf8Path) -> Vec<String> {
     let mut names: Vec<String> = root
         .join("skills")
@@ -56,7 +57,14 @@ fn skill_files(root: &Utf8Path) -> Vec<String> {
     names.sort();
     names
         .into_iter()
-        .map(|name| format!("skills/{name}/SKILL.md"))
+        .flat_map(|name| {
+            let references = sorted_files(
+                root,
+                &format!("skills/{name}/{SKILL_REFERENCES_DIR}"),
+                |_| true,
+            );
+            std::iter::once(format!("skills/{name}/{SKILL_FILE}")).chain(references)
+        })
         .collect()
 }
 

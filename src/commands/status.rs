@@ -28,6 +28,24 @@ pub fn run(ctx: &AppContext, args: StatusArgs) -> Result<(), AppError> {
     if args.json {
         return output::json(&report);
     }
+    match report.classification {
+        Some(classification) => output::line(format!("classification: {classification}")),
+        None => output::line("classification: none; the instance is newer than this binary"),
+    }
+    if let Some(reason) = report.invalid.as_ref() {
+        output::line(format!("invalid: {reason}"));
+    }
+    for legacy in &report.legacy_state {
+        let binds = if legacy.active {
+            "; it still binds a run only the older release can finish"
+        } else {
+            ""
+        };
+        output::line(format!(
+            "legacy state ({}): {}; no verb of this release reads it{binds}",
+            legacy.kind, legacy.path
+        ));
+    }
     if !report.instance {
         output::line(format!("no instance at {target}"));
         render_paths(&report.paths);

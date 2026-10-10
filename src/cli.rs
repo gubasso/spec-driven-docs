@@ -9,11 +9,14 @@ pub mod completions;
 pub mod debt;
 pub mod docs;
 pub mod doctor;
+pub mod env;
 pub mod gate;
 pub mod hooks;
 pub mod init;
 pub mod ki;
 pub mod license;
+pub mod lint;
+pub mod migrate;
 pub mod policy;
 pub mod read;
 pub mod self_depend;
@@ -81,6 +84,12 @@ pub enum Commands {
     Stage(stage::StageArgs),
     /// Report an instance's state without gating on it.
     Status(status::StatusArgs),
+    /// Report the shell environment the gates read, or write one item of it.
+    Env(env::EnvArgs),
+    /// Report what the Markdown linter will read, or prove its link rule runs.
+    Lint(lint::LintArgs),
+    /// Archive a corpus, track its rebuild, and close the migration.
+    Migrate(migrate::MigrateArgs),
     /// Report tracking freshness offline, or check upstreams over the network.
     Track(track::TrackArgs),
     /// Probe this host's readiness and report by class; never fails.

@@ -81,6 +81,9 @@ pub struct GateCtx {
     /// What this gate may judge. Private, so the only way to a subject list
     /// is [`Self::subjects`].
     filter: PathFilter,
+    /// The documentation root a caller already knows, which discovery then
+    /// does not guess.
+    docs_root: Option<Utf8PathBuf>,
 }
 
 impl GateCtx {
@@ -93,6 +96,7 @@ impl GateCtx {
         Self {
             repo_root: repo_root.into(),
             filter: PathFilter::permissive(),
+            docs_root: None,
         }
     }
 
@@ -102,7 +106,22 @@ impl GateCtx {
         Self {
             repo_root: repo_root.into(),
             filter,
+            docs_root: None,
         }
+    }
+
+    /// The same context with its documentation root named, as a landing
+    /// that has not written its record yet knows it.
+    #[must_use]
+    pub fn with_docs_root(mut self, docs_root: impl Into<Utf8PathBuf>) -> Self {
+        self.docs_root = Some(docs_root.into());
+        self
+    }
+
+    /// The documentation root the caller named, where it named one.
+    #[must_use]
+    pub fn named_docs_root(&self) -> Option<&Utf8Path> {
+        self.docs_root.as_deref()
     }
 
     /// Resolve a repository-relative path for reading.

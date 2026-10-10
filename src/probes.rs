@@ -60,7 +60,7 @@ fn installed_packages() -> Vec<(Utf8PathBuf, &'static [u8])> {
             continue;
         }
         for name in crate::embedded::skill_names() {
-            let Some(package) = crate::embedded::skill_package(name) else {
+            let Ok(package) = crate::embedded::skill_package(name) else {
                 continue;
             };
             for (relative, bytes) in package {
@@ -336,11 +336,20 @@ fn skill_gate() -> ProbeResult {
         );
     };
     let record = receipt();
+    // A skill's own reference files are the payload probe's to judge; this
+    // one answers for the shared gates every skill reads first.
+    let gates: Vec<String> = crate::embedded::shared_artifacts()
+        .into_iter()
+        .map(|(path, _)| path)
+        .collect();
     let references: Vec<(Utf8PathBuf, &'static [u8])> = installed_packages()
         .into_iter()
         .filter(|(path, _)| {
             path.parent()
                 .is_some_and(|parent| parent.file_name() == Some(SKILL_REFERENCES_DIR))
+                && path
+                    .file_name()
+                    .is_some_and(|name| gates.iter().any(|gate| gate == name))
         })
         // Only a package that landed is judged: an absent skill is the
         // payload probe's finding, not this one's.

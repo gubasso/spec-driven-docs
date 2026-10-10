@@ -6,7 +6,7 @@
 
 use camino::Utf8PathBuf;
 
-use crate::cli::stage::{StageArgs, StageCleanArgs, StageCommand};
+use crate::cli::stage::{StageArgs, StageCleanArgs, StageCommand, StageCompareArgs};
 use crate::context::AppContext;
 use crate::domain::paths::UserEnv;
 use crate::error::AppError;
@@ -21,10 +21,15 @@ use crate::stage::{self, Request};
 /// mean, [`AppError::Refused`] where a stage is already there or a cleanup
 /// target is not a stage, and I/O errors writing the stage.
 pub fn run(ctx: &AppContext, args: StageArgs) -> Result<(), AppError> {
-    if let Some(StageCommand::Clean(clean)) = args.command {
-        return remove(&clean);
+    match args.command {
+        Some(StageCommand::Clean(clean)) => return remove(&clean),
+        Some(StageCommand::Compare(compare)) => return compared(ctx, compare),
+        None => {}
     }
     let target = resolved(ctx, args.target)?;
+    if args.acquisition.is_some() {
+        crate::commands::self_depend::refuse_host_where_pinned(&target)?;
+    }
     let state_root = UserEnv::from_process()
         .state_root()
         .ok_or_else(|| AppError::Usage("no state root resolves".to_string()))?
@@ -49,6 +54,11 @@ pub fn run(ctx: &AppContext, args: StageArgs) -> Result<(), AppError> {
             docs_scratch,
             reserve: args.reserve,
             writing_style,
+            acquisition: args.acquisition.map(|choice| match choice {
+                crate::cli::stage::AcquisitionChoice::Host => {
+                    crate::domain::instance_config::Acquisition::host_at_this_release()
+                }
+            }),
         },
         &state_root,
     )?;
@@ -74,6 +84,49 @@ pub fn run(ctx: &AppContext, args: StageArgs) -> Result<(), AppError> {
         "the stage stays until 'sdd stage clean {}' removes it",
         receipt.root
     ));
+    Ok(())
+}
+
+/// Compare one stage against its target.
+fn compared(ctx: &AppContext, args: StageCompareArgs) -> Result<(), AppError> {
+    use crate::stage::compare::{Provenance, State};
+
+    let target = resolved(ctx, args.target)?;
+    let report = crate::stage::compare::compare(&args.root, &target)?;
+    if args.json {
+        return output::json(&report);
+    }
+    let word = |state: State| match state {
+        State::Equal => "equal",
+        State::Absent => "absent",
+        State::Differs => "differs",
+        State::Retired => "retired",
+    };
+    let mut equal = 0usize;
+    for row in &report.rows {
+        if row.state == State::Equal {
+            equal += 1;
+            continue;
+        }
+        let provenance = row.provenance.map_or("", |held| match held {
+            Provenance::Attributed => " (attributed)",
+            Provenance::Reduced => " (reduced)",
+            Provenance::Unknown => " (unknown)",
+        });
+        output::line(format!(
+            "{} {} {}{provenance}",
+            word(row.state),
+            row.ownership.as_str(),
+            row.path
+        ));
+    }
+    output::line(format!(
+        "{equal} of {} destinations equal the stage",
+        report.rows.len()
+    ));
+    if let Some(reason) = &report.history.reason {
+        output::line(format!("history: not read, because {reason}"));
+    }
     Ok(())
 }
 

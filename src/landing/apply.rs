@@ -40,6 +40,13 @@ pub struct Recorded {
     pub managed: Vec<(String, Sha256)>,
     /// Each integration host and the hash of the region this tool owns.
     pub integration: Vec<(String, Sha256)>,
+    /// Destinations the operator named for replacement, whatever they hold.
+    ///
+    /// The one authority beside the record. The caller saved each one's
+    /// bytes before the landing, so a named destination is overwritten,
+    /// or taken back where the release no longer lands it, rather than
+    /// refused.
+    pub replace: Vec<String>,
 }
 
 /// Write the candidate into the target, and record it last.
@@ -60,7 +67,7 @@ pub fn land(
 ) -> Result<Outcome, AppError> {
     contained(target, candidate)?;
     unattributed(target, candidate, recorded)?;
-    let retired = retired(target, candidate, &recorded.managed)?;
+    let retired = retired(target, candidate, recorded)?;
     let mut outcome = Outcome::default();
 
     for destination in &candidate.destinations {
@@ -96,6 +103,8 @@ pub fn land(
         }
         match std::fs::read(&path) {
             Ok(held) if Sha256::of(&held) == vouched => {}
+            // The operator named it, and the caller saved its bytes first.
+            Ok(_) if recorded.replace.contains(&destination) => {}
             // Gone already, or no longer the bytes the record vouches for.
             _ => continue,
         }
@@ -235,6 +244,31 @@ fn escapes(target: &Utf8Path, destination: &Utf8Path) -> Option<(Utf8PathBuf, &'
     None
 }
 
+/// Why the landing would refuse one destination the operator names, where
+/// it would.
+///
+/// A destination the candidate writes, and a retired one the landing
+/// removes, must resolve beneath the target. A retired destination outside
+/// the prunable roots is one the landing leaves alone, so nothing about its
+/// path stops the landing.
+#[must_use]
+pub(crate) fn refuses_named(
+    target: &Utf8Path,
+    candidate: &Candidate,
+    destination: &str,
+) -> Option<(Utf8PathBuf, &'static str)> {
+    let written = candidate
+        .destinations
+        .iter()
+        .any(|landed| landed.path.as_str() == destination);
+    let removed = PRUNABLE_ROOTS
+        .iter()
+        .any(|prefix| destination.starts_with(prefix));
+    (written || removed)
+        .then(|| escapes(target, Utf8Path::new(destination)))
+        .flatten()
+}
+
 /// Refuse a whole file this tool would own whose bytes no record vouches
 /// for.
 ///
@@ -257,21 +291,12 @@ fn unattributed(
         if held == destination.bytes {
             continue;
         }
-        let vouched = match destination.ownership {
-            Ownership::Managed => recorded
-                .managed
+        if vouches(recorded, &destination.path, destination.ownership, &held)
+            || recorded
+                .replace
                 .iter()
-                .find(|(name, _)| name == destination.path.as_str())
-                .is_some_and(|(_, digest)| digest == &Sha256::of(&held)),
-            // A marked region sits in a file the project owns, so what the
-            // record vouches for is the region rather than the file. Every
-            // byte outside it is the project's and survives either way.
-            Ownership::Integration => region_vouched(destination, &held, recorded),
-            // An adopted destination is the project's from the moment it
-            // lands, and the projection already kept what is there.
-            Ownership::Adopted => true,
-        };
-        if vouched {
+                .any(|named| named == destination.path.as_str())
+        {
             continue;
         }
         collisions.push(destination.path.to_string());
@@ -285,22 +310,53 @@ fn unattributed(
     )))
 }
 
+/// Whether the record vouches for the bytes one destination holds.
+///
+/// The one attribution check. The landing refuses a destination this
+/// answers no for, and `sdd stage compare` reports the same answer as the
+/// record half of a destination's provenance, so the two cannot disagree.
+#[must_use]
+pub fn vouches(recorded: &Recorded, path: &Utf8Path, ownership: Ownership, held: &[u8]) -> bool {
+    match ownership {
+        Ownership::Managed => recorded
+            .managed
+            .iter()
+            .find(|(name, _)| name == path.as_str())
+            .is_some_and(|(_, digest)| digest == &Sha256::of(held)),
+        // A marked region sits in a file the project owns, so what the
+        // record vouches for is the region rather than the file. Every
+        // byte outside it is the project's and survives either way.
+        Ownership::Integration => region_vouched(path, held, recorded),
+        // An adopted destination is the project's from the moment it
+        // lands, and the projection already kept what is there.
+        Ownership::Adopted => true,
+    }
+}
+
+/// Whether the record vouches for a managed file the release retires.
+///
+/// The landing takes such a file back only where this answers yes.
+#[must_use]
+pub fn vouches_retired(recorded: &Recorded, path: &str, held: &[u8]) -> bool {
+    recorded
+        .managed
+        .iter()
+        .find(|(name, _)| name == path)
+        .is_some_and(|(_, digest)| digest == &Sha256::of(held))
+}
+
 /// Whether the record vouches for the marked region a host file holds.
 ///
 /// A host with no region yet is a first landing into a file the project
 /// wrote, which the record cannot have an entry for and which the splice
 /// leaves otherwise untouched.
-fn region_vouched(
-    destination: &crate::candidate::Destination,
-    held: &[u8],
-    recorded: &Recorded,
-) -> bool {
+fn region_vouched(path: &Utf8Path, held: &[u8], recorded: &Recorded) -> bool {
     use crate::domain::marker;
 
     let Ok(text) = std::str::from_utf8(held) else {
         return false;
     };
-    let hash = if destination.path == crate::domain::paths::HOOKS_CONFIG_PATH {
+    let hash = if path == crate::domain::paths::HOOKS_CONFIG_PATH {
         marker::block_hash(text)
     } else {
         marker::block_hash_with(text, marker::AGENTS_BEGIN, marker::AGENTS_END)
@@ -311,7 +367,7 @@ fn region_vouched(
     recorded
         .integration
         .iter()
-        .find(|(name, _)| name == destination.path.as_str())
+        .find(|(name, _)| name == path.as_str())
         .is_some_and(|(_, recorded)| recorded == &hash)
 }
 
@@ -348,15 +404,16 @@ fn prune_empty(target: &Utf8Path, destination: &str) {
 fn retired(
     target: &Utf8Path,
     candidate: &Candidate,
-    recorded_managed: &[(String, Sha256)],
+    recorded: &Recorded,
 ) -> Result<Vec<(String, Sha256)>, AppError> {
+    let recorded_managed = &recorded.managed;
     let landing: Vec<&str> = candidate
         .destinations
         .iter()
         .map(|destination| destination.path.as_str())
         .collect();
     let mut retired = Vec::new();
-    for (destination, recorded) in recorded_managed {
+    for (destination, digest) in recorded_managed {
         if landing.contains(&destination.as_str()) {
             continue;
         }
@@ -376,10 +433,11 @@ fn retired(
         let Ok(held) = std::fs::read(target.join(destination)) else {
             continue;
         };
-        if &Sha256::of(&held) != recorded {
+        let named = recorded.replace.contains(destination);
+        if &Sha256::of(&held) != digest && !named {
             continue;
         }
-        retired.push((destination.clone(), recorded.clone()));
+        retired.push((destination.clone(), digest.clone()));
     }
     Ok(retired)
 }
@@ -408,6 +466,7 @@ mod tests {
             docs_scratch: None,
             reserve: Vec::new(),
             writing_style: None,
+            acquisition: None,
             evidence: crate::candidate::Evidence::default(),
         })
         .unwrap()
@@ -489,6 +548,7 @@ mod tests {
                 Sha256::of(b"what the record holds"),
             )],
             integration: Vec::new(),
+            replace: Vec::new(),
         };
 
         let error = land(&target, &candidate, &recorded).unwrap_err();
@@ -517,6 +577,7 @@ mod tests {
         let recorded = Recorded {
             managed: vec![(managed.path.to_string(), Sha256::of(b"older"))],
             integration: Vec::new(),
+            replace: Vec::new(),
         };
 
         land(&target, &candidate, &recorded).unwrap();
@@ -535,6 +596,7 @@ mod tests {
         let recorded = Recorded {
             managed: vec![(dropped.to_string(), Sha256::of(b"old"))],
             integration: Vec::new(),
+            replace: Vec::new(),
         };
 
         let outcome = land(&target, &candidate(), &recorded).unwrap();
@@ -551,11 +613,49 @@ mod tests {
         let recorded = Recorded {
             managed: vec![(dropped.to_string(), Sha256::of(b"old"))],
             integration: Vec::new(),
+            replace: Vec::new(),
         };
 
         let outcome = land(&target, &candidate(), &recorded).unwrap();
         assert!(outcome.removed.is_empty());
         assert!(target.join(dropped).exists());
+    }
+
+    #[test]
+    fn a_named_destination_is_overwritten_and_a_named_retired_file_taken_back() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = target(&dir);
+        let candidate = candidate();
+        let managed = candidate
+            .destinations
+            .iter()
+            .find(|destination| destination.ownership == Ownership::Managed)
+            .unwrap()
+            .clone();
+        crate::adapters::fs::write_file(&target.join(&managed.path), b"edited since").unwrap();
+        let dropped = ".spec-driven-docs/markdownlint/retired.jsonc";
+        crate::adapters::fs::write_file(&target.join(dropped), b"edited since").unwrap();
+        let recorded = Recorded {
+            managed: vec![
+                (managed.path.to_string(), Sha256::of(b"older")),
+                (dropped.to_string(), Sha256::of(b"old")),
+            ],
+            integration: Vec::new(),
+            replace: vec![managed.path.to_string(), dropped.to_string()],
+        };
+        assert!(!vouches(
+            &recorded,
+            &managed.path,
+            Ownership::Managed,
+            b"edited since"
+        ));
+
+        let outcome = land(&target, &candidate, &recorded).unwrap();
+        assert_eq!(
+            std::fs::read(target.join(&managed.path)).unwrap(),
+            managed.bytes
+        );
+        assert_eq!(outcome.removed, vec![dropped.to_string()]);
     }
 
     #[test]

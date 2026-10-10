@@ -92,6 +92,9 @@ pub enum State {
     Ambiguous,
     /// A predecessor mechanism left a file behind.
     Leftovers,
+    /// No manager pins this tool, and the declaration records that each
+    /// host installs it itself.
+    Host,
 }
 
 /// What the host offers.
@@ -114,6 +117,9 @@ pub struct Report {
     pub state: State,
     /// The one manager that pins this tool, where exactly one does.
     pub wired: Option<Manager>,
+    /// The host decision the instance's declaration records, where it
+    /// records one.
+    pub acquisition: Option<crate::domain::instance_config::Acquisition>,
     /// Every manager, in the enum's order, absent ones included.
     pub managers: Vec<ManagerEntry>,
     /// Whether the shell loader file exists.
@@ -166,19 +172,27 @@ pub fn report(target: &Utf8Path, env: &UserEnv, this: &Version) -> Report {
         .map(|root| stamp::path(&root.path, target))
         .and_then(|path| stamp::read(&path))
         .map(|day| day.to_string());
+    // A declaration that does not parse records no decision this report
+    // can read; `sdd verify` is what names that failure.
+    let acquisition = crate::domain::instance_config::InstanceConfig::read(target)
+        .ok()
+        .and_then(|declaration| declaration.acquisition);
     let state = match (wired.len(), envrc_sync, leftovers.is_empty()) {
+        // SATISFIES acquisition:a-host-install-is-a-recorded-decision
+        (0, _, _) if acquisition.is_some() => State::Host,
         (0, _, _) => State::Unwired,
         (1, true, true) => State::Ready,
         (1, true, false) => State::Leftovers,
         (1, false, _) => State::LineAbsent,
         (_, _, _) => State::Ambiguous,
     };
-    let next = next_lines(state, &wired, target);
+    let next = next_lines(state, &wired, target, acquisition.as_ref());
     Report {
         schema: SCHEMA,
         target: target.to_owned(),
         state,
         wired: (wired.len() == 1).then(|| wired[0].manager),
+        acquisition,
         managers,
         envrc: Presence::of(envrc_text.is_some()),
         envrc_sync,
@@ -221,8 +235,17 @@ fn entry(target: &Utf8Path, held: &Detected, this: &Version) -> ManagerEntry {
     }
 }
 
-fn next_lines(state: State, wired: &[&Detected], target: &Utf8Path) -> Vec<String> {
+fn next_lines(
+    state: State,
+    wired: &[&Detected],
+    target: &Utf8Path,
+    acquisition: Option<&crate::domain::instance_config::Acquisition>,
+) -> Vec<String> {
     match state {
+        State::Host => vec![format!(
+            "each host installs sdd {} or newer itself; sdd self-depend add --target {target} --manager <manager> moves the project onto a pin",
+            acquisition.map_or("", |decision| decision.minimum.as_str())
+        )],
         State::Ready => vec![format!(
             "sdd self-depend sync --caller operator --target {target} moves the pin by hand"
         )],

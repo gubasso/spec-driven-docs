@@ -59,6 +59,70 @@ fn write_debt(root: &Utf8Path, debt: &Debt) -> Result<(), AppError> {
     Ok(())
 }
 
+/// Refuse an incremental landing where a debt file already exists, before
+/// it writes anything: the landing records the debt it inherits, and a file
+/// it did not measure could leave a finding unrecorded.
+///
+/// SATISFIES setup:an-incremental-landing-is-named
+///
+/// # Errors
+///
+/// [`AppError::Refused`] naming the debt file that exists.
+pub(crate) fn refuse_recorded(root: &Utf8Path) -> Result<(), AppError> {
+    let presence = Presence::at(root);
+    let recorded = if presence.dimensional {
+        DEBT_PATH
+    } else if presence.legacy {
+        LEGACY_DEBT_PATH
+    } else {
+        return Ok(());
+    };
+    Err(AppError::Refused(format!(
+        "{recorded} already records debt, and an incremental landing records the debt it inherits; remove it, or migrate the corpus (setup:an-incremental-landing-is-named)"
+    )))
+}
+
+/// The debt a corpus brings into an incremental landing, measured under the
+/// declaration and documentation root the landing is about to record. It
+/// runs before anything lands, so a tree that cannot be measured stops the
+/// run with no instance left behind.
+///
+/// SATISFIES setup:an-incremental-landing-is-named
+///
+/// # Errors
+///
+/// Whatever a budget gate refuses while reading the tree.
+pub(crate) fn inherited(
+    root: &Utf8Path,
+    declaration: &crate::domain::instance_config::InstanceConfig,
+    docs_root: &str,
+) -> Result<Debt, AppError> {
+    Ok(Debt::baseline(&crate::services::budget::measure_all_for(
+        root,
+        declaration,
+        docs_root,
+    )?))
+}
+
+/// Report the inherited debt, and write it where `apply` holds.
+///
+/// # Errors
+///
+/// Whatever writing the debt file raises.
+pub(crate) fn record_inherited(root: &Utf8Path, debt: &Debt, apply: bool) -> Result<(), AppError> {
+    if debt.is_empty() {
+        output::line("OK no budget violation to record; no debt file is needed");
+        return Ok(());
+    }
+    print_debt(debt);
+    if apply {
+        write_debt(root, debt)
+    } else {
+        output::line("then: the landing records this debt");
+        Ok(())
+    }
+}
+
 fn baseline(root: &Utf8Path, apply: bool) -> Result<(), AppError> {
     let presence = Presence::at(root);
     if presence.dimensional {

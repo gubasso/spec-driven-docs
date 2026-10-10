@@ -135,6 +135,8 @@ pub struct Input {
     pub reserve: Vec<String>,
     /// The writing-style selection to record in the declaration.
     pub writing_style: Option<WritingStyle>,
+    /// The acquisition decision to record in the declaration.
+    pub acquisition: Option<crate::domain::instance_config::Acquisition>,
     /// What the caller observed about the target.
     pub evidence: Evidence,
 }
@@ -211,7 +213,17 @@ pub fn project(input: &Input) -> Result<Candidate, AppError> {
             ));
             continue;
         }
-        let held = input.evidence.existing.get(&path);
+        let mut held = input.evidence.existing.get(&path);
+        // A declaration an archive wrote holds the open migration alone. It
+        // is a seed still to land, not a project's own declaration: the
+        // landing writes the whole seed and carries the key into it, so the
+        // close leaves exactly what a greenfield landing writes.
+        let migration = (path == crate::domain::instance_config::CONFIG_PATH && !recorded)
+            .then(|| held.and_then(|bytes| pending_migration(bytes)))
+            .flatten();
+        if migration.is_some() {
+            held = None;
+        }
         if let Some(held) = held
             && held != &seed
             && !recorded
@@ -225,15 +237,34 @@ pub fn project(input: &Input) -> Result<Candidate, AppError> {
         // keeping its comments and whatever the project already wrote there.
         // What is already there is read first: a transformation applied to
         // bytes nobody validated would repair a malformed declaration into
-        // a valid one and overwrite the file the operator has to fix.
+        // a valid one and overwrite the file the operator has to fix. A
+        // choice the declaration already holds is not written again, so a
+        // stage that records the resolved choices lands the same bytes it
+        // showed, implicit defaults and comments included.
         if path == crate::domain::instance_config::CONFIG_PATH {
-            let text = readable(&path, &bytes)?;
+            let (text, held) = readable(&path, &bytes)?;
             let mut text = text.to_string();
-            if !input.reserve.is_empty() {
-                text = crate::domain::instance_config::with_reserved(&text, &input.reserve);
+            let reserve: Vec<String> = input
+                .reserve
+                .iter()
+                .filter(|pattern| !held.reserved.contains(pattern))
+                .cloned()
+                .collect();
+            if !reserve.is_empty() {
+                text = crate::domain::instance_config::with_reserved(&text, &reserve);
             }
-            if let Some(selection) = &input.writing_style {
+            if let Some(selection) = &input.writing_style
+                && *selection != held.writing_style
+            {
                 text = crate::domain::instance_config::with_writing_style(&text, selection);
+            }
+            if let Some(decision) = &input.acquisition
+                && held.acquisition.as_ref() != Some(decision)
+            {
+                text = crate::domain::instance_config::with_acquisition(&text, decision);
+            }
+            if let Some(id) = &migration {
+                text = crate::domain::instance_config::with_migration(&text, id);
             }
             bytes = text.into_bytes();
         }
@@ -268,12 +299,7 @@ pub fn project(input: &Input) -> Result<Candidate, AppError> {
         .iter()
         .find(|destination| destination.path == crate::domain::instance_config::CONFIG_PATH);
     let declaration = match declared {
-        Some(destination) => {
-            let text = readable(&destination.path, &destination.bytes)?;
-            InstanceConfig::parse(text).map_err(|error| {
-                AppError::Refused(format!("{} does not parse: {error}", destination.path))
-            })?
-        }
+        Some(destination) => readable(&destination.path, &destination.bytes)?.1,
         None => InstanceConfig::default(),
     };
     let writing_style = declaration.writing_style.clone();
@@ -378,21 +404,39 @@ pub fn docs_root_of(profile: ProfileId) -> Result<DocsRoot, AppError> {
         })
 }
 
+/// The migration a declaration holds, where it holds that alone: the
+/// declaration an archive writes before any instance lands.
+fn pending_migration(bytes: &[u8]) -> Option<String> {
+    let text = std::str::from_utf8(bytes).ok()?;
+    let declaration = InstanceConfig::parse(text).ok()?;
+    let id = declaration.migration.clone()?;
+    let bare = InstanceConfig {
+        migration: None,
+        ..declaration
+    };
+    (bare == InstanceConfig::default()
+        && crate::domain::instance_config::with_migration("", &id) == text)
+        .then_some(id)
+}
+
 /// One declaration's text, refusing bytes no reader can take.
 ///
 /// A declaration that cannot be read is a refusal, never a default and
 /// never something a flag repairs on the way past: the landing would
 /// otherwise keep the project's bytes and wire the block from something
 /// else, and the two would disagree from the first commit onward.
-fn readable<'a>(path: &Utf8PathBuf, bytes: &'a [u8]) -> Result<&'a str, AppError> {
+fn readable<'a>(
+    path: &Utf8PathBuf,
+    bytes: &'a [u8],
+) -> Result<(&'a str, InstanceConfig), AppError> {
     let text = std::str::from_utf8(bytes).map_err(|source| {
         AppError::Refused(format!(
             "{path} is not UTF-8, so what the gates judge cannot be read: {source}"
         ))
     })?;
-    InstanceConfig::parse(text)
+    let declaration = InstanceConfig::parse(text)
         .map_err(|error| AppError::Refused(format!("{path} does not parse: {error}")))?;
-    Ok(text)
+    Ok((text, declaration))
 }
 
 /// The bytes one payload source carries, from this binary's own sources.
@@ -462,6 +506,7 @@ mod tests {
             docs_scratch: None,
             reserve: Vec::new(),
             writing_style: None,
+            acquisition: None,
             evidence: Evidence::default(),
         }
     }

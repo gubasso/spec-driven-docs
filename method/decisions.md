@@ -102,6 +102,8 @@ Every durable proposal process preserves its log for the same reason: a reader i
 
 Never-revise does not mean never-correct. Fix typos, broken links, and metadata that was wrong when written. Change a status when the status changes. Do not rewrite the body so a later design appears to be the original choice.
 
+A decision record of a previous convention is a migration source, not a record of this instance. A migration may merge the records that share a topic into one new record whose considered options name each old decision, per [Migration](./migration.md), and Git and the archive keep the original bytes. Once a record lands in the instance, the permanence above binds it.
+
 There is no amendment annotation in this framework, and the absence is deliberate. An annotation saying "part of this record no longer holds" exists only where records are asked to describe the present. They are not asked to here. As a result, a reader who wants the present reads the spec, and a record left alone for two years is not stale.
 
 ## A record is not loaded

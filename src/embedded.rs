@@ -7,6 +7,7 @@
 //! instance is the profiles' and installer's business.
 
 use std::collections::BTreeSet;
+use std::path::Path;
 
 use include_dir::{Dir, include_dir};
 
@@ -30,7 +31,7 @@ pub static INSTANCE: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/instance")
 pub static METHOD: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/method");
 /// The cross-agent skills, one `SKILL.md` per directory.
 pub static SKILLS: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/skills");
-/// The artifacts every skill shares, installed once outside the skill roots.
+/// The artifacts every skill shares, materialized into every package.
 pub static SKILL_SHARED: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/skill-shared");
 /// The comparison documents, which a stage carries as reference material.
 pub static COMPARISON_DOCS: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/comparison-docs");
@@ -103,25 +104,125 @@ pub fn skill(name: &str) -> Option<&'static str> {
         .and_then(include_dir::File::contents_utf8)
 }
 
+/// Why a skill package cannot be composed.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum PackageError {
+    /// The payload carries no skill by this name.
+    #[error("the payload carries no skill named {0}")]
+    Unknown(String),
+    /// The skill and the shared source both claim one reference name.
+    #[error(
+        "{skill}: {path} is claimed by the skill and by the shared source; author it once (skill-format:shared-content-is-authored-once)"
+    )]
+    Collision {
+        /// The skill whose package was being composed.
+        skill: String,
+        /// The package-relative path both sources claim.
+        path: String,
+    },
+    /// The skill directory holds a file the package does not carry.
+    #[error(
+        "{skill}: {path} is neither SKILL.md nor a file under references/ (skill-format:a-package-holds-the-manual-and-its-references)"
+    )]
+    Unlisted {
+        /// The skill whose package was being composed.
+        skill: String,
+        /// The skill-relative path outside the package closure.
+        path: String,
+    },
+}
+
 /// Every file of one installed skill package, as `(path relative to the
 /// package root, bytes)`, sorted by path.
 ///
 /// A package is the unit the Agent Skills format and every documented host
 /// resolve against: one directory holding `SKILL.md` and supporting files
-/// beside it. The shared artifacts are authored once under `skill-shared/`
-/// and materialized here into every package, so a fix lands in one file and
+/// beside it. A skill's own reference files are authored in its directory,
+/// and the shared artifacts are authored once under `skill-shared/` and
+/// materialized here into every package, so a fix lands in one file and
 /// reaches every root the installer writes.
-#[must_use]
-pub fn skill_package(name: &str) -> Option<Vec<(String, &'static [u8])>> {
+///
+/// # Errors
+///
+/// [`PackageError::Unknown`] for a name the payload does not carry, and the
+/// composition errors of [`compose_package`].
+pub fn skill_package(name: &str) -> Result<Vec<(String, &'static [u8])>, PackageError> {
+    let dir = SKILLS
+        .get_dir(name)
+        .ok_or_else(|| PackageError::Unknown(name.to_string()))?;
+    compose_package(name, dir, &SKILL_SHARED)
+}
+
+/// Compose one package from a skill directory and the shared source.
+///
+/// The closure is an allowlist: `SKILL.md` and the files directly under the
+/// skill's `references/`, then every shared artifact under `references/`.
+/// A file outside the allowlist, or a reference name both sources claim, is
+/// refused rather than dropped or shadowed, because either would ship a
+/// package that differs from what its author wrote.
+///
+/// # Errors
+///
+/// [`PackageError::Unknown`] where the directory holds no `SKILL.md`,
+/// [`PackageError::Unlisted`] for a file outside the allowlist, and
+/// [`PackageError::Collision`] for a name both sources claim.
+pub fn compose_package(
+    name: &str,
+    skill: &'static Dir<'static>,
+    shared: &'static Dir<'static>,
+) -> Result<Vec<(String, &'static [u8])>, PackageError> {
     use crate::domain::paths::{SKILL_FILE, SKILL_REFERENCES_DIR};
 
-    let manual = SKILLS.get_file(format!("{name}/{SKILL_FILE}"))?;
-    let mut files = vec![(SKILL_FILE.to_string(), manual.contents())];
-    for (path, bytes) in shared_artifacts() {
-        files.push((format!("{SKILL_REFERENCES_DIR}/{path}"), bytes));
+    let mut files = Vec::new();
+    for (relative, bytes) in files_relative_to(skill) {
+        let allowed = relative == SKILL_FILE
+            || relative
+                .strip_prefix(&format!("{SKILL_REFERENCES_DIR}/"))
+                .is_some_and(|file| !file.is_empty() && !file.contains('/'));
+        if !allowed {
+            return Err(PackageError::Unlisted {
+                skill: name.to_string(),
+                path: relative,
+            });
+        }
+        files.push((relative, bytes));
+    }
+    if !files.iter().any(|(path, _)| path == SKILL_FILE) {
+        return Err(PackageError::Unknown(name.to_string()));
+    }
+    for (path, bytes) in files_relative_to(shared) {
+        let relative = format!("{SKILL_REFERENCES_DIR}/{path}");
+        if files.iter().any(|(claimed, _)| *claimed == relative) {
+            return Err(PackageError::Collision {
+                skill: name.to_string(),
+                path: relative,
+            });
+        }
+        files.push((relative, bytes));
     }
     files.sort_by(|left, right| left.0.cmp(&right.0));
-    Some(files)
+    Ok(files)
+}
+
+/// Every file under `dir`, at any depth, by its path relative to `dir`.
+fn files_relative_to(dir: &'static Dir<'static>) -> Vec<(String, &'static [u8])> {
+    fn walk(base: &Path, dir: &'static Dir<'static>, out: &mut Vec<(String, &'static [u8])>) {
+        for file in dir.files() {
+            let relative = file
+                .path()
+                .strip_prefix(base)
+                .unwrap_or_else(|_| file.path());
+            if let Some(relative) = relative.to_str() {
+                out.push((relative.to_string(), file.contents()));
+            }
+        }
+        for sub in dir.dirs() {
+            walk(base, sub, out);
+        }
+    }
+    let mut out = Vec::new();
+    walk(dir.path(), dir, &mut out);
+    out
 }
 
 /// Every artifact the skills share, as `(path under the root, bytes)`,
@@ -132,18 +233,7 @@ pub fn skill_package(name: &str) -> Option<Vec<(String, &'static [u8])>> {
 /// own root.
 #[must_use]
 pub fn shared_artifacts() -> Vec<(String, &'static [u8])> {
-    fn walk(dir: &Dir<'static>, out: &mut Vec<(String, &'static [u8])>) {
-        for file in dir.files() {
-            if let Some(path) = file.path().to_str() {
-                out.push((path.to_string(), file.contents()));
-            }
-        }
-        for sub in dir.dirs() {
-            walk(sub, out);
-        }
-    }
-    let mut out = Vec::new();
-    walk(&SKILL_SHARED, &mut out);
+    let mut out = files_relative_to(&SKILL_SHARED);
     out.sort_by(|a, b| a.0.cmp(&b.0));
     out
 }
@@ -203,6 +293,11 @@ pub fn spec_rule_ids() -> BTreeSet<String> {
         ids.extend(rule_ids_in(text));
     }
     ids
+}
+
+/// The text of every spec this binary carries.
+pub fn spec_texts() -> impl Iterator<Item = &'static str> {
+    SPECS.files().filter_map(include_dir::File::contents_utf8)
 }
 
 /// The requirement addresses one spec document defines.
@@ -284,6 +379,99 @@ mod tests {
         assert!(METHOD.get_file("glossary.md").is_some());
         assert!(METHOD.files().count() >= 15);
         assert!(LICENSE.contains("LICENSE-MIT") && LICENSE.contains("LICENSE-CC-BY-4.0"));
+    }
+
+    use include_dir::{DirEntry, File};
+
+    static SHARED: Dir<'static> = Dir::new(
+        "",
+        &[DirEntry::File(File::new("plan-gate.md", b"shared gate"))],
+    );
+    static OWN_REFERENCE: Dir<'static> = Dir::new(
+        "demo",
+        &[
+            DirEntry::File(File::new("demo/SKILL.md", b"manual")),
+            DirEntry::Dir(Dir::new(
+                "demo/references",
+                &[DirEntry::File(File::new(
+                    "demo/references/land.md",
+                    b"task",
+                ))],
+            )),
+        ],
+    );
+    static CLAIMED_TWICE: Dir<'static> = Dir::new(
+        "demo",
+        &[
+            DirEntry::File(File::new("demo/SKILL.md", b"manual")),
+            DirEntry::Dir(Dir::new(
+                "demo/references",
+                &[DirEntry::File(File::new(
+                    "demo/references/plan-gate.md",
+                    b"a copy",
+                ))],
+            )),
+        ],
+    );
+    static UNLISTED: Dir<'static> = Dir::new(
+        "demo",
+        &[
+            DirEntry::File(File::new("demo/SKILL.md", b"manual")),
+            DirEntry::Dir(Dir::new(
+                "demo/scripts",
+                &[DirEntry::File(File::new("demo/scripts/check.sh", b"echo"))],
+            )),
+        ],
+    );
+
+    /// SATISFIES distribution:a-skill-package-is-self-contained
+    #[test]
+    fn a_skill_reference_lands_beside_the_shared_artifacts() {
+        let package = compose_package("demo", &OWN_REFERENCE, &SHARED).unwrap();
+        let paths: Vec<&str> = package.iter().map(|(path, _)| path.as_str()).collect();
+        assert_eq!(
+            paths,
+            ["SKILL.md", "references/land.md", "references/plan-gate.md"]
+        );
+    }
+
+    /// VERIFIES skill-format:shared-content-is-authored-once
+    #[test]
+    fn a_name_both_sources_claim_fails_the_package() {
+        let error = compose_package("demo", &CLAIMED_TWICE, &SHARED).unwrap_err();
+        assert_eq!(
+            error,
+            PackageError::Collision {
+                skill: "demo".to_string(),
+                path: "references/plan-gate.md".to_string(),
+            }
+        );
+        assert!(
+            error
+                .to_string()
+                .contains("skill-format:shared-content-is-authored-once")
+        );
+    }
+
+    /// VERIFIES skill-format:a-package-holds-the-manual-and-its-references
+    #[test]
+    fn a_file_outside_the_allowlist_fails_the_package() {
+        let error = compose_package("demo", &UNLISTED, &SHARED).unwrap_err();
+        assert_eq!(
+            error,
+            PackageError::Unlisted {
+                skill: "demo".to_string(),
+                path: "scripts/check.sh".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn a_name_the_payload_lacks_is_unknown() {
+        assert_eq!(
+            skill_package("no-such-skill"),
+            Err(PackageError::Unknown("no-such-skill".to_string()))
+        );
     }
 
     #[test]

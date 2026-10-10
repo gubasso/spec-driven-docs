@@ -641,6 +641,7 @@ mod tests {
             docs_scratch: None,
             reserve: Vec::new(),
             writing_style: None,
+            acquisition: None,
             evidence: Evidence::default(),
         })
         .unwrap()

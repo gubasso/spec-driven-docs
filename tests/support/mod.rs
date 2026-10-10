@@ -32,6 +32,28 @@ pub const RELOCATING_VARS: [&str; 3] = ["CLAUDE_CONFIG_DIR", "XDG_STATE_HOME", "
 /// absent. A test that means the read sets the variable back.
 pub const OFFLINE: (&str, &str) = ("SDD_OFFLINE", "1");
 
+/// A `git` invocation that acts on `dir` alone, with no inherited
+/// configuration.
+///
+/// Every `GIT_*` variable is dropped. A pre-commit hook exports `GIT_DIR`
+/// and `GIT_INDEX_FILE`, and a test that kept them would run `git init` or
+/// `git add` against the repository being committed instead of its own
+/// scratch directory.
+pub fn git(dir: &Path) -> std::process::Command {
+    let mut command = std::process::Command::new("git");
+    for (name, _) in std::env::vars_os() {
+        if name.to_string_lossy().starts_with("GIT_") {
+            command.env_remove(name);
+        }
+    }
+    command
+        .env("GIT_CONFIG_NOSYSTEM", "1")
+        .env("GIT_CONFIG_GLOBAL", "/dev/null")
+        .args(["-c", "user.name=t", "-c", "user.email=t@t"])
+        .current_dir(dir);
+    command
+}
+
 /// One scratch target repository, with its own user-scope roots.
 pub struct Fixture {
     dir: tempfile::TempDir,

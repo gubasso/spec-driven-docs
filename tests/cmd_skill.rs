@@ -64,9 +64,7 @@ fn show_prints_the_frontmatter_and_body() {
         .assert()
         .success()
         .stdout(predicate::str::contains("name: sdd-setup"))
-        .stdout(predicate::str::contains(
-            "## 2. Acquire the version, then stage it",
-        ));
+        .stdout(predicate::str::contains("## Pre-flight"));
 }
 
 #[test]
@@ -118,6 +116,39 @@ fn install_apply_writes_both_roots_for_all_agents() {
         home.read(".claude/skills/sdd-setup/SKILL.md"),
         home.read(".agents/skills/sdd-setup/SKILL.md")
     );
+}
+
+/// VERIFIES distribution:a-skill-package-is-self-contained
+///
+/// Read from the authored tree rather than from the payload, so what an
+/// author wrote is held against what the install landed.
+#[test]
+fn install_lands_each_skill_reference_beside_the_shared_gates() {
+    let home = Home::new();
+    home.cmd()
+        .args(["skill", "install", "--apply"])
+        .assert()
+        .success();
+    let canon = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    for root in [".agents/skills", ".claude/skills"] {
+        for name in spec_driven_docs::embedded::skill_names() {
+            let landed = home.path().join(root).join(name).join("references");
+            let mut authored = vec![canon.join("skill-shared")];
+            authored.push(canon.join("skills").join(name).join("references"));
+            for source in authored.iter().filter(|dir| dir.is_dir()) {
+                for entry in std::fs::read_dir(source).unwrap() {
+                    let entry = entry.unwrap();
+                    let destination = landed.join(entry.file_name());
+                    assert_eq!(
+                        std::fs::read(&destination).ok(),
+                        Some(std::fs::read(entry.path()).unwrap()),
+                        "{} did not land as authored",
+                        destination.display()
+                    );
+                }
+            }
+        }
+    }
 }
 
 #[test]

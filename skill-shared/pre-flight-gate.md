@@ -13,13 +13,13 @@ Run this once per task, and run it whatever the request carries. No flag skips i
    - `skill-payload` failed: the installed skills and the `sdd` on PATH are different builds, so a skill can cite a verb this binary does not answer. Say which is newer if you can tell, and run its `next` line before planning.
    - `skill-roots` failed: a destination `sdd skill install` writes refuses writes, for example a read-only home directory, or one shared into a container or sandbox. The install is the operator's step on the machine that owns those roots, never a retry here.
 4. Take each failed `soft` probe as a constraint on the plan, not a blocker. Name the step that needs it: the delivered gates close every task through the hook runner, and retiring a document in a sweep is safe only where version control restores it. Either gate its install for the operator or plan without the step and say what goes unverified.
-5. Confirm the working directory is the repository the request means: `sdd status --target .` reports whether an instance is landed there and at which version. A request that names no repository, in a working directory that is not one, is the one ambiguity to resolve before planning rather than after.
-6. Hand the findings back and route nothing. This gate classifies no target, loads no skill, and invokes no planning verb. It returns the status report, or the structured diagnostic where the record or declaration cannot be read, the derived paths where the report carries them, and the host evidence above. A metadata error does not end routing and is never rewritten as an absent instance: the skill requests one plan, which carries that evidence and blocks on it.
+5. Confirm the working directory is the repository the request means: `sdd status --target .` reports whether an instance is landed there and at which version, and `git rev-parse --show-toplevel` answers where no `sdd` runs. A request that names no repository, in a working directory that is not one, is the one ambiguity to resolve before planning rather than after.
+6. Hand the findings back and route nothing. This gate classifies no target, loads no skill, and invokes no planning verb. Run `sdd status --target . --json` and return the report, or the structured diagnostic where the record or declaration cannot be read, the derived paths where the report carries them, and the host evidence above. Judge nothing in the report or the diagnostic: the skill decides what each one means, and a metadata error is never rewritten as an absent instance.
 
-## What it hands to the plan
+## What it hands back
 
-Report what the probes returned, never that the check passed. The findings are inputs to the plan the next gate binds: a failed hard probe is why there is no plan yet. A failed soft probe is a gated operator step or a stated gap in coverage, and a clean run is one line.
+Report what the probes returned, never that the check passed. The findings are inputs to the skill's plan: a failed hard probe is why there is no plan yet. A failed soft probe is a gated operator step or a stated gap in coverage, and a clean run is one line.
 
-Where `sdd doctor` itself does not run because there is no `sdd` on PATH, that is the whole finding: state it, name `cargo install spec-driven-docs` or `cargo binstall spec-driven-docs`, and stop. Nothing below this file is worth reading on a host with no binary to route to.
+Where there is no `sdd` on PATH, `sdd doctor` and `sdd status` cannot run. Report that fact as the finding and skip the steps that need the binary. The skill decides what a missing binary means.
 
-Then read `references/plan-gate.md`, beside this file, and hold it for the rest of the task.
+Then hand control back to the skill, which names when its plan begins.

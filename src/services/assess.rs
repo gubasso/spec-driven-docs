@@ -128,6 +128,17 @@ fn docs_scratch(target: &Utf8Path, named: Option<Utf8PathBuf>) -> Utf8PathBuf {
         .unwrap_or_else(|| Utf8PathBuf::from(DOCS_SCRATCH_CANDIDATE))
 }
 
+/// The docs scratch the walk prunes, relative to `target`, where it sits
+/// inside it.
+pub(crate) fn scratch_within(target: &Utf8Path, named: Option<Utf8PathBuf>) -> Option<Utf8PathBuf> {
+    let scratch = normalized(&target.join(docs_scratch(target, named)));
+    scratch
+        .strip_prefix(normalized(target))
+        .ok()
+        .filter(|relative| !relative.as_str().is_empty())
+        .map(Utf8Path::to_path_buf)
+}
+
 /// Assess `target`, reading and never writing.
 ///
 /// # Errors
@@ -169,6 +180,73 @@ pub fn assess_with(
         Err(error) => return Err(AppError::Io(error)),
     }
     let instance = status(target)?;
+    let corpus = corpus(target, named)?;
+    let collisions = collisions(target, &crate::domain::profile::DECLARATION)?;
+    let docs_scratch_present = target.join(&corpus.scratch).is_dir();
+    let classification = corpus.verdict();
+    let paths = corpus.documents;
+
+    Ok(AssessReport {
+        schema: "sdd.assess/2",
+        target: target.to_owned(),
+        classification,
+        instance,
+        doc_roots: corpus.doc_roots,
+        populated_doc_roots: corpus.populated_doc_roots,
+        documents: Documents {
+            count: paths.len(),
+            paths,
+        },
+        methodology_markers: corpus.methodology_markers,
+        collisions,
+        docs_scratch: corpus.scratch,
+        docs_scratch_present,
+    })
+}
+
+/// The evidence the verdict reads, and nothing about the instance.
+pub(crate) struct CorpusEvidence {
+    /// Documentation roots found at the target's top level.
+    pub(crate) doc_roots: Vec<String>,
+    /// The documentation roots holding any entry at all.
+    pub(crate) populated_doc_roots: Vec<String>,
+    /// Every document path, relative to the target, sorted.
+    pub(crate) documents: Vec<Utf8PathBuf>,
+    /// Methodology markers found, as target-relative paths.
+    pub(crate) methodology_markers: Vec<String>,
+    /// Where the docs scratch resolved to.
+    pub(crate) scratch: Utf8PathBuf,
+}
+
+impl CorpusEvidence {
+    /// The one rule that turns the evidence into a verdict.
+    ///
+    /// A populated documentation root is a corpus whatever format it uses:
+    /// a tree of .adoc or .rst files under docs/ is exactly as settled as
+    /// one of markdown, and a verdict that missed it would land seeds
+    /// beside it. Documents beyond root metadata with no such home are the
+    /// operator's to place.
+    pub(crate) fn verdict(&self) -> Classification {
+        if !self.populated_doc_roots.is_empty() || !self.methodology_markers.is_empty() {
+            Classification::Brownfield
+        } else if self.documents.iter().any(|path| !is_root_metadata(path)) {
+            Classification::NeedsDecision
+        } else {
+            Classification::Greenfield
+        }
+    }
+}
+
+/// Read the corpus evidence of `target`, with the docs-scratch variable's
+/// value supplied.
+///
+/// # Errors
+///
+/// [`AppError::Io`] for metadata failures and walk errors.
+pub(crate) fn corpus(
+    target: &Utf8Path,
+    named: Option<Utf8PathBuf>,
+) -> Result<CorpusEvidence, AppError> {
     // `is_dir` follows a link and reads false through a broken one, so a
     // symlink is recognized on its own: a root the project points
     // elsewhere is evidence whether or not the destination resolves.
@@ -182,46 +260,21 @@ pub fn assess_with(
         .collect();
     let scratch = docs_scratch(target, named);
     let walked = walk(target, &scratch)?;
-    let paths = walked.documents;
     let methodology_markers = markers(target, &doc_roots)?;
-    let collisions = collisions(target, &crate::domain::profile::DECLARATION)?;
-    let docs_scratch_present = target.join(&scratch).is_dir();
-
-    // A populated documentation root is a corpus whatever format it uses:
-    // a tree of .adoc or .rst files under docs/ is exactly as settled as
-    // one of markdown, and a verdict that missed it would land seeds
-    // beside it. A root that is itself a symlink is evidence the same way,
-    // without being followed: the walk does not traverse links, so the
-    // link's presence is what there is to read.
+    // A root that is itself a symlink is evidence without being followed:
+    // the walk does not traverse links, so the link's presence is what
+    // there is to read.
     let populated_doc_roots: Vec<String> = doc_roots
         .iter()
         .filter(|root| walked.populated_roots.contains(*root) || target.join(root).is_symlink())
         .cloned()
         .collect();
-    let beyond_metadata = paths.iter().any(|path| !is_root_metadata(path));
-    let classification = if !populated_doc_roots.is_empty() || !methodology_markers.is_empty() {
-        Classification::Brownfield
-    } else if beyond_metadata {
-        Classification::NeedsDecision
-    } else {
-        Classification::Greenfield
-    };
-
-    Ok(AssessReport {
-        schema: "sdd.assess/2",
-        target: target.to_owned(),
-        classification,
-        instance,
+    Ok(CorpusEvidence {
         doc_roots,
         populated_doc_roots,
-        documents: Documents {
-            count: paths.len(),
-            paths,
-        },
+        documents: walked.documents,
         methodology_markers,
-        collisions,
-        docs_scratch: scratch,
-        docs_scratch_present,
+        scratch,
     })
 }
 
@@ -321,7 +374,7 @@ fn walk(target: &Utf8Path, scratch: &Utf8Path) -> Result<Walked, AppError> {
 }
 
 /// Whether `path` is root-level project metadata rather than a corpus.
-fn is_root_metadata(path: &Utf8Path) -> bool {
+pub(crate) fn is_root_metadata(path: &Utf8Path) -> bool {
     if path
         .parent()
         .is_some_and(|parent| !parent.as_str().is_empty())
@@ -336,6 +389,24 @@ fn is_root_metadata(path: &Utf8Path) -> bool {
     // metadata prefix, and an allowlist that took every dotted suffix
     // would classify it away.
     ROOT_METADATA.iter().any(|metadata| stem == *metadata)
+}
+
+/// Whether a repository-relative path is a document the walk would count:
+/// a file with a document extension, under no pruned directory and outside
+/// the instance's own tree.
+pub(crate) fn is_document_path(path: &Utf8Path) -> bool {
+    let pruned = path.parent().is_some_and(|parent| {
+        parent.components().any(|part| {
+            PRUNED_DIRS.contains(&part.as_str())
+                || part.as_str() == crate::domain::paths::INSTANCE_DIR
+        })
+    });
+    !pruned
+        && path.extension().is_some_and(|extension| {
+            DOC_EXTENSIONS
+                .iter()
+                .any(|known| extension.eq_ignore_ascii_case(known))
+        })
 }
 
 /// Whether an entry sits at `path`, broken symlinks included.

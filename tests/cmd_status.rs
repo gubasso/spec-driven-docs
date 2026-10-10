@@ -111,9 +111,121 @@ fn text_mode_prints_a_summary() {
 }
 
 #[test]
-fn status_json_declares_sdd_status_schema_two() {
+fn status_json_declares_sdd_status_schema_four() {
     let fixture = Fixture::new();
-    assert_eq!(status_json(&fixture)["schema"], "sdd.status/3");
+    assert_eq!(status_json(&fixture)["schema"], "sdd.status/5");
+}
+
+/// Rewrite the recorded canon version, leaving every other byte.
+fn record_version(fixture: &Fixture, version: &str) {
+    let path = ".spec-driven-docs/manifest.json";
+    let mut record: serde_json::Value = serde_json::from_str(&fixture.read(path)).unwrap();
+    record["canon_version"] = serde_json::Value::String(version.to_string());
+    fixture.write(path, &serde_json::to_string_pretty(&record).unwrap());
+}
+
+/// VERIFIES distribution:a-landing-classifies-its-target-first
+#[test]
+fn status_reports_each_of_the_seven_classifications() {
+    let classification = |fixture: &Fixture| status_json(fixture)["classification"].clone();
+
+    let setup = Fixture::new();
+    setup.write("README.md", "# Project\n");
+    assert_eq!(classification(&setup), "setup");
+
+    let migration = Fixture::new();
+    migration.write("docs/architecture.md", "# Architecture\n");
+    assert_eq!(classification(&migration), "migration");
+
+    let scattered = Fixture::new();
+    scattered.write("notes/design.md", "# Design\n");
+    assert_eq!(classification(&scattered), "needs-decision");
+
+    // Notes in the docs scratch are nobody's corpus, so the target is a
+    // first landing and a landing proceeds.
+    let scratch = Fixture::new();
+    scratch.write(".docs-scratch/notes.md", "# Notes\n");
+    assert_eq!(classification(&scratch), "setup");
+    scratch.install("knowledge-base");
+
+    let upgrade = Fixture::new();
+    upgrade.install("knowledge-base");
+    record_version(&upgrade, "0.1.0");
+    assert_eq!(classification(&upgrade), "upgrade");
+
+    let drift = Fixture::new();
+    drift.install("knowledge-base");
+    drift.write("_docs/.markdownlint-cli2.jsonc", "// edited\n");
+    assert_eq!(classification(&drift), "drift");
+
+    // An older binary cannot judge a newer record, so it names no class.
+    let newer = Fixture::new();
+    newer.install("knowledge-base");
+    record_version(&newer, "99.0.0");
+    let report = status_json(&newer);
+    assert_eq!(report["alignment"], "instance-newer");
+    assert_eq!(report["classification"], serde_json::Value::Null);
+
+    let current = Fixture::new();
+    current.install("knowledge-base");
+    let report = status_json(&current);
+    assert_eq!(report["classification"], "current");
+    assert_eq!(report["invalid"], serde_json::Value::Null);
+
+    let invalid = Fixture::new();
+    invalid.install("knowledge-base");
+    invalid.write(".spec-driven-docs/config.yaml", "reserved: [\n");
+    let report = status_json(&invalid);
+    assert_eq!(report["classification"], "invalid");
+    assert!(
+        report["invalid"].as_str().unwrap().contains("config.yaml"),
+        "{report}"
+    );
+}
+
+/// A record nobody can parse is a diagnostic, never a report, so a skill
+/// stops before it reads a classification at all.
+#[test]
+fn a_corrupt_manifest_is_a_diagnostic_and_carries_no_classification() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    fixture.write(".spec-driven-docs/manifest.json", "{\"schema_version\":");
+    fixture
+        .cmd()
+        .args(["status", "--target", &fixture.target(), "--json"])
+        .assert()
+        .code(65)
+        .stdout(predicate::str::is_empty());
+}
+
+/// VERIFIES setup:status-reports-what-an-older-release-left
+#[test]
+fn status_names_the_state_an_older_release_left_and_reads_none_of_it() {
+    let fixture = Fixture::new();
+    let store = fixture
+        .state_root()
+        .join("spec-driven-docs/plans/plans/abc");
+    std::fs::create_dir_all(&store).unwrap();
+    std::fs::write(store.join("plan.json"), "{}").unwrap();
+    let report = status_json(&fixture);
+    let legacy = report["legacy_state"].as_array().unwrap();
+    assert_eq!(legacy.len(), 1, "{legacy:?}");
+    assert_eq!(legacy[0]["kind"], "plan-store");
+    assert_eq!(legacy[0]["active"], true, "an unfinished plan still binds");
+    assert!(
+        legacy[0]["path"]
+            .as_str()
+            .unwrap()
+            .ends_with("spec-driven-docs/plans"),
+        "{legacy:?}"
+    );
+    assert_eq!(
+        std::fs::read_to_string(store.join("plan.json")).unwrap(),
+        "{}"
+    );
+
+    let clean = Fixture::new();
+    assert_eq!(status_json(&clean)["legacy_state"], serde_json::json!([]));
 }
 
 #[test]

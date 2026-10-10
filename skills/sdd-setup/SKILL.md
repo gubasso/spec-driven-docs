@@ -1,156 +1,119 @@
 ---
 name: sdd-setup
-description: Lands, migrates, and keeps current a spec-driven-docs instance through the sdd CLI. Use when asked to install or set up spec-driven docs in a project that documents nothing, to migrate a project that already documents itself onto the convention, to take a landed instance to a chosen release, or to diagnose drift and sdd verify failures. Triggers include spec-driven-docs, sdd init, sdd stage, sdd status, sdd verify, sdd upgrade, migrate to sdd, adopt spec-driven docs, convert docs conventions, and docs governance instance.
+description: Lands, migrates, upgrades, repairs, and tunes a spec-driven-docs instance through the sdd CLI, and provisions the sdd binary it runs on. Use when asked to install or set up spec-driven docs in a project that documents nothing, to migrate a project that already documents itself onto the convention, to take a landed instance to the installed release, to diagnose drift and sdd verify failures, to change what the gates judge or the lint configuration, or to install or pin sdd for a project. Triggers include spec-driven-docs, sdd init, sdd stage, sdd status, sdd verify, sdd upgrade, migrate to sdd, adopt spec-driven docs, convert docs conventions, docs governance instance, reserve a path from the gates, and pin sdd.
 license: CC-BY-4.0
-compatibility: Requires the sdd binary on PATH; install with cargo install spec-driven-docs or cargo binstall spec-driven-docs. Requires pre-commit, which runs the delivered gates the landing wires into the project's hook configuration. Every sdd verb runs offline and lands the version of sdd that is installed.
+compatibility: Requires pre-commit, which runs the delivered gates the landing wires into the project's hook configuration. Provisions the sdd binary where the host lacks it. Every sdd verb runs offline and lands the version of sdd that is installed.
 ---
 
 # sdd-setup
 
-One route for every arrival and every stay-current task. The installed binary renders its own candidate, the agent compares it against the target and prepares what the project owns, and the operator authorizes the landing. This skill routes: it names the chapter each answer lives in and restates none of it.
+Set up, migrate, upgrade, repair, and tune a spec-driven-docs instance, and provision the `sdd` it runs on. The state of the target decides which tasks are possible, the request picks among them, and the operator confirms each task before it runs.
 
-## Before acting
+## Pre-flight
 
-Read two files from this skill's own directory before the first action of a task, in this order, and hold both for the whole task. Each path is relative to the directory this `SKILL.md` sits in.
+1. Before any other action, read `references/pre-flight-gate.md` and run it whatever the request carries. No flag skips it.
+2. Stop on any row below. State the evidence and the operator's step, and write nothing. The evidence comes from `sdd status --target . --json` unless the row names another source.
 
-1. `references/pre-flight-gate.md`: run it whatever the request carries. It checks this host with `sdd doctor` and stops the task on what no plan can work around. No flag skips it.
-2. `references/plan-gate.md`: it binds three phases: plan and present the plan for approval, validate that plan against every preview and read-only source phase 2 names, then execute it.
+| Stop                                   | Owner       | Evidence                                       | Operator's step          |
+| -------------------------------------- | ----------- | ---------------------------------------------- | ------------------------ |
+| A failed `hard` probe                  | shared gate | `sdd doctor`                                   | its `next` line          |
+| Skills and `sdd` from different builds | shared gate | the `skill-payload` probe                      | its `next` line          |
+| No repository, or not the one meant    | shared gate | the report, or `git rev-parse --show-toplevel` | name the repository      |
+| An unreadable record or declaration    | this skill  | a diagnostic, or `classification` `invalid`    | repair the file it names |
 
-The two gates are why this skill is safe to run unattended: every verb below writes files into a repository or under the user's home, and a sweep rewrites and retires files the project authored. The pre-flight says whether this host can run those verbs at all, and the plan gate states which steps stay the operator's own.
+An unreadable record never counts as an absent one, so never land seeds over it.
 
-When the request carries `--no-plan`, skip the plan gate's approval turn only. Still run the pre-flight, still state the ordered plan before acting, and still validate it as phase 2 directs.
+1. Hold these observations for the gate. None of them ends the run. Read `alignment` before `classification`, because an instance newer than the binary reads `classification` `null`.
 
-## Route
+| Observation                                            | Evidence                                   | Routes to                               |
+| ------------------------------------------------------ | ------------------------------------------ | --------------------------------------- |
+| No `sdd` on PATH                                       | `command -v sdd`, by hand                  | `provision`, then this pre-flight again |
+| An instance newer than the binary                      | `alignment` `instance-newer`               | `provision`                             |
+| No pin and no host decision, at `setup` or `migration` | `sdd self-depend status --target . --json` | `provision`, offered first              |
+| The state of the target                                | `classification`                           | the gate                                |
 
-| Question                                | Where it is answered                |
-| --------------------------------------- | ----------------------------------- |
-| What is this target, and what would run | the plan, step 2                    |
-| Landing a target that documents nothing | `sdd docs migration`                |
-| Moving a corpus already written down    | `sdd docs migration`                |
-| Upgrading, drift, or a current instance | `sdd docs reconcile`                |
-| Comparing a candidate against a target  | `sdd docs stage`                    |
-| Where a fact belongs                    | `sdd docs placement`                |
-| A failing gate, by its rule ID          | `sdd spec <domain>`                 |
-| Anything this table does not answer     | `sdd docs`, then `sdd docs <topic>` |
+1. Hand the gate the status report, its `paths`, each failed `soft` probe as a plan constraint, and the `self-depend` report. The gate reads nothing else.
 
-Read a chapter with `sdd docs <topic>` or its shelf verb. Never copy one here: a chapter restated in a skill is a chapter that drifts at the first edit.
+## General rules
 
-## 1. Observe
+1. Route, never restate. Find an answer with `sdd docs <topic>`, a rule with `sdd spec <domain>`, and the home of a fact with `sdd docs placement`. Never copy a chapter into this skill or into a plan.
+2. Take every path from the `paths` section of `sdd status --target . --json`. Never spell a path by hand.
+3. Decide from the `--json` output of a verb, never from its human text.
+4. Leave managed bytes to the canon: never edit a managed file or the inside of a marker block, the agents block included. `sdd init` manages this block, which routes an author to `sdd method writing-style` or the selected source.
+5. Keep one instance at the repository root. An instance carries no skill file, because `sdd skill install` puts the skills under the user's home.
+6. Let the repository record how it obtains `sdd`. The `provision` task proposes the method, the operator picks it, and every install is a gated step. What lands is the `sdd` the recorded method provides.
+7. Keep no state of your own. The target repository, the stage receipt, and Git are the records, and a later run reads the state from `sdd status --target . --json`. The one exception is a migration, which spans many runs: its workspace keeps the archived sources and the registry, and `sdd migrate status` reads them.
 
-The pre-flight gate already ran `sdd status --target . --json`. Hold what it returned, including any invalid-instance diagnostic. It is routing evidence, not a verdict: the planner re-observes the same target, and a record nobody can read is not an absent one. The report's `paths` section is where every path this skill needs comes from, so nothing below spells one. `paths.user` carries the roots under the user's home with the variable that moved each. `paths.active` is the landed instance, or `null`. `paths.candidates` carries one destination set per profile, and `paths.proposals` what this target offers for the docs scratch. Every entry names its source.
+## Gate
 
-## 2. Acquire the version, then stage it
+Read the state from `classification`, never from the request, and the intent from the request. A cell is one ordered task list, and its tasks share one plan and one approval.
 
-Acquisition is the operator's. No `sdd` verb resolves, fetches, or installs another release, so what lands is the version on `PATH`, and installing another one is a gated step the operator runs. Before updating from a release that stored plans, use the still-installed old binary to finish or abandon any active work, and record what stays behind as local evidence: the new binary carries no parser for it.
+| State            | set up or none | upgrade   | fix       | gates or lint                | env       |
+| ---------------- | -------------- | --------- | --------- | ---------------------------- | --------- |
+| `setup`          | `land`         | ask       | ask       | `land`                       | `land`    |
+| `migration`      | `migrate`      | ask       | ask       | `migrate`                    | `migrate` |
+| `needs-decision` | ask            | ask       | ask       | ask                          | ask       |
+| `upgrade`        | `upgrade`      | `upgrade` | `upgrade` | `upgrade`, then `tune-gates` | no task   |
+| `drift`          | `repair`       | `repair`  | `repair`  | `repair`, then `tune-gates`  | no task   |
+| `current`        | done           | done      | done      | `tune-gates`                 | no task   |
 
-```bash
-sdd stage --target . --json
+- Put `provision` first where an observation routes to it. With no `sdd`, it is the only task. After it, run the pre-flight again and read this table in the same run. A host answer that `provision` holds for the Stage step settles the pin row for this run.
+- Run `tune-gates` only on an instance at the binary's version, which is why `upgrade` and `repair` come first in their cells.
+- Send "no task" straight to the post-flight, whose environment step does the work.
+- Ask: state the evidence and the options, wait, then read this table again with no new pre-flight. For `needs-decision`, the operator names the home of the documentation.
+- Hand off: a gate failure inside a document goes to the `sdd-write-docs` skill.
+- Done: report from observation. For an upgrade asked at `current`, state that the instance matches the installed `sdd`, and that moving the pin is a request that runs `provision`, then `upgrade`.
+
+The operator confirms every step:
+
+1. Present "State: <state>. Request: <intent>. Tasks: <list>. Proceed?" and wait. A redirect reads this table again with the new intent. Where the cell holds `migrate` and no migration is open, warn once with it: the repository holds no documentation between the archive and the close, and where that work happens is the operator's choice.
+2. Judge each item of the request against the state and the rules. An item that fits becomes a plan constraint. An item that does not fit the state gets the evidence and the task that fits, then a question. An item that breaks a rule gets the rule ID, then a question.
+3. Before each task, print "Next: <task>. It will <one line>. Proceed?" and wait. Print one progress line at each move between the pre-flight, the execution, and the post-flight of a task.
+4. After the task pre-flights of the cell, read `references/plan-gate.md` and hold it for the rest of the run. The plan names each task, the verbs it runs, and the files it writes, and it covers every task execution and post-flight.
+
+## Tasks
+
+After the gate picks a task, read its file into this context. A task file holds the pre-flight, the execution, and the post-flight of one task, and it links no other task file.
+
+- If the run includes `provision`, read `references/provision.md`.
+- If the run includes `land`, read `references/land.md`.
+- If the run includes `migrate`, read `references/migrate.md`.
+- If the run includes `upgrade`, read `references/upgrade.md`.
+- If the run includes `repair`, read `references/repair.md`.
+- If the run includes `tune-gates`, `land`, or `migrate`, read `references/tune-gates.md`.
+- If the run includes `land`, `migrate`, `upgrade`, or `repair`, read `references/landing.md`, the pipeline those four share.
+
+Compose them this way:
+
+- `land`, `migrate`, `upgrade`, and `repair` run their task pre-flight, then Stage, Compare, Prepare, Land, and Prove from the pipeline, then their task post-flight.
+- `land` and `migrate` run the `tune-gates` pre-flight before the Stage step. Its reserved paths join the choices of the Stage step, its lint edits run in the Prepare step, and its proof runs after the Land step. It writes nothing where it finds nothing and the operator reserves nothing.
+- After `upgrade` or `repair`, and on its own, `tune-gates` runs whole, after the landing.
+
+## Post-flight
+
+Run these once, after the last task post-flight, in this order.
+
+1. Env. Run `sdd env --target . --apply <item>` for each item the operator approved in the plan, with `--value <path>` for `docs-scratch-variable`, and skip this step where none was. Where the run landed or moved an instance, or the request asked for it, the plan read `sdd env --target . --json` and asked about each unwired item.
+2. Check. Run `sdd verify --target .`, then `pre-commit run --all-files`. Where the pre-flight found no `pre-commit`, skip the second command and state in the report that the gates did not run.
+3. Clean. Where this run staged and every check passed, print `sdd stage clean <path>`, wait, and run it on a yes. It removes the stage alone. Saved copies and a migration workspace stay, and the report lists each path.
+4. Report. Fill the template from observation, with every answer the operator gave.
+
+On a failed check, keep the stage, report, and route. A rule ID inside a document goes to the `sdd-write-docs` skill. Drift or a managed conflict goes to a new run, whose gate picks `repair`. Never repair inside the post-flight.
+
+```text
+Result: <the exact sdd verify line, or the first failing line>
+Tasks:
+  - <task>: <files written or removed>; proof: <task post-flight evidence>
+Answers recorded:
+  - <question>: <answer>
+Git actions:
+  - <action>: <run, under <the workflow term> | printed for the operator>
+Saved before changing:
+  - <path>: <what it holds>
+Still the operator's:
+  - <exact command>: <what it changes>
+Stage: <cleaned | kept at <path>, because <reason>>
+Next: <one action>
 ```
 
-The stage writes nothing into the target. It holds every destination the candidate would land under `artifacts/`, this version's own method, specs, templates and skills under `reference/`, and a receipt naming what it rendered. Keep it for the whole task.
-
-## 3. Compare and prepare
-
-Read the target's tree, its record, the Git history of what the candidate would touch, the stage, and only the topics the work needs. Then classify each destination by its provenance: the record and the history agreeing is attribution, and a landing refreshes it; one of the two missing is reduced confidence, presented to the operator; neither is bounded best effort, said plainly and never converted into an automatic overwrite. Prepare what the project owns now, while nothing is written: its documents, its declaration entries, the ignore lines the scratch needs. A landing refuses before its first write when a destination holds bytes no record accounts for, and this step is what prevents that.
-
-## 4. Land
-
-Present the ordered verbs, the destinations each writes, and the steps that stay the operator's. Then run the landing as a gated step.
-
-```bash
-sdd init --target . --profile <profile> --apply
-sdd upgrade --target .
-```
-
-`sdd init` serves a first landing and `sdd upgrade` an installed instance; each refuses the classification it does not serve and names what does. Both render the candidate afresh, so no staged byte reaches production. A landing that stops partway names the destinations holding candidate bytes; run it again rather than repairing by hand.
-
-## 5. Verify, then clean
-
-Compare the real diff against the stage, destination by destination. Then run the project's checks and `sdd verify --target .`, which prints `OK spec-driven-docs <version>`. Report every step from observation. The stage is still there, which is the point: a failure is diagnosed against it rather than against memory. Removing it is the last gated step, and only with the operator's explicit authority:
-
-```bash
-sdd stage clean <path>
-```
-
-Inactive state an older release left is shown with the evidence that no operation is still active, and removed only by exact path under that same authority.
-
-## A setup or migration classification
-
-Load `sdd docs migration`. It owns the classification, the inventory, the loop, and the close, and every step below is one of its sections.
-
-With a sweep, author the migration checklist into the location the operator names, in the shape the chapter's inventory section gives, and drive the chapter's loop. A read-only sweep of every populated documentation root completes the inventory before the checklist freezes, covering files of any extension, wiki exports, README files, and contributor guides. With an incremental scope, land the instance, record the inherited budget violations with `sdd debt baseline --apply`, and close the task naming the two standing rules: recorded debt tightens as a document shrinks, and prose converts the next time somebody edits it. Author no checklist, because nothing retires.
-
-A numbered document, `01-intro.md` or `ADR-0007-thing.md`, is renamed to a slug drawn from its subject inside the migration, never as a follow-up. The rename repairs every inbound link in the same change. Where the corpus has a reading order, that order moves into the directory's `README.md` as prose before the numbers come off.
-
-## An upgrade, drift, or current classification
-
-Load `sdd docs reconcile`. It owns the three reconciliations, and none of them is a single verb. Managed drift blocks the plan and carries the three-way comparison to present. Adopted drift is kept and its baseline moves, which is the ownership working. A retired rule ID is re-pointed by the operator, and the citation gate fails until it is. Install the newer `sdd` before landing a newer release, because the binary lands only itself. An instance ahead of this binary stops the task: no verb here is safe from an older engine.
-
-## An invalid classification
-
-A record or declaration nobody can read is a stop. `sdd status --target . --json` carries the evidence, nothing is written, and the operator resolves it. Never rewrite an unreadable record as an absent one, and never land seeds over it.
-
-## Wire agent context
-
-`sdd init` manages this for you, and so does an upgrade. The landing writes a marker-delimited documentation block into the root agent digest `paths.active.destinations.agents_digest` names and records it as an integration block, creating the file when absent. The block routes an agent to the affected specs and to the selected writing source, `sdd method writing-style` by default, before the agent authors or edits prose. Every byte outside the markers is your own. Do not hand-copy the block: an edit inside the markers is a conflict the next plan refuses, and an edit outside them survives.
-
-## Declare what the gates judge
-
-The declaration `paths.active.destinations.declaration` names states which paths no delivered gate judges and which filters a named gate takes. The landing writes it once and never again, so it is the project's from the moment it lands. `reserved:` lists paths no gate judges, for a region another tool renders or hashes. `gates:` names a gate and gives it `include` or `exclude` globs, and a gate absent there takes its registry default. `reserved:` covers the gates `sdd` delivers, not the Markdown linter, whose scope lives in its own `ignores`.
-
-Four layers compose, highest last: the registry default, the `gates:` entry, a `--include` or `--exclude` flag, then `reserved:`. Every `exclude` layer extends. A `gates:` `include` replaces the registry default rather than adding to it, because extending a whitelist could only widen what the gate judges.
-
-Edit the file, then run `sdd hooks --apply`, which renders the managed block from the declaration. `sdd verify` fails and names the gate whose wiring disagrees. `sdd gate --explain <PATH>` names the pattern and layer behind each answer, and it is the first thing to run after a surprising result. Ask the operator whether another tool owns a region of any file before the landing, because that is the case reservations exist for.
-
-## Compose the lint configuration
-
-1. Read every location below from `lint_discovery` in the destination set of the profile being landed, under `paths.candidates` or `paths.active`, and gate each edit for the operator. Before the landing, where a file `refused_at_docs_root` lists exists, or a `.markdownlint.*` or `.markdownlint-cli2.*` file sits at any depth beneath a directory `refused_beneath` lists, propose folding it into the root CLI2 configuration and cite `instance:the-lint-configuration-composes`. Count configuration links by their own names, including dangling links. Where verification names a linked documentation root or scan root, propose replacing the link with the directory, then check the configuration beneath it. A configuration at the repository root is not one of these cases, so propose no move for it.
-2. Where the landing notes that the root seed was not seeded, inspect every file of both families `repository_root` lists before proposing an edit. `customRules` belongs to the `.markdownlint-cli2.*` family and a `.markdownlint.*` file holds rule configuration alone, as the [pinned upstream configuration contract](https://github.com/DavidAnson/markdownlint-cli2/blob/v0.23.3/README.md#configuration) states. With a CLI2 file, merge `markdownlint-rule-relative-links` into its `customRules` and keep every existing entry. With a library-family file alone, keep it and propose a companion CLI2 file at the repository root that carries the loader. Enable `"relative-links": true` in the effective rules: the library-family file where one exists, otherwise the CLI2 `config`. Never add `customRules` to a library-family file or migrate one only to load a rule, and propose nothing where the rule is already loaded and enabled.
-3. After the operator approves those edits, prove the rule loads: lint a scratch file at the repository root holding a deliberately broken relative link and read a failure citing `relative-links`, then lint a valid link and read a pass. A broken link that lints clean is a failed proof, not completion. No verify rule covers this, because the binary does not parse the project's configuration grammar, so this proof is what catches a silently absent check.
-4. Where the project reserves a path that holds Markdown, propose adding it to `ignores` in the effective root CLI2 configuration, keeping existing entries. `ignores` is not a library-family key, so reuse the companion loader where the root holds no CLI2 file.
-5. Before an upgrade, where the record lists an edited file in the retired `markdownlint/` directory of the instance directory, propose copying the edit aside and restoring the recorded bytes, then run the upgrade. `distribution:upgrade-conflicts-are-atomic` makes the upgrade refuse and write nothing while any managed file differs from its recorded hash, retired files included. Port the saved edit into the root CLI2 configuration only after the upgrade succeeds, with approval at each step.
-
-## Land the variables
-
-The variable that `paths.active.docs_scratch` names overrides the recorded value. It is not required, and the binary does not write it. Land it as a gated step the operator approves first.
-
-1. Observe, read-only: an `.envrc` at the root, `direnv` on `PATH`, an existing `.env`, and what `.gitignore` already covers.
-2. With direnv present, append the `export` line to `.envrc.local`, and add `.envrc.local` to `.gitignore` where it is absent.
-3. Without direnv, write the assignment to `.env`, and add `.env` to `.gitignore` where it is absent. State the caveat: nothing loads a plain `.env` on its own, so the operator sources it before a gate can read it.
-4. With neither, print the line and stop.
-
-## Offer the freshness wire
-
-Where the target pins `sdd` through a manager, the task does not close until the operator has answered about the freshness wire. Run this after the variables land and before the result is read.
-
-1. Observe, read-only: `sdd self-depend status --target . --json`. Hold `wired` and `envrc_sync`. Where `wired` is `null`, there is no pin to keep fresh, and where `envrc_sync` is `true`, the wire is landed: in either case say nothing and continue.
-2. Where `wired` names a manager and `envrc_sync` is `false`, ask with `AskUserQuestion` whether the project lands the line `sdd self-depend sync --apply || true` in its `.envrc`. State what the line does: on each directory entry it moves the pin to the latest release through that manager, it attempts at most one bump a day, and it leaves a diff for the operator to review and commit.
-3. On yes, landing the line is a gated step and you place it, because `sdd self-depend add --target . --manager <wired>` prints the fragment, edits no file the project owns, and seeds `.envrc` only where the target has none: where that read-only run names `.envrc` among its seeds, gate the same command with `--apply`; where it seeds nothing, the target already carries an `.envrc` and you append the line to it yourself, the way the variables land above. Print the exact command or line, say what it changes, wait, then re-observe with the status verb until `envrc_sync` reads `true`.
-4. On no, the landing is complete without the wire. Record the answer in the close of the task, so the question reads as asked and answered rather than skipped.
-
-## What waits for the operator
-
-Gate each of these: print the exact command or edit, say what it changes and why, wait, then re-observe before continuing.
-
-- The ignore entry for the docs scratch, where it sits inside the repository and the ignore file lacks it.
-- The landing itself, `sdd init --apply` or `sdd upgrade`, named with the destinations it writes, and `sdd stage clean <path>` last of all, only after every check passed.
-- Committing or backing up an untracked or modified source before its entry retires anything.
-- Every retirement of a file the project authored: only where the approved checklist named it, only after its destinations verified.
-- Every disposition question the inventory raises, and every decision the plan declares.
-- Emptying the docs scratch's migration directory at the close: anything still in it is promoted or consciously dropped, never swept.
-
-## When it goes wrong
-
-- A landing that refuses because a destination holds bytes no record accounts for is working as designed. Read what it names, compare it against the stage, and let the operator decide. Never force it.
-- A gate failure citing a `domain:rule` ID routes to the sdd-write-docs skill's gate triage. Read the rule with `sdd spec <domain>`, fix the document, re-run. Never widen a budget or remove a gate to pass.
-- A landing that stopped partway is finished by running it again, and the stage says what the result should be.
-- A discovery is a document the inventory missed, a split nobody named, or a deletion nobody approved. It returns to planning and is never handled inline. An interrupted sweep resumes from the checklist: reload it, re-checksum from the first unchecked entry, and continue.
-
-## Defaults
-
-- One instance per repository, at the repository root.
-- Every write comes from a plan the operator approved, and the landing renders that plan's candidate afresh.
-- Prefer `sdd status --json` and `sdd stage --json` for machine decisions. Each prints one JSON object.
-- Leave managed files alone: every file the record lists as managed belongs to the canon, the lint configuration `paths.active.destinations.lint_config` names included, not only what sits under the instance directory `paths.active.destinations.instance_dir` names.
-- An instance carries no skill file. The skills live at user scope, in the roots `paths.user.agent_roots` names, where `sdd skill install` puts them.
-- Never widen an approved scope inline: a discovered document, an extra split, a version move is its own plan, approved at its own size.
+Print "Git actions" and "Saved before changing" only where the run has an entry for them.

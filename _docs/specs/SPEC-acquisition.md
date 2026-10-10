@@ -14,6 +14,7 @@
   - [`acquisition:the-operator-caller-reports-every-outcome` — The operator caller reports every outcome](#acquisitionthe-operator-caller-reports-every-outcome--the-operator-caller-reports-every-outcome)
   - [`acquisition:the-sync-leaves-a-diff-nobody-committed` — The sync leaves a diff nobody committed](#acquisitionthe-sync-leaves-a-diff-nobody-committed--the-sync-leaves-a-diff-nobody-committed)
   - [`acquisition:clean-removes-only-a-named-leftover` — Clean removes only a named leftover](#acquisitionclean-removes-only-a-named-leftover--clean-removes-only-a-named-leftover)
+  - [`acquisition:a-host-install-is-a-recorded-decision` — A host install is a recorded decision](#acquisitiona-host-install-is-a-recorded-decision--a-host-install-is-a-recorded-decision)
   - [`acquisition:the-setup-path-offers-the-wire` — The setup path offers the wire](#acquisitionthe-setup-path-offers-the-wire--the-setup-path-offers-the-wire)
 
 <!--TOC-->
@@ -146,16 +147,30 @@ Verify: `cargo nextest run -E 'binary(cmd_self_depend)'`
 
 Verify: `cargo nextest run -E 'binary(cmd_self_depend)'`
 
+### `acquisition:a-host-install-is-a-recorded-decision` — A host install is a recorded decision
+
+Where a project obtains `sdd` from each host's own install rather than a manager file, its declaration MUST record `acquisition` with `source: host` and the lowest release a host may run, and `sdd self-depend status` MUST report that decision as the state `host` rather than `unwired`.
+
+A manager file records its own pin, so only the one method that leaves no file behind needs the key. `sdd self-depend add --host --apply` writes it into a landed declaration, keeping every comment. Before a first landing no declaration exists, so the decision rides the landing: `sdd stage --acquisition host` records it in the candidate, and `sdd init --stage <root>` lands it.
+
+#### Scenario: A project declines a pin
+
+- GIVEN an instance whose operator chose a host install, recorded with `sdd self-depend add --host --apply`
+- WHEN `sdd self-depend status --json` runs on another clone
+- THEN it reports the state `host` with the recorded minimum, and no later run asks again
+
+Verify: `cargo nextest run -E 'binary(cmd_self_depend)'`
+
 ### `acquisition:the-setup-path-offers-the-wire` — The setup path offers the wire
 
-Where a target is wired to one manager and carries no sync line, the setup skill MUST raise the wire as a decision the operator answers before the task closes, stating what the line does, that it attempts at most one bump a day, and that it leaves a diff for review. Where no manager is wired, the skill MUST say nothing. An answer of no MUST leave the landing complete and be recorded in the task's close.
+Where a target is wired to one manager and carries no sync line, the `provision` task of the setup skill MUST raise the wire as a decision the operator answers before the task closes, stating what the line does, that it attempts at most one bump a day, and that it leaves a diff for review. Where no manager is wired, the skill MUST say nothing. An answer of no MUST leave the landing complete and be recorded in the report of the run.
 
 On an answer of yes the setup path MUST place the sync line in the target's shell loader itself, under the operator's approval, and MUST NOT report a command that cannot place it. The verb seeds that file only where the target has none, so a target that already carries one is the case the skill writes itself.
 
 #### Scenario: A landing ends with the wire absent
 
 - GIVEN a target whose manager file pins this tool and whose shell loader carries no sync line
-- WHEN the setup skill reaches its close
+- WHEN the `provision` task reaches its post-flight
 - THEN the operator has been asked about the wire, and the status verb reports `line-absent` until the line lands or the answer is recorded
 
 #### Scenario: The target already carries a shell loader

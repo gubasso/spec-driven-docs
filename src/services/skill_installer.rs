@@ -55,8 +55,10 @@ pub struct Layout {
     pub receipt: Utf8PathBuf,
     /// The receipt at the home-relative path, read once as a fallback.
     pub legacy_receipt: Utf8PathBuf,
-    /// The retired shared root, swept rather than written.
-    pub legacy_shared: Utf8PathBuf,
+    /// The retired shared root, swept rather than written. Only a run over
+    /// every agent root sweeps it, because an older manual under a root the
+    /// run leaves alone still reads its gates.
+    pub legacy_shared: Option<Utf8PathBuf>,
 }
 
 impl Layout {
@@ -66,10 +68,11 @@ impl Layout {
         self.state_root.join(crate::domain::paths::SKILL_LOCK_FILE)
     }
 
-    /// Every location a sweep reads: the selected roots and the retired one.
+    /// Every location a sweep reads: the selected roots, and the retired one
+    /// where this run sweeps it.
     fn scanned(&self) -> Vec<Utf8PathBuf> {
         let mut scanned = self.roots.clone();
-        scanned.push(self.legacy_shared.clone());
+        scanned.extend(self.legacy_shared.clone());
         scanned
     }
 }
@@ -140,8 +143,7 @@ fn plan(roots: &[Utf8PathBuf]) -> Result<Vec<Planned>, AppError> {
     let mut planned = Vec::new();
     for root in roots {
         for name in crate::embedded::skill_names() {
-            let package = crate::embedded::skill_package(name)
-                .ok_or_else(|| anyhow::anyhow!("payload skill missing: {name}"))?;
+            let package = crate::embedded::skill_package(name).map_err(anyhow::Error::from)?;
             for (relative, bytes) in package {
                 planned.push(Planned {
                     destination: root.join(name).join(relative),
@@ -221,7 +223,7 @@ fn owning_root<'a>(layout: &'a Layout, destination: &Utf8Path) -> Option<&'a Utf
         // The retired root is swept rather than written, and a sweep
         // unlinks. A destination under it that no root claimed would reach
         // the removal with no component checked at all.
-        .chain(std::iter::once(&layout.legacy_shared))
+        .chain(&layout.legacy_shared)
         .map(Utf8PathBuf::as_path)
         .find(|root| destination.starts_with(root))
 }
@@ -687,7 +689,10 @@ fn run_transaction(
         while let Some(directory) = parent {
             if !layout.roots.iter().any(|root| directory.starts_with(root))
                 && !directory.starts_with(&layout.state_root)
-                && !directory.starts_with(&layout.legacy_shared)
+                && !layout
+                    .legacy_shared
+                    .as_ref()
+                    .is_some_and(|legacy| directory.starts_with(legacy))
             {
                 break;
             }
@@ -831,17 +836,24 @@ mod tests {
             roots: vec![home.join(AGENTS_ROOT), home.join(CLAUDE_ROOT)],
             receipt: state.join(crate::domain::paths::SKILL_RECEIPT_FILE),
             legacy_receipt: home.join(crate::domain::paths::LEGACY_SKILL_RECEIPT_PATH),
-            legacy_shared: home.join(LEGACY_SHARED_ROOT),
+            legacy_shared: Some(home.join(LEGACY_SHARED_ROOT)),
             state_root: state,
         }
     }
 
-    /// The same layout narrowed to one selected root.
+    /// The same layout narrowed to one selected root, which leaves the
+    /// retired root alone.
     fn select(layout: &Layout, index: usize) -> Layout {
         Layout {
             roots: vec![layout.roots[index].clone()],
+            legacy_shared: None,
             ..layout.clone()
         }
+    }
+
+    /// The retired root of a layout that sweeps it.
+    fn legacy(layout: &Layout) -> &Utf8Path {
+        layout.legacy_shared.as_deref().unwrap()
     }
 
     fn package_files(root: &Utf8Path, name: &str) -> Vec<Utf8PathBuf> {
@@ -853,14 +865,20 @@ mod tests {
     }
 
     #[test]
-    fn a_package_is_skill_md_plus_every_shared_artifact_under_references() {
+    fn a_package_is_skill_md_plus_its_references_and_every_shared_artifact() {
         let package = crate::embedded::skill_package("sdd-setup").unwrap();
         let names: Vec<&str> = package.iter().map(|(path, _)| path.as_str()).collect();
         assert!(names.contains(&"SKILL.md"));
-        assert!(names.contains(&"references/plan-gate.md"));
-        assert!(names.contains(&"references/pre-flight-gate.md"));
-        assert_eq!(package.len(), 1 + crate::embedded::shared_artifacts().len());
-        assert!(crate::embedded::skill_package("no-such-skill").is_none());
+        for (shared, _) in crate::embedded::shared_artifacts() {
+            assert!(names.contains(&format!("references/{shared}").as_str()));
+        }
+        assert!(names.contains(&"references/landing.md"));
+        assert!(
+            names
+                .iter()
+                .all(|name| *name == "SKILL.md" || name.starts_with("references/"))
+        );
+        assert!(crate::embedded::skill_package("no-such-skill").is_err());
     }
 
     #[test]
@@ -888,11 +906,11 @@ mod tests {
         let layout = home(&dir);
         let lines = install(&layout, false, false).unwrap();
         assert_eq!(lines.last().unwrap(), "DRY RUN: no files written");
-        let package = crate::embedded::skill_package("sdd-setup").unwrap().len();
-        assert_eq!(
-            lines.len(),
-            crate::embedded::skill_names().len() * package * 2 + 1
-        );
+        let packages: usize = crate::embedded::skill_names()
+            .into_iter()
+            .map(|name| crate::embedded::skill_package(name).unwrap().len())
+            .sum();
+        assert_eq!(lines.len(), packages * 2 + 1);
         assert!(!layout.roots[0].exists());
         assert!(!layout.receipt.exists());
     }
@@ -927,11 +945,8 @@ mod tests {
         // outside it. A sweep there would otherwise unlink through
         // components nothing inspected.
         layout.state_root = root(&dir).join("moved/state");
-        let leftover = layout.legacy_shared.join("plan-gate.md");
-        assert_eq!(
-            owning_root(&layout, &leftover),
-            Some(layout.legacy_shared.as_path())
-        );
+        let leftover = legacy(&layout).join("plan-gate.md");
+        assert_eq!(owning_root(&layout, &leftover), Some(legacy(&layout)));
     }
 
     #[test]
@@ -1043,7 +1058,7 @@ mod tests {
         // each vouched for by the receipt that release wrote.
         let mut older = SkillRecord::new();
         for (name, bytes) in crate::embedded::shared_artifacts() {
-            let destination = layout.legacy_shared.join(&name);
+            let destination = legacy(&layout).join(&name);
             crate::adapters::fs::write_file(&destination, bytes).unwrap();
             older.written.insert(destination, Sha256::of(bytes));
         }
@@ -1051,7 +1066,7 @@ mod tests {
 
         install(&layout, true, false).unwrap();
         assert!(
-            !layout.legacy_shared.exists(),
+            !legacy(&layout).exists(),
             "the retired shared root survived"
         );
         assert!(
@@ -1062,10 +1077,32 @@ mod tests {
     }
 
     #[test]
+    fn a_one_family_install_keeps_the_legacy_gates() {
+        let dir = tempfile::tempdir().unwrap();
+        let both = home(&dir);
+        let mut older = SkillRecord::new();
+        for (name, bytes) in crate::embedded::shared_artifacts() {
+            let destination = legacy(&both).join(&name);
+            crate::adapters::fs::write_file(&destination, bytes).unwrap();
+            older.written.insert(destination, Sha256::of(bytes));
+        }
+        crate::adapters::fs::write_file(&both.receipt, older.to_json().as_bytes()).unwrap();
+
+        for index in 0..both.roots.len() {
+            let one = select(&both, index);
+            install(&one, true, false).unwrap();
+            uninstall(&one, true).unwrap();
+        }
+        for (name, bytes) in crate::embedded::shared_artifacts() {
+            assert_eq!(std::fs::read(legacy(&both).join(&name)).unwrap(), bytes);
+        }
+    }
+
+    #[test]
     fn an_unrecorded_file_at_the_retired_shared_root_is_kept() {
         let dir = tempfile::tempdir().unwrap();
         let layout = home(&dir);
-        let leftover = layout.legacy_shared.join("plan-gate.md");
+        let leftover = legacy(&layout).join("plan-gate.md");
         crate::adapters::fs::write_file(&leftover, b"mine\n").unwrap();
         install(&layout, true, false).unwrap();
         assert_eq!(std::fs::read(&leftover).unwrap(), b"mine\n");

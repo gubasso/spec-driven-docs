@@ -75,6 +75,11 @@ pub enum AppError {
         code: u8,
     },
 
+    /// A program the verb runs on the operator's host is not there to run,
+    /// so the check it serves could not be made.
+    #[error("unavailable: {0}")]
+    Unavailable(String),
+
     /// Filesystem failure, classified by its I/O kind.
     #[error("io: {0}")]
     Io(#[from] std::io::Error),
@@ -106,6 +111,7 @@ impl AppError {
             | Self::Receipt(_)
             | Self::Debt(_) => 73,
             Self::Git { code, .. } => *code,
+            Self::Unavailable(_) => 69,
             Self::Io(e) if e.kind() == std::io::ErrorKind::NotFound => 66,
             Self::Io(e) if e.kind() == std::io::ErrorKind::PermissionDenied => 77,
             Self::Io(_) => 74,
@@ -128,6 +134,7 @@ impl AppError {
             Self::Unrecovered(_) => "Unrecovered",
             Self::Receipt(_) => "Receipt",
             Self::Git { .. } => "Git",
+            Self::Unavailable(_) => "Unavailable",
             Self::Io(_) => "Io",
             Self::Other(_) => "Other",
         }
@@ -189,6 +196,14 @@ mod tests {
         assert_eq!(
             AppError::Refused("apply aborted; the target was restored".into()).exit_code(),
             73
+        );
+    }
+
+    #[test]
+    fn an_unavailable_program_is_sixty_nine() {
+        assert_eq!(
+            AppError::Unavailable("pre-commit could not run".into()).exit_code(),
+            69
         );
     }
 

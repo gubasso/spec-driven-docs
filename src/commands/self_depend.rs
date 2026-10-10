@@ -93,10 +93,17 @@ fn render_status(report: &Report) {
         State::LineAbsent => "line-absent",
         State::Ambiguous => "ambiguous",
         State::Leftovers => "leftovers",
+        State::Host => "host",
     };
     output::line(format!("state {state}"));
     if let Some(wired) = report.wired {
         output::line(format!("wired through {wired}"));
+    }
+    if let Some(decision) = report.acquisition.as_ref() {
+        output::line(format!(
+            "host install recorded, at sdd {} or newer",
+            decision.minimum
+        ));
     }
     for entry in &report.managers {
         let mut line = format!("manager {} ", entry.manager);
@@ -207,6 +214,97 @@ fn choose_manager(asked: Option<Manager>, detected: &[Detected]) -> Result<Manag
     }
 }
 
+/// Refuse a host decision where a manager already pins this tool, because
+/// one target runs one mechanism. Every route that records the decision
+/// asks: this verb, the stage that carries it, and the landing that
+/// writes it.
+///
+/// SATISFIES acquisition:a-host-install-is-a-recorded-decision
+///
+/// # Errors
+///
+/// [`AppError::Refused`] naming the manager that pins this tool.
+pub(crate) fn refuse_host_where_pinned(target: &camino::Utf8Path) -> Result<(), AppError> {
+    let detected = manager::detect(target);
+    if let Some(pinned) = manager::wired(&detected).first() {
+        return Err(AppError::Refused(format!(
+            "{} already pins this tool; one target runs one mechanism",
+            pinned.manager
+        )));
+    }
+    Ok(())
+}
+
+/// Record that every host installs this tool itself.
+///
+/// The decision lives in the instance's declaration, comments kept, at
+/// this binary's release as the minimum. Before a first landing there is
+/// no declaration to write, so the decision rides the landing instead:
+/// `sdd stage --acquisition host` records it in the candidate, and
+/// `sdd init --stage <root>` lands it.
+///
+/// SATISFIES acquisition:a-host-install-is-a-recorded-decision
+///
+/// # Errors
+///
+/// [`AppError::Refused`] where a manager already pins this tool, where an
+/// apply meets no instance, or where the declaration does not parse.
+fn run_add_host(target: &camino::Utf8Path, apply: bool, json: bool) -> Result<(), AppError> {
+    refuse_host_where_pinned(target)?;
+    let decision = crate::domain::instance_config::Acquisition::host_at_this_release();
+    let path = target.join(crate::domain::instance_config::CONFIG_PATH);
+    let landed = target
+        .join(crate::domain::manifest::MANIFEST_PATH)
+        .is_file()
+        && path.is_file();
+    if !landed {
+        if apply {
+            return Err(AppError::Refused(format!(
+                "{target} carries no instance declaration yet, so nothing was written; the decision rides the landing: sdd stage --acquisition host, then sdd init --stage <root>"
+            )));
+        }
+        return report_host(json, &decision, None, false);
+    }
+    let text = std::fs::read_to_string(&path)?;
+    crate::domain::instance_config::InstanceConfig::parse(&text).map_err(|error| {
+        AppError::Refused(format!("{error}; repair it before recording a decision"))
+    })?;
+    let next = crate::domain::instance_config::with_acquisition(&text, &decision);
+    let changed = next != text;
+    if apply && changed {
+        crate::adapters::fs::write_atomic(&path, next.as_bytes())?;
+    }
+    report_host(json, &decision, Some(&path), apply && changed)
+}
+
+/// What a host decision wrote, or would write.
+fn report_host(
+    json: bool,
+    decision: &crate::domain::instance_config::Acquisition,
+    declaration: Option<&camino::Utf8Path>,
+    wrote: bool,
+) -> Result<(), AppError> {
+    if json {
+        return output::json(&serde_json::json!({
+            "schema": "sdd.self-depend-host/1",
+            "acquisition": decision,
+            "declaration": declaration,
+            "written": wrote,
+        }));
+    }
+    match declaration {
+        None => output::line(
+            "no instance declaration yet; the decision rides the landing: sdd stage --acquisition host, then sdd init --stage <root>",
+        ),
+        Some(path) if wrote => output::line(format!("recorded in {path}:")),
+        Some(path) => output::line(format!("{path} would carry:")),
+    }
+    for line in decision.render().lines() {
+        output::line(format!("  {line}"));
+    }
+    Ok(())
+}
+
 /// Serve the fragments for one pair, and seed what the target lacks.
 ///
 /// # Errors
@@ -216,6 +314,9 @@ fn choose_manager(asked: Option<Manager>, detected: &[Detected]) -> Result<Manag
 /// other than the one already naming this tool, and for a manual pair.
 fn run_add(ctx: &AppContext, args: AddArgs) -> Result<(), AppError> {
     let target = resolve_target(ctx, args.target)?;
+    if args.host {
+        return run_add_host(&target, args.apply, args.json);
+    }
     let version = match args.tag.as_deref() {
         Some(tag) => parse_tag(tag).map_err(AppError::Usage)?,
         None => this_version(),

@@ -10,7 +10,6 @@ use camino::Utf8Path;
 
 use crate::error::AppError;
 use crate::landing::classify::Intent;
-use crate::landing::observe::observe;
 
 /// Refuse where this verb does not serve what the target turned out to be.
 ///
@@ -23,20 +22,28 @@ pub fn serves(intent: Intent, target: &Utf8Path) -> Result<(), AppError> {
     if !target.exists() {
         return Ok(());
     }
-    let observation = observe(target)?;
-    let found = crate::landing::classify::classify(crate::landing::classify::Signals {
-        invalid: observation.invalid.is_some(),
-        installed: observation.installation.is_some(),
-        // The destination is this binary's own release for every front.
-        at_destination: observation.installation.as_ref().is_some_and(|installed| {
-            installed.canon_version == crate::domain::version::CanonVersion::current()
-        }),
-        drifted: observation
-            .installation
-            .as_ref()
-            .is_some_and(crate::landing::observe::Installation::drifted),
-        settled: observation.corpus.settled(),
-    });
+    let classified = crate::services::status::classify_target(target)?;
+    // An incremental landing keeps the corpus where it is, so it serves a
+    // corpus nobody archived, never one an open migration already moved.
+    if intent == Intent::Incremental {
+        let rule = crate::domain::rule_id::RuleId::IncrementalLandingIsNamed;
+        if let Some(id) = &classified.migration {
+            return Err(AppError::Refused(format!(
+                "the migration {id} is open, so its corpus is archived; close it before an incremental landing ({rule})"
+            )));
+        }
+        return intent
+            .accepts(classified.classification)
+            .map_err(|refusal| AppError::Refused(format!("{refusal} ({rule})")));
+    }
+    // While a migration is open, a landing verb serves what the archive left
+    // behind: the corpus is in the workspace, so the files read as the
+    // greenfield target the migration lands its instance in.
+    let found = if classified.migration.is_some() {
+        classified.beneath
+    } else {
+        classified.classification
+    };
     intent
         .accepts(found)
         .map_err(|refusal| AppError::Refused(refusal.to_string()))

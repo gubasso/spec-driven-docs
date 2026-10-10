@@ -15,6 +15,7 @@ pub mod instance_config;
 pub mod manifest;
 pub mod markdownlint;
 pub mod marker;
+pub mod migration;
 pub mod ownership;
 pub mod path_filter;
 pub mod paths;

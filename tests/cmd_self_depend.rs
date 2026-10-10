@@ -1024,3 +1024,128 @@ fn clean_refuses_a_path_outside_the_target() {
         .failure()
         .code(64);
 }
+
+/// VERIFIES acquisition:a-host-install-is-a-recorded-decision
+#[test]
+fn a_recorded_host_decision_reads_as_host_and_its_absence_as_unwired() {
+    let fixture = Fixture::new();
+    fixture.install("codebase");
+    let report = json(sdd(&fixture).args([
+        "self-depend",
+        "status",
+        "--target",
+        &fixture.target(),
+        "--json",
+    ]));
+    assert_eq!(report["state"], "unwired");
+    assert_eq!(report["acquisition"], serde_json::Value::Null);
+
+    // Without --apply the decision is shown and nothing is written.
+    let declaration = ".spec-driven-docs/config.yaml";
+    let before = fixture.read(declaration);
+    sdd(&fixture)
+        .args([
+            "self-depend",
+            "add",
+            "--host",
+            "--target",
+            &fixture.target(),
+        ])
+        .assert()
+        .success();
+    assert_eq!(fixture.read(declaration), before);
+
+    sdd(&fixture)
+        .args([
+            "self-depend",
+            "add",
+            "--host",
+            "--target",
+            &fixture.target(),
+            "--apply",
+        ])
+        .assert()
+        .success();
+    let written = fixture.read(declaration);
+    assert!(written.starts_with(&before), "a comment was dropped");
+    assert!(written.contains("source: host"), "{written}");
+
+    let report = json(sdd(&fixture).args([
+        "self-depend",
+        "status",
+        "--target",
+        &fixture.target(),
+        "--json",
+    ]));
+    assert_eq!(report["state"], "host");
+    assert_eq!(report["acquisition"]["source"], "host");
+    assert_eq!(report["acquisition"]["minimum"], env!("CARGO_PKG_VERSION"));
+    // The declaration still verifies: the key is one this release reads.
+    sdd(&fixture)
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .success();
+}
+
+#[test]
+fn a_host_decision_before_a_landing_rides_the_stage_and_lands_with_it() {
+    let fixture = Fixture::new();
+    sdd(&fixture)
+        .args([
+            "self-depend",
+            "add",
+            "--host",
+            "--target",
+            &fixture.target(),
+            "--apply",
+        ])
+        .assert()
+        .code(73)
+        .stderr(predicates::str::contains("sdd stage --acquisition host"));
+    assert!(!fixture.path().join(".spec-driven-docs").exists());
+
+    let stage = fixture.state_root().parent().unwrap().join("stage-host");
+    sdd(&fixture)
+        .args([
+            "stage",
+            "--target",
+            &fixture.target(),
+            "--acquisition",
+            "host",
+            "--output",
+            stage.to_str().unwrap(),
+        ])
+        .assert()
+        .success();
+    sdd(&fixture)
+        .current_dir(fixture.path())
+        .args(["init", "--stage", stage.to_str().unwrap(), "--apply"])
+        .assert()
+        .success();
+    let report = json(sdd(&fixture).args([
+        "self-depend",
+        "status",
+        "--target",
+        &fixture.target(),
+        "--json",
+    ]));
+    assert_eq!(report["state"], "host");
+}
+
+#[test]
+fn a_host_decision_refuses_where_a_manager_pins_the_tool() {
+    let fixture = Fixture::new();
+    fixture.install("codebase");
+    fixture.write(".tool-versions", "spec-driven-docs 0.1.0\n");
+    sdd(&fixture)
+        .args([
+            "self-depend",
+            "add",
+            "--host",
+            "--target",
+            &fixture.target(),
+            "--apply",
+        ])
+        .assert()
+        .code(73);
+}

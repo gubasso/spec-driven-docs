@@ -81,6 +81,23 @@ pub(crate) fn context_at(root: &Utf8Path, id: GateId) -> Result<GateCtx, AppErro
     Ok(GateCtx::with_filter(root, filter))
 }
 
+/// One gate's context at a repository root, with the declaration and the
+/// documentation root supplied rather than read or discovered: what a
+/// landing is about to record, measured before it writes.
+///
+/// # Errors
+///
+/// [`AppError::Usage`] when a declared pattern does not compile.
+pub(crate) fn context_for(
+    root: &Utf8Path,
+    id: GateId,
+    declaration: &InstanceConfig,
+    docs_root: &str,
+) -> Result<GateCtx, AppError> {
+    let filter = filter_for(id, declaration, docs_root, &[], &[])?;
+    Ok(GateCtx::with_filter(root, filter).with_docs_root(docs_root))
+}
+
 /// Refuse a path this command must not follow.
 ///
 /// A relative path that climbs out of the repository is refused, and so is

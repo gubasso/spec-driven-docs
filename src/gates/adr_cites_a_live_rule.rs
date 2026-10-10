@@ -31,7 +31,7 @@ pub const CITES: &[RuleId] = &[RuleId::CitationResolvesToARule];
 const RULE: RuleId = RuleId::CitationResolvesToARule;
 
 /// The `` `domain:rule` `` tokens a line carries as inline code.
-fn cited_ids(line: &str) -> Vec<&str> {
+pub(crate) fn cited_ids(line: &str) -> Vec<&str> {
     line.split('`')
         .skip(1)
         .step_by(2)
