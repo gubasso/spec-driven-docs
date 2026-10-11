@@ -11,13 +11,16 @@
       # Moved by `rk self-depend sync`, invoked from .envrc: the tag in this URL
       # is the version, flake.lock is the content pin, and nothing else in
       # this repository names an rk version.
-      url = "github:gubasso/release-kit/v0.8.7";
+      url = "github:gubasso/release-kit/v0.9.0";
       # A deliberate deal, not a tidy-up: with follows, rk rebuilds against
       # this repository's nixpkgs rather than the revision it tested
       # upstream, so this consumer owns that compatibility — proven by the
       # devshell build `rk self-depend sync` runs and CI's nix develop. The
       # alternative is a second nixpkgs node in the lock.
       inputs.nixpkgs.follows = "nixpkgs";
+      # release-kit reads spec-driven-docs for its own development; here
+      # that is this flake, so the lock carries no nested chain of either.
+      inputs.spec-driven-docs.follows = "";
     };
   };
 
