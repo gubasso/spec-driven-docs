@@ -11,6 +11,7 @@
   rustPlatform,
   markdownlint-cli2,
   check-jsonschema,
+  git,
 }:
 
 let
@@ -50,12 +51,14 @@ rustPlatform.buildRustPackage {
   # delivered schema, so the check phase needs the same binaries the
   # devshell carries. flake.nix passes the markdownlint-cli2 that
   # nix/markdownlint.nix builds, with the relative-links rule bundled, so the
-  # suite judges links here with no network. Without these the suites would
-  # fail in the sandbox, and a version that skipped instead would prove
-  # nothing here.
+  # suite judges links here with no network. `sdd migrate` reads and writes
+  # history through git, so its suite needs git on the sandbox PATH as well.
+  # Without these the suites would fail in the sandbox, and a version that
+  # skipped instead would prove nothing here.
   nativeCheckInputs = [
     markdownlint-cli2
     check-jsonschema
+    git
   ];
 
   meta = {
