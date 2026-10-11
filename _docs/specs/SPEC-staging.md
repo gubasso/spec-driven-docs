@@ -151,7 +151,7 @@ Verify: `cargo nextest run -E 'binary(cmd_upgrade)'`
 
 `sdd upgrade --dry-run` MUST list every citation of a rule ID in a domain this binary defines that this binary no longer defines, by file and line, before any write.
 
-A rule heading is a definition and is not listed. A decision record is read on its `Enforced by` line alone, a file this tool manages is about to be replaced, and the changelog is history, so none of those is listed. Re-pointing a citation stays the author's, because the tool cannot know which rule the author meant.
+A rule heading is a definition and is not listed. A decision record is read on its `Enforced by` line alone, a file this tool manages is about to be replaced, and the changelog is history, so none of those is listed. A rule the instance's own specs define is live, even where this binary once retired a rule of the same name, so a citation of it is not listed. Re-pointing a citation stays the author's, because the tool cannot know which rule the author meant.
 
 #### Scenario: A guide cites a rule the new release retired
 

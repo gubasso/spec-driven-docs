@@ -168,8 +168,8 @@
     {
       "source": "_docs/specs/SPEC-staging.md",
       "destination": "_docs/specs/SPEC-staging.md",
-      "sha256": "49811e00e38a21103de49cef117f6df52bd4bb6e0ae0b09329da4d2436a36463",
-      "baseline_sha256": "49811e00e38a21103de49cef117f6df52bd4bb6e0ae0b09329da4d2436a36463"
+      "sha256": "b9bd98054db8e2da7bdc2bc0458affe042c0a1de25599fbb49ffc76682ac87dd",
+      "baseline_sha256": "b9bd98054db8e2da7bdc2bc0458affe042c0a1de25599fbb49ffc76682ac87dd"
     },
     {
       "source": "_docs/specs/SPEC-tracking.md",

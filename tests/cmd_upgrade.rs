@@ -1042,6 +1042,34 @@ fn a_dry_run_lists_every_citation_of_a_rule_this_binary_retired() {
     assert_eq!(fixture.tree_digest(), before);
 }
 
+/// VERIFIES staging:an-upgrade-lists-every-retired-citation-first
+///
+/// A project that keeps its own spec domain under a name this binary also
+/// uses defines live rules there, so a citation of one is not retired,
+/// even where this binary once retired a rule of the same name.
+#[test]
+fn a_rule_the_instance_defines_is_never_a_retired_citation() {
+    let fixture = Fixture::new();
+    fixture.install("codebase");
+    fixture.write(
+        "docs/specs/SPEC-own-staging.md",
+        "# Own staging\n\n### `staging:x` — X\n\nThe project MUST hold x.\n",
+    );
+    fixture.write(
+        "docs/guides/working.md",
+        "# Working\n\nSee `staging:x` and `staging:a-rule-no-release-defines`.\n",
+    );
+    let (code, report) = upgrade_json(&fixture, &["--dry-run"]);
+    assert_eq!(code, Some(0), "{report}");
+    let cited: Vec<&str> = report["retired_citations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|citation| citation["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(cited, ["staging:a-rule-no-release-defines"]);
+}
+
 /// VERIFIES staging:a-replacement-keeps-the-bytes-it-replaces
 #[test]
 fn a_named_conflict_is_saved_then_replaced_and_an_unnamed_one_still_refuses() {

@@ -702,6 +702,21 @@ fn save(
     Ok(Some(saved))
 }
 
+/// Every rule ID the instance's own specs define, read from the spec
+/// directory under its documentation root.
+fn instance_rule_ids(target: &Utf8Path, docs_root: &str) -> std::collections::BTreeSet<String> {
+    let mut ids = std::collections::BTreeSet::new();
+    let specs = target.join(docs_root).join("specs");
+    if let Ok(entries) = specs.read_dir_utf8() {
+        for entry in entries.filter_map(Result::ok) {
+            if let Ok(text) = std::fs::read_to_string(entry.path()) {
+                ids.extend(crate::embedded::rule_ids_in(&text));
+            }
+        }
+    }
+    ids
+}
+
 /// Every citation of a rule ID this binary no longer defines.
 ///
 /// A citation is an inline-code token in a domain this binary defines
@@ -709,8 +724,10 @@ fn save(
 /// definition rather than a citation, a decision record is judged on its
 /// `Enforced by` line alone, because its prose may describe a retirement,
 /// and a file this tool manages is about to be replaced, so none of those
-/// is listed. The changelog is history and is never re-pointed, and a
-/// token this binary's own specs carry is an example it ships.
+/// is listed. The changelog is history and is never re-pointed, a token
+/// this binary's own specs carry is an example it ships, and a rule the
+/// instance's own specs define is live wherever this binary once retired
+/// a rule of the same name.
 ///
 /// SATISFIES staging:an-upgrade-lists-every-retired-citation-first
 fn retired_citations(target: &Utf8Path, installed: &Installed) -> Vec<Citation> {
@@ -729,6 +746,9 @@ fn retired_citations(target: &Utf8Path, installed: &Installed) -> Vec<Citation> 
                 .collect::<Vec<_>>()
         })
         .collect();
+    // A project that keeps a spec domain of the same name, such as its own
+    // `staging`, defines its rules there, and a citation of one is live.
+    let local = instance_rule_ids(target, &installed.docs_root);
     let managed: Vec<&Utf8PathBuf> = installed.managed.iter().map(|(path, _)| path).collect();
     let decisions = Utf8Path::new(&installed.docs_root).join("decisions");
     let mut found = Vec::new();
@@ -769,7 +789,11 @@ fn retired_citations(target: &Utf8Path, installed: &Installed) -> Vec<Citation> 
             }
             for id in crate::gates::adr_cites_a_live_rule::cited_ids(line) {
                 let domain = id.split_once(':').map_or(id, |(domain, _)| domain);
-                if domains.contains(domain) && !defined.contains(id) && !shipped.contains(id) {
+                if domains.contains(domain)
+                    && !defined.contains(id)
+                    && !shipped.contains(id)
+                    && !local.contains(id)
+                {
                     found.push(Citation {
                         path: relative.to_owned(),
                         line: index + 1,
@@ -792,15 +816,7 @@ fn finish(
 ) {
     report_removals(removed, outcome);
 
-    let mut local_ids = std::collections::BTreeSet::new();
-    let specs = target.join(&installed.docs_root).join("specs");
-    if let Ok(entries) = specs.read_dir_utf8() {
-        for entry in entries.filter_map(Result::ok) {
-            if let Ok(text) = std::fs::read_to_string(entry.path()) {
-                local_ids.extend(crate::embedded::rule_ids_in(&text));
-            }
-        }
-    }
+    let local_ids = instance_rule_ids(target, &installed.docs_root);
     let upstream_only: Vec<String> = crate::embedded::spec_rule_ids()
         .difference(&local_ids)
         .cloned()
