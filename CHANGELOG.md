@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.1](https://github.com/gubasso/spec-driven-docs/compare/v0.14.0...v0.14.1) - 2026-10-11
+
+### Fixed
+
+- *(upgrade)* Keep the instance's own rules out of the retired scan
+
 ## [0.14.0](https://github.com/gubasso/spec-driven-docs/compare/v0.13.2...v0.14.0) - 2026-10-11
 
 ### Added
