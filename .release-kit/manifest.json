@@ -1,6 +1,6 @@
 {
-  "schema_version": 11,
-  "rk_version": "0.9.0",
+  "schema_version": 12,
+  "rk_version": "0.9.1",
   "origin": "init",
   "landed_at": "2026-09-02T20:44:07Z",
   "profile": {
@@ -18,7 +18,8 @@
   "git": {
     "trunk": "master",
     "checkout_mode": "linked-worktree",
-    "integration": "local"
+    "integration": "local",
+    "merge_form": "squash"
   },
   "capabilities": {
     "nix_packaging": true,
@@ -47,7 +48,7 @@
     {
       "destination": ".pre-commit-config.yaml",
       "kind": "rendered",
-      "sha256": "00cd0e8d543612be4e0db105b9a1a49e7afa709068772f7df4306704d1c07f02",
+      "sha256": "55730f8858889fb131fdeb73c58d0669cc5bd39477212a6ed299515e2a7dae6d",
       "placement": "region"
     },
     {
