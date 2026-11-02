@@ -1774,10 +1774,62 @@ fn tracked_text_files() -> Vec<(String, String)> {
         .collect()
 }
 
+/// The files a tool generates in this tree. Each keeps its generator's form,
+/// so no check here judges its words, and the fixer hooks of
+/// `.pre-commit-config.yaml` skip the same list.
+const GENERATED_FILES: &[&str] = &[
+    "CHANGELOG.md",
+    "SECURITY.md",
+    ".github/workflows/pr-title.yml",
+    ".github/workflows/release-plz.yml",
+    ".github/workflows/release.yml",
+    ".release-kit/manifest.json",
+    ".spec-driven-docs/manifest.json",
+    "Cargo.lock",
+    "flake.lock",
+];
+
+/// The list above is the one the fixer hooks skip, so the two cannot drift,
+/// and the authored files stay judged.
+#[test]
+fn the_generated_files_are_the_ones_the_fixers_skip() {
+    let config = std::fs::read_to_string(canon().join(".pre-commit-config.yaml")).unwrap();
+    let line = config
+        .lines()
+        .find(|line| line.contains("exclude: &generated '"))
+        .expect(".pre-commit-config.yaml names the generated files once, as the &generated anchor");
+    let pattern = line
+        .split_once("&generated '")
+        .and_then(|(_, rest)| rest.strip_suffix('\''))
+        .expect("the &generated anchor holds one single-quoted pattern");
+    let generated = regex::Regex::new(pattern).unwrap();
+    for path in GENERATED_FILES {
+        assert!(
+            generated.is_match(path),
+            "{path} is generated and the fixers judge it"
+        );
+        assert!(
+            canon().join(path).is_file(),
+            "{path} is listed as generated and is not in the tree"
+        );
+    }
+    for path in [
+        "README.md",
+        "instance/README.md",
+        "_docs/.markdownlint-cli2.jsonc",
+    ] {
+        assert!(
+            !generated.is_match(path),
+            "{path} is authored and the fixers skip it"
+        );
+    }
+}
+
 /// The tree states the context entrypoint and nothing older.
 ///
-/// A decision record is the one document class that carries history, and the
-/// changelog is generated from it, so those two are the only carriers.
+/// A decision record is the one document class that carries history, so it
+/// is the only authored carrier. A generated file carries what its generator
+/// writes, and the changelog is generated from the commit history.
 #[test]
 fn the_tracked_tree_carries_no_retired_entry_term() {
     // The compatibility read of a record written before the removal names
@@ -1811,7 +1863,7 @@ fn the_tracked_tree_carries_no_retired_entry_term() {
 
     for (relative, text) in tree {
         if relative.starts_with("_docs/decisions/")
-            || relative == "CHANGELOG.md"
+            || GENERATED_FILES.contains(&relative.as_str())
             || REMOVAL_CARRIERS.contains(&relative.as_str())
         {
             continue;

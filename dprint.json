@@ -15,6 +15,9 @@
     "node_modules",
     "target",
     "CHANGELOG.md",
+    "SECURITY.md",
+    ".release-kit/manifest.json",
+    ".spec-driven-docs/manifest.json",
     "third-party"
   ],
   "plugins": [

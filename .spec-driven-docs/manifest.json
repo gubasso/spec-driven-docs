@@ -204,7 +204,7 @@
     {
       "source": "templates/TEMPLATE-tracking.yaml",
       "destination": "_docs/reference/tracking.yaml",
-      "sha256": "384fc4d62a3cbe2025c8b7fe9da66e918502342e9a5b05942fb69b0b55bc0690",
+      "sha256": "44e19b733bd8983e09853e5b2e332b5612929d90f1d02dc146fb6b143438f877",
       "baseline_sha256": "6ac1da85ec63b1baedc927ba181cba6747da3afbf25899c971247a1a9f5931c3"
     }
   ],

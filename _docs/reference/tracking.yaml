@@ -2,7 +2,7 @@ schema_version: 1
 tracked:
   - id: pre-commit-hooks
     path: .pre-commit-config.yaml
-    last_checked: 2026-09-29
+    last_checked: 2026-11-02
     cadence_days: 30
     why: hook release tags change independently
     revalidate:

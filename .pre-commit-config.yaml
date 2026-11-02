@@ -77,11 +77,23 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
+      # A generated file keeps the form its generator writes, so no check
+      # rewrites it or judges its prose or form (instance/README.md states
+      # the rule for every instance). The three fixers have no configuration
+      # of their own, so the list lives here: release-plz's CHANGELOG.md,
+      # release-kit's rendered SECURITY.md, pr-title.yml, release-plz.yml and
+      # manifest, cargo-dist's release.yml, this tool's own instance record,
+      # and the cargo and nix lock files. Each other tool excludes them in its
+      # own configuration: dprint.json, .markdownlint-cli2.jsonc, _typos.toml,
+      # and .editorconfig-checker.json. The reading hooks keep every one.
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
+        exclude: &generated '^(CHANGELOG\.md|SECURITY\.md|\.github/workflows/(pr-title|release-plz|release)\.yml|\.release-kit/manifest\.json|\.spec-driven-docs/manifest\.json|Cargo\.lock|flake\.lock)$'
       - id: end-of-file-fixer
+        exclude: *generated
       - id: mixed-line-ending
         args: [--fix=lf]
+        exclude: *generated
       - id: check-added-large-files
         args: ['--maxkb=16384']
       - id: check-case-conflict

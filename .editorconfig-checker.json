@@ -1,0 +1,11 @@
+{
+  "Exclude": [
+    "^CHANGELOG\\.md$",
+    "^SECURITY\\.md$",
+    "^\\.github/workflows/(pr-title|release-plz|release)\\.yml$",
+    "^\\.release-kit/manifest\\.json$",
+    "^\\.spec-driven-docs/manifest\\.json$",
+    "^Cargo\\.lock$",
+    "^flake\\.lock$"
+  ]
+}

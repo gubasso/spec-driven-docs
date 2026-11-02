@@ -83,7 +83,12 @@
     "MD052": false, // reference labels — many notes use ad-hoc footnote refs
     "MD060": false // table column style — too strict for hand-edited tables
   },
+  // The generated Markdown keeps its generator's form: release-plz writes
+  // CHANGELOG.md and release-kit renders SECURITY.md. The pre-commit fixer
+  // hooks name every generated file this repository carries.
   "ignores": [
+    "CHANGELOG.md",
+    "SECURITY.md",
     "node_modules/",
     ".obsidian/",
     ".trash/",

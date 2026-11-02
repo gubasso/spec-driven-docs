@@ -27,9 +27,10 @@ test:
 hooks:
     cargo run -q -- hooks --apply --entry 'cargo run -q --'
 
+# The record is generated, so it keeps the form `self-manifest` writes, the
+# same form the release branch's alignment job commits.
 manifest: hooks
     cargo run -q -- self-manifest
-    dprint fmt .spec-driven-docs/manifest.json
 
 # Install into a scratch repository and verify it, end to end, with the real
 # binary.

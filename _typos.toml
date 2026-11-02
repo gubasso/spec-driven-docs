@@ -1,5 +1,18 @@
+# The generated files keep their generator's form, so typos judges none of them.
+# The pre-commit fixer hooks name the generator of each.
 [files]
-extend-exclude = ["flake.lock", "tests/fixtures/**"]
+extend-exclude = [
+  "CHANGELOG.md",
+  "SECURITY.md",
+  ".github/workflows/pr-title.yml",
+  ".github/workflows/release-plz.yml",
+  ".github/workflows/release.yml",
+  ".release-kit/manifest.json",
+  ".spec-driven-docs/manifest.json",
+  "Cargo.lock",
+  "flake.lock",
+  "tests/fixtures/**",
+]
 
 [default.extend-words]
 MADR = "MADR"
