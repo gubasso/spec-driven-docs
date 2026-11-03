@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.4](https://github.com/gubasso/spec-driven-docs/compare/v0.14.3...v0.14.4) - 2026-11-03
+
+### Fixed
+
+- *(deps)* Move three pinned hooks to their newest releases
+
 ## [0.14.3](https://github.com/gubasso/spec-driven-docs/compare/v0.14.2...v0.14.3) - 2026-11-02
 
 ### Other
