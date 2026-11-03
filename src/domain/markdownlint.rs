@@ -42,7 +42,7 @@ pub fn discovery_names() -> impl Iterator<Item = &'static str> {
 pub const REPO: &str = "https://github.com/DavidAnson/markdownlint-cli2";
 
 /// The linter revision the managed block pins.
-pub const REV: &str = "v0.23.3";
+pub const REV: &str = "v0.24.0";
 
 /// The custom rule that judges relative links, by its npm name.
 pub const RELATIVE_LINKS_PACKAGE: &str = "markdownlint-rule-relative-links";

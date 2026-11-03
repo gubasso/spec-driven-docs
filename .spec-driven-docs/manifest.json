@@ -45,7 +45,7 @@
     {
       "source": "skills/sdd-setup/references/tune-gates.md",
       "destination": "skills/sdd-setup/references/tune-gates.md",
-      "sha256": "201bed6f7bb2b1f0dbfe586af16f53e83f4bc4dc9d159c44ddd8a1b610339883"
+      "sha256": "501fda9be0a0b60eb67a175342a5003d0bc717fe2f40c38fe80cfd55a0afd327"
     },
     {
       "source": "skills/sdd-setup/references/upgrade.md",
@@ -211,7 +211,7 @@
   "integration_blocks": [
     {
       "path": ".pre-commit-config.yaml",
-      "marker_hash": "bcbee54c0cf64a61aa68d6fe083967b8fec3925fa64743ab6b4e6a8285159f12"
+      "marker_hash": "888dfdba0a20a125b5923dbb7de89b3193ab7255633d0f8569b043739cfb58dc"
     }
   ]
 }

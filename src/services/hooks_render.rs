@@ -324,7 +324,7 @@ mod tests {
         let out = render_markdownlint(&RenderOptions::default());
         assert_eq!(
             out,
-            "  - repo: https://github.com/DavidAnson/markdownlint-cli2\n    rev: v0.23.3\n    hooks:\n      - id: markdownlint-cli2\n        additional_dependencies: ['markdownlint-rule-relative-links@5.1.3']\n"
+            "  - repo: https://github.com/DavidAnson/markdownlint-cli2\n    rev: v0.24.0\n    hooks:\n      - id: markdownlint-cli2\n        additional_dependencies: ['markdownlint-rule-relative-links@5.1.3']\n"
         );
         for absent in ["--config", "files:", "exclude:", "alias:", "args:"] {
             assert!(!out.contains(absent), "{absent} in {out}");

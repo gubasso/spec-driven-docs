@@ -18,7 +18,7 @@ Scope:
 Lint, one gated edit per finding, each proposed with the rule ID it cites:
 
 1. Fold a stray configuration into the root `.markdownlint-cli2.*` configuration, then remove the stray file.
-2. Load and enable `relative-links`, and keep every existing entry. With a `.markdownlint-cli2.*` file, merge `markdownlint-rule-relative-links` into its `customRules`. With a `.markdownlint.*` file alone, keep it and add a companion `.markdownlint-cli2.*` file at the repository root that carries the loader, because `customRules` belongs to the `.markdownlint-cli2.*` family ([upstream configuration contract](https://github.com/DavidAnson/markdownlint-cli2/blob/v0.23.3/README.md#configuration)). Enable `"relative-links": true` in the `.markdownlint.*` file where one exists, otherwise in the `config` of the `.markdownlint-cli2.*` file.
+2. Load and enable `relative-links`, and keep every existing entry. With a `.markdownlint-cli2.*` file, merge `markdownlint-rule-relative-links` into its `customRules`. With a `.markdownlint.*` file alone, keep it and add a companion `.markdownlint-cli2.*` file at the repository root that carries the loader, because `customRules` belongs to the `.markdownlint-cli2.*` family ([upstream configuration contract](https://github.com/DavidAnson/markdownlint-cli2/blob/v0.24.0/README.md#configuration)). Enable `"relative-links": true` in the `.markdownlint.*` file where one exists, otherwise in the `config` of the `.markdownlint-cli2.*` file.
 3. Add each reserved path that holds Markdown to `ignores` in the root `.markdownlint-cli2.*` configuration, the companion file included.
 
 ## Post-flight
