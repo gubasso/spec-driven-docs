@@ -1,4 +1,11 @@
 default_install_hook_types: [pre-commit, commit-msg, pre-push]
+# The commit stage and the push stage together run every check of ci.yml,
+# and the push stage carries only the costly checks, so a hook that names no
+# stage runs at commit and in the manual stage rk integrate runs, never again
+# at push (release:the-local-hooks-run-every-check-of-ci). A remote manifest
+# that declares its own stages wins over this default, so those hooks below
+# name theirs.
+default_stages: [pre-commit, manual]
 
 repos:
 # BEGIN release-kit
@@ -87,18 +94,22 @@ repos:
       # own configuration: dprint.json, .markdownlint-cli2.jsonc, _typos.toml,
       # and .editorconfig-checker.json. The reading hooks keep every one.
       - id: trailing-whitespace
+        stages: [pre-commit, manual]
         args: [--markdown-linebreak-ext=md]
         exclude: &generated '^(CHANGELOG\.md|SECURITY\.md|\.github/workflows/(pr-title|release-plz|release)\.yml|\.release-kit/manifest\.json|\.spec-driven-docs/manifest\.json|Cargo\.lock|flake\.lock)$'
       - id: end-of-file-fixer
+        stages: [pre-commit, manual]
         exclude: *generated
       - id: mixed-line-ending
         args: [--fix=lf]
         exclude: *generated
       - id: check-added-large-files
+        stages: [pre-commit, manual]
         args: ['--maxkb=16384']
       - id: check-case-conflict
       - id: check-merge-conflict
       - id: destroyed-symlinks
+        stages: [pre-commit, manual]
       - id: check-yaml
       - id: check-toml
       - id: detect-private-key
@@ -112,7 +123,6 @@ repos:
       - id: editorconfig-checker
         alias: ec
         args: [-disable-insert-final-newline]
-        exclude: '\.md$'
 # Hooks only this repository runs sit outside the managed region at the end
 # of this file. That region is the render `just hooks` applies, and a cargo
 # test holds it there.
@@ -154,6 +164,57 @@ repos:
         language: system
         files: '^(src/|tests/|build\.rs$|Cargo\.(toml|lock)$|_docs/specs/|_docs/\.markdownlint-cli2\.jsonc$|templates/|instance/|method/|skills/|migrations/|LICENSE|\.pre-commit-config\.yaml$)'
         pass_filenames: false
+      # The instance-manifest gate parses the record in Rust and never reads
+      # the published schema, so this holds the record to the schema.
+      - id: instance-manifest-schema
+        name: instance manifest matches its schema
+        entry: check-jsonschema --schemafile instance/manifest.schema.json .spec-driven-docs/manifest.json
+        language: system
+        files: '^(instance/manifest\.schema\.json|\.spec-driven-docs/manifest\.json)$'
+        pass_filenames: false
+      # The costly checks run at push, and in the manual stage rk integrate
+      # runs, so a push that passed its hooks passes CI.
+      - id: cargo-deny
+        name: cargo deny
+        entry: cargo deny check
+        language: system
+        stages: [pre-push, manual]
+        always_run: true
+        pass_filenames: false
+      - id: scratch-install
+        name: install into a scratch repository and verify it
+        entry: just build
+        language: system
+        stages: [pre-push, manual]
+        always_run: true
+        pass_filenames: false
+      # nix flake check builds only the checks output, so the package is
+      # built on its own: without it a green run proves nothing about
+      # nix/package.nix.
+      - id: nix-build
+        name: nix build of the package
+        entry: nix build .#default --no-link
+        language: system
+        stages: [pre-push, manual]
+        always_run: true
+        pass_filenames: false
+      - id: nix-flake-check
+        name: nix flake check
+        entry: nix flake check
+        language: system
+        stages: [pre-push, manual]
+        always_run: true
+        pass_filenames: false
+      # The evaluated half of release:the-binary-builds-for-every-declared-target:
+      # nix flake check without --all-systems checks only the system it runs
+      # on, so only an evaluation says which systems the flake exposes.
+      - id: one-system
+        name: the flake exposes one system
+        entry: ./scripts/check-one-system.sh
+        language: system
+        stages: [pre-push, manual]
+        always_run: true
+        pass_filenames: false
   - repo: https://github.com/frnmst/md-toc
     rev: 9.1.0
     hooks:
@@ -165,6 +226,7 @@ repos:
     hooks:
       - id: typos
         language: system
+        stages: [pre-commit, manual]
         args: [--force-exclude]
   - repo: https://github.com/sirwart/ripsecrets
     rev: v0.1.11
@@ -173,18 +235,14 @@ repos:
   - repo: https://github.com/lycheeverse/lychee
     rev: lychee-v0.24.2
     hooks:
-      - id: lychee
+      # The devshell supplies the lychee binary, so the hook installs none.
+      - id: lychee-system
         stages: [pre-push]
         types: [markdown]
         # CHANGELOG.md is release-plz output, like the dprint and prose-gate
         # exemptions: it links every version to a compare range whose endpoints
         # it assumes are tags, and 0.2.0 was published by hand and never tagged.
         exclude: '^(tests/fixtures/|CHANGELOG\.md$)'
-        # The first argument pins the binary version the wrapper installs,
-        # because under a git hook GIT_DIR leaks into the wrapper's tag
-        # lookup and its version detection resolves this repository instead
-        # of its own checkout. Keep the value equal to the rev above.
-        args: ['LYCHEE_VERSION=0.24.2', --no-progress]
   - repo: https://github.com/crate-ci/committed
     rev: v1.1.11
     hooks:

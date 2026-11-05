@@ -18,20 +18,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/nix-installer-action@v19
       - uses: DeterminateSystems/magic-nix-cache-action@v13
-      - run: nix develop --command just check
-      # The Nix side of the same tree. nix flake check builds only the checks
-      # output, so the package is named on its own line as well: without it a
-      # green run would prove nothing about nix/package.nix. Both run in the
-      # job branch protection requires, so the packaging cannot go stale
-      # unnoticed.
-      - run: nix build .#default
-      - run: nix flake check
-      # The evaluated half of the support boundary
-      # (release:the-binary-builds-for-every-declared-target). The canon test
-      # reads flake.nix as text and holds one canonical authored form; only an
-      # evaluation says which systems the flake really exposes. `nix flake
-      # check` does not answer it, because without --all-systems it checks the
-      # system it runs on. The script reads the flake's own outputs rather
-      # than the JSON `nix flake show` prints, whose schema differs between
-      # Nix versions; nix/systems.nix carries the reasoning.
-      - run: nix develop --command ./scripts/check-one-system.sh
+      # Every check of this job is a hook, so a push that passed its hooks
+      # passes here (release:the-local-hooks-run-every-check-of-ci). The
+      # commit stage runs first, then the costly checks of the push stage.
+      # A CI checkout commits nothing, so the two guards of where a local
+      # commit happens are skipped: no-commit-to-branch refuses the trunk,
+      # and rk-worktree-location refuses a main checkout.
+      - run: nix develop --command pre-commit run --all-files
+        env:
+          SKIP: no-commit-to-branch,rk-worktree-location
+      - run: nix develop --command pre-commit run --all-files --hook-stage pre-push
+        env:
+          SKIP: no-commit-to-branch,rk-worktree-location

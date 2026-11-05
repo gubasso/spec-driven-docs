@@ -5,19 +5,19 @@ fmt:
     cargo fmt
     dprint fmt
 
-# The pre-commit sweep commits nothing, so the commit-location guards are
-# skipped as the worktree convention directs; each still fires at commit time.
+# Every check is a hook, so the commit, the push, and CI run one file set
+# with one tool version (release:the-local-hooks-run-every-check-of-ci).
+# The sweep commits nothing, so the commit-location guards are skipped as
+# the worktree convention directs; each still fires at commit time.
 # rk-status-check runs here, because the devshell carries the rk binary.
 lint:
-    cargo fmt --check
-    cargo clippy --all-targets --all-features -- -D warnings
-    cargo deny check
-    dprint check
-    editorconfig-checker -disable-insert-final-newline -exclude "^third-party/"
-    typos
-    check-jsonschema --schemafile instance/manifest.schema.json .spec-driven-docs/manifest.json
     pre-commit validate-config .pre-commit-config.yaml
     SKIP=no-commit-to-branch,rk-worktree-location pre-commit run --files $(rg --files --hidden -g '!.git' -g '!.git/**')
+
+# The costly checks of the push stage: cargo deny, the scratch install of
+# `build`, the Nix package, the flake checks, and the one-system evaluation.
+lint-push:
+    SKIP=no-commit-to-branch,rk-worktree-location pre-commit run --hook-stage pre-push --files $(rg --files --hidden -g '!.git' -g '!.git/**')
 
 test:
     cargo nextest run
@@ -37,7 +37,7 @@ manifest: hooks
 build:
     set -eu; d=$(mktemp -d); trap 'rm -rf "$d"' EXIT; mkdir -p "$d/.git"; cargo run -q -- init --target "$d" --profile knowledge-base --apply >/dev/null; cargo run -q -- verify --target "$d"
 
-check: lint test build
+check: lint lint-push
 
 # Install this checkout as the user's sdd, plus the user-scope agent skills.
 #
