@@ -27,6 +27,8 @@ jobs:
       - run: nix develop --command pre-commit run --all-files
         env:
           SKIP: no-commit-to-branch,rk-worktree-location
+      # lychee-system is local-only: an external site answers a CI runner
+      # with a block or a timeout that it does not give a developer host.
       - run: nix develop --command pre-commit run --all-files --hook-stage pre-push
         env:
-          SKIP: no-commit-to-branch,rk-worktree-location
+          SKIP: no-commit-to-branch,rk-worktree-location,lychee-system

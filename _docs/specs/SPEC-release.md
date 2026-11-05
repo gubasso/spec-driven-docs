@@ -237,7 +237,7 @@ Verify: reviewer confirms that no job of a workflow this repository authors inst
 
 If a push passed the local git hooks, CI MUST pass. The pre-commit stage and the pre-push stage together MUST run every check of `ci.yml`, the costly ones at pre-push, and the pre-push stage MUST NOT run a hook of the pre-commit stage again. `ci.yml` runs the two stages and no other check.
 
-A check that only CI can run is listed here with its reason. The list is empty. These workflows check nothing that a push starts, so they are outside the rule: `release-plz.yml`, `release.yml`, and `align-manifest.yml` release, and `pr-title.yml` judges a pull request title, which the commit-msg hooks judge on every commit.
+A check that only CI can run is listed here with its reason. The list is empty. The hooks can run more than CI: CI skips `lychee-system`, which checks external links, because an external site answers a CI runner with a block or a timeout that it does not give a developer host. These workflows check nothing that a push starts, so they are outside the rule: `release-plz.yml`, `release.yml`, and `align-manifest.yml` release, and `pr-title.yml` judges a pull request title, which the commit-msg hooks judge on every commit.
 
 #### Scenario: A check runs only in CI
 
