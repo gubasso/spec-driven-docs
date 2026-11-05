@@ -14,21 +14,21 @@ The stage writes nothing into the target. Keep it until the general post-flight 
 1. Run `sdd stage compare <root> --target . --json`, with `<root>` from the receipt.
 2. Route each row by what the landing decides for it: its `state`, `ownership`, `vouched`, and `replaceable`. Show its `provenance` with each question, as how much the tool can say about who wrote the bytes. Where `history.available` is false, the Git half of provenance is missing, and `history.reason` says why.
 
-| Row                                                                     | What follows                                                                                                                                               |
-| ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `equal`, or `absent` with `replaceable` false                           | nothing to decide                                                                                                                                          |
-| `adopted` and `differs`                                                 | a spec under `<root>/specs/`: port the shipped change by the steps below; any other file: nothing to decide, because the landing keeps the project's bytes |
-| `managed` or `integration` with `vouched` true                          | the landing refreshes it, or takes a `retired` row back                                                                                                    |
-| `replaceable` true                                                      | ask the operator, as a gated step, whether to keep the edit or discard it; for `absent`, whether to restore it                                             |
-| `managed` or `integration` with `vouched` false and `replaceable` false | a refusal: report it, because no `--replace` name resolves it; the operator moves the file aside                                                           |
+| Row                                                                     | What follows                                                                                                   |
+| ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `equal`, or `absent` with `replaceable` false                           | nothing to decide                                                                                              |
+| `adopted` and `differs`                                                 | nothing to decide, because the landing keeps the project's bytes                                               |
+| `managed` or `integration` with `vouched` true                          | the landing refreshes it, or takes a `retired` row back                                                        |
+| `replaceable` true                                                      | ask the operator, as a gated step, whether to keep the edit or discard it; for `absent`, whether to restore it |
+| `managed` or `integration` with `vouched` false and `replaceable` false | a refusal: report it, because no `--replace` name resolves it; the operator moves the file aside               |
 
 Name in `--replace` only a path whose `replaceable` is true. Both answers name it, and `--replace` saves a copy before it overwrites. Never land over such a file without an answer.
 
-The landing keeps the bytes of every adopted file, so a spec this release changed reaches the project only by a port. For each `adopted` and `differs` row under `<root>/specs/`:
+An adopted file keeps the project's bytes, so its row reads `equal` even where this release changed the shipped copy. A changed spec reaches the project only by a port. Run `sdd status --target . --json` once. For each adopted file in the directory at `paths.active.destinations.specs.path`:
 
-1. Run `sdd spec <name>` to print the shipped copy, with `<name>` the file name without `SPEC-` and `.md`.
-2. Read the held file's entry in the instance manifest, at `paths.active.destinations.manifest.path` of `sdd status --target . --json`. Where the file's `sha256sum` still equals its `baseline_sha256`, the project never edited it, and the shipped copy replaces it whole.
-3. Otherwise, diff the held file against the shipped copy. List each shipped change that the held file lacks, and keep each edit the project made.
+1. Run `sdd spec <name>` to print the shipped copy, with `<name>` the file name without `SPEC-` and `.md`. Where it equals the held file, nothing is to port.
+2. Read the held file's entry in the instance manifest, at `paths.active.destinations.manifest.path`. Where the file's `sha256sum` still equals its `baseline_sha256`, the project never edited it, and the shipped copy replaces it whole.
+3. Otherwise, read what changed in the spec in the release notes of each version after the recorded `canon_version`. Diff the held file against the shipped copy, list each shipped change those notes name, and keep each edit the project made.
 4. Ask the operator, as a gated step, to approve each port. Write the approved ports at the Prepare step, so the Land step records their bytes.
 
 ## 3. Prepare
