@@ -58,7 +58,7 @@ Repairing a path the record names, where the file moved and the record's claim d
 - WHEN a later change narrows that rule
 - THEN the spec carries the narrowed rule and the record keeps its original wording
 
-Verify: `git log --format=%H -- '*/decisions/ADR-*' | head -50 | xargs -I{} git show --stat {}`
+Verify: reviewer confirms that the change under review edits no accepted record to describe a later design
 
 ### `decision-records:merged-record-is-permanent` — A merged decision record is permanent
 
@@ -87,3 +87,11 @@ A ceiling the project records for an inherited record under `SPEC-budget-debt.md
 - THEN it holds two decisions and becomes two records
 
 Verify: `pre-commit run adr-word-cap --all-files`
+
+## Unenforced
+
+No command decides these rules, or a command decides only part of each. A reviewer confirms the rest.
+
+| Rule                                     | Reviewer confirms                                                                                                            |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `decision-records:record-is-not-revised` | The change under review edits no accepted record to describe a later design. A repaired path or a typo fix is not a revision |

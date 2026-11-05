@@ -304,6 +304,74 @@ mod tests {
         );
     }
 
+    fn dependent_problem(dir: &tempfile::TempDir, dependent: &str) -> Option<String> {
+        write(
+            dir,
+            "_docs/reference/tracking.yaml",
+            &registry(dependent, "2026-08-25"),
+        );
+        write(dir, "_docs/reference/x.md", "# x\n");
+        let report = evaluate(
+            &root(dir),
+            Utf8Path::new("_docs"),
+            "2026-09-01".parse().unwrap(),
+        )
+        .unwrap();
+        report.entries[0]
+            .problems
+            .iter()
+            .find(|p| p.rule == RuleId::DeclaredDependentExists)
+            .map(|p| p.detail.clone())
+    }
+
+    #[test]
+    fn a_dependent_that_escapes_the_tree_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let detail = dependent_problem(&dir, "../outside.md").expect("the escape passed");
+        assert!(detail.contains("escapes the tree"), "{detail}");
+    }
+
+    #[test]
+    fn an_absolute_dependent_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let detail = dependent_problem(&dir, "/etc/hosts").expect("the absolute path passed");
+        assert!(detail.contains("absolute"), "{detail}");
+    }
+
+    #[test]
+    fn a_dependent_reached_through_a_symlink_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        std::fs::write(outside.path().join("g.md"), "# g\n").unwrap();
+        std::os::unix::fs::symlink(outside.path(), dir.path().join("linked")).unwrap();
+        let detail = dependent_problem(&dir, "linked/g.md").expect("the symlink passed");
+        assert!(detail.contains("symlink"), "{detail}");
+    }
+
+    #[test]
+    fn a_missing_path_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        write(
+            &dir,
+            "_docs/reference/tracking.yaml",
+            &registry("_docs/guide.md", "2026-08-25"),
+        );
+        write(&dir, "_docs/guide.md", "# g\n");
+        let report = evaluate(
+            &root(&dir),
+            Utf8Path::new("_docs"),
+            "2026-09-01".parse().unwrap(),
+        )
+        .unwrap();
+        assert!(
+            report.entries[0]
+                .problems
+                .iter()
+                .any(|p| p.rule == RuleId::DeclaredDependentExists
+                    && p.detail.contains("path '_docs/reference/x.md'"))
+        );
+    }
+
     #[test]
     fn the_exact_due_boundary_is_current() {
         let dir = tempfile::tempdir().unwrap();

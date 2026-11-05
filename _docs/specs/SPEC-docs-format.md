@@ -11,6 +11,7 @@
   - [`docs-format:document-states-the-present` — A document states the present](#docs-formatdocument-states-the-present--a-document-states-the-present)
   - [`docs-format:fence-declares-a-language` — Every fence declares a language](#docs-formatfence-declares-a-language--every-fence-declares-a-language)
   - [`docs-format:prose-stays-unwrapped` — Prose stays unwrapped](#docs-formatprose-stays-unwrapped--prose-stays-unwrapped)
+- [Unenforced](#unenforced)
 
 <!--TOC-->
 
@@ -123,3 +124,11 @@ Prose the project keeps outside the paths it declares for this gate belongs to t
 - THEN the diff rewraps neighboring lines it never changed, so the paragraph joins back onto one line and the editor soft-wraps it
 
 Verify: `pre-commit run prose-stays-unwrapped --all-files`
+
+## Unenforced
+
+No command decides these rules, or a command decides only part of each. A reviewer confirms the rest.
+
+| Rule                                                 | Reviewer confirms                            |
+| ---------------------------------------------------- | -------------------------------------------- |
+| `docs-format:document-uses-structural-markdown-only` | The change introduces no bold or italic text |

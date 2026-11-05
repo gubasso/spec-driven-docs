@@ -13,6 +13,7 @@
   - [`docs-foundations:a-kind-prefix-carries-a-slug` — A document is named by a slug, not a counter](#docs-foundationsa-kind-prefix-carries-a-slug--a-document-is-named-by-a-slug-not-a-counter)
   - [`docs-foundations:a-document-directory-explains-itself` — A directory of slug-named documents carries a README](#docs-foundationsa-document-directory-explains-itself--a-directory-of-slug-named-documents-carries-a-readme)
   - [`docs-foundations:companion-artifacts-share-the-spec-name` — A spec's supporting artifacts sit in a directory named for it](#docs-foundationscompanion-artifacts-share-the-spec-name--a-specs-supporting-artifacts-sit-in-a-directory-named-for-it)
+- [Unenforced](#unenforced)
 
 <!--TOC-->
 
@@ -102,7 +103,7 @@ The author MUST name a managed document by a kebab-case slug drawn from its subj
 
 A reading order belongs in the prose of the directory's `README.md`, where an insertion costs one sentence. No program parses that order.
 
-The command below rejects a digit run followed by a hyphen at the front of the slug, after any uppercase kind prefix, because that is the allocated form and no command can tell `2026-roadmap.md` from `01-roadmap.md`. A slug whose subject carries a leading number puts the word first, as in `roadmap-2026.md`. Whether a digit elsewhere in a slug, as in `2fa-setup.md`, names the subject is a reviewer's judgment, and `method/gates.md` declares it unenforced.
+The command below rejects a digit run followed by a hyphen at the front of the slug, after any uppercase kind prefix, because that is the allocated form and no command can tell `2026-roadmap.md` from `01-roadmap.md`. A slug whose subject carries a leading number puts the word first, as in `roadmap-2026.md`. Whether a digit elsewhere in a slug, as in `2fa-setup.md`, names the subject is a reviewer's judgment, and this spec's `## Unenforced` table lists it.
 
 #### Scenario: Two branches each add a record
 
@@ -116,7 +117,7 @@ The command below rejects a digit run followed by a hyphen at the front of the s
 - WHEN the order is written into every filename as a prefix
 - THEN a chapter inserted between two others renumbers the tail, and every link into it breaks
 
-Verify: `find . -name '*.md' -not -path './.git/*' -not -path './target/*' -not -path '*/node_modules/*' | rg '/([A-Z]+-)?[0-9]+-[^/]*$' | grep . && exit 1 || exit 0`
+Verify: `find . -name '*.md' -not -path './.git/*' -not -path './target/*' -not -path '*/node_modules/*' | rg '/([A-Z]+-)?[0-9]+-[^/]*$' | grep . && exit 1 || exit 0`, and a reviewer confirms that a digit inside a slug names its subject
 
 ### `docs-foundations:a-document-directory-explains-itself` — A directory of slug-named documents carries a README
 
@@ -143,3 +144,12 @@ Where a requirement names a supporting artifact, the author MUST place that arti
 - THEN it sits in the spec's companion directory rather than in reference
 
 Verify: `for d in docs/specs/*/ _docs/specs/*/; do [ -e "$d" ] || continue; n=$(basename "$d"); [ -f "$(dirname "${d%/}")/$n.md" ] && [ -n "$(ls -A "$d")" ] || exit 1; done`
+
+## Unenforced
+
+No command decides these rules, or a command decides only part of each. A reviewer confirms the rest.
+
+| Rule                                               | Reviewer confirms                                          |
+| -------------------------------------------------- | ---------------------------------------------------------- |
+| `docs-foundations:a-document-owns-what-it-governs` | Every rule the project owns is stated in its own documents |
+| `docs-foundations:a-kind-prefix-carries-a-slug`    | A digit inside a slug names its subject, not a position    |

@@ -13,7 +13,7 @@ use crate::domain::gate_id::GateId;
 use crate::domain::instance_config::{self, InstanceConfig};
 use crate::domain::path_filter::{Decision, PathFilter};
 use crate::error::AppError;
-use crate::gates::{GATES, GateCtx, spec};
+use crate::gates::{GATES, GateCtx, Violation, spec};
 use crate::output;
 
 /// The documentation root patterns are templated against.
@@ -272,6 +272,15 @@ pub fn run(_ctx: &AppContext, args: GateArgs) -> Result<(), AppError> {
 
     let violations = (spec(id).run)(&gate_ctx, &judged)?;
     if violations.is_empty() {
+        return Ok(());
+    }
+    if spec(id).warns {
+        for violation in &violations {
+            match violation {
+                Violation::Finding(finding) => output::line(finding.as_warning()),
+                other => output::line(other),
+            }
+        }
         return Ok(());
     }
     for violation in &violations {

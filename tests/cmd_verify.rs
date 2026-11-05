@@ -549,3 +549,25 @@ fn a_builtin_selection_needs_no_sentinel() {
         .success()
         .stdout(predicate::str::contains("no local specification defines").not());
 }
+
+/// VERIFIES docs-specs:a-spec-follows-the-heading-shape
+///
+/// A spec section after the requirements other than `## Unenforced` is a
+/// note in this release: verify names the file and the move, and passes.
+#[test]
+fn a_trailing_spec_section_is_a_note_and_verify_passes() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    fixture.write(
+        "_docs/specs/SPEC-local.md",
+        "# Local Specification\n\n## Purpose\n\nRules.\n\n## Requirements\n\n### `local:works` — Local works\n\nThe local MUST work.\n\n#### Scenario: Run\n\n- GIVEN input\n- WHEN run\n- THEN output\n\nVerify: reviewer confirms it works\n\n## Unenforced rules\n\nText.\n",
+    );
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            "note: _docs/specs/SPEC-local.md:21 `## Unenforced rules` follows the requirements; rename it to `## Unenforced` (docs-specs:a-spec-follows-the-heading-shape); a later release fails on it",
+        ));
+}

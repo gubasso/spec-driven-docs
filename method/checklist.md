@@ -142,5 +142,5 @@ Owner: [Operational](./operational.md).
 
 Owner: [Gates](./gates.md).
 
-- [ ] A rule added by this change is checked by a hook, or listed as unenforced.
+- [ ] A rule added by this change is checked by a hook, or listed in the `## Unenforced` table of its own spec.
 - [ ] The hooks pass on the changed files.

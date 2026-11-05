@@ -151,7 +151,7 @@ Three is the cap because a marker is for a question that changes scope, reads se
 
 The command is the rule's teeth. It appears three times over: in the spec, in the hook, and in the failure message. The spec lets a reader run it, the hook gates a commit, and the failure message lets a breach name its own rule.
 
-When a rule genuinely cannot be checked by a command, the `Verify:` line names the human procedure instead. In that case, [Gates](./gates.md) records it as unenforced. An unenforced rule declared as such is honest. An unenforced rule presented as binding is the reason readers stop believing specs.
+When a rule genuinely cannot be checked by a command, the `Verify:` line names the human procedure instead. In that case, the spec lists the rule in its own `## Unenforced` table, the shape [Specs](./specs.md) shows. An unenforced rule declared as such is honest. An unenforced rule presented as binding is the reason readers stop believing specs.
 
 ```text
 checkable  Verify: `find _docs/decisions -name 'ADR-*' | rg '[0-9]' && exit 1 || exit 0`

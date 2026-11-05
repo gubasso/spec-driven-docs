@@ -65,6 +65,8 @@ pub enum GateId {
     SpecRuleIdUnique,
     /// Specs stay within their line cap and carry a TOC when long.
     SpecSizeCap,
+    /// After its requirements, a spec carries only an `## Unenforced` section.
+    SpecTrailingSection,
     /// Spec verification lines name hooks that exist.
     SpecVerifyHooksExist,
     /// Suppression comments name a known-issue case.
@@ -102,6 +104,7 @@ impl GateId {
         Self::SpecRequirementParts,
         Self::SpecRuleIdUnique,
         Self::SpecSizeCap,
+        Self::SpecTrailingSection,
         Self::SpecVerifyHooksExist,
         Self::SuppressionNamesItsCase,
         Self::TrackingRegistry,
@@ -137,6 +140,7 @@ impl GateId {
             Self::SpecRequirementParts => "spec-requirement-parts",
             Self::SpecRuleIdUnique => "spec-rule-id-unique",
             Self::SpecSizeCap => "spec-size-cap",
+            Self::SpecTrailingSection => "spec-trailing-section",
             Self::SpecVerifyHooksExist => "spec-verify-hooks-exist",
             Self::SuppressionNamesItsCase => "suppression-names-its-case",
             Self::TrackingRegistry => "tracking-registry",
@@ -172,7 +176,7 @@ mod tests {
         for gate in GateId::ALL {
             assert!(seen.insert(gate.as_str()), "{gate} is duplicated");
         }
-        assert_eq!(GateId::ALL.len(), 29);
+        assert_eq!(GateId::ALL.len(), 30);
     }
 
     #[test]

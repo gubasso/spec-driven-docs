@@ -26,11 +26,19 @@ Every spec has the same four-level shape. The shape is a contract: tools and ses
 - THEN <expected outcome>
 
 Verify: `<command that exits non-zero on violation>`
+
+## Unenforced
+
+| Rule                      | Reviewer confirms                    |
+| ------------------------- | ------------------------------------ |
+| `<spec-slug>:<rule-slug>` | <what a reviewer confirms at review> |
 ```
 
 - A spec MUST use the headings `## Purpose` and `## Requirements`, in that order.
 - Every requirement MUST be an `### \`<id>\` — <title>`heading under`## Requirements`.
-- A spec MUST NOT introduce a section outside this shape.
+- After the requirements, a spec MAY carry one further section, `## Unenforced`, and MUST carry no other.
+
+The `## Unenforced` table lists the rules of this spec that no command decides, or decides only in part, with what a reviewer confirms for each. The list sits beside the rules it qualifies, and one named section is the whole allowance, so a `## Background` after the requirements still fails. A diagnostic message is a fact and belongs in reference.
 
 [Gates](./gates.md) wires the check that holds it.
 
