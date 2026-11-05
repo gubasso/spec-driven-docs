@@ -17,6 +17,8 @@
   - [`release:every-release-declares-what-it-asks` — Every release declares what it asks](#releaseevery-release-declares-what-it-asks--every-release-declares-what-it-asks)
   - [`release:the-binary-builds-for-every-declared-target` — The binary builds for every declared target](#releasethe-binary-builds-for-every-declared-target--the-binary-builds-for-every-declared-target)
   - [`release:a-machine-scope-recipe-drops-a-session-variable` — A machine-scope recipe drops a session variable](#releasea-machine-scope-recipe-drops-a-session-variable--a-machine-scope-recipe-drops-a-session-variable)
+  - [`release:the-devshell-supplies-every-project-tool` — The devshell supplies every project tool](#releasethe-devshell-supplies-every-project-tool--the-devshell-supplies-every-project-tool)
+  - [`release:the-local-hooks-run-every-check-of-ci` — The local hooks run every check of CI](#releasethe-local-hooks-run-every-check-of-ci--the-local-hooks-run-every-check-of-ci)
 
 <!--TOC-->
 
@@ -216,3 +218,31 @@ The `install` and `uninstall` recipes install this checkout for the machine, so 
 - THEN it fails naming the recipe, because every other test proves the verb's relocation default on purpose and none of them would notice
 
 Verify: `cargo nextest run -E 'binary(canon)'`
+
+### `release:the-devshell-supplies-every-project-tool` — The devshell supplies every project tool
+
+The devshell of `flake.nix` MUST supply the language toolchain, `pre-commit`, `just`, and every tool that a recipe, a `language: system` hook, or a `language: script` hook calls from `PATH`. pre-commit supplies the tools of a hook whose language gets an environment that pre-commit builds. The host supplies only `nix` and `direnv`, which enter the devshell, and the base tools: `git`, `bash`, `awk`, `sed`, `grep`, and the coreutils. A CI job MUST install no project tool outside the devshell, and a job that compiles this project MUST compile it in the devshell.
+
+A workflow that a release tool generates follows its generator: `release-plz.yml` and `release.yml` only release, and their generators own how they install a toolchain.
+
+#### Scenario: A job installs its own toolchain
+
+- GIVEN a workflow job that installs Rust with a toolchain action and then runs `cargo run`
+- WHEN the change is reviewed
+- THEN it is refused, because the job compiles with a compiler that neither `rust-toolchain.toml` nor the devshell pins, so a green local run says nothing about it
+
+Verify: reviewer confirms that no job of a workflow this repository authors installs a project tool outside `nix develop`
+
+### `release:the-local-hooks-run-every-check-of-ci` — The local hooks run every check of CI
+
+If a push passed the local git hooks, CI MUST pass. The pre-commit stage and the pre-push stage together MUST run every check of `ci.yml`, the costly ones at pre-push, and the pre-push stage MUST NOT run a hook of the pre-commit stage again. `ci.yml` runs the two stages and no other check.
+
+A check that only CI can run is listed here with its reason. The list is empty. The hooks can run more than CI: CI skips `lychee-system`, which checks external links, because an external site answers a CI runner with a block or a timeout that it does not give a developer host. These workflows check nothing that a push starts, so they are outside the rule: `release-plz.yml`, `release.yml`, and `align-manifest.yml` release, and `pr-title.yml` judges a pull request title, which the commit-msg hooks judge on every commit.
+
+#### Scenario: A check runs only in CI
+
+- GIVEN a step of `ci.yml` that no hook runs
+- WHEN a push passes its hooks
+- THEN CI can still fail on that step, so the step moves into a hook, at pre-push when it is costly, or this rule lists it with its reason
+
+Verify: reviewer confirms that every step of `ci.yml` runs a hook stage of `.pre-commit-config.yaml` or a check that this rule lists

@@ -174,6 +174,8 @@ rule_ids! {
     CanonRecordDescribesItsTree => "release:the-canon-record-describes-its-tree",
     RkPinHasTwoFactsAndOneMover => "release:the-rk-pin-has-two-facts-and-one-mover",
     DeliveredGateSetIsDeclaredOnce => "release:the-delivered-gate-set-is-declared-once",
+    DevshellSuppliesEveryProjectTool => "release:the-devshell-supplies-every-project-tool",
+    LocalHooksRunEveryCheckOfCi => "release:the-local-hooks-run-every-check-of-ci",
     ThirdPartyNoticesTravelWithThePayload => "release:third-party-notices-travel-with-the-payload",
     VersionsAreSemanticAndAligned => "release:versions-are-semantic-and-aligned",
     ChoiceOffersOneDefault => "skill-format:a-choice-offers-one-default",
