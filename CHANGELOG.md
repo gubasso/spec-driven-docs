@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0](https://github.com/gubasso/spec-driven-docs/compare/v0.14.5...v0.15.0) - 2026-11-06
+
+### Added
+
+- *(gates)* [**breaking**] Fail on a spec section after the requirements ([#136](https://github.com/gubasso/spec-driven-docs/pull/136))
+
+### Fixed
+
+- *(gates)* Judge every wrapped line of a record's Enforced by citation ([#134](https://github.com/gubasso/spec-driven-docs/pull/134))
+
 ## [0.14.5](https://github.com/gubasso/spec-driven-docs/compare/v0.14.4...v0.14.5) - 2026-11-06
 
 ### Added
