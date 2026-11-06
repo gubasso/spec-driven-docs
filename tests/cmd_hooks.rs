@@ -37,11 +37,12 @@ fn the_block_carries_markers_verifier_and_every_gate() {
     // block names no configuration file.
     assert!(block.contains("      - id: markdownlint-cli2\n"), "{block}");
     assert!(!block.contains("--config"), "{block}");
-    // A warning gate passes, so only a verbose hook shows its lines.
+    // A failing gate shows its lines, so no gate needs a verbose hook.
     assert!(
-        block.contains("gate spec-trailing-section\n        language: system\n        files: '^_docs/specs/SPEC-[^/]*\\.md$'\n        verbose: true\n"),
+        block.contains("gate spec-trailing-section\n        language: system\n        files: '^_docs/specs/SPEC-[^/]*\\.md$'\n"),
         "{block}"
     );
+    assert!(!block.contains("verbose: true"), "{block}");
     assert!(
         block.contains("additional_dependencies: ['markdownlint-rule-relative-links@"),
         "{block}"

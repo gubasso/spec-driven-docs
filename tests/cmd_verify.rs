@@ -552,10 +552,10 @@ fn a_builtin_selection_needs_no_sentinel() {
 
 /// VERIFIES docs-specs:a-spec-follows-the-heading-shape
 ///
-/// A spec section after the requirements other than `## Unenforced` is a
-/// note in this release: verify names the file and the move, and passes.
+/// A spec section after the requirements other than `## Unenforced` fails
+/// verify, which names the file and the move.
 #[test]
-fn a_trailing_spec_section_is_a_note_and_verify_passes() {
+fn a_trailing_spec_section_fails_verify() {
     let fixture = Fixture::new();
     fixture.install("knowledge-base");
     fixture.write(
@@ -566,8 +566,8 @@ fn a_trailing_spec_section_is_a_note_and_verify_passes() {
         .cmd()
         .args(["verify", "--target", &fixture.target()])
         .assert()
-        .success()
+        .failure()
         .stdout(predicate::str::contains(
-            "note: _docs/specs/SPEC-local.md:21 `## Unenforced rules` follows the requirements; rename it to `## Unenforced` (docs-specs:a-spec-follows-the-heading-shape); a later release fails on it",
+            "FAIL _docs/specs/SPEC-local.md:21 `## Unenforced rules` follows the requirements; rename it to `## Unenforced` (docs-specs:a-spec-follows-the-heading-shape)",
         ));
 }
