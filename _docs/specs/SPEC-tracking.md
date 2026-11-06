@@ -12,6 +12,7 @@
   - [`tracking:a-declared-dependent-exists` — A declared dependent exists](#trackinga-declared-dependent-exists--a-declared-dependent-exists)
   - [`tracking:an-upstream-check-does-not-edit-the-tree` — An upstream check does not edit the tree](#trackingan-upstream-check-does-not-edit-the-tree--an-upstream-check-does-not-edit-the-tree)
   - [`tracking:the-validator-checks-what-the-schema-cannot` — The validator checks what the schema cannot](#trackingthe-validator-checks-what-the-schema-cannot--the-validator-checks-what-the-schema-cannot)
+- [Unenforced](#unenforced)
 
 <!--TOC-->
 
@@ -118,3 +119,13 @@ The companion schema at `SPEC-tracking/tracking.schema.json` holds the structura
 - THEN it fails naming the entry and the escape, because only the validator reads where a path leads
 
 Verify: `pre-commit run tracking-registry --all-files`
+
+## Unenforced
+
+No command decides these rules, or a command decides only part of each. A reviewer confirms the rest.
+
+| Rule                                                | Reviewer confirms                                           |
+| --------------------------------------------------- | ----------------------------------------------------------- |
+| `tracking:a-perishable-source-is-registered`        | Each perishable source the change adds has a registry entry |
+| `tracking:an-entry-declares-how-to-revalidate`      | Each entry's steps let a person revalidate the source       |
+| `tracking:an-upstream-check-does-not-edit-the-tree` | The upstream check left the working tree unchanged          |

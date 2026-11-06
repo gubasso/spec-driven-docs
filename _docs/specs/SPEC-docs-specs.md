@@ -154,7 +154,10 @@ Verify: reviewer confirms each rule whose `Verify:` line names a reviewer appear
 
 No command decides these rules, or a command decides only part of each. A reviewer confirms the rest.
 
-| Rule                                        | Reviewer confirms                                              |
-| ------------------------------------------- | -------------------------------------------------------------- |
-| `docs-specs:requirement-carries-five-parts` | Each scenario names the contested case, not a restatement      |
-| `docs-specs:statement-uses-an-ears-pattern` | The statement is one sentence and names a subject that can act |
+| Rule                                            | Reviewer confirms                                                                     |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `docs-specs:requirement-carries-five-parts`     | Each scenario names the contested case, not a restatement                             |
+| `docs-specs:statement-uses-an-ears-pattern`     | The statement is one sentence and names a subject that can act                        |
+| `docs-specs:rule-id-outlives-its-sentence`      | No rule ID changed alongside a reworded statement                                     |
+| `docs-specs:requirement-carries-a-verification` | Each `Verify:` line names a command or a named human procedure                        |
+| `docs-specs:unenforced-rules-are-declared`      | Each rule whose `Verify:` line names a reviewer appears in this table of its own spec |

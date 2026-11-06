@@ -149,7 +149,9 @@ Verify: `for d in docs/specs/*/ _docs/specs/*/; do [ -e "$d" ] || continue; n=$(
 
 No command decides these rules, or a command decides only part of each. A reviewer confirms the rest.
 
-| Rule                                               | Reviewer confirms                                          |
-| -------------------------------------------------- | ---------------------------------------------------------- |
-| `docs-foundations:a-document-owns-what-it-governs` | Every rule the project owns is stated in its own documents |
-| `docs-foundations:a-kind-prefix-carries-a-slug`    | A digit inside a slug names its subject, not a position    |
+| Rule                                               | Reviewer confirms                                              |
+| -------------------------------------------------- | -------------------------------------------------------------- |
+| `docs-foundations:spec-states-the-present`         | The change that alters behavior updates the owning spec        |
+| `docs-foundations:spec-wins-over-record`           | Where a spec and a record disagree, the work followed the spec |
+| `docs-foundations:a-document-owns-what-it-governs` | Every rule the project owns is stated in its own documents     |
+| `docs-foundations:a-kind-prefix-carries-a-slug`    | A digit inside a slug names its subject, not a position        |

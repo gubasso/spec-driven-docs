@@ -19,6 +19,7 @@
   - [`release:a-machine-scope-recipe-drops-a-session-variable` — A machine-scope recipe drops a session variable](#releasea-machine-scope-recipe-drops-a-session-variable--a-machine-scope-recipe-drops-a-session-variable)
   - [`release:the-devshell-supplies-every-project-tool` — The devshell supplies every project tool](#releasethe-devshell-supplies-every-project-tool--the-devshell-supplies-every-project-tool)
   - [`release:the-local-hooks-run-every-check-of-ci` — The local hooks run every check of CI](#releasethe-local-hooks-run-every-check-of-ci--the-local-hooks-run-every-check-of-ci)
+- [Unenforced](#unenforced)
 
 <!--TOC-->
 
@@ -246,3 +247,14 @@ A check that only CI can run is listed here with its reason. The list is empty. 
 - THEN CI can still fail on that step, so the step moves into a hook, at pre-push when it is costly, or this rule lists it with its reason
 
 Verify: reviewer confirms that every step of `ci.yml` runs a hook stage of `.pre-commit-config.yaml` or a check that this rule lists
+
+## Unenforced
+
+No command decides these rules, or a command decides only part of each. A reviewer confirms the rest.
+
+| Rule                                               | Reviewer confirms                                                                          |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `release:a-tag-derives-from-the-version-file`      | Every `v*` tag came from the release automation on `master`                                |
+| `release:a-released-version-is-not-re-authored`    | Each correction ships as a new version, never as a moved tag                               |
+| `release:the-devshell-supplies-every-project-tool` | No job of a workflow this repository authors installs a project tool outside `nix develop` |
+| `release:the-local-hooks-run-every-check-of-ci`    | Every step of `ci.yml` runs a hook stage or a check the rule lists                         |
