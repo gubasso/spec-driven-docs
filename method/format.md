@@ -19,7 +19,7 @@ Markdown is the house format. This chapter keeps the constructs that carry struc
 - A project MUST NOT raise a budget to admit a document that exceeds it.
 - A gate that exempts a file MUST fail once that file no longer needs the exemption.
 
-Six of the budgets are line or word counts and are gated in [Gates](./gates.md). The other is not a count: a requirement statement being one sentence is reviewer judgment. That chapter declares it unenforced rather than approximating it. A count nobody runs is advice, and a project that publishes these numbers without hooks documents an intention.
+Six of the budgets are line or word counts and are gated in [Gates](./gates.md). The other is not a count: a requirement statement being one sentence is reviewer judgment. The spec that states it lists it under `## Unenforced` rather than approximating it. A count nobody runs is advice, and a project that publishes these numbers without hooks documents an intention.
 
 Adopting a budget over a corpus written before it is the case that tempts the raised number. Gate the scope already inside the budget and list the files outside it. As a result, what is uncovered is an enumeration a reader can count rather than a silence. The list must fail the gate once a file it names fits, or it stops shrinking the day it stops being read.
 

@@ -3214,3 +3214,22 @@ fn the_install_recipes_drop_the_session_configuration_variable() {
         );
     }
 }
+
+/// SATISFIES docs-specs:unenforced-rules-are-declared
+///
+/// A spec rule that no command decides is listed once, in the `## Unenforced`
+/// table of its own spec. The gates chapter keeps only the method's own
+/// statements, so a table row there that names a rule ID is a second list.
+#[test]
+fn the_gates_chapter_lists_no_spec_rule() {
+    let chapter = read("method/gates.md");
+    let rule = regex::Regex::new(r"`[a-z0-9-]+:[a-z0-9-]+`").unwrap();
+    for (index, line) in chapter.lines().enumerate() {
+        assert!(
+            !(line.starts_with('|') && rule.is_match(line)),
+            "method/gates.md:{}: a table row names a spec rule; list it in the \
+             ## Unenforced table of its own spec instead: {line}",
+            index + 1
+        );
+    }
+}

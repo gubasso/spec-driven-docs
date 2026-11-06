@@ -24,6 +24,13 @@ The stage writes nothing into the target. Keep it until the general post-flight 
 
 Name in `--replace` only a path whose `replaceable` is true. Both answers name it, and `--replace` saves a copy before it overwrites. Never land over such a file without an answer.
 
+An adopted file keeps the project's bytes, so its row reads `equal` even where this release changed the shipped copy. A changed spec reaches the project only by a port. Run `sdd status --target . --json` once. For each adopted file in the directory at `paths.active.destinations.specs.path`:
+
+1. Run `sdd spec <name>` to print the shipped copy, with `<name>` the file name without `SPEC-` and `.md`. Where it equals the held file, nothing is to port.
+2. Read the held file's entry in the instance manifest, at `paths.active.destinations.manifest.path`. Where the file's `sha256sum` still equals its `baseline_sha256`, the project never edited it, and the shipped copy replaces it whole.
+3. Otherwise, read what changed in the spec in the release notes of each version after the recorded `canon_version`. Diff the held file against the shipped copy, list each shipped change those notes name, and keep each edit the project made.
+4. Ask the operator, as a gated step, to approve each port. Write the approved ports at the Prepare step, so the Land step records their bytes.
+
 ## 3. Prepare
 
 Write only what the project owns, and write it before the landing:

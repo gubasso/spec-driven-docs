@@ -319,6 +319,12 @@ mod tests {
     }
 
     #[test]
+    fn rejects_a_duplicate_dependent() {
+        let text = "schema_version: 1\ntracked:\n  - id: s\n    path: r/x.md\n    last_checked: 2026-01-01\n    cadence_days: 30\n    why: w\n    revalidate:\n      - go\n    dependents:\n      - r/a.md\n      - r/a.md\n";
+        assert!(matches!(parse(text), Err(TrackingError::Semantic(_))));
+    }
+
+    #[test]
     fn rejects_a_duplicate_mapping_key() {
         let text = "schema_version: 1\nschema_version: 1\ntracked: []\n";
         assert!(matches!(parse(text), Err(TrackingError::Bounds(_))));

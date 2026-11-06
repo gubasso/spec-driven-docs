@@ -12,6 +12,7 @@
   - [`guides:a-divergent-result-names-its-destination` — A divergent result names its destination](#guidesa-divergent-result-names-its-destination--a-divergent-result-names-its-destination)
   - [`guides:an-external-fact-is-verified-upstream` — An external fact is verified upstream](#guidesan-external-fact-is-verified-upstream--an-external-fact-is-verified-upstream)
   - [`guides:citations-live-in-the-reference-zone` — Citations live in the reference zone](#guidescitations-live-in-the-reference-zone--citations-live-in-the-reference-zone)
+- [Unenforced](#unenforced)
 
 <!--TOC-->
 
@@ -116,3 +117,18 @@ Where a fact rests on an upstream source, the author MUST record a dated citatio
 - THEN the citations crowd out the procedure, and they move to a dated reference entry the guide links once
 
 Verify: reviewer confirms each upstream fact has a dated citation in the reference zone
+
+## Unenforced
+
+No command decides these rules, or a command decides only part of each. A reviewer confirms the rest.
+
+| Rule                                                | Reviewer confirms                                                                          |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `guides:every-step-carries-its-check`               | Each step carries a check that states what a correct result looks like                     |
+| `guides:a-manual-step-enumerates-its-interaction`   | Each interface step lists every field, control, and value the reader sets                  |
+| `guides:a-step-follows-its-producers`               | Each value a step consumes comes from an earlier step or a stated precondition             |
+| `guides:preconditions-open-and-verification-closes` | The guide opens with checkable preconditions and closes with a verification                |
+| `guides:a-step-is-one-imperative-action`            | Each step is one imperative action, and an outcome the tool does not print is its own step |
+| `guides:a-divergent-result-names-its-destination`   | Each known divergence states its condition and where the reader goes next                  |
+| `guides:an-external-fact-is-verified-upstream`      | Each upstream-owned fact was checked against the official source                           |
+| `guides:citations-live-in-the-reference-zone`       | Each upstream fact has a dated citation in the reference zone                              |

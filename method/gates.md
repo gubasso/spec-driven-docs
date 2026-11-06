@@ -1,6 +1,6 @@
 # Gates
 
-Every rule this framework states is either checked by a hook or declared unenforced. This chapter holds the wiring and the honest list of what no command can decide.
+Every rule this framework states is either checked by a hook or declared unenforced. This chapter holds the wiring. Each spec holds the honest list of its rules that no command decides, and this chapter lists the method's own.
 
 ## Principle
 
@@ -25,6 +25,8 @@ set -- _docs/specs/SPEC-*.md
 For a spec the array is `["?", "## Purpose", "## Requirements", "+"]`. For a record it is `"?"` followed by the five section headings in order, with no trailing wildcard. A template holds the shape inside a fence so an author can copy it, and MD043 counts a fenced heading as no heading at all.
 
 MD043 checks every heading level, so the array covers requirement and scenario headings too. Tokens are `?` for exactly one, `+` for one or more, `*` for zero or more. `+` fails an empty spec. Set `match_case: true`. Its default is false, and without it a record headed `## status` passes.
+
+The trailing `+` also admits any heading after `## Requirements`, and no mix of `?`, `+`, and `*` expresses "at most one optional named heading". The delivered gate `spec-trailing-section` holds that part. After the requirements it admits one level-two heading, `## Unenforced`, whose table carries the header `Rule | Reviewer confirms` and rows that each name a rule of the same spec. Each other heading is a finding that names where it moves: a diagnostic to reference, any other section to reference, explanation, or a rule.
 
 The linter finds the file itself. markdownlint-cli2 reads the configuration in every directory from the repository root down to the file it judges, and merges each one over the one above it. A hook run, a direct run, and an editor therefore read the same settings. The landing renders one plain hook with no `--config`, and `sdd hooks` prints it.
 
@@ -238,40 +240,27 @@ The `awk` attributes a marker to the requirement heading above it, not to one in
 
 ## Unenforced
 
-These rules are real and no command decides them. A reviewer does.
+Each spec lists its own unenforced rules in its `## Unenforced` table, beside the rules they qualify: a rule that no command decides, or decides only in part, with what a reviewer confirms. The inventory is `rg -n '^## Unenforced' <root>/specs`. The `spec-trailing-section` gate holds each table's header, and that each row names a rule of its own spec, so no unenforced rule appears in two lists.
 
-| Rule                                                               | Why no command                            |
-| ------------------------------------------------------------------ | ----------------------------------------- |
-| A requirement names a subject that can act                         | requires reading the sentence             |
-| A requirement statement is one sentence                            | requires reading the sentence             |
-| A reference is one level from the context entrypoint               | requires knowing the context entrypoint   |
-| A scenario names the contested case, not a restatement             | requires knowing the ambiguity            |
-| A deferral's reopening condition is checkable                      | requires domain knowledge                 |
-| Prose is spent only on a decision, hazard, or constraint           | requires judging necessity                |
-| A document contains no bold or italic text                         | stated without a gate by decision         |
-| One term for one concept                                           | requires knowing which terms are synonyms |
-| A fact has exactly one owner                                       | requires knowing what the fact is         |
-| A document owns what it governs                                    | requires knowing the project's own domain |
-| A spec introduces no section outside its shape                     | its trailing wildcard admits any heading  |
-| A run of records about one domain means a missing spec             | requires reading the corpus               |
-| A seeded rule states an obligation its adopter can violate         | requires reading the rule's subject       |
-| A seeded rule's verification is one the adopter can perform        | requires knowing the adopter's tools      |
-| A step is one action, and an unprinted outcome is a step           | requires reading the step                 |
-| Every step carries a check a reader can judge                      | requires reading the step                 |
-| A manual step enumerates every field and value                     | requires knowing the interface            |
-| A step's inputs are produced by an earlier step                    | requires tracing the procedure            |
-| A guide opens with preconditions and closes with a check           | requires reading the guide                |
-| A divergent result states its condition and destination            | requires knowing the tool's behavior      |
-| An upstream-owned fact is verified against its source              | requires fetching the source              |
-| An upstream citation is dated and lives in reference               | requires reading the reference zone       |
-| An artifact token names one artifact, never a step                 | requires judging the name                 |
-| A comment holds only what the code cannot express                  | requires reading the code beside it       |
-| A claim about code quotes the code that shows it                   | requires reading the code beside it       |
-| A report leads with a run before its supporting detail             | requires reading the document             |
-| A pointer carries only what orients the reader                     | requires knowing what the target owns     |
-| An operational document carries every part of its shape            | requires knowing which shape it is        |
-| A destructive step shows its dry run and its loss                  | requires knowing the tool's forms         |
-| A suppression naming no case states its reason                     | the language's own linter owns the syntax |
-| A digit inside a document's slug names its subject, not a position | requires knowing the subject              |
+The method also states rules that no spec rule states and no command decides. A reviewer asks them:
+
+| Method statement                                            | Why no command                            |
+| ----------------------------------------------------------- | ----------------------------------------- |
+| A reference is one level from the context entrypoint        | requires knowing the context entrypoint   |
+| A deferral's reopening condition is checkable               | requires domain knowledge                 |
+| Prose is spent only on a decision, hazard, or constraint    | requires judging necessity                |
+| One term for one concept                                    | requires knowing which terms are synonyms |
+| A fact has exactly one owner                                | requires knowing what the fact is         |
+| A run of records about one domain means a missing spec      | requires reading the corpus               |
+| A seeded rule states an obligation its adopter can violate  | requires reading the rule's subject       |
+| A seeded rule's verification is one the adopter can perform | requires knowing the adopter's tools      |
+| An artifact token names one artifact, never a step          | requires judging the name                 |
+| A comment holds only what the code cannot express           | requires reading the code beside it       |
+| A claim about code quotes the code that shows it            | requires reading the code beside it       |
+| A report leads with a run before its supporting detail      | requires reading the document             |
+| A pointer carries only what orients the reader              | requires knowing what the target owns     |
+| An operational document carries every part of its shape     | requires knowing which shape it is        |
+| A destructive step shows its dry run and its loss           | requires knowing the tool's forms         |
+| A suppression naming no case states its reason              | the language's own linter owns the syntax |
 
 [Checklist](./checklist.md) is where these are asked at review time.

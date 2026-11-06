@@ -239,6 +239,7 @@ rule_ids! {
     UpstreamCheckDoesNotEditTheTree => "tracking:an-upstream-check-does-not-edit-the-tree",
     UpstreamDerivationPinsARevision => "tracking:an-upstream-derivation-pins-a-revision",
     RegistryHasOneReadableShape => "tracking:the-registry-has-one-readable-shape",
+    ValidatorChecksWhatTheSchemaCannot => "tracking:the-validator-checks-what-the-schema-cannot",
     ExistingDocumentConvertsWhenEdited => "writing-style:an-existing-document-converts-when-edited",
     NoDeliveredGateJudgesProse => "writing-style:no-delivered-gate-judges-prose",
     SourcesNameTheRevisionRead => "writing-style:sources-name-the-revision-read",

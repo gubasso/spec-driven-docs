@@ -407,6 +407,12 @@ repos:
         language: system
         always_run: true
         pass_filenames: false
+      - id: spec-trailing-section
+        name: 'spec trailing section'
+        entry: cargo run -q -- gate spec-trailing-section
+        language: system
+        files: '^_docs/specs/SPEC-[^/]*\.md$'
+        verbose: true
       - id: spec-verify-hooks-exist
         name: 'spec hook references exist'
         entry: cargo run -q -- gate spec-verify-hooks-exist

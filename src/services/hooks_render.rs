@@ -230,6 +230,11 @@ fn render_gates(options: &RenderOptions) -> String {
             let _ = writeln!(out, "{field}always_run: true");
             let _ = writeln!(out, "{field}pass_filenames: false");
         }
+        // pre-commit hides the output of a passing hook unless it is
+        // verbose, and a warning gate passes.
+        if gate.warns {
+            let _ = writeln!(out, "{field}verbose: true");
+        }
     }
     out
 }

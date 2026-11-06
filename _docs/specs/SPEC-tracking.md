@@ -11,7 +11,8 @@
   - [`tracking:an-overdue-entry-blocks` — An overdue entry blocks](#trackingan-overdue-entry-blocks--an-overdue-entry-blocks)
   - [`tracking:a-declared-dependent-exists` — A declared dependent exists](#trackinga-declared-dependent-exists--a-declared-dependent-exists)
   - [`tracking:an-upstream-check-does-not-edit-the-tree` — An upstream check does not edit the tree](#trackingan-upstream-check-does-not-edit-the-tree--an-upstream-check-does-not-edit-the-tree)
-- [What the schema proves and what the validator proves](#what-the-schema-proves-and-what-the-validator-proves)
+  - [`tracking:the-validator-checks-what-the-schema-cannot` — The validator checks what the schema cannot](#trackingthe-validator-checks-what-the-schema-cannot--the-validator-checks-what-the-schema-cannot)
+- [Unenforced](#unenforced)
 
 <!--TOC-->
 
@@ -105,6 +106,26 @@ The `sdd track check` command MUST compare a pinned revision to its upstream wit
 
 Verify: reviewer confirms `sdd track check` leaves the target tree byte-identical
 
-## What the schema proves and what the validator proves
+### `tracking:the-validator-checks-what-the-schema-cannot` — The validator checks what the schema cannot
 
-The companion JSON Schema at `SPEC-tracking/tracking.schema.json` proves the structural shape. It checks the object, the `tracked` array, the field types, the scalar formats, whole duplicate items, and basic path syntax. It cannot read the filesystem or compare one field to another. The Rust validator alone enforces the rest: duplicate IDs, duplicate dependents, a path that escapes the tree, a symlink escape, an inconsistent `source`, and the existence of every declared file. The spec makes no claim that the schema rejects these.
+The validator MUST reject a duplicate entry ID, a duplicate dependent, a `path` or dependent that is absolute, escapes the tree, or is reached through a symlink, a `source` whose fields disagree with its kind, and a declared file that does not exist.
+
+The companion schema at `SPEC-tracking/tracking.schema.json` holds the structural shape alone, and its own description says what that covers. A schema cannot read the filesystem or compare one field to another, so this spec claims no more of it.
+
+#### Scenario: A schema-valid registry declares a path outside the tree
+
+- GIVEN a registry whose entry lists the dependent `../outside.md`, which the schema accepts
+- WHEN the gate runs
+- THEN it fails naming the entry and the escape, because only the validator reads where a path leads
+
+Verify: `pre-commit run tracking-registry --all-files`
+
+## Unenforced
+
+No command decides these rules, or a command decides only part of each. A reviewer confirms the rest.
+
+| Rule                                                | Reviewer confirms                                           |
+| --------------------------------------------------- | ----------------------------------------------------------- |
+| `tracking:a-perishable-source-is-registered`        | Each perishable source the change adds has a registry entry |
+| `tracking:an-entry-declares-how-to-revalidate`      | Each entry's steps let a person revalidate the source       |
+| `tracking:an-upstream-check-does-not-edit-the-tree` | The upstream check left the working tree unchanged          |

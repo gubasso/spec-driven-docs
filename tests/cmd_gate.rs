@@ -915,3 +915,29 @@ fn explain_does_not_overclaim_for_a_fixed_subject_gate() {
         "the answer claims every discovering gate can be redirected:\n{stdout}"
     );
 }
+
+const TRAILING_SPEC: &str = "# Sample Specification\n\n## Purpose\n\nRules.\n\n## Requirements\n\n### `sample:works` — Sample works\n\nThe sample MUST work.\n\n#### Scenario: Run\n\n- GIVEN input\n- WHEN run\n- THEN output\n\nVerify: reviewer confirms it works\n\n## Unenforced rules\n\n| Rule | Why no command |\n| --- | --- |\n| `sample:works` | judgment |\n";
+
+/// VERIFIES docs-specs:a-spec-follows-the-heading-shape
+///
+/// The gate warns in this release: it prints each finding as a `WARN` line
+/// and exits zero, so an adopter sees the finding before a release fails it.
+#[test]
+fn a_warning_gate_prints_warn_and_exits_zero() {
+    let fixture = Fixture::new();
+    fixture.write("_docs/specs/SPEC-sample.md", TRAILING_SPEC);
+    fixture
+        .cmd()
+        .args([
+            "gate",
+            "spec-trailing-section",
+            "_docs/specs/SPEC-sample.md",
+        ])
+        .current_dir(fixture.path())
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            "WARN docs-specs:a-spec-follows-the-heading-shape _docs/specs/SPEC-sample.md:21: `## Unenforced rules` follows the requirements; rename it to `## Unenforced`",
+        ))
+        .stdout(predicate::str::contains("FAIL").not());
+}

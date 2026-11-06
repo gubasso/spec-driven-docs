@@ -64,6 +64,17 @@ impl Finding {
     }
 }
 
+impl Finding {
+    /// The same line as the failure, labelled `WARN`: what a gate in
+    /// warning mode prints.
+    #[must_use]
+    pub fn as_warning(&self) -> String {
+        let line = self.to_string();
+        line.strip_prefix("FAIL")
+            .map_or_else(|| line.clone(), |rest| format!("WARN{rest}"))
+    }
+}
+
 impl fmt::Display for Finding {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "FAIL {}", self.rule)?;
