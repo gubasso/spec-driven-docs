@@ -13,6 +13,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - *(gates)* Let a spec carry one Unenforced section and warn on others ([#133](https://github.com/gubasso/spec-driven-docs/pull/133))
 
+#### Adopter note
+
+`sdd verify` prints one note for each heading after a spec's requirements other than `## Unenforced`, and the `spec-trailing-section` hook prints a `WARN` line on each commit that touches such a spec. Both exit 0 in this release. A later release fails on the same findings.
+
+1. Upgrade through the sdd-setup skill. An upgrade keeps the bytes of every adopted file, so the skill compares each adopted spec with the copy `sdd spec <name>` prints. A copy the project never edited takes the shipped copy whole. An edited copy takes the changes below by hand. `sdd upgrade` alone leaves every adopted spec as it was. These shipped specs changed:
+   - `SPEC-docs-specs.md`: `a-spec-follows-the-heading-shape` and `unenforced-rules-are-declared` are rewritten, two `Verify:` lines name a reviewer part, and a new `## Unenforced` table lists every rule a reviewer verifies.
+   - `SPEC-docs-format.md`, `SPEC-docs-foundations.md`, and `SPEC-guides.md`: a new `## Unenforced` table lists every rule a reviewer verifies, and one `Verify:` line in docs-foundations names a reviewer part.
+   - `SPEC-tracking.md`: the section on what the schema proves is now the rule `tracking:the-validator-checks-what-the-schema-cannot`, `SPEC-tracking/tracking.schema.json` carries the rest in its description, and a new `## Unenforced` table lists three rules.
+   - `SPEC-decision-records.md`: a reviewer verifies `record-is-not-revised`, and a new `## Unenforced` table lists it.
+2. Run `sdd verify` and `pre-commit run spec-trailing-section --all-files`, and list each finding.
+3. Rename `## Unenforced rules`, or any other spelling, to `## Unenforced`, with the header `Rule | Reviewer confirms`. Rewrite each cell as what a reviewer confirms, and keep its reason.
+4. Move each row that names a rule of another spec, or a rule that does not exist, to the spec that states the rule.
+5. Move `## Diagnostics` to a reference page, and every other trailing section to reference, explanation, or a rule.
+6. Remove a hand-added `## Unenforced` section from an adopted spec where the shipped copy now carries it.
+7. Run step 2 again until neither command reports a finding.
+
 ### Other
 
 - *(lint)* Run every check of CI from the local hook stages ([#131](https://github.com/gubasso/spec-driven-docs/pull/131))
