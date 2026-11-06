@@ -2,7 +2,8 @@
 //!
 //! That line is the record's one forward reference: the argument is frozen,
 //! but the pointer to what binds today has to keep resolving, and a rule
-//! renamed or retired leaves it aimed at nothing. Only that line is judged.
+//! renamed or retired leaves it aimed at nothing. Only that paragraph is
+//! judged, every line it wraps onto included.
 //! A record naming a retired rule in its prose is describing the retirement,
 //! which is the record doing its job.
 //!
@@ -55,6 +56,27 @@ fn superseded(text: &str) -> bool {
         .any(|line| line.trim_start().starts_with("Superseded by"))
 }
 
+/// The numbered lines of every `Enforced by` paragraph: its opening line
+/// and each line it wraps onto, up to a blank line or a heading.
+///
+/// A project that wraps its prose carries a citation over more than one
+/// line, and an ID on the second line binds as much as one on the first.
+pub(crate) fn enforced_by(text: &str) -> Vec<(usize, &str)> {
+    let mut lines = Vec::new();
+    let mut open = false;
+    for (index, line) in text.lines().enumerate() {
+        if line.starts_with("Enforced by ") {
+            open = true;
+        } else if line.trim().is_empty() || line.starts_with('#') {
+            open = false;
+        }
+        if open {
+            lines.push((index + 1, line));
+        }
+    }
+    lines
+}
+
 /// Every decision record under the resolved documentation root.
 fn records(ctx: &GateCtx) -> Vec<Utf8PathBuf> {
     let decisions = docs_root(ctx).join("decisions");
@@ -98,15 +120,13 @@ pub fn run(ctx: &GateCtx, _files: &[String]) -> GateResult {
         if superseded(&text) {
             continue;
         }
-        for line in text.lines() {
-            if !line.starts_with("Enforced by ") {
-                continue;
-            }
+        for (number, line) in enforced_by(&text) {
             for id in cited_ids(line) {
                 if !defined.contains(id) {
-                    violations.push(Violation::Finding(Finding::on_file(
+                    violations.push(Violation::Finding(Finding::on_line(
                         RULE,
                         &file,
+                        number,
                         format!("`{id}` resolves to no requirement"),
                     )));
                 }
@@ -206,6 +226,55 @@ mod tests {
             &dir,
             "_docs/decisions/ADR-bound-the-token.md",
             "# Bound the token\n\nThe rule `auth:token-expiry` was retired here.\n",
+        );
+        assert!(run_in(&dir).is_empty());
+    }
+
+    /// A project that wraps its prose carries the paragraph over more than
+    /// one line, and a rule ID on the second line is cited all the same.
+    #[test]
+    fn rejects_a_dead_citation_on_a_wrapped_line() {
+        let dir = instance(&["auth:token-expiry"]);
+        write(
+            &dir,
+            "_docs/decisions/ADR-bound-the-token.md",
+            "# Bound the token\n\nEnforced by `auth:token-expiry` and\n`auth:token-gone`.\n",
+        );
+        let out = run_in(&dir);
+        assert_eq!(out.len(), 1, "{out:?}");
+        assert!(out[0].contains("_docs/decisions/ADR-bound-the-token.md:4"));
+        assert!(out[0].contains("`auth:token-gone` resolves to no requirement"));
+    }
+
+    #[test]
+    fn accepts_a_live_citation_on_a_wrapped_line() {
+        let dir = instance(&["auth:token-expiry", "auth:token-refresh"]);
+        write(
+            &dir,
+            "_docs/decisions/ADR-bound-the-token.md",
+            "# Bound the token\n\nEnforced by `auth:token-expiry` and\n`auth:token-refresh`.\n",
+        );
+        assert!(run_in(&dir).is_empty());
+    }
+
+    #[test]
+    fn judges_no_rule_id_after_the_paragraph_ends() {
+        let dir = instance(&["auth:token-expiry"]);
+        write(
+            &dir,
+            "_docs/decisions/ADR-bound-the-token.md",
+            "# Bound the token\n\nEnforced by `auth:token-expiry`.\n\nThe rule `auth:token-gone` was retired here.\n",
+        );
+        assert!(run_in(&dir).is_empty());
+    }
+
+    #[test]
+    fn a_superseded_record_keeps_a_wrapped_pointer() {
+        let dir = instance(&["auth:token-expiry"]);
+        write(
+            &dir,
+            "_docs/decisions/ADR-bound-the-token.md",
+            "# Bound the token\n\nEnforced by `auth:token-expiry` and\n`auth:token-gone`.\n\n## Status\n\nSuperseded by [B](./ADR-b.md)\n",
         );
         assert!(run_in(&dir).is_empty());
     }
