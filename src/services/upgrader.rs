@@ -722,7 +722,8 @@ fn instance_rule_ids(target: &Utf8Path, docs_root: &str) -> std::collections::BT
 /// A citation is an inline-code token in a domain this binary defines
 /// rules in, naming a rule it does not define. A rule heading is a
 /// definition rather than a citation, a decision record is judged on its
-/// `Enforced by` line alone, because its prose may describe a retirement,
+/// `Enforced by` paragraph alone, every line it wraps onto included,
+/// because its prose may describe a retirement,
 /// and a file this tool manages is about to be replaced, so none of those
 /// is listed. The changelog is history and is never re-pointed, a token
 /// this binary's own specs carry is an example it ships, and a rule the
@@ -783,8 +784,16 @@ fn retired_citations(target: &Utf8Path, installed: &Installed) -> Vec<Citation> 
             continue;
         };
         let record = relative.starts_with(&decisions);
+        let enforced: std::collections::BTreeSet<usize> = if record {
+            crate::gates::adr_cites_a_live_rule::enforced_by(&text)
+                .into_iter()
+                .map(|(number, _)| number)
+                .collect()
+        } else {
+            std::collections::BTreeSet::new()
+        };
         for (index, line) in text.lines().enumerate() {
-            if line.starts_with("### `") || (record && !line.starts_with("Enforced by ")) {
+            if line.starts_with("### `") || (record && !enforced.contains(&(index + 1))) {
                 continue;
             }
             for id in crate::gates::adr_cites_a_live_rule::cited_ids(line) {

@@ -14,6 +14,7 @@ Fill the landing pipeline with:
 - Stage: `sdd stage --target . --json`. It reads the recorded profile, docs scratch, writing style, and reserved paths, and it refuses a different `--profile`, because a profile change is a migration.
 - Compare: route every row by the pipeline's own table. Each keep-or-discard answer names the path in `--replace`.
 - Prepare: re-point each retired rule-ID citation to the replacement the changelog names. The operator approves each one, because the tool cannot know which rule the author meant.
+- Prepare: never edit a retired citation inside a decision record, because a record is not revised. Write a new record whose `Enforced by` paragraph cites the rules that bind now, and set the old record's status to `Superseded by` with a link to the new one. The citation gate exempts a superseded record. The operator approves each new record.
 - Prepare: write each approved port of a changed adopted spec, as the Compare step of the pipeline routes it. `sdd upgrade` alone keeps the old bytes of every adopted spec.
 - Land: `sdd upgrade --stage <root> --dry-run` to preview, then `sdd upgrade --stage <root>` as the gated step, with one `--replace <path>` per answered conflict. An unnamed conflict still refuses.
 

@@ -50,7 +50,7 @@
     {
       "source": "skills/sdd-setup/references/upgrade.md",
       "destination": "skills/sdd-setup/references/upgrade.md",
-      "sha256": "41719fd5c00d86c864a73199ecfb47dff844be0d9699d1a789d27f0cb914de61"
+      "sha256": "5791559eced75169edb78c903e4f0bef80d6ad7eb3629afda888e6dd80eb8af3"
     },
     {
       "source": "skills/sdd-write-docs/SKILL.md",
@@ -168,8 +168,8 @@
     {
       "source": "_docs/specs/SPEC-staging.md",
       "destination": "_docs/specs/SPEC-staging.md",
-      "sha256": "b9bd98054db8e2da7bdc2bc0458affe042c0a1de25599fbb49ffc76682ac87dd",
-      "baseline_sha256": "b9bd98054db8e2da7bdc2bc0458affe042c0a1de25599fbb49ffc76682ac87dd"
+      "sha256": "97129e414e82d774f66048c6dbd2c991e2af373c9394feaf13645e443443b919",
+      "baseline_sha256": "97129e414e82d774f66048c6dbd2c991e2af373c9394feaf13645e443443b919"
     },
     {
       "source": "_docs/specs/SPEC-tracking.md",

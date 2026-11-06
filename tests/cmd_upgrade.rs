@@ -1010,7 +1010,7 @@ fn a_dry_run_lists_every_citation_of_a_rule_this_binary_retired() {
     );
     fixture.write(
         "docs/decisions/ADR-old-choice.md",
-        "# Old\n\nThe prose names `staging:a-rule-no-release-defines`.\n\nEnforced by `staging:a-rule-no-release-defines`.\n",
+        "# Old\n\nThe prose names `staging:a-rule-no-release-defines`.\n\nEnforced by `staging:a-stage-writes-only-the-stage` and\n`staging:a-rule-no-release-defines`.\n",
     );
     fixture.write(
         "CHANGELOG.md",
@@ -1035,7 +1035,7 @@ fn a_dry_run_lists_every_citation_of_a_rule_this_binary_retired() {
     assert_eq!(
         cited,
         [
-            ("docs/decisions/ADR-old-choice.md".to_string(), 5),
+            ("docs/decisions/ADR-old-choice.md".to_string(), 6),
             ("docs/guides/working.md".to_string(), 3),
         ]
     );
