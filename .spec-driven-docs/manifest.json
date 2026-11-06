@@ -120,8 +120,8 @@
     {
       "source": "_docs/specs/SPEC-docs-specs.md",
       "destination": "_docs/specs/SPEC-docs-specs.md",
-      "sha256": "f8489383b2b504d05d1d0f80dff0508d434e108b1997d45e67e8734186ef0a6f",
-      "baseline_sha256": "f8489383b2b504d05d1d0f80dff0508d434e108b1997d45e67e8734186ef0a6f"
+      "sha256": "e9acfa4ecf0e2f966de82bed8909ea2c9e416f03fe726a02aebe75e3afc8865e",
+      "baseline_sha256": "e9acfa4ecf0e2f966de82bed8909ea2c9e416f03fe726a02aebe75e3afc8865e"
     },
     {
       "source": "_docs/specs/SPEC-guides.md",
@@ -211,7 +211,7 @@
   "integration_blocks": [
     {
       "path": ".pre-commit-config.yaml",
-      "marker_hash": "211b7063044099af8e487b76c087ffb309194864f129f1d147e0ac259807ec72"
+      "marker_hash": "0fdd64439680d6c9929e8e6672adc2b7310f60dd2195b04a4aaa03f7111474f6"
     }
   ]
 }

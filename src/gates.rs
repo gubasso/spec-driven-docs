@@ -628,7 +628,7 @@ pub static GATES: &[GateSpec] = &[
         exclude: &[],
         always_run: false,
         discovers: false,
-        warns: true,
+        warns: false,
         cites: spec_trailing_section::CITES,
         run: spec_trailing_section::run,
     },

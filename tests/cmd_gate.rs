@@ -920,10 +920,10 @@ const TRAILING_SPEC: &str = "# Sample Specification\n\n## Purpose\n\nRules.\n\n#
 
 /// VERIFIES docs-specs:a-spec-follows-the-heading-shape
 ///
-/// The gate warns in this release: it prints each finding as a `WARN` line
-/// and exits zero, so an adopter sees the finding before a release fails it.
+/// A heading after the requirements other than `## Unenforced` fails the
+/// gate, which names the heading and where it moves.
 #[test]
-fn a_warning_gate_prints_warn_and_exits_zero() {
+fn a_trailing_section_fails_the_gate() {
     let fixture = Fixture::new();
     fixture.write("_docs/specs/SPEC-sample.md", TRAILING_SPEC);
     fixture
@@ -935,9 +935,9 @@ fn a_warning_gate_prints_warn_and_exits_zero() {
         ])
         .current_dir(fixture.path())
         .assert()
-        .success()
+        .code(1)
         .stdout(predicate::str::contains(
-            "WARN docs-specs:a-spec-follows-the-heading-shape _docs/specs/SPEC-sample.md:21: `## Unenforced rules` follows the requirements; rename it to `## Unenforced`",
+            "FAIL docs-specs:a-spec-follows-the-heading-shape _docs/specs/SPEC-sample.md:21: `## Unenforced rules` follows the requirements; rename it to `## Unenforced`",
         ))
-        .stdout(predicate::str::contains("FAIL").not());
+        .stdout(predicate::str::contains("WARN").not());
 }

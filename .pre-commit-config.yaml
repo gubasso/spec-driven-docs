@@ -412,7 +412,6 @@ repos:
         entry: cargo run -q -- gate spec-trailing-section
         language: system
         files: '^_docs/specs/SPEC-[^/]*\.md$'
-        verbose: true
       - id: spec-verify-hooks-exist
         name: 'spec hook references exist'
         entry: cargo run -q -- gate spec-verify-hooks-exist

@@ -574,14 +574,13 @@ fn check_integration(
     Ok(())
 }
 
-/// One note per heading that follows a spec's requirements other than
-/// `## Unenforced`. The gate warns on the same headings in this release, and
-/// a later release fails on them.
-fn note_trailing_sections(path: &Utf8Path, text: &str, report: &mut VerifyReport) {
+/// One failure per heading that follows a spec's requirements other than
+/// `## Unenforced`, the headings the `spec-trailing-section` gate fails on.
+fn fail_trailing_sections(path: &Utf8Path, text: &str, report: &mut VerifyReport) {
     for finding in crate::gates::spec_trailing_section::judge(path.as_str(), text) {
         if finding.rule == crate::domain::rule_id::RuleId::SpecFollowsTheHeadingShape {
-            report.note(format!(
-                "note: {}:{} {} (docs-specs:a-spec-follows-the-heading-shape); a later release fails on it",
+            report.fail(format!(
+                "FAIL {}:{} {} (docs-specs:a-spec-follows-the-heading-shape)",
                 path,
                 finding.line.unwrap_or_default(),
                 finding.detail
@@ -616,7 +615,7 @@ fn check_specs(
             for id in crate::embedded::rule_ids_in(&text) {
                 *counts.entry(id).or_insert(0usize) += 1;
             }
-            note_trailing_sections(
+            fail_trailing_sections(
                 &camino::Utf8PathBuf::from(format!("{}/specs/{name}", manifest.docs_root.as_str())),
                 &text,
                 report,
