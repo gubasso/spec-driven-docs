@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0](https://github.com/gubasso/spec-driven-docs/compare/v0.14.5...v0.15.0) - 2026-11-06
+
+### Added
+
+- *(gates)* [**breaking**] Fail on a spec section after the requirements ([#136](https://github.com/gubasso/spec-driven-docs/pull/136))
+
+### Fixed
+
+- *(gates)* Judge every wrapped line of a record's Enforced by citation ([#134](https://github.com/gubasso/spec-driven-docs/pull/134))
+
+#### Adopter note
+
+This release carries two changes an adopter can meet.
+
+- `spec-trailing-section` now fails, and `sdd verify` fails on the same headings. A heading after a spec's requirements other than `## Unenforced`, and an `## Unenforced` table whose header or rows break its shape, are findings. To conform:
+  1. Run `sdd verify` and `pre-commit run spec-trailing-section --all-files`, and list each finding.
+  2. Rename `## Unenforced rules`, or any other spelling, to `## Unenforced`, with the header `Rule | Reviewer confirms`.
+  3. Move each row that names a rule of another spec, or a rule that does not exist, to the spec that states the rule.
+  4. Move `## Diagnostics` to a reference page, and every other trailing section to reference, explanation, or a rule.
+  5. Run step 1 again until neither command reports a finding.
+- `adr-cites-a-live-rule` now reads the whole `Enforced by` paragraph of a decision record, every line it wraps onto included, and the upgrade's retired-citation scan reads it the same way. A record that cites a dead rule ID on a wrapped line now fails. A record is not revised, so never edit the citation:
+  1. Write a new record whose `Enforced by` paragraph cites the rules that bind now.
+  2. Set the old record's status to `Superseded by` with a link to the new record. The gate exempts a superseded record.
+
 ## [0.14.5](https://github.com/gubasso/spec-driven-docs/compare/v0.14.4...v0.14.5) - 2026-11-06
 
 ### Added
