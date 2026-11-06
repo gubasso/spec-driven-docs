@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.5](https://github.com/gubasso/spec-driven-docs/compare/v0.14.4...v0.14.5) - 2026-11-06
+
+### Added
+
+- *(gates)* Let a spec carry one Unenforced section and warn on others ([#133](https://github.com/gubasso/spec-driven-docs/pull/133))
+
+### Other
+
+- *(lint)* Run every check of CI from the local hook stages ([#131](https://github.com/gubasso/spec-driven-docs/pull/131))
+
 ## [0.14.4](https://github.com/gubasso/spec-driven-docs/compare/v0.14.3...v0.14.4) - 2026-11-03
 
 ### Fixed
