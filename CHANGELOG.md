@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.1](https://github.com/gubasso/spec-driven-docs/compare/v0.15.0...v0.15.1) - 2026-11-10
+
+### Other
+
+- *(hooks)* Give each dependency its most specific native owner
+
 ## [0.15.0](https://github.com/gubasso/spec-driven-docs/compare/v0.14.5...v0.15.0) - 2026-11-06
 
 ### Added
