@@ -11,8 +11,9 @@
 set -euo pipefail
 
 supported="x86_64-linux"
-# getFlake needs an absolute path, so a relative argument is resolved here
-# rather than left for the evaluator to refuse.
+# nix/systems.nix reads the path as a git+file reference, which needs an
+# absolute path, so a relative argument is resolved here rather than left for
+# the evaluator to refuse.
 reference="$(cd "${1:-.}" && pwd)"
 
 found="$(

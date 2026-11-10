@@ -12,12 +12,18 @@
 # `overlays` or `nixosConfigurations` is keyed by a name rather than a system,
 # so including it would report names that are not systems.
 #
-# Call it with the flake reference to inspect:
+# Call it with the absolute path of the checkout to inspect:
 #
-#   nix eval --impure --json --expr 'import ./nix/systems.nix "."'
+#   nix eval --impure --json --expr "import ./nix/systems.nix \"$PWD\""
+#
+# The path is read as a `git+file` reference. A bare path makes getFlake fetch
+# the folder as a `path:` flake, which copies every file into the store, the
+# ignored ones included: each evaluation of a checkout with a built `target/`
+# added gigabytes. The `git+file` form copies the tracked tree, as
+# `nix flake check` does.
 reference:
 let
-  flake = builtins.getFlake (toString reference);
+  flake = builtins.getFlake ("git+file://" + toString reference);
   families = [
     "packages"
     "devShells"
