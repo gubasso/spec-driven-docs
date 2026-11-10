@@ -49,9 +49,13 @@
       markdownlint-cli2 = pkgs.callPackage ./nix/markdownlint.nix { };
     in
     {
-      # What belongs here: a tool this project pins, a runtime pre-commit
-      # needs to build a hook environment, and a command this project's own
-      # documents tell a reader to run. What does not: the host baseline.
+      # What belongs here: a tool this project pins that no more specific
+      # owner declares, a runtime pre-commit needs to build a hook
+      # environment, and a command this project's own documents tell a reader
+      # to run. A hook tool that pre-commit can build (typos, committed,
+      # md-toc, shellcheck, shfmt, ...) is pinned in .pre-commit-config.yaml,
+      # and a language library never enters this shell. What does not: the
+      # host baseline.
       # git is assumed present, because a pre-commit hook has no meaning
       # without it; the Rust toolchain comes from rust-toolchain.toml
       # through the overlay so CI and local development share one compiler.
@@ -67,17 +71,13 @@
           pkgs.just
           pkgs.pre-commit
           pkgs.dprint
-          pkgs.editorconfig-checker
+          # The markdownlint-cli2 hook builds on this nodejs
+          # (default_language_version in .pre-commit-config.yaml).
           pkgs.nodejs
           pkgs.ripgrep
-          pkgs.python3Packages.md-toc
-          pkgs.typos
-          pkgs.committed
+          # The cargo tests run markdownlint-cli2 and check-jsonschema from PATH.
           markdownlint-cli2
           pkgs.lychee
-          pkgs.ripsecrets
-          pkgs.shellcheck
-          pkgs.shfmt
           pkgs.jq
           pkgs.check-jsonschema
           pkgs.curl

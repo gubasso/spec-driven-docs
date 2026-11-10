@@ -1,4 +1,10 @@
 default_install_hook_types: [pre-commit, commit-msg, pre-push]
+# The node hook runs on the devshell nodejs. Without this line an empty
+# pre-commit cache can pick `default`, and nodeenv then fails on a prerelease
+# entry of the node index: "invalid literal for int() with base 10: '0-alpha'"
+# (2026-11-10).
+default_language_version:
+  node: system
 # The commit stage and the push stage together run every check of ci.yml,
 # and the push stage carries only the costly checks, so a hook that names no
 # stage runs at commit and in the manual stage rk integrate runs, never again
@@ -128,6 +134,7 @@ repos:
 # test holds it there.
   - repo: local
     hooks:
+      # owner: devshell (no-hook-language) upstream dprint publishes no pre-commit hook.
       - id: dprint
         name: dprint check
         # dprint exits 14 rather than passing when it receives only paths its
@@ -136,28 +143,21 @@ repos:
         entry: dprint check --allow-no-files
         language: system
         types_or: [markdown, json]
-      - id: shfmt
-        name: shfmt check
-        entry: shfmt -d -i 2 -ci
-        language: system
-        types: [shell]
-      - id: shellcheck
-        name: shellcheck
-        entry: shellcheck
-        language: system
-        files: '\.(sh|bash)$'
+      # owner: devshell (project-environment) cargo fmt is part of the Rust toolchain that the devshell pins.
       - id: cargo-fmt
         name: cargo fmt check
         entry: cargo fmt --check
         language: system
         types: [rust]
         pass_filenames: false
+      # owner: devshell (project-environment) cargo clippy is part of the Rust toolchain and builds the crate.
       - id: cargo-clippy
         name: cargo clippy
         entry: cargo clippy --all-targets --all-features -- -D warnings
         language: system
         types: [rust]
         pass_filenames: false
+      # owner: devshell (project-environment) cargo nextest runs the test suite of the crate.
       - id: cargo-test
         name: cargo nextest
         entry: cargo nextest run
@@ -166,6 +166,7 @@ repos:
         pass_filenames: false
       # The instance-manifest gate parses the record in Rust and never reads
       # the published schema, so this holds the record to the schema.
+      # owner: devshell (outside-caller) the cargo tests run check-jsonschema from PATH, so the hook runs the same one.
       - id: instance-manifest-schema
         name: instance manifest matches its schema
         entry: check-jsonschema --schemafile instance/manifest.schema.json .spec-driven-docs/manifest.json
@@ -174,6 +175,7 @@ repos:
         pass_filenames: false
       # The costly checks run at push, and in the manual stage rk integrate
       # runs, so a push that passed its hooks passes CI.
+      # owner: devshell (project-environment) cargo deny is a cargo subcommand that reads the lock file of the crate.
       - id: cargo-deny
         name: cargo deny
         entry: cargo deny check
@@ -181,6 +183,7 @@ repos:
         stages: [pre-push, manual]
         always_run: true
         pass_filenames: false
+      # owner: devshell (project-environment) the just recipe builds sdd and installs it into a scratch repository.
       - id: scratch-install
         name: install into a scratch repository and verify it
         entry: just build
@@ -191,6 +194,7 @@ repos:
       # nix flake check builds only the checks output, so the package is
       # built on its own: without it a green run proves nothing about
       # nix/package.nix.
+      # owner: host (no-hook-language) nix comes from the host and has no hook in a language that pre-commit builds.
       - id: nix-build
         name: nix build of the package
         entry: nix build .#default --no-link
@@ -198,6 +202,7 @@ repos:
         stages: [pre-push, manual]
         always_run: true
         pass_filenames: false
+      # owner: host (no-hook-language) nix comes from the host and has no hook in a language that pre-commit builds.
       - id: nix-flake-check
         name: nix flake check
         entry: nix flake check
@@ -208,6 +213,7 @@ repos:
       # The evaluated half of release:the-binary-builds-for-every-declared-target:
       # nix flake check without --all-systems checks only the system it runs
       # on, so only an evaluation says which systems the flake exposes.
+      # owner: devshell (no-hook-language) a script of this repository that evaluates the flake with nix and jq.
       - id: one-system
         name: the flake exposes one system
         entry: ./scripts/check-one-system.sh
@@ -215,6 +221,26 @@ repos:
         stages: [pre-push, manual]
         always_run: true
         pass_filenames: false
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1
+    hooks:
+      - id: shellcheck
+        files: '\.(sh|bash)$'
+  - repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.14.1-1
+    hooks:
+      - id: shfmt
+        args: [-d, -i, '2', -ci]
+        stages: [pre-commit, manual]
+  - repo: local
+    hooks:
+      # A flake holds no language library: a package belongs to the manifest
+      # of its stack, and the devshell keeps the toolchain.
+      - id: no-language-library-in-flake
+        name: a flake holds no language library
+        language: pygrep
+        entry: '^(?!\s*#).*(withPackages|python3[0-9]*Packages\.|pythonPackages\.|nodePackages\.|perlPackages\.)'
+        files: '(^|/)flake\.nix$|(^|/)nix/.*\.nix$'
   - repo: https://github.com/frnmst/md-toc
     rev: 9.1.0
     hooks:
@@ -225,7 +251,6 @@ repos:
     rev: v1.52.0
     hooks:
       - id: typos
-        language: system
         stages: [pre-commit, manual]
         args: [--force-exclude]
   - repo: https://github.com/sirwart/ripsecrets
@@ -236,6 +261,7 @@ repos:
     rev: lychee-v0.24.2
     hooks:
       # The devshell supplies the lychee binary, so the hook installs none.
+      # owner: devshell (no-hook-language) upstream lychee offers only script, docker_image, and system ids.
       - id: lychee-system
         stages: [pre-push]
         types: [markdown]
@@ -247,7 +273,6 @@ repos:
     rev: v1.1.11
     hooks:
       - id: committed
-        language: system
         stages: [commit-msg]
 # BEGIN spec-driven-docs managed
   - repo: local

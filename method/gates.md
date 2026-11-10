@@ -168,10 +168,10 @@ The chapter loop is what stops a shelf from absorbing a subject by growing. A ca
       args: [-p, -c, --skip-lines, '1', github, -l, '3']
 ```
 
-The depth flag belongs to the parser subcommand, so it follows `github`. At the top level `-l` means `--no-links` and `-l 3` is an error. In CI, check instead of write:
+The depth flag belongs to the parser subcommand, so it follows `github`. At the top level `-l` means `--no-links` and `-l 3` is an error. In CI, run the hook itself: it fails when it rewrites a stale TOC, and pre-commit owns the md-toc it runs:
 
 ```bash
-md_toc -d -c -s 1 github -l 3 _docs/specs/SPEC-*.md   # 0 fresh, 128 stale
+pre-commit run md-toc --all-files   # 0 fresh, 1 stale
 ```
 
 ## Fence languages
