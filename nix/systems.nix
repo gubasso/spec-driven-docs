@@ -21,9 +21,14 @@
 # ignored ones included: each evaluation of a checkout with a built `target/`
 # added gigabytes. The `git+file` form copies the tracked tree, as
 # `nix flake check` does.
+#
+# `shallow=1` lets the reference read a shallow clone, which is what CI's
+# checkout makes. Without it, the Nix that CI installs refuses the clone,
+# because a shallow repository has no `revCount`. A full clone reads the same
+# tree either way.
 reference:
 let
-  flake = builtins.getFlake ("git+file://" + toString reference);
+  flake = builtins.getFlake ("git+file://" + toString reference + "?shallow=1");
   families = [
     "packages"
     "devShells"
