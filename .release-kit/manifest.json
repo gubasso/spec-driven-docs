@@ -1,6 +1,6 @@
 {
   "schema_version": 12,
-  "rk_version": "0.9.1",
+  "rk_version": "0.9.7",
   "origin": "init",
   "landed_at": "2026-09-02T20:44:07Z",
   "profile": {
@@ -48,7 +48,7 @@
     {
       "destination": ".pre-commit-config.yaml",
       "kind": "rendered",
-      "sha256": "55730f8858889fb131fdeb73c58d0669cc5bd39477212a6ed299515e2a7dae6d",
+      "sha256": "b7b5ac37eab34417b4b11525f55c98a28fe82fb1d5b0b3950bd635ddaee741d2",
       "placement": "region"
     },
     {
@@ -88,7 +88,7 @@
     "attest": "4",
     "cargo-dist": "0.32.0",
     "checkout": "4",
-    "conventional-pre-commit": "4.4.0",
+    "conventional-pre-commit": "4.5.0",
     "create-github-app-token": "3",
     "dist-checkout": "6",
     "dist-download-artifact": "8",
