@@ -22,6 +22,16 @@
       # that is this flake, so the lock carries no nested chain of either.
       inputs.spec-driven-docs.follows = "";
     };
+    # The store guard of the canon (exobrain): `exobrain store-guard --daily`
+    # in .envrc warns about working-tree copies in the Nix store. Its rk and
+    # sdd serve only its own devShell, so it takes this flake's rk and this
+    # flake itself.
+    exobrain-tech = {
+      url = "github:gubasso/exobrain-tech/v1.0.0";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.release-kit.follows = "release-kit";
+      inputs.spec-driven-docs.follows = "";
+    };
   };
 
   outputs =
@@ -30,6 +40,7 @@
       nixpkgs,
       rust-overlay,
       release-kit,
+      exobrain-tech,
     }:
     let
       # One system, declared here rather than mapped over a default set.
@@ -81,6 +92,8 @@
           pkgs.jq
           pkgs.check-jsonschema
           pkgs.curl
+          # exobrain, the store guard that .envrc runs once a day.
+          exobrain-tech.packages.${system}.default
         ];
       };
       # The binary this repository publishes, built under Nix from the
