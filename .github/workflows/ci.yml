@@ -12,9 +12,15 @@ jobs:
   # added later as a need cannot turn a failure into a skip the forge reads
   # as success.
   test:
+    needs: [dist-plan, dist-build]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
+      # The job runs after a failed need, so it fails here unless every job
+      # it needs passed.
+      - name: every job the gate needs passed
+        if: ${{ needs.dist-plan.result != 'success' || needs.dist-build.result != 'success' }}
+        run: exit 1
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/nix-installer-action@v19
       - uses: DeterminateSystems/magic-nix-cache-action@v13
@@ -32,3 +38,53 @@ jobs:
       - run: nix develop --command pre-commit run --all-files --hook-stage pre-push
         env:
           SKIP: no-commit-to-branch,rk-worktree-location,lychee-system
+
+  # rk's rust binding serves the two jobs below, and the gate needs them so
+  # that every release target builds before a merge. Each dist step runs in
+  # the devshell, which pins dist and the toolchain
+  # (release:the-devshell-supplies-every-project-tool). Both jobs are the
+  # checks that only CI runs (release:the-local-hooks-run-every-check-of-ci).
+  dist-plan:
+    runs-on: ubuntu-latest
+    outputs:
+      plan: ${{ steps.plan.outputs.plan }}
+    defaults:
+      run:
+        shell: nix develop --command bash -euo pipefail {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v19
+      - uses: DeterminateSystems/magic-nix-cache-action@v13
+      - name: dist runs at the configured pin
+        run: |
+          pin="$(grep -m1 '^cargo-dist-version' dist-workspace.toml | cut -d'"' -f2)"
+          [ -n "$pin" ] || { echo "dist-workspace.toml names no cargo-dist-version"; exit 1; }
+          dist --version | grep -Fq "$pin"
+      - name: the committed workflow is what the pin produces
+        run: |
+          git ls-files --error-unmatch -- .github/workflows/release.yml > /dev/null
+          dist generate
+          git diff --exit-code -- .github/workflows/release.yml
+      - name: the configuration produces a viable release
+        id: plan
+        run: |
+          dist plan --output-format=json > plan-dist-manifest.json
+          echo "plan=$(jq -c . plan-dist-manifest.json)" >> "$GITHUB_OUTPUT"
+
+  dist-build:
+    needs: dist-plan
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.dist-plan.outputs.plan).ci.github.artifacts_matrix }}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v19
+      - uses: DeterminateSystems/magic-nix-cache-action@v13
+      - name: build the matrix target
+        env:
+          DIST_ARGS: ${{ matrix.dist_args }}
+        shell: nix develop --command bash -euo pipefail {0}
+        run: |
+          # shellcheck disable=SC2086
+          dist build $DIST_ARGS

@@ -1,6 +1,6 @@
 {
   "schema_version": 12,
-  "rk_version": "0.9.7",
+  "rk_version": "0.9.8",
   "origin": "init",
   "landed_at": "2026-09-02T20:44:07Z",
   "profile": {
@@ -43,7 +43,7 @@
     {
       "destination": ".github/workflows/release-plz.yml",
       "kind": "rendered",
-      "sha256": "d2b968bd5f0e268a225ad3b1faa86c76cf802548c1507ccb504f2d76bb479475"
+      "sha256": "e348c6cf8b45d3aa62ca5871a8ee4cb7dc2baa854cb7d22eb55db828de06a7cc"
     },
     {
       "destination": ".pre-commit-config.yaml",
@@ -97,7 +97,7 @@
     "nix-image": "2.35.2",
     "nix-installer-action": "19",
     "pre-commit-hooks": "6.0.0",
-    "release-plz": "0.3.160",
+    "release-plz": "0.4.3",
     "rust-toolchain": "stable"
   }
 }

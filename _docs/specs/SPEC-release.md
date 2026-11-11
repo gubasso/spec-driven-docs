@@ -236,9 +236,9 @@ Verify: reviewer confirms that no job of a workflow this repository authors inst
 
 ### `release:the-local-hooks-run-every-check-of-ci` — The local hooks run every check of CI
 
-If a push passed the local git hooks, CI MUST pass. The pre-commit stage and the pre-push stage together MUST run every check of `ci.yml`, the costly ones at pre-push, and the pre-push stage MUST NOT run a hook of the pre-commit stage again. `ci.yml` runs the two stages and no other check.
+If a push passed the local git hooks, CI MUST pass. The pre-commit stage and the pre-push stage together MUST run every check of `ci.yml`, the costly ones at pre-push, and the pre-push stage MUST NOT run a hook of the pre-commit stage again. `ci.yml` runs the two stages in its `test` job, and beside `test` only the CI-only checks this rule lists. The first step of `test` fails when a job that `test` needs did not pass, and checks nothing else.
 
-A check that only CI can run is listed here with its reason. The list is empty. The hooks can run more than CI: CI skips `lychee-system`, which checks external links, because an external site answers a CI runner with a block or a timeout that it does not give a developer host. These workflows check nothing that a push starts, so they are outside the rule: `release-plz.yml`, `release.yml`, and `align-manifest.yml` release, and `pr-title.yml` judges a pull request title, which the commit-msg hooks judge on every commit.
+A check that only CI can run is listed here with its reason. The list has two entries, the `dist-plan` and `dist-build` jobs, which `test` needs and which run every `dist` command in the devshell. `dist-plan` checks that dist runs at the version `dist-workspace.toml` pins, that `release.yml` is what that dist generates, and that the configuration plans a release, and it computes the build matrix. `dist-build` builds the release archive of every target of `dist-workspace.toml` before a merge, so a target that fails to build fails the pull request, not the release after its tag exists. rk's `dist-target-unbuilt` invariant judges from the workflow alone that a job the gate needs builds every target, so no hook can satisfy it, and the operator keeps the dist checks out of the local hooks. The hooks can run more than CI: CI skips `lychee-system`, which checks external links, because an external site answers a CI runner with a block or a timeout that it does not give a developer host. These workflows check nothing that a push starts, so they are outside the rule: `release-plz.yml`, `release.yml`, and `align-manifest.yml` release, and `pr-title.yml` judges a pull request title, which the commit-msg hooks judge on every commit.
 
 #### Scenario: A check runs only in CI
 
@@ -246,7 +246,7 @@ A check that only CI can run is listed here with its reason. The list is empty. 
 - WHEN a push passes its hooks
 - THEN CI can still fail on that step, so the step moves into a hook, at pre-push when it is costly, or this rule lists it with its reason
 
-Verify: reviewer confirms that every step of `ci.yml` runs a hook stage of `.pre-commit-config.yaml` or a check that this rule lists
+Verify: reviewer confirms that every step of the `test` job of `ci.yml` after its first runs a hook stage of `.pre-commit-config.yaml` or sets up the runner, and that `ci.yml` holds no job beside `test` and the CI-only checks this rule lists
 
 ## Unenforced
 
@@ -257,4 +257,4 @@ No command decides these rules, or a command decides only part of each. A review
 | `release:a-tag-derives-from-the-version-file`      | Every `v*` tag came from the release automation on `master`                                |
 | `release:a-released-version-is-not-re-authored`    | Each correction ships as a new version, never as a moved tag                               |
 | `release:the-devshell-supplies-every-project-tool` | No job of a workflow this repository authors installs a project tool outside `nix develop` |
-| `release:the-local-hooks-run-every-check-of-ci`    | Every step of `ci.yml` runs a hook stage or a check the rule lists                         |
+| `release:the-local-hooks-run-every-check-of-ci`    | Every job of `ci.yml` runs a hook stage or is a check the rule lists                       |
