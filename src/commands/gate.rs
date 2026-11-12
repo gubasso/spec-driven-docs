@@ -101,14 +101,21 @@ pub(crate) fn context_for(
 /// Refuse a path this command must not follow.
 ///
 /// A relative path that climbs out of the repository is refused, and so is
-/// one reached through a link that leaves it. An absolute path is not:
-/// pre-commit hands the message file at the `commit-msg` stage by absolute
-/// path, and it sits outside the working tree by design, so refusing
-/// absolutes would break a delivered wiring. What a gate reads stays bounded
-/// by what pre-commit or the operator names, which was already true.
+/// one reached through a link that leaves it. Two exceptions carry the
+/// message file of the `commit-msg` stage, which sits in the git folder
+/// rather than the working tree. pre-commit names it by absolute path, and
+/// an absolute path is accepted. prek names it relative to the working
+/// tree, and in a linked worktree that git folder is
+/// `<main checkout>/.git/worktrees/<name>`, so the relative path climbs out
+/// through `..`. Such a path is accepted where it resolves inside the git
+/// folder of this worktree or inside the common git folder. What a gate
+/// reads stays bounded by what the hook runner or the operator names.
 fn contained(path: &str) -> Result<(), AppError> {
     let candidate = Utf8Path::new(path);
     if candidate.components().any(|part| part.as_str() == "..") {
+        if inside_git_folder(path) {
+            return Ok(());
+        }
         return Err(AppError::Usage(format!(
             "{path} climbs out of the repository"
         )));
@@ -126,6 +133,35 @@ fn contained(path: &str) -> Result<(), AppError> {
         )));
     }
     Ok(())
+}
+
+/// Whether `path` resolves inside the git folder of the current worktree or
+/// inside the common git folder.
+///
+/// Git is asked only here, after a `..` component, so an ordinary path costs
+/// no process. The inherited environment is kept on purpose: under a hook,
+/// the `GIT_*` variables git exports name the repository being committed,
+/// which is the one asked about. Any failure answers no, which refuses.
+fn inside_git_folder(path: &str) -> bool {
+    let Ok(resolved) = std::fs::canonicalize(path) else {
+        return false;
+    };
+    let Ok(output) = std::process::Command::new("git")
+        .args(["rev-parse", "--absolute-git-dir", "--git-common-dir"])
+        .stdin(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .output()
+    else {
+        return false;
+    };
+    if !output.status.success() {
+        return false;
+    }
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter(|line| !line.is_empty())
+        .filter_map(|folder| std::fs::canonicalize(folder).ok())
+        .any(|folder| resolved.starts_with(folder))
 }
 
 /// Every include pattern a filter carries, for the explain output.

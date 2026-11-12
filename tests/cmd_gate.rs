@@ -273,6 +273,109 @@ fn an_absolute_path_is_accepted_because_pre_commit_passes_one() {
         .success();
 }
 
+/// An `sdd` invocation with no inherited `GIT_*` variable and no global or
+/// system git configuration.
+///
+/// The containment check asks git where the git folder is. Under a
+/// pre-commit hook of this repository, an inherited `GIT_DIR` would answer
+/// for this repository instead of the scratch one, and a developer's own
+/// configuration could change what git discovers.
+fn without_git_env(mut cmd: assert_cmd::Command) -> assert_cmd::Command {
+    for (name, _) in std::env::vars_os() {
+        if name.to_string_lossy().starts_with("GIT_") {
+            cmd.env_remove(name);
+        }
+    }
+    cmd.env("GIT_CONFIG_NOSYSTEM", "1")
+        .env("GIT_CONFIG_GLOBAL", "/dev/null");
+    cmd
+}
+
+/// Run git in `dir` alone and require it to succeed.
+fn git_ok(dir: &std::path::Path, args: &[&str]) {
+    let status = support::git(dir).args(args).status().unwrap();
+    assert!(status.success(), "git {args:?} failed in {}", dir.display());
+}
+
+/// prek hands the message file relative to the working tree. In a linked
+/// worktree the git folder is `<main checkout>/.git/worktrees/<name>`, so
+/// that path climbs out through `..` and still names the repository's own
+/// git folder.
+#[test]
+fn a_relative_message_path_in_a_linked_worktree_is_accepted() {
+    let fixture = Fixture::new();
+    let parent = tempfile::tempdir().unwrap();
+    let main = parent.path().join("main");
+    std::fs::create_dir(&main).unwrap();
+    git_ok(&main, &["init", "-q"]);
+    std::fs::write(main.join("README.md"), "A readme.\n").unwrap();
+    git_ok(&main, &["add", "-A"]);
+    git_ok(&main, &["commit", "-q", "-m", "x"]);
+    git_ok(&main, &["worktree", "add", "-q", "../linked"]);
+    let linked = parent.path().join("linked");
+    std::fs::write(
+        main.join(".git/worktrees/linked/COMMIT_EDITMSG"),
+        "fix: a subject\n",
+    )
+    .unwrap();
+    without_git_env(fixture.cmd())
+        .args([
+            "gate",
+            "no-personal-path",
+            "../main/.git/worktrees/linked/COMMIT_EDITMSG",
+        ])
+        .current_dir(&linked)
+        .assert()
+        .success();
+}
+
+/// The repository's own git folder is the one place a climbing path may
+/// reach. Any other file outside the repository stays refused, though it
+/// exists, and so does the git folder of another repository.
+#[test]
+fn a_relative_path_out_of_the_repository_is_still_refused() {
+    let fixture = Fixture::new();
+    let parent = tempfile::tempdir().unwrap();
+    let repository = parent.path().join("repository");
+    let other = parent.path().join("other");
+    for dir in [&repository, &other] {
+        std::fs::create_dir(dir).unwrap();
+        git_ok(dir, &["init", "-q"]);
+    }
+    std::fs::write(parent.path().join("outside.txt"), "outside\n").unwrap();
+    std::fs::write(other.join(".git/COMMIT_EDITMSG"), "fix: a subject\n").unwrap();
+    for path in ["../outside.txt", "../other/.git/COMMIT_EDITMSG"] {
+        without_git_env(fixture.cmd())
+            .args(["gate", "no-personal-path", path])
+            .current_dir(&repository)
+            .assert()
+            .code(64)
+            .stderr(predicate::str::contains("climbs out of the repository"));
+    }
+}
+
+/// The absolute form pre-commit passes keeps working beside the relative
+/// form prek passes, from a linked worktree as well.
+#[test]
+fn an_absolute_message_path_is_still_accepted() {
+    let fixture = Fixture::new();
+    let parent = tempfile::tempdir().unwrap();
+    let main = parent.path().join("main");
+    std::fs::create_dir(&main).unwrap();
+    git_ok(&main, &["init", "-q"]);
+    std::fs::write(main.join("README.md"), "A readme.\n").unwrap();
+    git_ok(&main, &["add", "-A"]);
+    git_ok(&main, &["commit", "-q", "-m", "x"]);
+    git_ok(&main, &["worktree", "add", "-q", "../linked"]);
+    let message = main.join(".git/worktrees/linked/COMMIT_EDITMSG");
+    std::fs::write(&message, "fix: a subject\n").unwrap();
+    without_git_env(fixture.cmd())
+        .args(["gate", "no-personal-path", message.to_str().unwrap()])
+        .current_dir(parent.path().join("linked"))
+        .assert()
+        .success();
+}
+
 #[test]
 fn a_malformed_pattern_is_a_usage_error() {
     let fixture = Fixture::new();
