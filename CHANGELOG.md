@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.2](https://github.com/gubasso/spec-driven-docs/compare/v0.15.1...v0.15.2) - 2026-11-12
+
+### Other
+
+- *(release)* Move release-kit to v0.9.8 and build the target in CI
+
 ## [0.15.1](https://github.com/gubasso/spec-driven-docs/compare/v0.15.0...v0.15.1) - 2026-11-10
 
 ### Other
