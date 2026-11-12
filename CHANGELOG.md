@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.1](https://github.com/gubasso/spec-driven-docs/compare/v0.16.0...v0.16.1) - 2026-11-12
+
+### Fixed
+
+- *(gates)* Accept the relative message path prek passes in a worktree
+
 ## [0.16.0](https://github.com/gubasso/spec-driven-docs/compare/v0.15.2...v0.16.0) - 2026-11-12
 
 ### Added
