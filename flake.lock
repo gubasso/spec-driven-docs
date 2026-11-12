@@ -26,6 +26,36 @@
         "type": "github"
       }
     },
+    "exobrain-tech_2": {
+      "inputs": {
+        "nixpkgs": [
+          "release-kit",
+          "nixpkgs"
+        ],
+        "release-kit": [
+          "release-kit"
+        ],
+        "rust-overlay": "rust-overlay_2",
+        "spec-driven-docs": [
+          "release-kit",
+          "spec-driven-docs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1794417935,
+        "narHash": "sha256-tHYPUSvVvoXH4DtAt7HnLrS2rxeEWJ5agNuX7fJWJXQ=",
+        "owner": "gubasso",
+        "repo": "exobrain-tech",
+        "rev": "9abb55d665bc8c7b515e1bcc4cbfaeeb5410fa40",
+        "type": "github"
+      },
+      "original": {
+        "owner": "gubasso",
+        "ref": "v1.0.0",
+        "repo": "exobrain-tech",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1787498568,
@@ -44,23 +74,24 @@
     },
     "release-kit": {
       "inputs": {
+        "exobrain-tech": "exobrain-tech_2",
         "nixpkgs": [
           "nixpkgs"
         ],
-        "rust-overlay": "rust-overlay_2",
+        "rust-overlay": "rust-overlay_3",
         "spec-driven-docs": []
       },
       "locked": {
-        "lastModified": 1794408071,
-        "narHash": "sha256-5ZqsDFoB8AEGgf7V/AtyR3G0CQkndl3ZbybBRwSqY0E=",
+        "lastModified": 1794449667,
+        "narHash": "sha256-E8XKUIpdHW7TUVN7ifVRSiwG1obc4uV9tahuQivOzAQ=",
         "owner": "gubasso",
         "repo": "release-kit",
-        "rev": "5ff1de7d188dbdd00f7b833cfdc5a8be282ddc1b",
+        "rev": "9b8d43603d5ca79cbc306904ae329f955919d739",
         "type": "github"
       },
       "original": {
         "owner": "gubasso",
-        "ref": "v0.9.8",
+        "ref": "v0.9.12",
         "repo": "release-kit",
         "type": "github"
       }
@@ -70,7 +101,7 @@
         "exobrain-tech": "exobrain-tech",
         "nixpkgs": "nixpkgs",
         "release-kit": "release-kit",
-        "rust-overlay": "rust-overlay_3"
+        "rust-overlay": "rust-overlay_4"
       }
     },
     "rust-overlay": {
@@ -98,6 +129,7 @@
       "inputs": {
         "nixpkgs": [
           "release-kit",
+          "exobrain-tech",
           "nixpkgs"
         ]
       },
@@ -116,6 +148,27 @@
       }
     },
     "rust-overlay_3": {
+      "inputs": {
+        "nixpkgs": [
+          "release-kit",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1787834454,
+        "narHash": "sha256-jXSvqn04IOecJCvSvl8+g3PsbDVNP6qKs6dKUs/b16k=",
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "rev": "dc2fd1acc537f3583744e1373597a5731ff7a6e3",
+        "type": "github"
+      },
+      "original": {
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "type": "github"
+      }
+    },
+    "rust-overlay_4": {
       "inputs": {
         "nixpkgs": [
           "nixpkgs"
