@@ -1,8 +1,12 @@
+# The host supplies the hook runner prek, and this is the oldest prek the
+# configuration accepts
+# (https://prek.j178.dev/reference/configuration/#minimum_prek_version).
+minimum_prek_version: "0.5.7"
 default_install_hook_types: [pre-commit, commit-msg, pre-push]
-# The node hook runs on the devshell nodejs. Without this line an empty
-# pre-commit cache can pick `default`, and nodeenv then fails on a prerelease
-# entry of the node index: "invalid literal for int() with base 10: '0-alpha'"
-# (2026-11-10).
+# The node hook runs on the devshell nodejs. With `system`, prek takes a
+# node from outside its own store and downloads none
+# (https://prek.j178.dev/reference/language-support/, prek 0.5.7,
+# 2026-11-11).
 default_language_version:
   node: system
 # The commit stage and the push stage together run every check of ci.yml,

@@ -24,18 +24,26 @@ jobs:
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/nix-installer-action@v19
       - uses: DeterminateSystems/magic-nix-cache-action@v13
+      # The hook runner is a host tool, so the job installs it outside the
+      # devshell, at the version the hosts run, and `nix develop` keeps it on
+      # PATH (release:the-devshell-supplies-every-project-tool). The action
+      # is pinned by commit SHA (https://prek.j178.dev/ci/).
+      - uses: j178/prek-action@44924fe9ef4a6f88253c4b6b1bf11c689d3ce53d # v3.1.0
+        with:
+          install-only: true
+          prek-version: 0.5.7
       # Every check of this job is a hook, so a push that passed its hooks
       # passes here (release:the-local-hooks-run-every-check-of-ci). The
       # commit stage runs first, then the costly checks of the push stage.
       # A CI checkout commits nothing, so the two guards of where a local
       # commit happens are skipped: no-commit-to-branch refuses the trunk,
       # and rk-worktree-location refuses a main checkout.
-      - run: nix develop --command pre-commit run --all-files
+      - run: nix develop --command prek run --all-files
         env:
           SKIP: no-commit-to-branch,rk-worktree-location
       # lychee-system is local-only: an external site answers a CI runner
       # with a block or a timeout that it does not give a developer host.
-      - run: nix develop --command pre-commit run --all-files --hook-stage pre-push
+      - run: nix develop --command prek run --all-files --hook-stage pre-push
         env:
           SKIP: no-commit-to-branch,rk-worktree-location,lychee-system
 

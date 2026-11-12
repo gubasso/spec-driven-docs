@@ -1,6 +1,6 @@
 ---
 name: sdd-write-docs
-description: Authors documentation governed by spec-driven-docs, covering current specs, immutable decision records, agent digests, comparison documents, known-issue records, and step-by-step guides, and fixes a document a documentation gate fails. Use when writing or editing docs in a repository that carries a spec-driven-docs instance, when a pre-commit documentation gate or sdd verify fails citing a domain:rule ID, or when a task mentions SPEC files, ADRs, EARS requirements, sdd method, sdd spec, or sdd template.
+description: Authors documentation governed by spec-driven-docs, covering current specs, immutable decision records, agent digests, comparison documents, known-issue records, and step-by-step guides, and fixes a document a documentation gate fails. Use when writing or editing docs in a repository that carries a spec-driven-docs instance, when a hook documentation gate or sdd verify fails citing a domain:rule ID, or when a task mentions SPEC files, ADRs, EARS requirements, sdd method, sdd spec, or sdd template.
 license: CC-BY-4.0
 compatibility: Requires the sdd binary on PATH and a landed spec-driven-docs instance; the sdd-setup skill provisions the binary and lands the instance.
 ---
@@ -62,7 +62,7 @@ After the pre-flight, read `references/plan-gate.md` and hold it for the whole t
 
 ## Post-flight
 
-1. Run `sdd verify --target .`, then `pre-commit run --all-files`. Where either fails citing a rule inside a document, run the `triage` task again. Where it fails on a managed file, keep the change and hand that failure to the `sdd-setup` skill.
+1. Run `sdd verify --target .`, then `prek run --all-files`. Where the second command fails because the host lacks prek, ask the operator to install it, then run the command again. Where either fails citing a rule inside a document, run the `triage` task again. Where it fails on a managed file, keep the change and hand that failure to the `sdd-setup` skill.
 2. Report from observation, in this template.
 
 ```text

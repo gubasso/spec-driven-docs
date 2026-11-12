@@ -185,7 +185,10 @@ fn every_seeded_verification_names_a_hook_the_landing_wires() {
         }
         let text = std::fs::read_to_string(&path).unwrap();
         for line in text.lines() {
-            let Some(rest) = line.strip_prefix("Verify: `pre-commit run ") else {
+            let Some(rest) = ["Verify: `prek run ", "Verify: `pre-commit run "]
+                .into_iter()
+                .find_map(|run| line.strip_prefix(run))
+            else {
                 continue;
             };
             let Some(hook) = rest.split_whitespace().next() else {

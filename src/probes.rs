@@ -158,18 +158,22 @@ pub fn run_all() -> Vec<ProbeResult> {
             &["--version"],
         ),
         tool(
-            "pre-commit",
-            "SDD_PRE_COMMIT_BIN",
-            "pre-commit",
-            "pre-commit; the delivered gates run through it",
+            "prek",
+            "SDD_PREK_BIN",
+            "prek",
+            "prek; the delivered gates run through it",
             &["--version"],
         ),
     ]
 }
 
-/// A helper binary answers its version call. `env_override` names the
+/// A host tool answers its version call. `env_override` names the
 /// substitute, which is also what keeps tests hermetic; presence is the
 /// whole question, because the tools here take no configuration.
+///
+/// The probe only reports. No command reads its result to pick a tool or
+/// to skip a step: a command that needs the tool runs it, and fails where
+/// the host lacks it.
 fn tool(
     id: &'static str,
     env_override: &str,

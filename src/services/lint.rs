@@ -381,12 +381,12 @@ pub struct Proof {
     pub rule: &'static str,
 }
 
-/// The command a proof runs: the delivered hook through pre-commit, unless
-/// the operator's environment names another runner.
+/// The command a proof runs: the delivered hook through prek, the host's
+/// hook runner, unless the operator's environment names another runner.
 fn command() -> Vec<String> {
     crate::domain::paths::variable(crate::domain::paths::LINT_PROVE_RUNNER_VAR).map_or_else(
         || {
-            ["pre-commit", "run", "markdownlint-cli2", "--files"]
+            ["prek", "run", "markdownlint-cli2", "--files"]
                 .map(String::from)
                 .to_vec()
         },

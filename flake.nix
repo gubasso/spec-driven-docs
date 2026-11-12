@@ -61,13 +61,13 @@
     in
     {
       # What belongs here: a tool this project pins that no more specific
-      # owner declares, a runtime pre-commit needs to build a hook
+      # owner declares, a runtime the hook runner needs to build a hook
       # environment, and a command this project's own documents tell a reader
-      # to run. A hook tool that pre-commit can build (typos, committed,
+      # to run. A hook tool that the hook runner can build (typos, committed,
       # md-toc, shellcheck, shfmt, ...) is pinned in .pre-commit-config.yaml,
       # and a language library never enters this shell. What does not: the
       # host baseline.
-      # git is assumed present, because a pre-commit hook has no meaning
+      # git is assumed present, because a git hook has no meaning
       # without it; the Rust toolchain comes from rust-toolchain.toml
       # through the overlay so CI and local development share one compiler.
       # curl is named because the source check in comparison-docs/SOURCES.md
@@ -83,7 +83,6 @@
           # dist-workspace.toml pins (cargo-dist-version).
           pkgs.cargo-dist
           pkgs.just
-          pkgs.pre-commit
           pkgs.dprint
           # The markdownlint-cli2 hook builds on this nodejs
           # (default_language_version in .pre-commit-config.yaml).

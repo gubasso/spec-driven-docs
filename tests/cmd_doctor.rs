@@ -35,7 +35,7 @@ fn report(home: &Home) -> serde_json::Value {
         .cmd()
         .args(["doctor", "--json"])
         .env("SDD_GIT_BIN", "/no/such/git")
-        .env("SDD_PRE_COMMIT_BIN", "/no/such/pre-commit")
+        .env("SDD_PREK_BIN", "/no/such/prek")
         .assert()
         .success()
         .get_output()
@@ -62,12 +62,12 @@ fn probe<'a>(report: &'a serde_json::Value, id: &str) -> &'a serde_json::Value {
 fn doctor_reports_every_probe_and_exits_0() {
     let home = Home::new();
     let git = stub(&home, "fake-git", 0);
-    let pre_commit = stub(&home, "fake-pre-commit", 1);
+    let prek = stub(&home, "fake-prek", 1);
     let out = home
         .cmd()
         .args(["doctor", "--json"])
         .env("SDD_GIT_BIN", &git)
-        .env("SDD_PRE_COMMIT_BIN", &pre_commit)
+        .env("SDD_PREK_BIN", &prek)
         .assert()
         .success()
         .get_output()
@@ -90,16 +90,54 @@ fn doctor_reports_every_probe_and_exits_0() {
             "skill-payload",
             "release-registry",
             "git",
-            "pre-commit"
+            "prek"
         ]
     );
     assert_eq!(probe(&report, "state-root")["class"], "hard");
     assert_eq!(probe(&report, "state-root")["status"], "ok");
     assert_eq!(probe(&report, "git")["status"], "ok");
-    assert_eq!(probe(&report, "pre-commit")["status"], "failed");
+    assert_eq!(probe(&report, "prek")["status"], "failed");
     assert_eq!(
-        probe(&report, "pre-commit")["remediation"],
-        "repair pre-commit; the delivered gates run through it"
+        probe(&report, "prek")["remediation"],
+        "repair prek; the delivered gates run through it"
+    );
+}
+
+/// A prek that answers its version call passes the probe.
+#[test]
+fn the_prek_probe_passes_where_prek_answers() {
+    let home = Home::new();
+    let prek = stub(&home, "fake-prek", 0);
+    let out = home
+        .cmd()
+        .args(["doctor", "--json"])
+        .env("SDD_GIT_BIN", "/no/such/git")
+        .env("SDD_PREK_BIN", &prek)
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let report: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    let prek = probe(&report, "prek");
+    assert_eq!(prek["class"], "soft");
+    assert_eq!(prek["status"], "ok");
+    assert_eq!(prek["message"], "prek runs");
+}
+
+/// A host without prek gets a soft failure that names the install. The
+/// probe only reports: pre-commit is no substitute it falls back to.
+#[test]
+fn the_prek_probe_reports_a_missing_prek() {
+    let home = Home::new();
+    let report = report(&home);
+    let prek = probe(&report, "prek");
+    assert_eq!(prek["class"], "soft");
+    assert_eq!(prek["status"], "failed");
+    assert_eq!(prek["message"], "prek is not on PATH");
+    assert_eq!(
+        prek["remediation"],
+        "install prek; the delivered gates run through it"
     );
 }
 

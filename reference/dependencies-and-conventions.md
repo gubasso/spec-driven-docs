@@ -18,25 +18,25 @@ The exact Rust libraries and their versions live in `Cargo.toml` and `Cargo.lock
 
 A pattern this project implements. No code is vendored.
 
-| Convention                              | Relationship | Where it applies                                       |
-| --------------------------------------- | ------------ | ------------------------------------------------------ |
-| ASD-STE100 Simplified Technical English | `implements` | The controlled-language source behind SimpleEnglish.   |
-| Cargo registry index protocol           | `implements` | How the release resolver finds and verifies a release. |
-| EARS                                    | `implements` | The requirement statement pattern in every spec.       |
-| RFC 2119 and RFC 8174                   | `implements` | The normative keywords a requirement uses.             |
-| Diátaxis                                | `implements` | Where each document is placed.                         |
-| CommonMark and GitHub Flavored Markdown | `implements` | The markdown every document is written in.             |
-| Agent Skills format                     | `implements` | The portable shape of every skill.                     |
-| pre-commit                              | `integrates` | The runner an instance wires the delivered gates into. |
+| Convention                              | Relationship | Where it applies                                                                    |
+| --------------------------------------- | ------------ | ----------------------------------------------------------------------------------- |
+| ASD-STE100 Simplified Technical English | `implements` | The controlled-language source behind SimpleEnglish.                                |
+| Cargo registry index protocol           | `implements` | How the release resolver finds and verifies a release.                              |
+| EARS                                    | `implements` | The requirement statement pattern in every spec.                                    |
+| RFC 2119 and RFC 8174                   | `implements` | The normative keywords a requirement uses.                                          |
+| Diátaxis                                | `implements` | Where each document is placed.                                                      |
+| CommonMark and GitHub Flavored Markdown | `implements` | The markdown every document is written in.                                          |
+| Agent Skills format                     | `implements` | The portable shape of every skill.                                                  |
+| pre-commit configuration format         | `integrates` | The hook configuration an instance wires the delivered gates into, which prek runs. |
 
 ## Runtime requirements
 
 What a consumer's host must carry.
 
-| Requirement | Relationship | Why                                                                                   |
-| ----------- | ------------ | ------------------------------------------------------------------------------------- |
-| git         | `uses`       | The host prerequisite for a pre-commit hook, and the transport for `sdd track check`. |
-| pre-commit  | `uses`       | Runs the delivered gates, including in CI.                                            |
+| Requirement | Relationship | Why                                                                            |
+| ----------- | ------------ | ------------------------------------------------------------------------------ |
+| git         | `uses`       | The host prerequisite for a git hook, and the transport for `sdd track check`. |
+| prek        | `uses`       | The hook runner. It runs the delivered gates, including in CI.                 |
 
 No instance runtime needs Python, Node.js, or a network.
 

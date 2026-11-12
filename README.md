@@ -42,6 +42,17 @@ Every adopted convention and material dependency has one owner and an outward li
 - The pinned upstream, its license, and the vendored paths: [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md), also printed by `sdd license --third-party`.
 - The freshness registry that detects a moved upstream: `sdd track status` reads it offline, and `sdd track check` compares the pinned revision online.
 
+## Develop
+
+The host supplies these tools, and this repository installs none of them:
+
+- `nix` and `direnv`, which enter the devshell of `flake.nix`. The devshell holds every other tool.
+- `prek`, the hook runner, which runs the hooks of `.pre-commit-config.yaml`.
+- `git`, `bash`, `awk`, `sed`, `grep`, and the coreutils.
+- `gh`, authenticated, for the release guides only.
+
+If the host lacks one of them, the command that needs it fails. Install the tool on the host, then run the command again. [`release:the-devshell-supplies-every-project-tool`](./_docs/specs/SPEC-release.md#releasethe-devshell-supplies-every-project-tool--the-devshell-supplies-every-project-tool) states which tool the devshell holds and which the host supplies.
+
 ## License
 
 The method is under [CC BY 4.0](./LICENSE-CC-BY-4.0) and the distribution that installs it is under the [MIT License](./LICENSE-MIT). [LICENSE](./LICENSE) states which side each file falls on, and `sdd license` prints the terms the binary carries.

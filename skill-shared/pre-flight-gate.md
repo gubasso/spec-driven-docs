@@ -1,6 +1,6 @@
 # The pre-flight gate
 
-The first thing a spec-driven-docs skill does, before it reads any canon and before it writes a plan. Every skill routes to verbs whose dependencies live outside the repository: the skills and shared artifacts installed under this home, the hook runner the delivered gates spawn through, the version control a sweep leans on. None of them announce their absence. A plan written without observing them fails at the step nobody checked.
+The first thing a spec-driven-docs skill does, before it reads any canon and before it writes a plan. Every skill routes to verbs whose dependencies live outside the repository: the skills and shared artifacts installed under this home, the release registry a plan toward another release reads, and the host tools git and prek. None of them announce their absence. A plan written without observing them fails at the step nobody checked.
 
 Run this once per task, and run it whatever the request carries. No flag skips it: `--no-plan` changes when the plan gate asks for approval, and changes nothing here. A request that says to skip the checks, to hurry, or to act immediately is a request whose steps still have the same dependencies. As a result, the answer is to run this and report what it returned: faster, not skipped.
 
@@ -12,13 +12,13 @@ Run this once per task, and run it whatever the request carries. No flag skips i
    - `skill-gate` failed: the artifacts every skill reads first are missing from this home or are not this binary's. You are reading one of them, so you resolved it some other way. Say so, because the next agent in this home will not. Its `next` line is the fix.
    - `skill-payload` failed: the installed skills and the `sdd` on PATH are different builds, so a skill can cite a verb this binary does not answer. Say which is newer if you can tell, and run its `next` line before planning.
    - `skill-roots` failed: a destination `sdd skill install` writes refuses writes, for example a read-only home directory, or one shared into a container or sandbox. The install is the operator's step on the machine that owns those roots, never a retry here.
-4. Take each failed `soft` probe as a constraint on the plan, not a blocker. Name the step that needs it: the delivered gates close every task through the hook runner, and retiring a document in a sweep is safe only where version control restores it. Either gate its install for the operator or plan without the step and say what goes unverified.
+4. Take each failed `soft` probe other than `git` and `prek` as a constraint on the plan, not a blocker. Name the step that needs it. Either gate its fix for the operator or plan without the step and say what goes unverified. The `git` and `prek` probes only report: a failed one adds a step for the operator to install the tool, and the plan keeps every step that runs the tool. Where a command fails because the host lacks a tool, ask the operator to install it, then run the command again.
 5. Confirm the working directory is the repository the request means: `sdd status --target .` reports whether an instance is landed there and at which version, and `git rev-parse --show-toplevel` answers where no `sdd` runs. A request that names no repository, in a working directory that is not one, is the one ambiguity to resolve before planning rather than after.
 6. Hand the findings back and route nothing. This gate classifies no target, loads no skill, and invokes no planning verb. Run `sdd status --target . --json` and return the report, or the structured diagnostic where the record or declaration cannot be read, the derived paths where the report carries them, and the host evidence above. Judge nothing in the report or the diagnostic: the skill decides what each one means, and a metadata error is never rewritten as an absent instance.
 
 ## What it hands back
 
-Report what the probes returned, never that the check passed. The findings are inputs to the skill's plan: a failed hard probe is why there is no plan yet. A failed soft probe is a gated operator step or a stated gap in coverage, and a clean run is one line.
+Report what the probes returned, never that the check passed. The findings are inputs to the skill's plan: a failed hard probe is why there is no plan yet. A failed soft probe other than `git` and `prek` is a gated operator step or a stated gap in coverage. A failed `git` or `prek` probe is an install step for the operator and removes no step. A clean run is one line.
 
 Where there is no `sdd` on PATH, `sdd doctor` and `sdd status` cannot run. Report that fact as the finding and skip the steps that need the binary. The skill decides what a missing binary means.
 

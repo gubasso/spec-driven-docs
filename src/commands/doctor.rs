@@ -106,15 +106,15 @@ mod tests {
             r#"{"id":"git","class":"soft","status":"ok","message":"git runs"}"#
         );
         let failed = ProbeResult {
-            id: "pre-commit",
+            id: "prek",
             class: ProbeClass::Soft,
             status: ProbeStatus::Failed,
-            message: "pre-commit is not on PATH".into(),
-            remediation: Some("install pre-commit; the delivered gates run through it".into()),
+            message: "prek is not on PATH".into(),
+            remediation: Some("install prek; the delivered gates run through it".into()),
         };
         assert_eq!(
             serde_json::to_string(&failed).expect("a probe serializes"),
-            r#"{"id":"pre-commit","class":"soft","status":"failed","message":"pre-commit is not on PATH","remediation":"install pre-commit; the delivered gates run through it"}"#
+            r#"{"id":"prek","class":"soft","status":"failed","message":"prek is not on PATH","remediation":"install prek; the delivered gates run through it"}"#
         );
     }
 }

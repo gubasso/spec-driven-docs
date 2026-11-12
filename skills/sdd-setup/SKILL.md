@@ -2,7 +2,7 @@
 name: sdd-setup
 description: Lands, migrates, upgrades, repairs, and tunes a spec-driven-docs instance through the sdd CLI, and provisions the sdd binary it runs on. Use when asked to install or set up spec-driven docs in a project that documents nothing, to migrate a project that already documents itself onto the convention, to take a landed instance to the installed release, to diagnose drift and sdd verify failures, to change what the gates judge or the lint configuration, or to install or pin sdd for a project. Triggers include spec-driven-docs, sdd init, sdd stage, sdd status, sdd verify, sdd upgrade, migrate to sdd, adopt spec-driven docs, convert docs conventions, docs governance instance, reserve a path from the gates, and pin sdd.
 license: CC-BY-4.0
-compatibility: Requires pre-commit, which runs the delivered gates the landing wires into the project's hook configuration. Provisions the sdd binary where the host lacks it. Every sdd verb runs offline and lands the version of sdd that is installed.
+compatibility: Requires prek, which runs the delivered gates the landing wires into the project's hook configuration. Provisions the sdd binary where the host lacks it. Every sdd verb runs offline and lands the version of sdd that is installed.
 ---
 
 # sdd-setup
@@ -32,7 +32,7 @@ An unreadable record never counts as an absent one, so never land seeds over it.
 | No pin and no host decision, at `setup` or `migration` | `sdd self-depend status --target . --json` | `provision`, offered first              |
 | The state of the target                                | `classification`                           | the gate                                |
 
-1. Hand the gate the status report, its `paths`, each failed `soft` probe as a plan constraint, and the `self-depend` report. The gate reads nothing else.
+1. Hand the gate the status report, its `paths`, each failed `soft` probe other than `git` and `prek` as a plan constraint, each failed `git` or `prek` probe as an install step for the operator, and the `self-depend` report. The gate reads nothing else.
 
 ## General rules
 
@@ -94,7 +94,7 @@ Compose them this way:
 Run these once, after the last task post-flight, in this order.
 
 1. Env. Run `sdd env --target . --apply <item>` for each item the operator approved in the plan, with `--value <path>` for `docs-scratch-variable`, and skip this step where none was. Where the run landed or moved an instance, or the request asked for it, the plan read `sdd env --target . --json` and asked about each unwired item.
-2. Check. Run `sdd verify --target .`, then `pre-commit run --all-files`. Where the pre-flight found no `pre-commit`, skip the second command and state in the report that the gates did not run.
+2. Check. Run `sdd verify --target .`, then `prek run --all-files`. Where the second command fails because the host lacks prek, ask the operator to install it, then run the command again.
 3. Clean. Where this run staged and every check passed, print `sdd stage clean <path>`, wait, and run it on a yes. It removes the stage alone. Saved copies and a migration workspace stay, and the report lists each path.
 4. Report. Fill the template from observation, with every answer the operator gave.
 

@@ -222,7 +222,7 @@ Verify: `cargo nextest run -E 'binary(canon)'`
 
 ### `release:the-devshell-supplies-every-project-tool` — The devshell supplies every project tool
 
-The devshell of `flake.nix` MUST supply the language toolchain, `pre-commit`, `just`, and every tool that a recipe, a `language: system` hook, or a `language: script` hook calls from `PATH`. pre-commit supplies the tools of a hook whose language gets an environment that pre-commit builds. The host supplies only `nix` and `direnv`, which enter the devshell, and the base tools: `git`, `bash`, `awk`, `sed`, `grep`, and the coreutils. A CI job MUST install no project tool outside the devshell, and a job that compiles this project MUST compile it in the devshell.
+The devshell of `flake.nix` MUST supply the language toolchain, `just`, and every tool that a recipe, a `language: system` hook, or a `language: script` hook calls from `PATH`. The hook runner supplies the tools of a hook whose language gets an environment that the runner builds. The host supplies only `nix` and `direnv`, which enter the devshell, the hook runner `prek`, and the base tools: `git`, `bash`, `awk`, `sed`, `grep`, and the coreutils. A CI job MUST install no project tool outside the devshell, and a job that compiles this project MUST compile it in the devshell. The hook runner is a host tool, so a CI job installs it with an action pinned by commit SHA, and runs it in the devshell.
 
 A workflow that a release tool generates follows its generator: `release-plz.yml` and `release.yml` only release, and their generators own how they install a toolchain.
 

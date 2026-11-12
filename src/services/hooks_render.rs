@@ -187,10 +187,10 @@ fn render_gates(options: &RenderOptions) -> String {
         let _ = writeln!(out, "{field}name: {}", quoted(gate.name));
         let _ = writeln!(out, "{field}entry: {} gate {}", options.entry, gate.id);
         let _ = writeln!(out, "{field}language: {LANGUAGE}");
-        // An `always_run` row takes no filenames, so pre-commit ignores
+        // An `always_run` row takes no filenames, so the hook runner ignores
         // `files:` and `exclude:` there. The registry still declares what
         // the row judges, and `PathFilter` still applies it; emitting a
-        // selector pre-commit never reads would tell a reader of the block
+        // selector the runner never reads would tell a reader of the block
         // something untrue.
         let declared = options.declaration.for_gate(gate.id);
         // A project `include` replaces the registry's, and every `exclude`
@@ -230,7 +230,7 @@ fn render_gates(options: &RenderOptions) -> String {
             let _ = writeln!(out, "{field}always_run: true");
             let _ = writeln!(out, "{field}pass_filenames: false");
         }
-        // pre-commit hides the output of a passing hook unless it is
+        // The hook runner hides the output of a passing hook unless it is
         // verbose, and a warning gate passes.
         if gate.warns {
             let _ = writeln!(out, "{field}verbose: true");
@@ -303,7 +303,7 @@ pub fn render_block(options: &RenderOptions) -> String {
 /// scope lives in its own `ignores`, so `reserved:` does not reach this hook:
 /// a commit that skipped a file a direct run still judged would put the
 /// scope in two places. The one dependency is the custom rule the root seed
-/// loads, pinned, because pre-commit installs it into the hook's own
+/// loads, pinned, because the hook runner installs it into the hook's own
 /// environment.
 fn render_markdownlint(options: &RenderOptions) -> String {
     let indent = &options.indent;

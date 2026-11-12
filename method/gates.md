@@ -9,7 +9,7 @@ Every rule this framework states is either checked by a hook or declared unenfor
 - Every tool a gate runs beyond POSIX and git MUST be in the project's devshell and in the hook.
 - A new gate MUST be demonstrated failing against an intentional violation before it is trusted.
 
-[Rules](./rules.md) requires the `Verify:` line. This chapter wires it. A rule presented as binding but never checked teaches readers that specs describe intentions. The devshell rule makes a gate testable: a tool reachable only inside pre-commit cannot be exercised against a violation.
+[Rules](./rules.md) requires the `Verify:` line. This chapter wires it. A rule presented as binding but never checked teaches readers that specs describe intentions. The devshell rule makes a gate testable: a tool reachable only inside the hook runner cannot be exercised against a violation.
 
 A check whose file set is empty exits zero. As a result, a renamed directory or a drifted `files:` pattern turns every gate below into a green light over nothing. Assert the set before checking it.
 
@@ -168,10 +168,10 @@ The chapter loop is what stops a shelf from absorbing a subject by growing. A ca
       args: [-p, -c, --skip-lines, '1', github, -l, '3']
 ```
 
-The depth flag belongs to the parser subcommand, so it follows `github`. At the top level `-l` means `--no-links` and `-l 3` is an error. In CI, run the hook itself: it fails when it rewrites a stale TOC, and pre-commit owns the md-toc it runs:
+The depth flag belongs to the parser subcommand, so it follows `github`. At the top level `-l` means `--no-links` and `-l 3` is an error. In CI, run the hook itself: it fails when it rewrites a stale TOC, and the hook runner owns the md-toc it runs. prek and pre-commit run it alike:
 
 ```bash
-pre-commit run md-toc --all-files   # 0 fresh, 1 stale
+prek run md-toc --all-files   # 0 fresh, 1 stale
 ```
 
 ## Fence languages
