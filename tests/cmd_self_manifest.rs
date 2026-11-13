@@ -1,5 +1,5 @@
-//! Integration: `sdd self-manifest` regenerates the canon's record and
-//! refuses anywhere else.
+//! Integration: `sdd self-manifest` writes the payload record of a canon
+//! checkout and refuses anywhere else.
 
 // Integration tests: assertion style is the point, so the production
 // restrictions on unwrap/panic and string building do not apply here.
@@ -29,37 +29,24 @@ fn refuses_outside_the_canon_checkout() {
         .stderr(predicate::str::contains("not the canon checkout"));
 }
 
+/// VERIFIES release:the-payload-record-describes-its-tree
+///
+/// The record carries the checkout's own crate version, whatever the binary
+/// that writes it, hashes each file under the payload roots, and leaves the
+/// instance record alone.
 #[test]
-fn regenerates_a_current_schema_manifest_in_a_canon_shaped_checkout() {
+fn writes_the_payload_record_in_a_canon_shaped_checkout() {
     let fixture = Fixture::new();
     fixture.write(
         "Cargo.toml",
         "[package]\nname = \"spec-driven-docs\"\nversion = \"0.2.0\"\n",
     );
-    fixture.write("_docs/.markdownlint-cli2.jsonc", "{}\n");
+    fixture.write("instance/payload/_docs/.markdownlint-cli2.jsonc", "{}\n");
     fixture.write("skill-shared/plan-gate.md", "# The plan gate\n");
-    fixture.write("skill-shared/pre-flight-gate.md", "# The pre-flight gate\n");
-    fixture.write(
-        "templates/TEMPLATE-tracking.yaml",
-        "schema_version: 1\ntracked: []\n",
-    );
-    fixture.write(
-        "_docs/reference/tracking.yaml",
-        "schema_version: 1\ntracked: []\n",
-    );
-    fixture.write(
-        "_docs/specs/SPEC-sample.md",
-        "### `sample:works` — Works\n\nVerify: `true`\n",
-    );
-    fixture.write("_docs/decisions/TEMPLATE-adr.md", "# Template\n");
-    fixture.write("_docs/reference/TEMPLATE-agents-digest.md", "# Template\n");
-    fixture.write(
-        ".pre-commit-config.yaml",
-        "repos:\n# BEGIN spec-driven-docs managed\n  - repo: local\n# END spec-driven-docs managed\n",
-    );
+    fixture.write("_docs/specs/SPEC-sample.md", "# Sample\n");
     fixture.write(
         ".spec-driven-docs/manifest.json",
-        "{\n  \"installed_at\": \"2026-01-01T00:00:00Z\"\n}\n",
+        "{ \"untouched\": true }\n",
     );
 
     fixture
@@ -69,19 +56,33 @@ fn regenerates_a_current_schema_manifest_in_a_canon_shaped_checkout() {
         .assert()
         .success()
         .stdout(predicate::str::contains(
-            "OK regenerated .spec-driven-docs/manifest.json",
+            "OK regenerated instance/payload-manifest.json",
         ));
 
-    let manifest = fixture.read(".spec-driven-docs/manifest.json");
-    assert!(manifest.contains("\"schema_version\": 3"));
-    assert!(manifest.contains("\"installed_at\": \"2026-01-01T00:00:00Z\""));
-    assert!(manifest.contains("_docs/specs/SPEC-sample.md"));
-    assert!(manifest.contains("\"destination\": \"_docs/.markdownlint-cli2.jsonc\""));
-    assert!(manifest.contains("skill-shared/plan-gate.md"));
-    assert!(manifest.contains("skill-shared/pre-flight-gate.md"));
-    assert!(manifest.contains("_docs/reference/tracking.yaml"));
+    let record: serde_json::Value =
+        serde_json::from_str(&fixture.read("instance/payload-manifest.json")).unwrap();
+    assert_eq!(record["schema"], "sdd.payload-manifest/1");
+    assert_eq!(record["version"], env!("CARGO_PKG_VERSION"));
+    let paths: Vec<&str> = record["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|file| file["path"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        paths,
+        [
+            "_docs/specs/SPEC-sample.md",
+            "instance/payload/_docs/.markdownlint-cli2.jsonc",
+            "skill-shared/plan-gate.md",
+        ]
+    );
+    assert_eq!(
+        fixture.read(".spec-driven-docs/manifest.json"),
+        "{ \"untouched\": true }\n"
+    );
 
-    let repeat = fixture.read(".spec-driven-docs/manifest.json");
+    let first = fixture.read("instance/payload-manifest.json");
     fixture
         .cmd()
         .args(["self-manifest"])
@@ -89,8 +90,8 @@ fn regenerates_a_current_schema_manifest_in_a_canon_shaped_checkout() {
         .assert()
         .success();
     assert_eq!(
-        repeat,
-        fixture.read(".spec-driven-docs/manifest.json"),
+        first,
+        fixture.read("instance/payload-manifest.json"),
         "not stable on a second run"
     );
 }

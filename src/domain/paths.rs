@@ -316,10 +316,32 @@ pub struct UserPaths {
     pub state_root: PathEntry,
     /// Where this tool keeps what it can fetch again.
     pub cache_root: PathEntry,
-    /// The receipt vouching for every user-scope file this tool wrote.
-    pub skill_receipt: PathEntry,
-    /// The agent skill roots, deduplicated by resolved path.
+    /// The receipt of the skill copies an earlier release installed under
+    /// the home, reported only while one exists.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skill_receipt: Option<PathEntry>,
+    /// The agent skill roots an earlier release installed into, deduplicated
+    /// by resolved path, reported only while a receipt exists.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub agent_roots: Vec<AgentRootEntry>,
+}
+
+impl UserPaths {
+    /// The same paths, with the skill entries kept only while a receipt of
+    /// an earlier install exists, at the resolved path or the legacy one.
+    #[must_use]
+    pub fn with_skill_entries_while_a_receipt_exists(mut self, legacy: Option<&Utf8Path>) -> Self {
+        let held = self
+            .skill_receipt
+            .as_ref()
+            .is_some_and(|receipt| receipt.path.is_file())
+            || legacy.is_some_and(Utf8Path::is_file);
+        if !held {
+            self.skill_receipt = None;
+            self.agent_roots.clear();
+        }
+        self
+    }
 }
 
 /// Every control and documentation destination inside one target.
@@ -538,10 +560,10 @@ impl UserEnv {
         let state = self.state_root()?;
         let cache = self.cache_root()?;
         Some(UserPaths {
-            skill_receipt: PathEntry {
+            skill_receipt: Some(PathEntry {
                 path: state.path.join(SKILL_RECEIPT_FILE),
                 source: state.source,
-            },
+            }),
             agent_roots: self.agent_roots(&[AgentId::Claude, AgentId::Agents]),
             state_root: state,
             cache_root: cache,
@@ -785,7 +807,7 @@ mod tests {
     fn the_user_paths_hang_off_the_two_roots() {
         let paths = env("/h").user_paths().unwrap();
         assert_eq!(
-            paths.skill_receipt.path,
+            paths.skill_receipt.unwrap().path,
             "/h/.local/state/spec-driven-docs/skills.json"
         );
     }
@@ -794,7 +816,7 @@ mod tests {
     fn the_home_relative_constants_agree_with_the_resolved_roots() {
         let paths = env("/h").user_paths().unwrap();
         assert_eq!(
-            paths.skill_receipt.path,
+            paths.skill_receipt.unwrap().path,
             Utf8Path::new("/h").join(LEGACY_SKILL_RECEIPT_PATH)
         );
     }

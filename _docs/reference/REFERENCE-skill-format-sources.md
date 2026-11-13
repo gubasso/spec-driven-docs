@@ -2,7 +2,7 @@
 
 External sources behind the rules of `SPEC-skill-format.md` and the package shape `distribution:a-skill-package-is-self-contained` states: what the skill format, the vendors, and the research say about how a skill is packaged, loaded, sized, and written, and how the tools that install skills lay out a package. Decision records state what was chosen. This file states what the choice was checked against.
 
-Verified against the listed sources on 2026-10-08, and the sources under "Installing a skill package" on 2026-10-09. Every source was read again as raw text on 2026-10-10.
+Verified against the listed sources on 2026-10-08, and the sources under "Installing a skill package" on 2026-10-09. Every source was read again as raw text on 2026-10-10. The sources under "Skill scope and the version of a tool" were read on 2026-11-13.
 
 Each entry names its URL, its date where the source states one, the finding, and a short quote where the wording matters. A date in parentheses is the publication date.
 
@@ -16,6 +16,7 @@ Each entry names its URL, its date where the source states one, the finding, and
 - Prompt format
 - Token proxies and the measurement
 - Installing a skill package
+- Skill scope and the version of a tool
 - Where the sources conflict
 - What the research could not verify
 
@@ -284,6 +285,35 @@ What the sources establish:
 - Every tool installs a skill as one whole directory, and each directory carries its own `references/`. No tool reads a supporting file from outside the skill directory.
 - Tools that serve several agent roots either copy the directory into each root or link each root to one canonical copy. The links fail in ways the copies do not.
 - A tool that writes the copies from one embedded source keeps one authored file, so a fix still lands once. That is an inference from the sources above, not a quote.
+
+## Skill scope and the version of a tool
+
+Read on 2026-11-13. The question: where does a tool that pins per project put its skills, and how does it hold an instance to its version?
+
+Two skills under one name:
+
+- Claude Code. <https://code.claude.com/docs/en/skills>. "Enterprise over personal, and personal over project. With `deploy` in both `~/.claude/skills/` and the project's `.claude/skills/`, `/deploy` runs the personal one". A home copy therefore hides the copy a project pins.
+- Codex. <https://learn.chatgpt.com/docs/build-skills>. "If two skills share the same `name`, Codex doesn't merge them; both can appear in skill selectors." It scans `.agents/skills` from the working directory up to the repository root, and `$HOME/.agents/skills` at user scope.
+
+Tools that land their skills into a project:
+
+- Prisma. <https://www.prisma.io/docs/cli/skills>. "Skills ship inside the Prisma npm packages your project installs, so they always describe the version in use." The project should "commit them so agents have the skills on a fresh clone." It writes one copy per agent root, `.claude/skills` and `.agents/skills` among them, and a folder it does not own "is left intact and reported as refused." The source, <https://github.com/prisma/prisma-cli/blob/main/packages/cli/src/lib/skills/sync.ts>: "A target directory that exists but is not this CLI's copy is refused, never replaced."
+- GitHub CLI. <https://cli.github.com/manual/gh_skill_install>. `--scope <string> (default "project")`, "Installation scope: {project|user}".
+
+A recorded version that refuses a mismatch:
+
+- cargo-dist. <https://github.com/axodotdev/cargo-dist/blob/main/cargo-dist/src/errors.rs>. "You're running dist {running_version}, but 'cargo-dist-version = {config_version}' is set in your Cargo.toml", with the help "Rerun 'dist init' to update to this version."
+
+A tool that builds itself with an earlier release:
+
+- rustc. <https://rustc-dev-guide.rust-lang.org/building/bootstrapping/what-bootstrapping-does.html>. "The rustc source code is then compiled with the `stage0` compiler to produce the `stage1` compiler." The guide does not name the pin file. The file `src/stage0` of the rust repository records `compiler_version` and `compiler_date`.
+- Go. <https://go.dev/doc/install/source>. "you can set `$GOROOT_BOOTSTRAP` to the root of a Go installation to use to build the new Go toolchain". "Go version 1.N will require a Go 1.M compiler, where M is N-2 rounded down to an even number."
+
+What the sources establish:
+
+- A project copy is the only copy that can follow a per-project pin, and a home copy of the same name hides it in one agent and doubles it in another.
+- A tool that lands into a project refuses a folder it does not own rather than replace it.
+- No single source pairs an exact version check with a split between writing and read-only commands. That split is this convention's own policy.
 
 ## Where the sources conflict
 

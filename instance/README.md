@@ -8,9 +8,9 @@ Ownership has three classes:
 - Adopted files are seeded once and owned locally. The manifest records both the installed bytes and the upstream baseline they came from. As a result, an edit reports drift until it is reconciled, and upgrades preserve it.
 - Integration blocks are delimited regions inside local files. Tools can replace only the marked block.
 
-`sdd` generates two kinds of file in an instance: each managed file, such as `<root>/.markdownlint-cli2.jsonc`, and the record `.spec-driven-docs/manifest.json`. A generated file keeps the form that `sdd` writes, so the project's own checks that rewrite a file or judge its prose or form exclude both: the whitespace and end-of-file fixers, formatters such as dprint, spell checkers such as typos, editorconfig-checker, and Markdown linters. A check that only reads a file keeps it, such as a syntax parser, a secret scan, a link check, or a gate that `sdd` delivers. Exclude a file in the tool's own configuration where the tool has one, because a run outside pre-commit reads that configuration too. Exclude it in the hook's own `exclude:` where the tool has none. Never use the top-level `exclude:` of `.pre-commit-config.yaml`, because it also hides the file from the reading checks. Adopted files and the content outside an integration block belong to the project, so its checks judge them like any other file.
+`sdd` generates two kinds of file in an instance: each managed file, such as `<root>/.markdownlint-cli2.jsonc` and every skill file under `.claude/skills/` and `.agents/skills/`, and the record `.spec-driven-docs/manifest.json`. A generated file keeps the form that `sdd` writes, so the project's own checks that rewrite a file or judge its prose or form exclude both: the whitespace and end-of-file fixers, formatters such as dprint, spell checkers such as typos, editorconfig-checker, and Markdown linters. A check that only reads a file keeps it, such as a syntax parser, a secret scan, a link check, or a gate that `sdd` delivers. Exclude a file in the tool's own configuration where the tool has one, because a run outside pre-commit reads that configuration too. Exclude it in the hook's own `exclude:` where the tool has none. Never use the top-level `exclude:` of `.pre-commit-config.yaml`, because it also hides the file from the reading checks. Adopted files and the content outside an integration block belong to the project, so its checks judge them like any other file. The root lint configuration that `sdd init` seeds ignores both skill roots. A root configuration that an earlier release seeded, or the project's own, needs the two ignores added by hand.
 
-The only requirements are `git`, `prek`, and `sdd` on the PATH of everyone who runs the hooks, including CI. Install `sdd` with `cargo install spec-driven-docs`, with `cargo binstall spec-driven-docs`, or from a GitHub release's installers. The binary embeds the payload for its own version, so verification and upgrades run offline. `sdd verify` compares its version to the instance's and says which side to move.
+The only requirements are `git`, `prek`, and `sdd` on the PATH of everyone who runs the hooks, including CI. Install `sdd` with `cargo install spec-driven-docs`, with `cargo binstall spec-driven-docs`, or from a GitHub release's installers. The binary embeds the payload for its own version, so verification and upgrades run offline. Every command that reads or writes an instance first compares the version of the binary with the version the instance records. A command that writes refuses a mismatch, and a command that only reads warns where the binary is newer. Each names the command that fixes the mismatch: `sdd init`, `sdd upgrade`, or the sdd of the project's own environment.
 
 ## Stage the candidate
 
@@ -42,24 +42,21 @@ The gates reach a repository by installation, not by remote reference. This repo
 
 ## Skills
 
-The binary embeds the agent skills, and `sdd skill install` is the only thing that lands them. They install at user scope alone, and an instance carries none, because an agent resolves a skill by its name. As a result, an instance copy beside the user-scope one offers the same skill twice under one name.
+The binary embeds the agent skills, and the landing writes them into the instance. `sdd init` writes every file of each skill package under `.claude/skills/<name>/`, which Claude Code reads, and under `.agents/skills/<name>/`, which Codex reads. `sdd upgrade` moves them with the rest of the instance, and the project commits them. They are managed files, so `sdd verify` fails on an edited or a missing skill file.
+
+The version lives in the record: `canon_version` in `.spec-driven-docs/manifest.json`. A skill file carries no version stamp, so each project reads the skill text of the sdd it pins.
+
+A skill lands as a package: one directory holding `SKILL.md` and every shared artifact under `references/`. Each skill names its gates by a path relative to its own directory, which is what the Agent Skills format resolves a supporting file against. A package folder that the record does not attribute is never replaced: the landing refuses it and names it.
+
+Before an instance exists, the binary serves each skill file to the agent:
 
 ```bash
 sdd skill list
 sdd skill show sdd-setup
-sdd skill install
-sdd skill install --apply
+sdd skill show sdd-setup --file references/pre-flight-gate.md
 ```
 
-A skill lands as a package: one directory holding `SKILL.md` and every shared artifact under `references/`. Each skill names its gates by a path relative to its own directory, which is what the Agent Skills format resolves a supporting file against.
-
-`sdd skill install` writes into `~/.claude/skills`, which Claude Code reads, and `~/.agents/skills`, which Codex, OpenCode, and Pi each document that they read. `CLAUDE_CONFIG_DIR` relocates the first root and leaves the second where it is. It previews by default and refuses a destination whose bytes it cannot account for unless `--force` is given. It accounts for two things: the payload it carries, and the receipt under `$XDG_STATE_HOME/spec-driven-docs`, which records the digest of every file each successful apply wrote. A copy an older release left is replaced without asking. A file you edited refuses.
-
-Every apply holds the user-scope lock for its whole run, so a second install refuses at once naming the holder rather than interleaving. It stages each write beside its destination, replaces one file at a time, and writes the receipt last. It refuses a destination reached through a symlink, whatever `--force` says. A run that stops partway names the destinations it finished, leaves the previous receipt standing, and finishes the rest when it runs again.
-
-Both verbs sweep: a destination the receipt vouches for that the current payload no longer carries is removed along with the directory it empties. A home installed before the packages therefore loses the two files under the retired shared root on its first apply. `sdd skill uninstall` reverses the install, also previewing by default. It removes a file only where its digest is the one the receipt records, and names every file it keeps with the reason. As a result, any file you added alongside survives, as does any file you edited yourself.
-
-User-scope files are never recorded in an instance manifest, and no verification reads the receipt.
+Earlier releases installed the skills under the home. A home copy shadows the instance copy, because an agent prefers a personal skill or shows both. `sdd doctor` names such a copy, and `sdd skill uninstall --apply` removes it. The uninstall removes a file only where its digest is the one the receipt of the earlier install records, and names every file it keeps with the reason, so a file you edited stays.
 
 ## Keep the pin fresh
 
@@ -107,4 +104,4 @@ Two things prove it finished: the record matches the tree, and verification pass
 sdd verify --target /path/to/your-project
 ```
 
-Verification is always offline: hashes, the managed block, local rule IDs, and the version alignment between the binary and the instance.
+Verification is always offline: hashes, the managed block, the landed skills, local rule IDs, and the version alignment between the binary and the instance. Where the binary is newer than the instance, verification warns and names `sdd upgrade`, and keeps its own exit code, so the hooks keep working after a pin move.

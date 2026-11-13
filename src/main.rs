@@ -28,6 +28,7 @@ fn main() -> ExitCode {
 fn run(cli: Cli) -> Result<(), AppError> {
     logging::init(cli.global.verbose)?;
     let ctx = AppContext::new(cli.global.verbose)?;
+    spec_driven_docs::landing::gate::gate(&cli.command, &ctx.cwd)?;
 
     match cli.command {
         Commands::Init(args) => commands::init::run(&ctx, args),

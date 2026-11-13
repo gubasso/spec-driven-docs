@@ -15,12 +15,14 @@
   - [`setup:close-refuses-an-unfinished-source` — Close refuses an unfinished source](#setupclose-refuses-an-unfinished-source--close-refuses-an-unfinished-source)
   - [`setup:an-open-migration-is-declared` — An open migration is declared](#setupan-open-migration-is-declared--an-open-migration-is-declared)
   - [`setup:an-incremental-landing-is-named` — An incremental landing is named](#setupan-incremental-landing-is-named--an-incremental-landing-is-named)
+  - [`setup:every-command-has-a-gate-class` — Every command has a gate class](#setupevery-command-has-a-gate-class--every-command-has-a-gate-class)
+  - [`setup:a-gated-command-names-its-fix` — A gated command names its fix](#setupa-gated-command-names-its-fix--a-gated-command-names-its-fix)
 
 <!--TOC-->
 
 ## Purpose
 
-Rules governing the verbs that serve a setup run a result instead of a procedure: the report of what an older release left on the host, the environment report and its writes, the lint report, and the migration verbs that archive a corpus and track its rebuild. Each verb computes, writes, or proves one deterministic step, so the setup skill keeps only the judgment and the questions to the operator. No instance adopts this spec: its subject is the binary, so an instance holding these rules holds obligations it cannot violate. How a target is classified is stated in `SPEC-distribution.md`. How a stage, a comparison, and a landing behave is stated in `SPEC-staging.md`. What the lint configuration must hold is stated in `SPEC-instance.md`.
+Rules governing the gate every command passes against the instance version, and the verbs that serve a setup run a result instead of a procedure: the report of what an older release left on the host, the environment report and its writes, the lint report, and the migration verbs that archive a corpus and track its rebuild. Each verb computes, writes, or proves one deterministic step, so the setup skill keeps only the judgment and the questions to the operator. No instance adopts this spec: its subject is the binary, so an instance holding these rules holds obligations it cannot violate. How a target is classified is stated in `SPEC-distribution.md`. How a stage, a comparison, and a landing behave is stated in `SPEC-staging.md`. What the lint configuration must hold is stated in `SPEC-instance.md`.
 
 ## Requirements
 
@@ -70,7 +72,7 @@ Verify: `cargo nextest run -E 'binary(cmd_env)'`
 
 `sdd lint` MUST read the linter's discovery locations for the active profile, or the candidate profile before a landing, and MUST report each finding with the rule it breaks and the kind of edit it needs, reporting `unknown` for a configuration whose grammar this binary does not read.
 
-The findings are a configuration that replaces the delivered shapes, a linked documentation root or scan root, a root configuration that does not load or enable `relative-links`, and a reserved Markdown path the linter still reads. The report proposes no edit of its own: the operator approves each one, and `sdd lint prove` is the proof that follows.
+The findings are a configuration that replaces the delivered shapes, a linked documentation root or scan root, a root configuration that does not load or enable `relative-links`, and a reserved Markdown path the linter still reads. The report proposes no edit of its own: the operator approves each one, and `sdd lint prove` is the proof that follows. `sdd lint` is `pre-landing` under `setup:every-command-has-a-gate-class`, so it reports on a target with no instance.
 
 #### Scenario: A stray configuration sits beside the specs
 
@@ -173,3 +175,48 @@ The full migration is the default, so the narrower scope runs only where the ope
 - THEN every document stays in place, the instance is landed, and the debt file records the digest
 
 Verify: `cargo nextest run -E 'binary(cmd_migrate)'`
+
+### `setup:every-command-has-a-gate-class` — Every command has a gate class
+
+The binary MUST give every command, and every action of a command family, exactly one gate class and one target source, held in one table beside the command tree.
+
+| Class         | What it covers                                                                                                                                                                                                                                                                                                                                                         |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `exempt`      | Needs no target, or must never fail: help, version, `doctor`, `status`, `docs`, `method`, `spec`, `template`, `license`, `completions`, `man`, `skill list`, `skill show`, `skill install`, `skill uninstall`, `self-manifest`, and every `self-depend` subcommand. An action with no target is `exempt`.                                                              |
+| `pre-landing` | Runs on a target with no instance by design, and before or during an upgrade: `assess`, `init`, `migrate`, every action of `stage`, `lint` with its candidate-profile report, and `env`, whose report the setup skill reads while it plans a landing. On an instance, a `pre-landing` action that writes nothing runs, and one that writes follows the `writing` rows. |
+| `upgrade`     | `upgrade` alone. It keeps its own refusal of a record newer than the binary.                                                                                                                                                                                                                                                                                           |
+| `read-only`   | `verify`, `gate`, `ki`, `track status`, `track check`, and every preview without `--apply`.                                                                                                                                                                                                                                                                            |
+| `writing`     | `hooks --apply`, `debt --apply`, `policy --apply`, and, on an instance, `env --apply`, `migrate archive --apply`, `migrate close --apply`, and `migrate mark`, which writes with no flag.                                                                                                                                                                              |
+
+The target source is `--target`, the current folder, or none. The setup skill calls `stage compare` and `lint` before a landing, so both are `pre-landing`.
+
+#### Scenario: A new action is added with no class
+
+- GIVEN a subcommand added to the command tree and not to the class table
+- WHEN the test suite walks the command tree, nested `--target` arguments included
+- THEN it fails naming the action, because an action with no class runs ungated on a stale instance
+
+Verify: `cargo nextest run -E 'test(every_action_has_a_gate_class)'`
+
+### `setup:a-gated-command-names-its-fix` — A gated command names its fix
+
+Before the handler of a `read-only` or `writing` action runs, the binary MUST compare the `canon_version` of the target's instance record with its own version and act by the row the state selects, naming the command that fixes a mismatch.
+
+| State of the target          | Writing action                    | Read-only action                                           |
+| ---------------------------- | --------------------------------- | ---------------------------------------------------------- |
+| No instance                  | Refuses and names `sdd init`      | Refuses and names `sdd init`                               |
+| Binary newer than the record | Refuses and names `sdd upgrade`   | Runs, with one warning line on stderr naming `sdd upgrade` |
+| Record newer than the binary | Refuses and names the environment | Refuses and names the environment                          |
+| Versions match               | Runs                              | Runs                                                       |
+
+A refusal exits 73 and writes nothing. The refusal on a target with no instance names `sdd init`, and the setup skill as `sdd skill show sdd-setup`, with each file it names through `sdd skill show sdd-setup --file <path>`. A record newer than the binary names the recorded version and tells the reader to run the sdd of the project's own environment, and names the pin as the fix only where `self-depend` reads a pin older than the record. The warning never enters a JSON body.
+
+`sdd verify` and `sdd gate` run on every commit as hooks, so after a pin move they warn and keep their exit code, and they judge a record of an older schema by what that schema records. A corrupt record and real drift still fail. The gate never writes, never moves the pin, and never runs `init` or `upgrade` by itself. No gate of `sdd gate` runs outside an instance by design, so a gate run refuses a target with no instance. Its fallback to `_docs` serves only a record no schema reads, which the `instance-manifest` gate then reports.
+
+#### Scenario: A writing action meets an instance the binary outgrew
+
+- GIVEN an instance recorded at an older sdd than the binary
+- WHEN `sdd policy --apply` runs
+- THEN it exits 73 naming both versions and `sdd upgrade`, and the target is unchanged, while `sdd verify` on the same target warns once on stderr and keeps its own exit code
+
+Verify: `cargo nextest run -E 'binary(cmd_version_gate)'`

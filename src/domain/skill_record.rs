@@ -10,8 +10,7 @@
 //! ones we wrote?
 //!
 //! It is not an instance manifest and never becomes one. No verification
-//! reads it, and `distribution:user-scope-files-stay-unrecorded` keeps
-//! these paths out of the manifest that does drive verification.
+//! reads it, and no instance manifest records these paths.
 //!
 //! It is required state all the same. An apply that cannot write it fails
 //! and rolls back, because a landing this tool cannot vouch for is a

@@ -22,6 +22,23 @@
       # that is this flake, so the lock carries no nested chain of either.
       inputs.spec-driven-docs.follows = "";
     };
+    # The previous release of this tool. It lands, verifies, and upgrades
+    # this repository's own instance, and the rendered hooks run it, as in
+    # every consumer; the sdd built from the tree runs only under test
+    # (release:the-canon-runs-its-previous-release). The operator moves the
+    # pin with `sdd self-depend sync --apply` after each release, then runs
+    # `sdd upgrade` here. The follows keep one node of each shared input.
+    # From the first release that carries this input, the pinned release
+    # brings its own previous-release input: at the first pin move after
+    # that release, add `inputs.spec-driven-docs.follows = "";` here, so
+    # flake.lock holds one sdd node rather than a chain of older ones.
+    spec-driven-docs = {
+      url = "github:gubasso/spec-driven-docs/v0.17.0";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.rust-overlay.follows = "rust-overlay";
+      inputs.release-kit.follows = "release-kit";
+      inputs.exobrain-tech.follows = "exobrain-tech";
+    };
     # The store guard of the canon (exobrain): `exobrain store-guard --daily`
     # in .envrc warns about working-tree copies in the Nix store. Its rk and
     # sdd serve only its own devShell, so it takes this flake's rk and this
@@ -40,6 +57,7 @@
       nixpkgs,
       rust-overlay,
       release-kit,
+      spec-driven-docs,
       exobrain-tech,
     }:
     let
@@ -77,6 +95,8 @@
         packages = [
           toolchain
           rk
+          # The pinned previous release; see the input above.
+          spec-driven-docs.packages.${system}.default
           pkgs.cargo-nextest
           pkgs.cargo-deny
           # The dist-plan and dist-build jobs of ci.yml run the dist that

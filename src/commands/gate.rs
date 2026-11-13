@@ -23,8 +23,8 @@ use crate::output;
 /// no path in a `codebase` instance matches, and every filename-selected
 /// gate there would silently judge nothing.
 fn docs_root_at(root: &Utf8Path) -> String {
-    crate::services::verifier::read_manifest(root)
-        .map_or_else(|_| "_docs".to_string(), |m| m.docs_root.to_string())
+    crate::services::verifier::read_manifest_any(root)
+        .map_or_else(|_| "_docs".to_string(), |(m, _)| m.docs_root.to_string())
 }
 
 /// Build one gate's subject filter from every layer.

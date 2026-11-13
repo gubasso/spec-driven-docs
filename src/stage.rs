@@ -40,15 +40,13 @@ pub const REFERENCE_DIR: &str = "reference";
 /// migrates. The repository's own decision records and tests are not here:
 /// they are this project's history and its proof, and neither is knowledge
 /// an adopting project reads.
-const REFERENCE_ROOTS: [&str; 8] = [
+const REFERENCE_ROOTS: [&str; 6] = [
     "method",
     "templates",
-    "_docs/specs",
     "instance",
     "comparison-docs",
     "reference/prior-art",
     "reference/tracker-markup",
-    "_docs/.markdownlint-cli2.jsonc",
 ];
 
 /// What a stage was asked to render.
@@ -325,6 +323,26 @@ fn finish(partial: &Utf8Path, root: &Utf8Path, receipt: Receipt) -> Result<Recei
     Ok(receipt)
 }
 
+/// Write the specs this binary serves, and the documentation root's lint
+/// configuration, under the reference directory at the paths an instance
+/// holds them.
+fn served_reference(partial: &Utf8Path, reference: &mut Vec<String>) -> Result<(), AppError> {
+    for (name, file) in crate::embedded::spec_files() {
+        crate::adapters::fs::write_file(
+            &partial.join(REFERENCE_DIR).join("_docs/specs").join(name),
+            file.contents(),
+        )?;
+    }
+    reference.push(format!("{REFERENCE_DIR}/_docs/specs"));
+    let lint = "_docs/.markdownlint-cli2.jsonc";
+    if let Some(bytes) = crate::embedded::asset(&format!("{}/{lint}", crate::embedded::PAYLOAD_DIR))
+    {
+        crate::adapters::fs::write_file(&partial.join(REFERENCE_DIR).join(lint), bytes)?;
+        reference.push(format!("{REFERENCE_DIR}/{lint}"));
+    }
+    Ok(())
+}
+
 /// Write one candidate and its reference material under `partial`.
 fn render(
     partial: &Utf8Path,
@@ -401,6 +419,7 @@ fn render(
             reference.push(format!("{REFERENCE_DIR}/{root_name}"));
         }
     }
+    served_reference(partial, &mut reference)?;
     if let Some(bytes) = crate::embedded::asset("instance/docs-catalog.toml") {
         crate::adapters::fs::write_file(
             &partial

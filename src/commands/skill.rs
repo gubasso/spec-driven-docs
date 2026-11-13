@@ -1,9 +1,10 @@
 //! `skill` subcommand: runtime-shape.
 //!
-//! Lists, prints, installs, and removes the embedded skills. Install and
+//! Lists and prints the embedded skills, refuses the retired install, and
+//! removes the copies an earlier release installed under the home. The
 //! uninstall semantics live in `services::skill_installer`; this handler
-//! only resolves the roots the run touches and the receipt that vouches
-//! for them.
+//! only resolves the roots the run touches and the receipt that vouches for
+//! them.
 
 use camino::Utf8PathBuf;
 
@@ -15,6 +16,9 @@ use crate::domain::paths::{
 use crate::error::AppError;
 use crate::output;
 use crate::services::skill_installer::{self, Layout, home};
+
+/// What the retired install says, with `--apply` as a refusal.
+const INSTALL_RETIRED: &str = "sdd lands its skills into each instance through `sdd init` and `sdd upgrade`. To remove the copies that an earlier release wrote under your home, run `sdd skill uninstall --apply`. (distribution:a-skill-has-one-owner)";
 
 /// The roots one run touches, and the receipt that vouches for them.
 fn layout(agent: Agent) -> Result<Layout, AppError> {
@@ -64,15 +68,28 @@ pub fn run(_ctx: &AppContext, args: SkillArgs) -> Result<(), AppError> {
             let Some(text) = crate::embedded::skill(&show.name) else {
                 return Err(AppError::Usage(format!("no such skill: {}", show.name)));
             };
-            output::line(text.trim_end_matches('\n'));
+            let Some(path) = show.file else {
+                output::line(text.trim_end_matches('\n'));
+                return Ok(());
+            };
+            // SATISFIES distribution:a-skill-is-readable-before-an-instance
+            let package = crate::embedded::skill_package(&show.name)
+                .map_err(|error| AppError::Refused(error.to_string()))?;
+            let Some((_, bytes)) = package.iter().find(|(relative, _)| *relative == path) else {
+                return Err(AppError::Io(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    format!("the {} package carries no file {path}", show.name),
+                )));
+            };
+            std::io::Write::write_all(&mut std::io::stdout().lock(), bytes)?;
             Ok(())
         }
         SkillCommand::Install(install) => {
-            let layout = layout(install.agent)?;
-            let lines = skill_installer::install(&layout, install.apply, install.force)?;
-            for line in lines {
-                output::line(line);
+            // SATISFIES distribution:a-skill-has-one-owner
+            if install.apply {
+                return Err(AppError::Refused(INSTALL_RETIRED.to_string()));
             }
+            output::line(INSTALL_RETIRED);
             Ok(())
         }
         SkillCommand::Uninstall(uninstall) => {

@@ -8,10 +8,12 @@
 //
 // Put a Markdown path the linter must skip in `ignores`. The `reserved:` list
 // in .spec-driven-docs/config.yaml scopes sdd's own gates, not this linter.
+// The two skill roots hold the agent skills sdd lands, which keep the form
+// sdd writes, so the linter skips them.
 {
   "customRules": ["markdownlint-rule-relative-links"],
   "config": {
     "relative-links": true
   },
-  "ignores": []
+  "ignores": [".claude/skills/**", ".agents/skills/**"]
 }

@@ -9,6 +9,8 @@ compatibility: Requires prek, which runs the delivered gates the landing wires i
 
 Set up, migrate, upgrade, repair, and tune a spec-driven-docs instance, and provision the `sdd` it runs on. The state of the target decides which tasks are possible, the request picks among them, and the operator confirms each task before it runs.
 
+Where a file this skill names is not on disk, as in a repository with no instance yet, read it from the binary: `sdd skill show sdd-setup --file <path>`, for example `--file references/pre-flight-gate.md`.
+
 ## Pre-flight
 
 1. Before any other action, read `references/pre-flight-gate.md` and run it whatever the request carries. No flag skips it.
@@ -40,9 +42,10 @@ An unreadable record never counts as an absent one, so never land seeds over it.
 2. Take every path from the `paths` section of `sdd status --target . --json`. Never spell a path by hand.
 3. Decide from the `--json` output of a verb, never from its human text.
 4. Leave managed bytes to the canon: never edit a managed file or the inside of a marker block, the agents block included. `sdd init` manages this block, which routes an author to `sdd method writing-style` or the selected source.
-5. Keep one instance at the repository root. An instance carries no skill file, because `sdd skill install` puts the skills under the user's home.
+5. Keep one instance at the repository root. The instance carries the skills: `sdd init` and `sdd upgrade` land them into its skill roots at the version the project pins, and the project commits them. Never install a skill under the home.
 6. Let the repository record how it obtains `sdd`. The `provision` task proposes the method, the operator picks it, and every install is a gated step. What lands is the `sdd` the recorded method provides.
 7. Keep no state of your own. The target repository, the stage receipt, and Git are the records, and a later run reads the state from `sdd status --target . --json`. The one exception is a migration, which spans many runs: its workspace keeps the archived sources and the registry, and `sdd migrate status` reads them.
+8. Follow the fix a version refusal names. Every command that reads or writes an instance compares the record with the binary first, and names `sdd init`, `sdd upgrade`, or the `sdd` of the project's own environment. Run that command, and never work around the refusal.
 
 ## Gate
 

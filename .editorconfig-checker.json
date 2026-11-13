@@ -5,6 +5,8 @@
     "^\\.github/workflows/(pr-title|release-plz|release)\\.yml$",
     "^\\.release-kit/manifest\\.json$",
     "^\\.spec-driven-docs/manifest\\.json$",
+    "^instance/payload-manifest\\.json$",
+    "^\\.(claude|agents)/skills/",
     "^Cargo\\.lock$",
     "^flake\\.lock$"
   ]

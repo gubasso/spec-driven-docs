@@ -34,7 +34,9 @@ pub fn run(ctx: &GateCtx, _files: &[String]) -> GateResult {
     let Ok(text) = std::fs::read_to_string(ctx.path(MANIFEST_PATH)) else {
         return Ok(violation("invalid manifest shape"));
     };
-    match Manifest::parse(&text) {
+    // An older schema is read for what it records; the version gate warns
+    // that `sdd upgrade` moves it.
+    match Manifest::parse_any(&text) {
         Ok(_) => Ok(vec![]),
         Err(error) => Ok(violation(&format!("invalid manifest shape: {error}"))),
     }
@@ -81,14 +83,23 @@ mod tests {
     }
 
     #[test]
-    fn rejects_a_missing_or_older_manifest() {
+    fn rejects_a_missing_or_corrupt_manifest() {
         let missing = run_with_manifest(None);
         assert_eq!(missing.len(), 1);
         assert!(missing[0].contains("instance:the-manifest-stays-readable"));
 
+        let corrupt = run_with_manifest(Some("{ not json"));
+        assert_eq!(corrupt.len(), 1);
+        assert!(corrupt[0].contains("invalid manifest shape"));
+    }
+
+    /// VERIFIES setup:a-gated-command-names-its-fix
+    ///
+    /// After a pin move the hook keeps passing on a record of an older
+    /// schema; the version gate warns that `sdd upgrade` moves it.
+    #[test]
+    fn the_instance_manifest_gate_passes_on_an_older_schema() {
         let older = VALID.replace("\"schema_version\": 3", "\"schema_version\": 1");
-        let out = run_with_manifest(Some(&older));
-        assert_eq!(out.len(), 1);
-        assert!(out[0].contains("invalid manifest shape: manifest schema_version 1"));
+        assert!(run_with_manifest(Some(&older)).is_empty());
     }
 }

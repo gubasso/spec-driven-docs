@@ -27,7 +27,7 @@ When the request carries `--no-plan`, replace this phase's approval turn: do not
 
 The plan is a claim about what will happen. Check it against something that knows, never against your own confidence.
 
-1. Preview every verb that has one. `sdd stage --target .` renders the candidate this binary carries into a directory beside the target and writes nothing into it, so the comparison is bytes rather than a claim. `sdd init` and `sdd skill install` write nothing without `--apply`. `sdd upgrade` writes by default, so its preview is `sdd upgrade --dry-run`, and the flag stays on until the plan is approved.
+1. Preview every verb that has one. `sdd stage --target .` renders the candidate this binary carries into a directory beside the target and writes nothing into it, so the comparison is bytes rather than a claim. `sdd init` and `sdd skill uninstall` write nothing without `--apply`. `sdd upgrade` writes by default, so its preview is `sdd upgrade --dry-run`, and the flag stays on until the plan is approved.
 2. Validate every action that has no preview (rewriting a document, retiring a file the project authored) against what states it instead: the placement chapter for where each fact belongs, and a read-only observation of the current state. `sdd status --target .` and `sdd verify --target .` observe and never write.
 3. Compare both against the plan: the destinations, their count, and the steps in their order.
 4. Where they disagree, stop. Say what differs, and return to phase 1. Never reconcile a surprise by widening the plan silently.

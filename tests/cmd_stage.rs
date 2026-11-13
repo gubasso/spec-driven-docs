@@ -364,7 +364,9 @@ fn a_staged_agents_file_is_titled_only_where_the_target_has_none() {
 /// root seed lands.
 #[test]
 fn the_stage_carries_the_delivered_lint_configuration_as_reference() {
-    let source = spec_driven_docs::embedded::asset("_docs/.markdownlint-cli2.jsonc").unwrap();
+    let source =
+        spec_driven_docs::embedded::asset("instance/payload/_docs/.markdownlint-cli2.jsonc")
+            .unwrap();
     for profile in ["codebase", "knowledge-base"] {
         for yields in [false, true] {
             let fixture = Fixture::new();

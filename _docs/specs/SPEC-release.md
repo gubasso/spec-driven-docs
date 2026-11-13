@@ -11,7 +11,9 @@
   - [`release:the-delivered-gate-set-is-declared-once` — The delivered gate set is declared once](#releasethe-delivered-gate-set-is-declared-once--the-delivered-gate-set-is-declared-once)
   - [`release:a-canon-gate-is-not-delivered` — A canon gate is not delivered](#releasea-canon-gate-is-not-delivered--a-canon-gate-is-not-delivered)
   - [`release:a-delivered-gate-reads-what-the-convention-owns` — A delivered gate reads what the convention owns](#releasea-delivered-gate-reads-what-the-convention-owns--a-delivered-gate-reads-what-the-convention-owns)
-  - [`release:the-canon-record-describes-its-tree` — The canon record describes its tree](#releasethe-canon-record-describes-its-tree--the-canon-record-describes-its-tree)
+  - [`release:the-payload-record-describes-its-tree` — The payload record describes its tree](#releasethe-payload-record-describes-its-tree--the-payload-record-describes-its-tree)
+  - [`release:the-canon-is-an-ordinary-instance` — The canon is an ordinary instance](#releasethe-canon-is-an-ordinary-instance--the-canon-is-an-ordinary-instance)
+  - [`release:the-canon-runs-its-previous-release` — The canon runs its previous release](#releasethe-canon-runs-its-previous-release--the-canon-runs-its-previous-release)
   - [`release:the-rk-pin-has-two-facts-and-one-mover` — The rk pin has two facts and one mover](#releasethe-rk-pin-has-two-facts-and-one-mover--the-rk-pin-has-two-facts-and-one-mover)
   - [`release:third-party-notices-travel-with-the-payload` — Third-party notices travel with the payload](#releasethird-party-notices-travel-with-the-payload--third-party-notices-travel-with-the-payload)
   - [`release:every-release-declares-what-it-asks` — Every release declares what it asks](#releaseevery-release-declares-what-it-asks--every-release-declares-what-it-asks)
@@ -31,11 +33,13 @@ Rules governing how this repository cuts a release. They cover which artifact st
 
 ### `release:versions-are-semantic-and-aligned` — Versions are semantic and aligned
 
-`Cargo.toml` states the release identity as one semantic version, and every other artifact naming a version MUST carry that value.
+`Cargo.toml` states the release identity as one semantic version, and every other artifact naming the version of this tree MUST carry that value.
+
+The instance record names the sdd that landed the canon's own instance, which is the pinned previous release, so it names no version of this tree.
 
 #### Scenario: A second artifact names a different version
 
-- GIVEN `Cargo.toml` reads 0.3.0 and the instance manifest reads 0.2.0
+- GIVEN `Cargo.toml` reads 0.3.0 and the payload record reads 0.2.0
 - WHEN the canon test suite runs
 - THEN it fails and names `Cargo.toml` as the value to correct toward, not the disagreement
 
@@ -119,17 +123,47 @@ A delivered gate MUST declare the subject paths it judges, and MUST NOT judge a 
 
 Verify: `pre-commit run cargo-test --all-files`
 
-### `release:the-canon-record-describes-its-tree` — The canon record describes its tree
+### `release:the-payload-record-describes-its-tree` — The payload record describes its tree
 
-This repository is an instance of itself, so its committed instance record MUST name and hash the files the same commit carries.
+The tree MUST describe its payload in `instance/payload-manifest.json`, which carries the crate version of `Cargo.toml` and the hash of each payload source under the declared roots, and which `cargo run -q -- self-manifest` writes.
 
-#### Scenario: An adopted spec is edited and the record is not regenerated
+The payload record has its own schema id and holds no instance field, and nothing compares it with an instance record. The tree builds it as it builds its binary, so a checkout whose crate version differs from the pinned sdd still gets a correct record, because the pinned sdd never writes it.
 
-- GIVEN a requirement reworded in `_docs/specs/` without running `sdd self-manifest`
+#### Scenario: A payload source is edited and the record is not regenerated
+
+- GIVEN a requirement reworded in an adoptable spec under `instance/payload/` without running `just manifest`
 - WHEN the release checks run
-- THEN they fail naming the file, because `sdd verify` reports an adopted edit as a note every other instance is entitled to carry
+- THEN they fail naming the file, because the record no longer describes the bytes the binary embeds
 
-Verify: `pre-commit run cargo-test --all-files`
+Verify: `cargo nextest run -E 'test(the_payload_record_describes_its_tree)'`
+
+### `release:the-canon-is-an-ordinary-instance` — The canon is an ordinary instance
+
+`sdd verify` MUST hold this repository's instance to the obligations of every instance, with no selection of a canon layout, and `sdd init` MUST land in this checkout as it lands in any repository.
+
+The payload sources sit apart from the canon's own instance, under `instance/payload/` where a source would otherwise double as a destination. The canon's own documentation root holds landed copies and the documents only the canon carries. The checks of the payload are tree tests.
+
+#### Scenario: The canon's instance loses a skill entry
+
+- GIVEN this repository's instance with one landed skill file and its record entry removed
+- WHEN `sdd verify --target .` runs
+- THEN it fails naming the destination, whatever the payload record says
+
+Verify: `cargo nextest run -E 'test(verify_holds_the_canon_to_the_instance_obligations) + test(init_lands_in_the_canon_checkout)'`
+
+### `release:the-canon-runs-its-previous-release` — The canon runs its previous release
+
+The devshell MUST carry a released sdd, pinned by the `spec-driven-docs` input of `flake.nix`, and the rendered hooks and the recipes that operate an instance MUST run that sdd, while the sdd built from the tree runs only where the tree is under test or builds its own artifact.
+
+A compiler builds itself with an earlier release of itself, and this repository lands and upgrades its own instance the same way. One tree test runs every gate of the tree over the canon's documents, with a negative control, so the gates under development still judge the canon. After a release publishes, one change moves the pin and runs `sdd upgrade` on this repository, as in every consumer. The first conversion of the canon into an ordinary instance runs once with the sdd of the tree, because no released sdd can land it yet. Where the pinned release cannot verify that instance, the hooks keep the sdd of the tree until the first pin move after the release that ships the conversion, which ends the exception.
+
+#### Scenario: A hook runs the sdd of the tree
+
+- GIVEN a pin that names a release able to verify the canon, and a managed hook entry that runs `cargo run -q --` instead of `sdd`
+- WHEN the test suite runs
+- THEN it fails naming the entry, because the instance would be judged by a binary no release produced
+
+Verify: `cargo nextest run -E 'test(the_devshell_sdd_is_the_pinned_release) + test(the_instance_recipes_use_the_pinned_sdd) + test(the_tree_gates_pass_on_the_canon)'`
 
 ### `release:the-rk-pin-has-two-facts-and-one-mover` — The rk pin has two facts and one mover
 
@@ -210,11 +244,11 @@ Verify: `cargo nextest run -E 'binary(canon)'`
 
 ### `release:a-machine-scope-recipe-drops-a-session-variable` — A machine-scope recipe drops a session variable
 
-The `install` and `uninstall` recipes install this checkout for the machine, so their skill step MUST run without the variable that relocates the Claude configuration directory. A session wrapper sets that variable per terminal, to an isolated directory it owns and seats its own links in, so an inherited value aims a machine-scope install at one terminal and refuses at the wrapper's link on the way. The verb itself MUST keep honouring the variable, which is what installing into a relocated directory needs.
+The `uninstall` recipe cleans the home of the skill copies earlier releases installed, so its skill step MUST run without the variable that relocates the Claude configuration directory. A session wrapper sets that variable per terminal, to an isolated directory it owns and seats its own links in, so an inherited value aims a machine-scope cleanup at one terminal and misses the copies under the user's own directory. The verb itself MUST keep honouring the variable, which is what a cleanup of a relocated directory needs.
 
 #### Scenario: The recipe stops dropping the variable
 
-- GIVEN an `install` or `uninstall` recipe whose skill step no longer drops the variable
+- GIVEN an `uninstall` recipe whose skill step no longer drops the variable
 - WHEN the canon test suite runs
 - THEN it fails naming the recipe, because every other test proves the verb's relocation default on purpose and none of them would notice
 

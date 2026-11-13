@@ -51,17 +51,17 @@ fn the_license_declares_both_halves_and_the_crate_agrees() {
 
 /// SATISFIES release:versions-are-semantic-and-aligned
 #[test]
-fn the_canon_manifest_carries_this_crate_version() {
-    let manifest: serde_json::Value =
-        serde_json::from_str(&read(".spec-driven-docs/manifest.json")).unwrap();
+fn the_payload_record_carries_this_crate_version() {
+    let record: serde_json::Value =
+        serde_json::from_str(&read("instance/payload-manifest.json")).unwrap();
     assert_eq!(
-        manifest["schema_version"], 3,
-        "regenerate with 'sdd self-manifest'"
+        record["schema"], "sdd.payload-manifest/1",
+        "regenerate with 'just manifest'"
     );
     assert_eq!(
-        manifest["canon_version"],
+        record["version"],
         env!("CARGO_PKG_VERSION"),
-        "regenerate with 'sdd self-manifest'"
+        "regenerate with 'just manifest'"
     );
 }
 
@@ -82,12 +82,6 @@ fn the_delivered_block_carries_no_canon_check() {
     }
 }
 
-fn digest(relative: &str) -> String {
-    let bytes = std::fs::read(canon().join(relative))
-        .unwrap_or_else(|_| panic!("{relative} is recorded but missing"));
-    spec_driven_docs::domain::ownership::Sha256::of(&bytes).to_string()
-}
-
 fn recorded_manifest() -> serde_json::Value {
     serde_json::from_str(&read(".spec-driven-docs/manifest.json")).unwrap()
 }
@@ -101,116 +95,390 @@ fn recorded_destinations(manifest: &serde_json::Value, class: &str) -> Vec<Strin
         .collect()
 }
 
-/// SATISFIES release:the-canon-record-describes-its-tree
+/// VERIFIES release:the-payload-record-describes-its-tree
 ///
-/// `sdd verify` reports an adopted edit as a note rather than a failure,
-/// which is right for an instance that owns its specs and wrong here: this
-/// record is generated from the tree, so a difference means `sdd
-/// self-manifest` was not run.
+/// The committed record is what the tree describes now, at the tree's own
+/// crate version, whatever sdd the devshell pins: the pinned sdd never
+/// writes it. A payload source edited without `just manifest` fails here.
 #[test]
-fn the_canon_record_hashes_every_file_the_tree_carries() {
-    let manifest = recorded_manifest();
-    for class in ["managed_files", "adopted_files"] {
-        for entry in manifest[class].as_array().unwrap() {
-            let destination = entry["destination"].as_str().unwrap();
-            assert_eq!(
-                entry["sha256"].as_str().unwrap(),
-                digest(destination),
-                "{destination} differs from its record; run 'just manifest'"
-            );
-        }
-    }
+fn the_payload_record_describes_its_tree() {
+    use spec_driven_docs::services::self_manifest::{PayloadRecord, describe};
 
-    let managed = recorded_destinations(&manifest, "managed_files");
-    for (path, _) in spec_driven_docs::embedded::shared_artifacts() {
-        let path = format!("skill-shared/{path}");
-        assert!(
-            managed.contains(&path),
-            "{path} is in the payload but absent from the record; run 'just manifest'"
+    let root = camino::Utf8PathBuf::from_path_buf(canon()).unwrap();
+    let committed: PayloadRecord =
+        serde_json::from_str(&read("instance/payload-manifest.json")).unwrap();
+    let described = describe(&root).unwrap();
+    assert_eq!(described.version.to_string(), env!("CARGO_PKG_VERSION"));
+    for file in &described.files {
+        let recorded = committed.files.iter().find(|held| held.path == file.path);
+        assert_eq!(
+            recorded.map(|held| &held.sha256),
+            Some(&file.sha256),
+            "{} differs from the payload record; run 'just manifest'",
+            file.path
         );
     }
-
-    let mut specs: Vec<String> = std::fs::read_dir(canon().join("_docs/specs"))
-        .unwrap()
-        .filter_map(Result::ok)
-        .map(|entry| entry.file_name().to_str().unwrap().to_string())
-        .filter(|name| name.starts_with("SPEC-") && name.ends_with(".md"))
-        .map(|name| format!("_docs/specs/{name}"))
-        .collect();
-    specs.sort();
-    let adopted = recorded_destinations(&manifest, "adopted_files");
-    for spec in &specs {
-        assert!(
-            adopted.contains(spec),
-            "{spec} is on disk but absent from the record; run 'just manifest'"
-        );
-    }
-    for destination in &adopted {
-        if destination.starts_with("_docs/specs/") {
-            assert!(
-                specs.contains(destination),
-                "{destination} is recorded but gone from the tree; run 'just manifest'"
-            );
-        }
-    }
-
-    for template in spec_driven_docs::domain::profile::CANON_TEMPLATES.iter() {
-        assert!(
-            canon().join(template).is_file(),
-            "{template} is declared but gone from the tree"
-        );
-        assert!(
-            adopted.contains(&(*template).to_string()),
-            "{template} is on disk but absent from the record; run 'just manifest'"
-        );
-    }
-    for destination in &adopted {
-        if destination
-            .rsplit('/')
-            .next()
-            .is_some_and(|name| name.starts_with("TEMPLATE-"))
-        {
-            assert!(
-                spec_driven_docs::domain::profile::CANON_TEMPLATES.contains(&destination.as_str()),
-                "{destination} is recorded but no longer declared; a canon-side template has one owner"
-            );
-        }
-    }
-
-    let block = manifest["integration_blocks"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|entry| entry["path"] == ".pre-commit-config.yaml")
-        .expect("no integration block recorded for .pre-commit-config.yaml");
-    let hashed = spec_driven_docs::domain::marker::block_hash(&read(".pre-commit-config.yaml"))
-        .expect("no managed block in .pre-commit-config.yaml");
     assert_eq!(
-        block["marker_hash"].as_str().unwrap(),
-        hashed.to_string(),
-        "the managed block differs from its record; run 'just manifest'"
+        committed, described,
+        "the payload record does not describe this tree; run 'just manifest'"
+    );
+
+    // Negative control: one edited payload source, and the description of
+    // the copy no longer equals the record.
+    let copy = tempfile::tempdir().unwrap();
+    let copy_root = camino::Utf8PathBuf::from_path_buf(copy.path().to_path_buf()).unwrap();
+    for file in &described.files {
+        let to = copy_root.join(&file.path);
+        std::fs::create_dir_all(to.parent().unwrap()).unwrap();
+        std::fs::copy(root.join(&file.path), &to).unwrap();
+    }
+    assert_eq!(describe(&copy_root).unwrap(), described);
+    let edited = copy_root.join("instance/payload/_docs/specs/SPEC-docs-specs.md");
+    let mut text = std::fs::read_to_string(&edited).unwrap();
+    text.push_str("\nAn edit nobody recorded.\n");
+    std::fs::write(&edited, text).unwrap();
+    assert_ne!(describe(&copy_root).unwrap(), committed);
+}
+
+/// VERIFIES release:the-canon-runs-its-previous-release
+///
+/// The managed region is the render of the pinned sdd, which `just hooks`
+/// applies, so every entry runs `sdd` from the devshell and none runs the
+/// sdd built from this tree. The gates under development judge the canon
+/// through `the_tree_gates_pass_on_the_canon` instead.
+#[test]
+fn the_managed_hooks_run_the_pinned_sdd() {
+    let config = read(".pre-commit-config.yaml");
+    let (begin, end) = (
+        config
+            .find("BEGIN spec-driven-docs")
+            .expect("no managed region"),
+        config
+            .find("END spec-driven-docs")
+            .expect("no managed region"),
+    );
+    let region = &config[begin..end];
+    let entries: Vec<&str> = region
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix("entry: "))
+        .collect();
+    assert!(!entries.is_empty(), "the managed region holds no entry");
+    for entry in entries {
+        assert!(
+            entry.starts_with("sdd "),
+            "{entry}: a managed hook runs the sdd of the tree; run 'just hooks'"
+        );
+    }
+}
+
+/// VERIFIES release:the-canon-runs-its-previous-release
+///
+/// The recipes that operate an instance run the pinned sdd, the payload
+/// record and the scratch round trip run the sdd of the tree, and no recipe
+/// installs a project tool on the host.
+#[test]
+fn the_instance_recipes_use_the_pinned_sdd() {
+    let justfile = read("justfile");
+    let recipe = |name: &str| -> Vec<String> {
+        let mut lines = justfile.lines().skip_while(|line| {
+            !(line.starts_with(&format!("{name}:")) || line.starts_with(&format!("{name} ")))
+        });
+        assert!(lines.next().is_some(), "the recipe {name} is missing");
+        lines
+            .take_while(|line| line.starts_with("    "))
+            .map(|line| line.trim().to_string())
+            .collect()
+    };
+    for name in [
+        "hooks",
+        "instantiate",
+        "verify-instance",
+        "upgrade-instance",
+    ] {
+        let body = recipe(name);
+        assert!(
+            body.iter().all(|line| line.starts_with("sdd ")),
+            "{name} must run the pinned sdd: {body:?}"
+        );
+    }
+    for name in ["manifest", "build"] {
+        assert!(
+            recipe(name)
+                .iter()
+                .any(|line| line.contains("cargo run -q --")),
+            "{name} tests or builds the tree, so it runs the sdd of the tree"
+        );
+    }
+    assert!(
+        !justfile.lines().any(|line| line.starts_with("install:")),
+        "a project tool is never installed on the host"
     );
 }
 
-/// SATISFIES release:the-delivered-gate-set-is-declared-once
+/// VERIFIES release:the-canon-runs-its-previous-release
 ///
-/// This repository is an instance of itself whose managed block no
-/// installer wrote: `just hooks` applies the render with this checkout's
-/// entry prefix. The check is the same one an instance runs, so the region
-/// is the render byte for byte, not a copy held to it gate by gate.
+/// The devshell carries the release the `spec-driven-docs` input pins, and
+/// that release is not newer than this tree. Inside the devshell, the `sdd`
+/// on PATH answers with that version.
 #[test]
-fn the_canon_managed_block_is_the_render() {
-    let output = std::process::Command::new(env!("CARGO_BIN_EXE_sdd"))
-        .args(["hooks", "--check", "--entry", "cargo run -q --", "--target"])
-        .arg(canon())
-        .output()
-        .expect("sdd runs");
+fn the_devshell_sdd_is_the_pinned_release() {
+    let lock: serde_json::Value = serde_json::from_str(&read("flake.lock")).unwrap();
+    let tag = lock["nodes"]["spec-driven-docs"]["original"]["ref"]
+        .as_str()
+        .expect("flake.lock pins no spec-driven-docs tag");
+    let pinned = tag.strip_prefix('v').expect("the pin is a release tag");
+    let flake = read("flake.nix");
     assert!(
-        output.status.success(),
-        "the managed region is not the render; run 'just hooks':\n{}{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
+        flake.contains(&format!("url = \"github:gubasso/spec-driven-docs/{tag}\";")),
+        "flake.nix and flake.lock name different releases"
     );
+    assert!(
+        flake.contains("spec-driven-docs.packages.${system}.default"),
+        "the devshell does not carry the pinned sdd"
+    );
+    let parse = |version: &str| -> Vec<u64> {
+        version
+            .split('.')
+            .map(|part| part.parse().unwrap())
+            .collect()
+    };
+    assert!(
+        parse(pinned) <= parse(env!("CARGO_PKG_VERSION")),
+        "the pin {tag} is newer than this tree"
+    );
+    let on_path = std::env::var_os("PATH").and_then(|path| {
+        std::env::split_paths(&path)
+            .map(|dir| dir.join("sdd"))
+            .find(|candidate| candidate.is_file())
+    });
+    if let Some(sdd) = on_path.filter(|sdd| sdd.starts_with("/nix/store")) {
+        let output = std::process::Command::new(&sdd)
+            .arg("--version")
+            .output()
+            .unwrap();
+        assert_eq!(
+            String::from_utf8_lossy(&output.stdout).trim(),
+            format!("sdd {pinned}"),
+            "the devshell's sdd is not the pinned release"
+        );
+    }
+}
+
+/// Every file under `root` a hook can receive, relative to it.
+fn hook_files(root: &std::path::Path) -> Vec<String> {
+    let mut files: Vec<String> = walkdir::WalkDir::new(root)
+        .into_iter()
+        .filter_entry(|entry| {
+            let name = entry.file_name().to_string_lossy();
+            !(entry.depth() == 1
+                && [".git", ".direnv", "target", "node_modules"].contains(&name.as_ref()))
+        })
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_type().is_file())
+        .map(|entry| {
+            entry
+                .path()
+                .strip_prefix(root)
+                .unwrap()
+                .to_string_lossy()
+                .into_owned()
+        })
+        .collect();
+    files.sort();
+    files
+}
+
+/// Run one gate of the tree's sdd at `root` with the arguments its rendered
+/// hook receives: no path for a gate that runs always, else every file its
+/// `types` admit, which the gate narrows by its own declared patterns.
+fn tree_gate(
+    root: &std::path::Path,
+    gate: &spec_driven_docs::gates::GateSpec,
+    files: &[String],
+) -> std::process::Output {
+    let admitted: Vec<&String> = if gate.always_run {
+        Vec::new()
+    } else {
+        files
+            .iter()
+            .filter(|file| match gate.types {
+                Some("markdown") => file.ends_with(".md") || file.ends_with(".markdown"),
+                Some("text") => std::fs::read(root.join(file))
+                    .is_ok_and(|bytes| std::str::from_utf8(&bytes).is_ok()),
+                _ => true,
+            })
+            .collect()
+    };
+    std::process::Command::new(env!("CARGO_BIN_EXE_sdd"))
+        .arg("gate")
+        .arg(gate.id.as_str())
+        .args(admitted)
+        .current_dir(root)
+        .output()
+        .expect("sdd runs")
+}
+
+/// VERIFIES release:the-canon-runs-its-previous-release
+///
+/// The hooks run the previous release, so the gates under development judge
+/// the canon's documents here: every gate of the tree, over the canon, with
+/// its declaration. The negative control copies the canon, plants one known
+/// violation per gate family, and proves each planted gate fails.
+#[test]
+fn the_tree_gates_pass_on_the_canon() {
+    let gates = spec_driven_docs::gates::GATES;
+    let files = hook_files(&canon());
+    for gate in gates {
+        let output = tree_gate(&canon(), gate, &files);
+        assert!(
+            output.status.success(),
+            "{} fails on the canon:\n{}{}",
+            gate.id.as_str(),
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    let copy = tempfile::tempdir().unwrap();
+    for entry in walkdir::WalkDir::new(canon())
+        .into_iter()
+        .filter_entry(|entry| {
+            let name = entry.file_name().to_string_lossy();
+            !(entry.depth() == 1
+                && [".git", ".direnv", "target", "node_modules"].contains(&name.as_ref()))
+        })
+        .filter_map(Result::ok)
+    {
+        let relative = entry.path().strip_prefix(canon()).unwrap();
+        let to = copy.path().join(relative);
+        if entry.file_type().is_dir() {
+            std::fs::create_dir_all(&to).unwrap();
+        } else if entry.file_type().is_file() {
+            std::fs::copy(entry.path(), &to).unwrap();
+        }
+    }
+    let append = |relative: &str, text: &str| {
+        let path = copy.path().join(relative);
+        let mut held = std::fs::read_to_string(&path).unwrap_or_default();
+        held.push_str(text);
+        std::fs::write(path, held).unwrap();
+    };
+    let personal = format!("\nThe log sits at /{}/alice/notes.\n", "home");
+    let planted: [(&str, &str, &str); 5] = [
+        (
+            "adr-cites-a-live-rule",
+            "_docs/decisions/ADR-land-the-skills-into-each-instance-at-its-pin.md",
+            "\nEnforced by `release:a-rule-no-spec-defines`.\n",
+        ),
+        (
+            "spec-requirement-parts",
+            "_docs/specs/SPEC-release.md",
+            "\n### `release:a-planted-rule` — A planted rule\n\nThe author MUST plant it.\n",
+        ),
+        (
+            "prose-stays-unwrapped",
+            "_docs/guides/release.md",
+            "\nA paragraph that a writer wrapped\nonto a second source line.\n",
+        ),
+        ("no-personal-path", "_docs/guides/release.md", &personal),
+        (
+            "tracking-registry",
+            "_docs/reference/tracking.yaml",
+            "  - id: planted\n",
+        ),
+    ];
+    for (_, path, text) in planted {
+        append(path, text);
+    }
+    let copied = hook_files(copy.path());
+    for (id, path, _) in planted {
+        let gate = gates
+            .iter()
+            .find(|gate| gate.id.as_str() == id)
+            .unwrap_or_else(|| panic!("{id} is no gate"));
+        let output = tree_gate(copy.path(), gate, &copied);
+        assert!(
+            !output.status.success(),
+            "{id} passed over a planted violation in {path}"
+        );
+    }
+}
+
+/// The spec names `sdd spec` served at the change that moved the adoptable
+/// specs under `instance/payload/`, written here so the move cannot change
+/// the served set unnoticed.
+const SERVED_SPECS: [&str; 20] = [
+    "acquisition",
+    "budget-debt",
+    "comparison-docs",
+    "decision-records",
+    "distribution",
+    "docs-discovery",
+    "docs-format",
+    "docs-foundations",
+    "docs-specs",
+    "guides",
+    "instance",
+    "known-issues",
+    "release",
+    "setup",
+    "skill-format",
+    "spec-to-code",
+    "staging",
+    "tracking",
+    "writing-policy",
+    "writing-style",
+];
+
+/// SATISFIES release:the-canon-is-an-ordinary-instance
+///
+/// The binary serves the payload specs, and the canon-only specs fill the
+/// rest. Every spec copy in the canon's own documentation root is a landed
+/// copy of a payload spec, and no canon-only name is also a payload name, so
+/// the served set is a function of the payload and the canon-only specs.
+#[test]
+fn the_served_specs_are_the_payload_and_the_canon_only_specs() {
+    let names = |dir: &str| -> Vec<String> {
+        let mut found: Vec<String> = std::fs::read_dir(canon().join(dir))
+            .unwrap()
+            .filter_map(Result::ok)
+            .map(|entry| entry.file_name().to_string_lossy().into_owned())
+            .filter(|name| name.starts_with("SPEC-") && name.ends_with(".md"))
+            .collect();
+        found.sort();
+        found
+    };
+    let payload = names("instance/payload/_docs/specs");
+    let declared: Vec<String> = spec_driven_docs::domain::profile::DECLARATION
+        .adopted
+        .iter()
+        .filter_map(|projection| {
+            projection
+                .source
+                .strip_prefix("instance/payload/_docs/specs/")
+        })
+        .filter(|name| name.starts_with("SPEC-") && name.ends_with(".md"))
+        .map(String::from)
+        .collect();
+    for name in &payload {
+        assert!(
+            declared.contains(name),
+            "{name} is a payload spec no projection lands"
+        );
+    }
+    let record = recorded_manifest();
+    let adopted = recorded_destinations(&record, "adopted_files");
+    for name in names("_docs/specs") {
+        let landed = adopted.contains(&format!("_docs/specs/{name}"));
+        assert_eq!(
+            landed,
+            payload.contains(&name),
+            "_docs/specs/{name}: a spec in both folders must be a landed copy, and a landed copy must name a payload spec"
+        );
+    }
+    let served =
+        spec_driven_docs::services::reader::list(&spec_driven_docs::services::reader::SPECS);
+    assert_eq!(served, SERVED_SPECS.map(String::from).to_vec());
 }
 
 /// The gates that judge known-issue records, which this repository holds
@@ -2238,7 +2506,7 @@ fn a_concrete_declared_path_appears_in_no_authored_prose() {
     }
 }
 
-/// SATISFIES release:the-canon-record-describes-its-tree
+/// SATISFIES release:the-payload-record-describes-its-tree
 ///
 /// This repository dogfoods the declared location it delivers. Without this,
 /// a later regeneration could leave the ignore entry naming a scratch the
@@ -2517,7 +2785,6 @@ fn the_declaration_is_the_projection_this_release_lands() {
     );
     assert_eq!(DECLARATION.managed.len(), 1, "the managed set moved");
     assert_eq!(DECLARATION.adopted.len(), 22, "the adopted set moved");
-    assert_eq!(DECLARATION.canon_templates.len(), 2);
     assert_eq!(DECLARATION.sentinels.len(), 2);
     for entry in &DECLARATION.sentinels {
         assert!(
@@ -3226,25 +3493,23 @@ fn the_generated_workflow_names_no_unsupported_artifact() {
 /// recipe removes it silently and every other test stays green: the binary
 /// tests prove the opposite default on purpose, because the verb honours the
 /// variable everywhere else. This is the only thing standing between a
-/// machine-scope install and one terminal's isolated configuration directory.
+/// machine-scope cleanup and one terminal's isolated configuration directory.
 ///
 /// The variable is matched by name rather than by the whole `env` prefix, so
 /// a later recipe that drops it another way still passes. What must not
 /// happen is the skill step reaching `sdd` with the value inherited.
 #[test]
-fn the_install_recipes_drop_the_session_configuration_variable() {
+fn the_cleanup_recipe_drops_the_session_configuration_variable() {
     let justfile = read("justfile");
-    for verb in ["install", "uninstall"] {
-        let line = justfile
-            .lines()
-            .find(|line| line.contains(&format!("sdd skill {verb}")))
-            .unwrap_or_else(|| panic!("the {verb} recipe no longer runs sdd skill {verb}"));
-        assert!(
-            line.contains("CLAUDE_CONFIG_DIR"),
-            "the {verb} recipe inherits CLAUDE_CONFIG_DIR, so a run inside a session \
-             wrapper would target that one terminal rather than the user's own roots: {line}"
-        );
-    }
+    let line = justfile
+        .lines()
+        .find(|line| line.contains("sdd skill uninstall"))
+        .unwrap_or_else(|| panic!("the uninstall recipe no longer runs sdd skill uninstall"));
+    assert!(
+        line.contains("CLAUDE_CONFIG_DIR"),
+        "the uninstall recipe inherits CLAUDE_CONFIG_DIR, so a run inside a session \
+         wrapper would target that one terminal rather than the user's own roots: {line}"
+    );
 }
 
 /// SATISFIES docs-specs:unenforced-rules-are-declared

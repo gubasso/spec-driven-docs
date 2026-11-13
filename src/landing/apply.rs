@@ -66,6 +66,7 @@ pub fn land(
     recorded: &Recorded,
 ) -> Result<Outcome, AppError> {
     contained(target, candidate)?;
+    unattributed_packages(target, recorded)?;
     unattributed(target, candidate, recorded)?;
     let retired = retired(target, candidate, recorded)?;
     let mut outcome = Outcome::default();
@@ -310,6 +311,57 @@ fn unattributed(
     )))
 }
 
+/// Every skill package folder the landing must leave alone, as
+/// `<root>/<name>/`.
+///
+/// The one package-level ownership check. A folder the inventory lands
+/// into is refused whole where it holds anything and the record
+/// attributes none of its files: an extra file, or bytes equal to the
+/// candidate's, still came from somebody else. The landing, the conflict
+/// scan of `sdd upgrade`, and `sdd stage compare` all read this answer, so
+/// a preview and an apply agree.
+///
+/// SATISFIES distribution:an-unattributed-skill-folder-is-never-replaced
+#[must_use]
+pub fn refused_skill_packages(target: &Utf8Path, recorded: &Recorded) -> Vec<String> {
+    crate::embedded::skill_package_folders()
+        .into_iter()
+        .filter_map(|folder| {
+            let prefix = format!("{folder}/");
+            let holds = std::fs::read_dir(target.join(&folder))
+                .is_ok_and(|mut entries| entries.next().is_some());
+            let attributed = recorded
+                .managed
+                .iter()
+                .any(|(destination, _)| destination.starts_with(&prefix));
+            (holds && !attributed).then_some(prefix)
+        })
+        .collect()
+}
+
+/// The line that names one refused package folder.
+#[must_use]
+pub fn refused_package_line(folder: &str) -> String {
+    format!(
+        "{folder} holds a skill package no record attributes; sdd lands its own copy there, so move the folder aside and run this again (distribution:an-unattributed-skill-folder-is-never-replaced)"
+    )
+}
+
+/// Refuse every skill package folder [`refused_skill_packages`] names.
+fn unattributed_packages(target: &Utf8Path, recorded: &Recorded) -> Result<(), AppError> {
+    let refused = refused_skill_packages(target, recorded);
+    if refused.is_empty() {
+        return Ok(());
+    }
+    Err(AppError::Refused(
+        refused
+            .iter()
+            .map(|folder| refused_package_line(folder))
+            .collect::<Vec<_>>()
+            .join("\n"),
+    ))
+}
+
 /// Whether the record vouches for the bytes one destination holds.
 ///
 /// The one attribution check. The landing refuses a destination this
@@ -494,6 +546,48 @@ mod tests {
         }
     }
 
+    /// VERIFIES distribution:an-unattributed-skill-folder-is-never-replaced
+    #[test]
+    fn the_landing_names_every_unattributed_package_folder() {
+        let candidate = candidate();
+        let landed: Vec<&Destination> = candidate
+            .destinations
+            .iter()
+            .filter(|destination| destination.path.starts_with(".claude/skills/sdd-setup"))
+            .collect();
+        let cases: [(&str, &str); 3] = [
+            (".claude/skills/sdd-setup/SKILL.md", "full"),
+            (".claude/skills/sdd-setup/extra.txt", "extra"),
+            ("", "identical"),
+        ];
+        for (path, case) in cases {
+            let dir = tempfile::tempdir().unwrap();
+            let target = target(&dir);
+            if path.is_empty() {
+                for destination in &landed {
+                    crate::adapters::fs::write_file(
+                        &target.join(&destination.path),
+                        &destination.bytes,
+                    )
+                    .unwrap();
+                }
+            } else {
+                crate::adapters::fs::write_file(&target.join(path), b"somebody else's\n").unwrap();
+            }
+            let error = land(&target, &candidate, &Recorded::default()).unwrap_err();
+            assert!(
+                error
+                    .to_string()
+                    .contains(".claude/skills/sdd-setup/ holds a skill package"),
+                "{case}: {error}"
+            );
+            assert!(
+                !target.join(crate::domain::manifest::MANIFEST_PATH).exists(),
+                "{case}: the refusal wrote the record"
+            );
+        }
+    }
+
     #[test]
     fn a_second_landing_writes_nothing_and_still_records() {
         let dir = tempfile::tempdir().unwrap();
@@ -501,7 +595,10 @@ mod tests {
         let candidate = candidate();
         land(&target, &candidate, &Recorded::default()).unwrap();
 
-        let outcome = land(&target, &candidate, &Recorded::default()).unwrap();
+        // The second landing reads the record the first one wrote, as every
+        // caller does; that record attributes the landed skill packages.
+        let recorded = crate::services::installer::recorded(&target);
+        let outcome = land(&target, &candidate, &recorded).unwrap();
         assert_eq!(outcome.written, vec![Utf8PathBuf::from(MANIFEST_PATH)]);
     }
 

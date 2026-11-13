@@ -1,187 +1,113 @@
-//! Regenerate the canon's own instance manifest.
+//! Write the payload record: what this tree embeds, described by the tree.
 //!
-//! The canon is an instance of itself, but not one the installer can
-//! produce: its files sit at their canonical authored paths. Recording their
-//! hashes by hand is how the manifest drifts from the payload, so it is generated from the payload instead —
-//! and only in the canon checkout, which is recognised by its own crate
-//! manifest.
+//! The record is an artifact of the tree, like the binary. Its identity is
+//! the crate version of `Cargo.toml` and the hash of every file under the
+//! declared payload roots, so it describes the payload of the checkout that
+//! writes it whatever sdd a devshell pins. It holds no instance field, and
+//! nothing compares it with an instance record: this repository's own
+//! instance is an ordinary one, landed by its pinned previous release.
+//!
+//! SATISFIES release:the-payload-record-describes-its-tree
 
-use camino::Utf8Path;
+use camino::{Utf8Path, Utf8PathBuf};
+use serde::{Deserialize, Serialize};
 
 use crate::adapters::fs::sha256_file;
-use crate::domain::manifest::{CANON_SOURCE, MANIFEST_PATH, Manifest, SCHEMA_VERSION};
-use crate::domain::ownership::{AdoptedEntry, IntegrationBlock, ManagedEntry, Sha256};
-use crate::domain::paths::{HOOKS_CONFIG_PATH, SKILL_FILE, SKILL_REFERENCES_DIR};
-use crate::domain::profile::{DocsRoot, ProfileId, render_root, resolve_destination};
+use crate::domain::ownership::Sha256;
 use crate::domain::version::CanonVersion;
 use crate::error::AppError;
+
+/// Where the tree keeps its payload record, relative to its root.
+pub const PAYLOAD_RECORD_PATH: &str = "instance/payload-manifest.json";
+
+/// The schema id the payload record carries.
+pub const PAYLOAD_RECORD_SCHEMA: &str = "sdd.payload-manifest/1";
+
+/// One payload source and its digest.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PayloadFile {
+    /// The path relative to the tree root.
+    pub path: Utf8PathBuf,
+    /// The digest of its bytes.
+    pub sha256: Sha256,
+}
+
+/// The description of the payload one tree embeds.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PayloadRecord {
+    /// The schema id, [`PAYLOAD_RECORD_SCHEMA`].
+    pub schema: String,
+    /// The crate version of the tree.
+    pub version: CanonVersion,
+    /// Every file under the declared payload roots, sorted by path, the
+    /// record itself excepted.
+    pub files: Vec<PayloadFile>,
+}
+
+impl PayloadRecord {
+    /// The record as the tree writes it: pretty JSON with a final newline.
+    #[must_use]
+    pub fn to_json(&self) -> String {
+        let mut text = serde_json::to_string_pretty(self).unwrap_or_default();
+        text.push('\n');
+        text
+    }
+}
 
 pub(crate) fn is_canon_checkout(root: &Utf8Path) -> bool {
     std::fs::read_to_string(root.join("Cargo.toml"))
         .is_ok_and(|cargo| cargo.contains("name = \"spec-driven-docs\""))
 }
 
-fn sorted_files(root: &Utf8Path, dir: &str, matches: impl Fn(&str) -> bool) -> Vec<String> {
-    let mut names: Vec<String> = root
-        .join(dir)
-        .read_dir_utf8()
-        .map(|entries| {
-            entries
-                .filter_map(Result::ok)
-                .map(|entry| entry.file_name().to_string())
-                .filter(|name| matches(name))
-                .collect()
-        })
-        .unwrap_or_default();
-    names.sort();
-    names
-        .into_iter()
-        .map(|name| format!("{dir}/{name}"))
-        .collect()
+/// Describe the payload the tree at `root` carries.
+///
+/// # Errors
+///
+/// I/O errors walking a root or reading a file.
+pub fn describe(root: &Utf8Path) -> Result<PayloadRecord, AppError> {
+    let mut files = Vec::new();
+    for declared in crate::payload_roots::PAYLOAD_ROOTS {
+        if !root.join(declared).exists() {
+            continue;
+        }
+        for entry in walkdir::WalkDir::new(root.join(declared)).sort_by_file_name() {
+            let entry = entry.map_err(|source| AppError::Io(std::io::Error::from(source)))?;
+            if !entry.file_type().is_file() {
+                continue;
+            }
+            let Some(path) = Utf8Path::from_path(entry.path()) else {
+                continue;
+            };
+            let relative = path.strip_prefix(root).unwrap_or(path).to_owned();
+            if relative == PAYLOAD_RECORD_PATH {
+                continue;
+            }
+            files.push(PayloadFile {
+                sha256: sha256_file(path)?,
+                path: relative,
+            });
+        }
+    }
+    files.sort_by(|left, right| left.path.cmp(&right.path));
+    Ok(PayloadRecord {
+        schema: PAYLOAD_RECORD_SCHEMA.to_string(),
+        version: CanonVersion::current(),
+        files,
+    })
 }
 
-/// Every authored skill file in the checkout: each `skills/<name>/SKILL.md`
-/// and the reference files beside it, sorted by name.
-fn skill_files(root: &Utf8Path) -> Vec<String> {
-    let mut names: Vec<String> = root
-        .join("skills")
-        .read_dir_utf8()
-        .map(|entries| {
-            entries
-                .filter_map(Result::ok)
-                .filter(|entry| entry.path().is_dir())
-                .map(|entry| entry.file_name().to_string())
-                .collect()
-        })
-        .unwrap_or_default();
-    names.sort();
-    names
-        .into_iter()
-        .flat_map(|name| {
-            let references = sorted_files(
-                root,
-                &format!("skills/{name}/{SKILL_REFERENCES_DIR}"),
-                |_| true,
-            );
-            std::iter::once(format!("skills/{name}/{SKILL_FILE}")).chain(references)
-        })
-        .collect()
-}
-
-/// Regenerate `.spec-driven-docs/manifest.json` in the canon checkout.
+/// Write the payload record of the canon checkout at `root`.
 ///
 /// # Errors
 ///
 /// [`AppError::Refused`] outside the canon checkout, and I/O errors when a
-/// recorded file cannot be read or the manifest cannot be written.
+/// payload file cannot be read or the record cannot be written.
 pub fn regenerate(root: &Utf8Path) -> Result<String, AppError> {
     if !is_canon_checkout(root) {
         return Err(AppError::Refused("not the canon checkout".to_string()));
     }
-
-    let mut managed = Vec::new();
-    // The declaration names every managed projection. Here each one lands
-    // where it is authored, because this repository's documentation root is
-    // the one the knowledge-base profile resolves.
-    for projection in &crate::domain::profile::DECLARATION.managed {
-        let destination = resolve_destination(&projection.destination, DocsRoot::UnderscoreDocs);
-        if destination.as_str() != projection.source {
-            return Err(AppError::Refused(format!(
-                "the managed projection {} resolves to {destination} here, not to its own source",
-                projection.source
-            )));
-        }
-        managed.push(ManagedEntry {
-            source: projection.source.clone().into(),
-            destination: destination.clone(),
-            sha256: sha256_file(&root.join(&destination))?,
-        });
-    }
-    for path in skill_files(root) {
-        managed.push(ManagedEntry {
-            source: path.clone().into(),
-            destination: path.clone().into(),
-            sha256: sha256_file(&root.join(&path))?,
-        });
-    }
-    // The shared skill artifacts are payload the same way the skills are:
-    // the embedded inventory names them, so the record cannot miss one.
-    for (path, _) in crate::embedded::shared_artifacts() {
-        let path = format!("skill-shared/{path}");
-        managed.push(ManagedEntry {
-            source: path.clone().into(),
-            destination: path.clone().into(),
-            sha256: sha256_file(&root.join(&path))?,
-        });
-    }
-    #[allow(
-        clippy::case_sensitive_file_extension_comparisons,
-        reason = "the spec convention is lowercase, as the glob it replaces was"
-    )]
-    let spec = |name: &str| name.starts_with("SPEC-") && name.ends_with(".md");
-    let mut adopted_paths = sorted_files(root, "_docs/specs", spec);
-    for template in crate::domain::profile::CANON_TEMPLATES.iter() {
-        adopted_paths.push((*template).to_string());
-    }
-    let mut adopted = Vec::new();
-    for path in adopted_paths {
-        let digest = sha256_file(&root.join(&path))?;
-        adopted.push(AdoptedEntry {
-            source: path.clone().into(),
-            destination: path.into(),
-            sha256: digest.clone(),
-            baseline_sha256: digest,
-        });
-    }
-    // The dogfood tracking registry: the canon owns its populated bytes, and
-    // the tracking template, rendered for this root, is the baseline an
-    // instance seeds from.
-    let registry = "_docs/reference/tracking.yaml";
-    let registry_baseline = "templates/TEMPLATE-tracking.yaml";
-    if root.join(registry).is_file() {
-        let template = std::fs::read_to_string(root.join(registry_baseline))?;
-        let rendered = render_root(&template, DocsRoot::UnderscoreDocs.as_str());
-        adopted.push(AdoptedEntry {
-            source: registry_baseline.into(),
-            destination: registry.into(),
-            sha256: sha256_file(&root.join(registry))?,
-            baseline_sha256: Sha256::of(rendered.as_bytes()),
-        });
-    }
-
-    let config = std::fs::read_to_string(root.join(HOOKS_CONFIG_PATH))?;
-    let marker_hash = crate::domain::marker::block_hash(&config).ok_or_else(|| {
-        AppError::Refused("no managed block in .pre-commit-config.yaml".to_string())
-    })?;
-
-    // The three values the tree does not carry: they are declared once and
-    // read back from the record, the way an installed instance keeps them.
-    // Rebuilding this literal without them makes a regeneration erase this
-    // repository's own declarations.
-    let installed_at = crate::services::installer::recorded_field(root, "installed_at")
-        .and_then(|value| value.as_str().map(String::from))
-        .unwrap_or_else(|| {
-            jiff::Timestamp::now()
-                .strftime("%Y-%m-%dT%H:%M:%SZ")
-                .to_string()
-        });
-    let docs_scratch = crate::services::installer::resolved_docs_scratch(root, None)?;
-
-    let manifest = Manifest {
-        schema_version: SCHEMA_VERSION,
-        canon_version: CanonVersion::current(),
-        canon_source: CANON_SOURCE.to_string(),
-        profile: ProfileId::KnowledgeBase,
-        docs_root: DocsRoot::UnderscoreDocs,
-        installed_at,
-        docs_scratch,
-        managed_files: managed,
-        adopted_files: adopted,
-        integration_blocks: vec![IntegrationBlock {
-            path: HOOKS_CONFIG_PATH.into(),
-            marker_hash,
-        }],
-    };
-    crate::adapters::fs::write_file(&root.join(MANIFEST_PATH), manifest.to_json().as_bytes())?;
-    Ok(format!("OK regenerated {MANIFEST_PATH}"))
+    let record = describe(root)?;
+    crate::adapters::fs::write_file(&root.join(PAYLOAD_RECORD_PATH), record.to_json().as_bytes())?;
+    Ok(format!("OK regenerated {PAYLOAD_RECORD_PATH}"))
 }

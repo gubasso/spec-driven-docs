@@ -113,7 +113,7 @@ fn text_mode_prints_a_summary() {
 #[test]
 fn status_json_declares_sdd_status_schema_four() {
     let fixture = Fixture::new();
-    assert_eq!(status_json(&fixture)["schema"], "sdd.status/5");
+    assert_eq!(status_json(&fixture)["schema"], "sdd.status/6");
 }
 
 /// Rewrite the recorded canon version, leaving every other byte.
@@ -228,17 +228,15 @@ fn status_names_the_state_an_older_release_left_and_reads_none_of_it() {
     assert_eq!(status_json(&clean)["legacy_state"], serde_json::json!([]));
 }
 
-#[test]
-fn status_reports_user_scope_paths_without_an_instance() {
-    let home = tempfile::tempdir().unwrap();
+/// The user section of `sdd status --json` for a home, with the state and
+/// cache variables taken out so `HOME` decides.
+fn user_paths_of(home: &std::path::Path) -> serde_json::Value {
     let fixture = Fixture::new();
     let output = fixture
         .cmd()
-        // This case is about the defaults, so it takes the two variables
-        // the fixture sets back out again and lets HOME decide.
         .env_remove("XDG_STATE_HOME")
         .env_remove("XDG_CACHE_HOME")
-        .env("HOME", home.path())
+        .env("HOME", home)
         .args(["status", "--target", &fixture.target(), "--json"])
         .assert()
         .success()
@@ -246,7 +244,30 @@ fn status_reports_user_scope_paths_without_an_instance() {
         .stdout
         .clone();
     let report: serde_json::Value = serde_json::from_slice(&output).unwrap();
-    let user = &report["paths"]["user"];
+    report["paths"]["user"].clone()
+}
+
+/// The skill receipt and the agent roots are reported only while a receipt
+/// of an earlier install exists, because only the cleanup reads them.
+#[test]
+fn status_reports_the_skill_paths_only_while_a_receipt_exists() {
+    let home = tempfile::tempdir().unwrap();
+    let user = user_paths_of(home.path());
+    assert!(user.get("skill_receipt").is_none(), "{user}");
+    assert!(user.get("agent_roots").is_none(), "{user}");
+    assert!(user.get("state_root").is_some(), "{user}");
+}
+
+#[test]
+fn status_reports_user_scope_paths_without_an_instance() {
+    let home = tempfile::tempdir().unwrap();
+    let receipt = home
+        .path()
+        .join(".local/state/spec-driven-docs/skills.json");
+    std::fs::create_dir_all(receipt.parent().unwrap()).unwrap();
+    std::fs::write(&receipt, "{\"schema_version\": 2, \"written\": {}}\n").unwrap();
+    let user = user_paths_of(home.path());
+    let user = &user;
     let home = home.path().to_str().unwrap();
     assert_eq!(
         user["state_root"]["path"],
@@ -374,18 +395,29 @@ fn a_recorded_location_reports_as_recorded_and_an_override_as_env() {
     );
 }
 
+/// The agent roots print only while a receipt of an earlier install
+/// exists. `HOME` points at an empty folder, so a receipt under the
+/// developer's own home cannot decide the answer.
 #[test]
 fn the_text_form_prints_the_paths_under_one_heading() {
     let fixture = Fixture::new();
     fixture.install("codebase");
-    fixture
-        .cmd()
-        .args(["status", "--target", &fixture.target()])
-        .assert()
-        .success()
-        .stdout(predicate::str::contains("paths:"))
-        .stdout(predicate::str::contains("agent root claude:"))
-        .stdout(predicate::str::contains(
-            "  documentation root: docs (recorded)",
-        ));
+    let home = tempfile::tempdir().unwrap();
+    let status = || {
+        fixture
+            .cmd()
+            .env("HOME", home.path())
+            .args(["status", "--target", &fixture.target()])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("paths:"))
+            .stdout(predicate::str::contains(
+                "  documentation root: docs (recorded)",
+            ))
+    };
+    status().stdout(predicate::str::contains("agent root claude:").not());
+    let receipt = fixture.state_root().join("spec-driven-docs/skills.json");
+    std::fs::create_dir_all(receipt.parent().unwrap()).unwrap();
+    std::fs::write(&receipt, "{\"schema_version\": 2, \"written\": {}}\n").unwrap();
+    status().stdout(predicate::str::contains("agent root claude:"));
 }

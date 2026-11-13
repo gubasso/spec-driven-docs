@@ -26,7 +26,7 @@ Linux is the only supported target. A build for another operating system is refu
 - Upgrade an installed instance: `sdd upgrade`, the short form for a move to a newer release.
 - Land and verify the result: `sdd init --apply` or `sdd upgrade`, then `sdd verify`, documented in [instance/README.md](./instance/README.md#land).
 - Copy stable templates: [templates/](./templates/), or `sdd template --list`.
-- Install the agent skills at user scope: `sdd skill install`, documented in [instance/README.md](./instance/README.md#skills).
+- Get the agent skills: `sdd init` and `sdd upgrade` land them into the instance, and `sdd skill show` reads them before one exists, documented in [instance/README.md](./instance/README.md#skills).
 - Cut a release: [_docs/guides/release.md](./_docs/guides/release.md). First-time bootstrap: [_docs/guides/release-setup.md](./_docs/guides/release-setup.md).
 
 The `sdd` CLI is the whole interface. Nothing here is tied to a particular editor or agent.

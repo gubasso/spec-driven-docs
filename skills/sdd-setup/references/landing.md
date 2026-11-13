@@ -22,6 +22,8 @@ The stage writes nothing into the target. Keep it until the general post-flight 
 | `replaceable` true                                                      | ask the operator, as a gated step, whether to keep the edit or discard it; for `absent`, whether to restore it |
 | `managed` or `integration` with `vouched` false and `replaceable` false | a refusal: report it, because no `--replace` name resolves it; the operator moves the file aside               |
 
+Each folder in `refused_packages` holds a skill package that no record attributes. The landing refuses it whole, and no `--replace` name resolves it, so report it and ask the operator to move the folder aside.
+
 Name in `--replace` only a path whose `replaceable` is true. Both answers name it, and `--replace` saves a copy before it overwrites. Never land over such a file without an answer.
 
 An adopted file keeps the project's bytes, so its row reads `equal` even where this release changed the shipped copy. A changed spec reaches the project only by a port. Run `sdd status --target . --json` once. For each adopted file in the directory at `paths.active.destinations.specs.path`:

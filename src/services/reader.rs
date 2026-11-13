@@ -16,6 +16,8 @@ pub struct Shelf {
     pub id: ShelfId,
     /// The embedded directory.
     pub dir: &'static Dir<'static>,
+    /// Whether the shelf serves the merged spec set instead of `dir` alone.
+    pub merged_specs: bool,
     /// A kind prefix hidden from short names, e.g. `SPEC-`.
     pub strip: Option<&'static str>,
 }
@@ -25,19 +27,35 @@ pub const METHOD: Shelf = Shelf {
     id: ShelfId::Method,
     dir: &crate::embedded::METHOD,
     strip: None,
+    merged_specs: false,
 };
 /// The spec documents, addressed without their `SPEC-` prefix.
 pub const SPECS: Shelf = Shelf {
     id: ShelfId::Spec,
     dir: &crate::embedded::SPECS,
     strip: Some("SPEC-"),
+    merged_specs: true,
 };
 /// The templates, addressed without their `TEMPLATE-` prefix.
 pub const TEMPLATES: Shelf = Shelf {
     id: ShelfId::Template,
     dir: &crate::embedded::TEMPLATES,
     strip: Some("TEMPLATE-"),
+    merged_specs: false,
 };
+
+impl Shelf {
+    /// Every file the shelf serves, by file name.
+    fn files(&self) -> Vec<(&'static str, &'static include_dir::File<'static>)> {
+        if self.merged_specs {
+            return crate::embedded::spec_files();
+        }
+        self.dir
+            .files()
+            .filter_map(|file| Some((file.path().as_os_str().to_str()?, file)))
+            .collect()
+    }
+}
 
 fn short_name<'a>(shelf: &Shelf, file_name: &'a str) -> Option<&'a str> {
     let stem = file_name.strip_suffix(".md")?;
@@ -50,12 +68,9 @@ fn short_name<'a>(shelf: &Shelf, file_name: &'a str) -> Option<&'a str> {
 #[must_use]
 pub fn list(shelf: &Shelf) -> Vec<String> {
     let mut names: Vec<String> = shelf
-        .dir
         .files()
-        .filter_map(|file| {
-            let name = file.path().as_os_str().to_str()?;
-            short_name(shelf, name).map(String::from)
-        })
+        .into_iter()
+        .filter_map(|(name, _)| short_name(shelf, name).map(String::from))
         .collect();
     names.sort();
     names
@@ -65,8 +80,7 @@ pub fn list(shelf: &Shelf) -> Vec<String> {
 #[must_use]
 pub fn get(shelf: &Shelf, name: &str) -> Option<&'static str> {
     let wanted = name.strip_suffix(".md").unwrap_or(name);
-    shelf.dir.files().find_map(|file| {
-        let file_name = file.path().as_os_str().to_str()?;
+    shelf.files().into_iter().find_map(|(file_name, file)| {
         let stem = file_name.strip_suffix(".md")?;
         let matches = stem == wanted || short_name(shelf, file_name) == Some(wanted);
         if matches { file.contents_utf8() } else { None }

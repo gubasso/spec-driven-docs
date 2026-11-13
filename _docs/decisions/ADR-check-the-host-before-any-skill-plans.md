@@ -24,4 +24,4 @@ Enforced by `distribution:a-skill-checks-its-host-before-it-plans` and `distribu
 
 ## Status
 
-Implemented; `src/probes.rs` and `skill-shared/pre-flight-gate.md` enact it.
+Superseded by [ADR-land-the-skills-into-each-instance-at-its-pin](./ADR-land-the-skills-into-each-instance-at-its-pin.md), in part: the doctor names a shadowing home copy instead of judging an installed one.

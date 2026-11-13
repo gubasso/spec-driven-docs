@@ -33,6 +33,8 @@ fn list_names_every_gate() {
 #[test]
 fn a_files_scoped_gate_accepts_and_rejects() {
     let fixture = Fixture::new();
+    // A gate judges an instance, so the target carries one.
+    fixture.install("knowledge-base");
     fixture.write("_docs/decisions/ADR-use-slugs.md", "# Record\n");
     fixture
         .cmd()
@@ -64,6 +66,8 @@ fn a_files_scoped_gate_accepts_and_rejects() {
 #[test]
 fn an_always_run_gate_reads_the_repository() {
     let fixture = Fixture::new();
+    // A gate judges an instance, so the target carries one.
+    fixture.install("knowledge-base");
     fixture.write("AGENTS.md", &"line\n".repeat(101));
     fixture
         .cmd()
@@ -165,6 +169,8 @@ fn a_directory_the_convention_does_not_own_is_judged_by_no_gate() {
 #[test]
 fn an_excluded_path_passed_on_the_command_line_is_not_judged() {
     let fixture = Fixture::new();
+    // A gate judges an instance, so the target carries one.
+    fixture.install("knowledge-base");
     fixture.write("_docs/decisions/ADR-bad name.md", "# Record\n");
 
     // Without the exclude, the gate judges it and fails.
@@ -249,6 +255,8 @@ fn a_gate_still_reads_its_support_files_under_a_filter() {
 #[test]
 fn a_path_climbing_out_of_the_repository_is_refused() {
     let fixture = Fixture::new();
+    // A gate judges an instance, so the target carries one.
+    fixture.install("knowledge-base");
     fixture
         .cmd()
         .args(["gate", "adr-filename-shape", "../outside.md"])
@@ -263,6 +271,8 @@ fn a_path_climbing_out_of_the_repository_is_refused() {
 #[test]
 fn an_absolute_path_is_accepted_because_pre_commit_passes_one() {
     let fixture = Fixture::new();
+    // A gate judges an instance, so the target carries one.
+    fixture.install("knowledge-base");
     let message = fixture.path().join("COMMIT_EDITMSG");
     std::fs::write(&message, "chore: a subject\n").unwrap();
     fixture
@@ -291,6 +301,22 @@ fn without_git_env(mut cmd: assert_cmd::Command) -> assert_cmd::Command {
     cmd
 }
 
+/// Land an instance in `dir`, where a gate under test runs: a gate judges
+/// an instance.
+fn land_at(fixture: &Fixture, dir: &std::path::Path) {
+    without_git_env(fixture.cmd())
+        .args([
+            "init",
+            "--target",
+            dir.to_str().unwrap(),
+            "--profile",
+            "knowledge-base",
+            "--apply",
+        ])
+        .assert()
+        .success();
+}
+
 /// Run git in `dir` alone and require it to succeed.
 fn git_ok(dir: &std::path::Path, args: &[&str]) {
     let status = support::git(dir).args(args).status().unwrap();
@@ -313,6 +339,7 @@ fn a_relative_message_path_in_a_linked_worktree_is_accepted() {
     git_ok(&main, &["commit", "-q", "-m", "x"]);
     git_ok(&main, &["worktree", "add", "-q", "../linked"]);
     let linked = parent.path().join("linked");
+    land_at(&fixture, &linked);
     std::fs::write(
         main.join(".git/worktrees/linked/COMMIT_EDITMSG"),
         "fix: a subject\n",
@@ -344,6 +371,7 @@ fn a_relative_path_out_of_the_repository_is_still_refused() {
     }
     std::fs::write(parent.path().join("outside.txt"), "outside\n").unwrap();
     std::fs::write(other.join(".git/COMMIT_EDITMSG"), "fix: a subject\n").unwrap();
+    land_at(&fixture, &repository);
     for path in ["../outside.txt", "../other/.git/COMMIT_EDITMSG"] {
         without_git_env(fixture.cmd())
             .args(["gate", "no-personal-path", path])
@@ -369,6 +397,7 @@ fn an_absolute_message_path_is_still_accepted() {
     git_ok(&main, &["worktree", "add", "-q", "../linked"]);
     let message = main.join(".git/worktrees/linked/COMMIT_EDITMSG");
     std::fs::write(&message, "fix: a subject\n").unwrap();
+    land_at(&fixture, &parent.path().join("linked"));
     without_git_env(fixture.cmd())
         .args(["gate", "no-personal-path", message.to_str().unwrap()])
         .current_dir(parent.path().join("linked"))
@@ -379,6 +408,8 @@ fn an_absolute_message_path_is_still_accepted() {
 #[test]
 fn a_malformed_pattern_is_a_usage_error() {
     let fixture = Fixture::new();
+    // A gate judges an instance, so the target carries one.
+    fixture.install("knowledge-base");
     fixture
         .cmd()
         .args(["gate", "adr-filename-shape", "--exclude", "!negated"])
@@ -1028,6 +1059,8 @@ const TRAILING_SPEC: &str = "# Sample Specification\n\n## Purpose\n\nRules.\n\n#
 #[test]
 fn a_trailing_section_fails_the_gate() {
     let fixture = Fixture::new();
+    // A gate judges an instance, so the target carries one.
+    fixture.install("knowledge-base");
     fixture.write("_docs/specs/SPEC-sample.md", TRAILING_SPEC);
     fixture
         .cmd()

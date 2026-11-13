@@ -52,3 +52,17 @@ tracked:
       - _docs/specs/SPEC-skill-format.md
       - skills/sdd-setup/SKILL.md
       - skills/sdd-write-docs/SKILL.md
+  - id: skill-scope-sources
+    path: _docs/reference/REFERENCE-skill-format-sources.md
+    last_checked: 2026-11-13
+    cadence_days: 90
+    why: agent precedence for a skill name and the tools that land skills into a project change between releases
+    revalidate:
+      - read each source of the section on skill scope against its current page
+      - update its finding, and every rule of the owning specs that rests on it
+      - where the change reverses a recorded decision, write a successor record and mark the old one superseded
+      - advance last_checked
+    dependents:
+      - _docs/specs/SPEC-distribution.md
+      - _docs/specs/SPEC-setup.md
+      - _docs/specs/SPEC-release.md

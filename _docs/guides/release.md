@@ -30,6 +30,9 @@ gh run list --repo <repo> --workflow release-plz.yml --limit 1
 gh run watch --repo <repo> --exit-status <release.yml run>
 
 # 6. verify
+
+# 7. move this repository to the new release, as every consumer does
+sdd self-depend sync --apply
 ```
 
 Two of these are easy to skip and both have bitten this repository. Step 2 is the only point a changelog correction still reaches the release, and the window closes when `test` turns green on the request's head. release-plz rewrites its branch, corrections included, whenever work lands on `master` while the request is open. Step 5 is why a check run straight after the merge reports the release as not found: cargo-dist creates it after the x86_64 Linux build finishes, a few minutes later.
@@ -38,7 +41,7 @@ Two of these are easy to skip and both have bitten this repository. Step 2 is th
 
    ```bash
    gh pr list --repo gubasso/spec-driven-docs --state open
-   # check: a request titled "chore: release v<version>" is open, and align-manifest has realigned the canon manifest on its branch
+   # check: a request titled "chore: release v<version>" is open, and align-manifest has realigned the payload record on its branch
    # none open: the trunk matches the last published version; there is nothing to release
    ```
 
@@ -108,12 +111,28 @@ Two of these are easy to skip and both have bitten this repository. Step 2 is th
    git rev-parse "v<version>^{commit}" origin/master
    # check: two identical SHAs
    # they differ: work landed after the release merge, so the tag sits one or more commits behind the tip; compare against the bump commit instead
-
-   # the installed binary reports it
-   sdd --version
-   # check: prints the new version
    ```
 
    release-plz writes an annotated tag, so `v<version>` names a tag object rather than a commit. `^{commit}` is what makes the values comparable.
+
+7. Move this repository to the new release. Its devshell pins the previous release, which lands, verifies, and upgrades its own instance, as in every consumer (release:the-canon-runs-its-previous-release). In a new worktree on a `build/<slug>` branch, move the pin from the loaded shell, then upgrade the instance through the `sdd-setup` skill:
+
+   ```bash
+   sdd self-depend sync --apply
+   # check: flake.nix names github:gubasso/spec-driven-docs/v<version>, and flake.lock moved with it
+
+   # once: where the new release itself has a spec-driven-docs input and flake.nix does not yet cut it,
+   # add `inputs.spec-driven-docs.follows = "";` to the spec-driven-docs input of flake.nix, then
+   nix flake lock
+   # check: jq '[.nodes | keys[] | select(startswith("spec-driven-docs"))] | length' flake.lock prints 1
+
+   direnv reload && sdd --version
+   # check: prints sdd <version>
+
+   sdd upgrade --target .
+   # check: the upgrade lands, and sdd verify --target . prints OK spec-driven-docs <version>
+   ```
+
+   Commit the pin move and the upgraded instance as one change, and land it as in step 1.
 
 Recovery is `rk method recovery`, and it covers a failed publish, a wedged run, a yank, and a hand publish while CI is down. The changelog-correction window above is the only pre-merge repair a release needs.

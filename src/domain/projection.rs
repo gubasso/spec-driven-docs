@@ -107,9 +107,6 @@ pub struct SentinelDeclaration {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Declaration {
-    /// The template copies the canon keeps in its own documentation tree.
-    #[serde(default)]
-    pub canon_templates: Vec<String>,
     /// Every profile the release offers.
     pub profiles: Vec<ProfileDeclaration>,
     /// Byte projections the canon keeps owning.

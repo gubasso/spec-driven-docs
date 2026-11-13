@@ -127,6 +127,12 @@ fn compared(ctx: &AppContext, args: StageCompareArgs) -> Result<(), AppError> {
     if let Some(reason) = &report.history.reason {
         output::line(format!("history: not read, because {reason}"));
     }
+    for folder in &report.refused_packages {
+        output::line(format!(
+            "refused {}",
+            crate::landing::apply::refused_package_line(folder)
+        ));
+    }
     Ok(())
 }
 

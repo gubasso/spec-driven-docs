@@ -22,7 +22,6 @@
   - [`staging:a-partial-failure-reports-what-it-completed` — A partial failure reports what it completed](#staginga-partial-failure-reports-what-it-completed--a-partial-failure-reports-what-it-completed)
   - [`staging:one-documentation-root-serves-the-run` — One documentation root serves the run](#stagingone-documentation-root-serves-the-run--one-documentation-root-serves-the-run)
   - [`staging:a-seed-lands-rendered-for-its-root` — A seed lands rendered for its root](#staginga-seed-lands-rendered-for-its-root--a-seed-lands-rendered-for-its-root)
-  - [`staging:a-user-scope-receipt-shares-no-engine` — A user-scope receipt shares no engine](#staginga-user-scope-receipt-shares-no-engine--a-user-scope-receipt-shares-no-engine)
   - [`staging:owner-only-state-is-checked-on-linux` — Owner-only state is checked on Linux](#stagingowner-only-state-is-checked-on-linux--owner-only-state-is-checked-on-linux)
 
 <!--TOC-->
@@ -123,7 +122,7 @@ Verify: `cargo nextest run -E 'binary(cmd_init) + binary(cmd_upgrade)'`
 
 `sdd stage compare <root>` MUST report one row per destination the stage carries and one per recorded managed file the candidate retires, each with its state, its ownership, and, where the bytes differ or retire, its provenance, and MUST judge the record half with the check the landing refuses on.
 
-The state is `equal`, `absent`, `differs`, or `retired`. The ownership is `managed`, `integration`, or `adopted`, and a marked region is compared by its own bytes. The provenance is `attributed` where the record vouches for the bytes and the history touches the path, `reduced` where one of the two holds, and `unknown` where neither does. Where Git is absent or the target is no repository, the report states why the history half is missing. Each row also carries `replaceable`, true only where the verb that lands the stage accepts the path in `--replace`, judged by the check `sdd upgrade` applies to each name: the path is a conflict that verb lists, and the landing can write it. It is false on every other row, and on every row before an instance exists, because `sdd init` takes no name.
+The state is `equal`, `absent`, `differs`, or `retired`. The ownership is `managed`, `integration`, or `adopted`, and a marked region is compared by its own bytes. The provenance is `attributed` where the record vouches for the bytes and the history touches the path, `reduced` where one of the two holds, and `unknown` where neither does. Where Git is absent or the target is no repository, the report states why the history half is missing. Each row also carries `replaceable`, true only where the verb that lands the stage accepts the path in `--replace`, judged by the check `sdd upgrade` applies to each name: the path is a conflict that verb lists, and the landing can write it. It is false on every other row, and on every row before an instance exists, because `sdd init` takes no name. The report also lists in `refused_packages` every skill package folder the landing refuses, by the one check `distribution:an-unattributed-skill-folder-is-never-replaced` states.
 
 #### Scenario: A landing follows a comparison
 
@@ -280,20 +279,6 @@ A seed is copied once, so the landing is the one moment that knows the root it n
 - THEN its example names `docs/reference/model-pricing.md` and the record's baseline is the digest of those bytes, because an example naming a root the instance does not have fails the gate that judges it
 
 Verify: `cargo nextest run -E 'binary(cmd_landed_tree) + binary(cmd_policy)'`
-
-### `staging:a-user-scope-receipt-shares-no-engine` — A user-scope receipt shares no engine
-
-Skill installation at user scope MUST keep its own receipt and its own writer, and no instance manifest may record what it wrote.
-
-The two share a pattern, which is ownership and a receipt written last. They share no transaction record, because a home directory and a repository fail in different ways and recover under different hands.
-
-#### Scenario: An instance is verified after a user-scope skill install
-
-- GIVEN an installed instance and a completed `sdd skill install --apply`
-- WHEN `sdd verify` runs against the instance
-- THEN the report is unchanged by anything under the home directory
-
-Verify: `cargo nextest run -E 'binary(cmd_skill) + binary(cmd_verify)'`
 
 ### `staging:owner-only-state-is-checked-on-linux` — Owner-only state is checked on Linux
 

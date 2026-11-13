@@ -143,15 +143,6 @@ pub static DECLARATION: LazyLock<Declaration> = LazyLock::new(|| {
     Declaration::parse(bytes).expect("the embedded projection declaration parses")
 });
 
-/// The template copies this repository keeps in its own documentation tree.
-pub static CANON_TEMPLATES: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
-    DECLARATION
-        .canon_templates
-        .iter()
-        .map(String::as_str)
-        .collect()
-});
-
 static CODEBASE: LazyLock<Profile<'static>> = LazyLock::new(|| profile_of(ProfileId::Codebase));
 static KNOWLEDGE_BASE: LazyLock<Profile<'static>> =
     LazyLock::new(|| profile_of(ProfileId::KnowledgeBase));
@@ -245,10 +236,5 @@ mod tests {
                 entry.destination
             );
         }
-    }
-
-    #[test]
-    fn the_canon_templates_come_from_the_declaration() {
-        assert_eq!(*CANON_TEMPLATES, DECLARATION.canon_templates);
     }
 }

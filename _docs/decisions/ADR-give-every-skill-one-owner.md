@@ -26,4 +26,4 @@ Enforced by `distribution:a-skill-has-one-owner` and `distribution:an-install-sw
 
 ## Status
 
-Implemented — `src/domain/profile.rs` carries no skill projection, `src/services/skill_installer.rs` sweeps recorded leftovers, and `src/services/upgrader.rs` removes the directory a pruned skill empties.
+Superseded by [ADR-land-the-skills-into-each-instance-at-its-pin](./ADR-land-the-skills-into-each-instance-at-its-pin.md): the instance owns every skill.

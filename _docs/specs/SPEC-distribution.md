@@ -10,18 +10,16 @@
   - [`distribution:upgrade-conflicts-are-atomic` — Upgrade conflicts are atomic](#distributionupgrade-conflicts-are-atomic--upgrade-conflicts-are-atomic)
   - [`distribution:skills-are-part-of-the-payload` — Skills are part of the payload](#distributionskills-are-part-of-the-payload--skills-are-part-of-the-payload)
   - [`distribution:a-skill-has-one-owner` — A skill has one owner](#distributiona-skill-has-one-owner--a-skill-has-one-owner)
+  - [`distribution:an-instance-carries-the-skills` — An instance carries the skills](#distributionan-instance-carries-the-skills--an-instance-carries-the-skills)
+  - [`distribution:an-unattributed-skill-folder-is-never-replaced` — An unattributed skill folder is never replaced](#distributionan-unattributed-skill-folder-is-never-replaced--an-unattributed-skill-folder-is-never-replaced)
+  - [`distribution:a-skill-is-readable-before-an-instance` — A skill is readable before an instance](#distributiona-skill-is-readable-before-an-instance--a-skill-is-readable-before-an-instance)
   - [`distribution:a-skill-obeys-the-portable-format` — A skill obeys the portable format](#distributiona-skill-obeys-the-portable-format--a-skill-obeys-the-portable-format)
   - [`distribution:a-landing-classifies-its-target-first` — A landing classifies its target first](#distributiona-landing-classifies-its-target-first--a-landing-classifies-its-target-first)
   - [`distribution:a-skill-checks-its-host-before-it-plans` — A skill checks its host before it plans](#distributiona-skill-checks-its-host-before-it-plans--a-skill-checks-its-host-before-it-plans)
-  - [`distribution:the-doctor-answers-for-the-installed-skills` — The doctor answers for the installed skills](#distributionthe-doctor-answers-for-the-installed-skills--the-doctor-answers-for-the-installed-skills)
+  - [`distribution:the-doctor-names-a-shadowing-user-copy` — The doctor names a shadowing user copy](#distributionthe-doctor-names-a-shadowing-user-copy--the-doctor-names-a-shadowing-user-copy)
   - [`distribution:a-skill-plans-before-it-acts` — A skill plans before it acts](#distributiona-skill-plans-before-it-acts--a-skill-plans-before-it-acts)
-  - [`distribution:skill-install-previews-before-writing` — Skill install previews before writing](#distributionskill-install-previews-before-writing--skill-install-previews-before-writing)
-  - [`distribution:a-skill-install-restores-on-failure` — A skill install stops honestly](#distributiona-skill-install-restores-on-failure--a-skill-install-stops-honestly)
   - [`distribution:skill-uninstall-removes-only-what-it-wrote` — Skill uninstall removes only what it wrote](#distributionskill-uninstall-removes-only-what-it-wrote--skill-uninstall-removes-only-what-it-wrote)
-  - [`distribution:an-install-sweeps-what-the-payload-dropped` — An install sweeps what the payload dropped](#distributionan-install-sweeps-what-the-payload-dropped--an-install-sweeps-what-the-payload-dropped)
-  - [`distribution:user-scope-files-stay-unrecorded` — User-scope files stay unrecorded](#distributionuser-scope-files-stay-unrecorded--user-scope-files-stay-unrecorded)
   - [`distribution:a-skill-package-is-self-contained` — A skill package is self-contained](#distributiona-skill-package-is-self-contained--a-skill-package-is-self-contained)
-  - [`distribution:a-user-scope-receipt-is-required-state` — A user-scope receipt is required state](#distributiona-user-scope-receipt-is-required-state--a-user-scope-receipt-is-required-state)
   - [`distribution:the-payload-names-no-other-project` — The payload names no other project](#distributionthe-payload-names-no-other-project--the-payload-names-no-other-project)
   - [`distribution:a-declared-location-is-named-by-its-variable` — A declared location is named by its variable](#distributiona-declared-location-is-named-by-its-variable--a-declared-location-is-named-by-its-variable)
   - [`distribution:the-payload-roots-are-declared-once` — The payload roots are declared once](#distributionthe-payload-roots-are-declared-once--the-payload-roots-are-declared-once)
@@ -99,15 +97,59 @@ Verify: `cargo nextest run -E 'binary(cmd_skill)'`
 
 ### `distribution:a-skill-has-one-owner` — A skill has one owner
 
-The distribution MUST install every skill at user scope alone. No profile can project a skill into an instance, because an agent resolves a skill by name. A second copy under one name is a second entry offering the same skill.
+The landing MUST own every skill at instance scope, so `sdd init` and `sdd upgrade` write each skill into the instance and no verb of this distribution writes a skill under the home directory.
 
-#### Scenario: A project is initialized inside a home that already carries the skills
+An agent resolves a skill by name, and a second copy under one name is a second entry offering the same skill. The copy that matches the pin of the project is the one the instance carries, so a home copy is the one that goes. The record of the instance states the version in `canon_version`, and a skill file carries no version stamp.
 
-- GIVEN a home directory holding the skills and a target repository with no instance
+#### Scenario: A project is initialized on a host that holds no skill
+
+- GIVEN a home directory with no skill and a target repository with no instance
 - WHEN `sdd init --apply` runs with either profile
-- THEN the target carries no `.claude/skills/` or `.agents/skills/` file and the manifest records none, so each skill resolves to exactly one file
+- THEN the target carries both skills under `.claude/skills/` and `.agents/skills/`, the record lists each file, no file under the home changes, and `sdd skill install --apply` refuses and names the landing
 
-Verify: `cargo nextest run -E 'binary(cmd_init) + binary(cmd_skill)'`
+Verify: `cargo nextest run -E 'test(init_lands_both_skills_into_both_roots) + test(skill_install_refuses_and_names_the_landing)'`
+
+### `distribution:an-instance-carries-the-skills` — An instance carries the skills
+
+Every landing MUST project each file of each skill package under both `.claude/skills/<name>/` and `.agents/skills/<name>/` as a managed entry byte-equal to the package, and `sdd verify` MUST judge each one against the one skill inventory the candidate reads.
+
+The candidate derives the skill entries from the payload, so the projection declares no skill row. One function yields the inventory, so the candidate and the verifier cannot disagree on which entries an instance owes. An upgrade moves the skills with the instance, and the project commits them.
+
+#### Scenario: A landed skill entry is removed
+
+- GIVEN an instance whose record and tree both lost one landed skill file
+- WHEN `sdd verify` runs
+- THEN it fails naming the missing destination, because the inventory still expects it whatever the record says
+
+Verify: `cargo nextest run -E 'test(a_landed_skill_is_byte_equal_to_the_package) + test(an_upgrade_brings_the_skills_to_an_older_instance) + test(an_edited_landed_skill_fails_verify) + test(a_removed_skill_entry_fails_verify)'`
+
+### `distribution:an-unattributed-skill-folder-is-never-replaced` — An unattributed skill folder is never replaced
+
+Where a skill package folder exists under either skill root and the record attributes none of its files, the landing, the preview of `sdd upgrade`, and `sdd stage compare` MUST refuse the whole folder, name it, and state that sdd lands its own copy there.
+
+One function decides the refusal, and all three callers read it, so a preview and an apply agree. A folder that holds only an extra file is refused, and so is a folder whose files equal the candidate bytes but carry no record.
+
+#### Scenario: A folder holds the same bytes the candidate carries
+
+- GIVEN a target with `.claude/skills/sdd-setup/` holding the package bytes and no instance record
+- WHEN `sdd stage compare` runs and then `sdd init --apply` runs
+- THEN both name the same refused folder, and the apply writes nothing
+
+Verify: `cargo nextest run -E 'test(a_landing_refuses_an_unattributed_skill_folder) + test(preview_and_apply_agree_on_a_refused_package)'`
+
+### `distribution:a-skill-is-readable-before-an-instance` — A skill is readable before an instance
+
+`sdd skill show` MUST print the `SKILL.md` of a skill, and with `--file <path>` each file of its package byte for byte, from the payload the binary carries, in a folder that holds no instance.
+
+The setup skill lands the instance it lives in, so an agent in a project with no instance reads it from the binary. An unknown path exits 66.
+
+#### Scenario: An agent starts a landing in a bare repository
+
+- GIVEN a repository with no instance and a home with no skill copy
+- WHEN the agent runs `sdd skill show sdd-setup --file references/pre-flight-gate.md`
+- THEN it reads the authored bytes of the shared gate, so the skill does its own job before any copy exists on disk
+
+Verify: `cargo nextest run -E 'test(skill_show_prints_one_reference_file)'`
 
 ### `distribution:a-skill-obeys-the-portable-format` — A skill obeys the portable format
 
@@ -145,17 +187,19 @@ Every skill MUST direct the agent to run the shared pre-flight gate, which obser
 
 Verify: `cargo nextest run -E 'binary(canon)'`
 
-### `distribution:the-doctor-answers-for-the-installed-skills` — The doctor answers for the installed skills
+### `distribution:the-doctor-names-a-shadowing-user-copy` — The doctor names a shadowing user copy
 
-`sdd doctor` MUST run every cataloged probe and exit 0 whatever they find. Its skill probes MUST compare whole packages, file by file, and MUST pick the remediation by the user-scope receipt: drift the receipt vouches for is a stale install corrected by a plain apply. Drift it cannot account for is the user's own, corrected only with `--force`.
+`sdd doctor` MUST run every cataloged probe and exit 0 whatever they find, and its `skill-shadow` probe MUST fail while a `SKILL.md` of a payload skill exists under a home agent root, naming `sdd skill uninstall --apply`.
 
-#### Scenario: A home holds a skill an older release installed
+A personal skill wins over a project skill of the same name in one agent, and another agent shows both, so a home copy shadows the copy the instance pins. A folder that holds only notes passes. A manual the uninstall kept because the operator edited it gets a message to read it and remove it by hand.
 
-- GIVEN an agent root holding a package file whose digest the user-scope receipt vouches for
+#### Scenario: A home still holds a copy an earlier release installed
+
+- GIVEN `~/.claude/skills/sdd-setup/SKILL.md` and an instance that carries its own copy
 - WHEN `sdd doctor --json` runs
-- THEN the `skill-payload` probe fails naming `sdd skill install --apply` without `--force`, and the exit code is 0
+- THEN `skill-shadow` fails naming `sdd skill uninstall --apply`, and the exit code is 0
 
-Verify: `cargo nextest run -E 'binary(cmd_doctor)'`
+Verify: `cargo nextest run -E 'test(the_shadow_probe_names_a_user_scope_manual)'`
 
 ### `distribution:a-skill-plans-before-it-acts` — A skill plans before it acts
 
@@ -169,33 +213,11 @@ Every skill MUST open its body, after its opening paragraph, with one section th
 
 Verify: `cargo nextest run -E 'binary(canon)'`
 
-### `distribution:skill-install-previews-before-writing` — Skill install previews before writing
-
-When run without `--apply`, `sdd skill install` MUST list every destination and write nothing. Three references decide each one: bytes matching the payload are current, bytes the receipt vouches for are this tool's and are replaced without `--force`, and every other byte is the user's. An apply MUST refuse atomically on the last kind, listing every conflict.
-
-#### Scenario: A home directory already carries an edited skill
-
-- GIVEN `~/.claude/skills/sdd-setup/SKILL.md` with bytes the user wrote
-- WHEN `sdd skill install --apply` runs
-- THEN it exits 73 listing every conflicting destination, writes no file, and states `--force` as the override
-
-Verify: `cargo nextest run -E 'binary(cmd_skill)'`
-
-### `distribution:a-skill-install-restores-on-failure` — A skill install stops honestly
-
-An apply of `sdd skill install` or `sdd skill uninstall` MUST hold the user-scope lock for its whole run and MUST refuse at once, naming the holder, where another process holds it. It MUST replace each destination in that destination's own directory, MUST refuse a destination reached through a link whatever `--force` says, and MUST re-check that immediately before each write. Where it stops partway it MUST name every destination it observed itself finish, MUST leave the previous receipt in place, and MUST finish the rest when it runs again. There is no journal and no backup store. A run leaves whole files, and what the next run needs is the payload, the receipt, and the disk, which are the three references it already reads. Recovery after power loss rests on the persistence order and on the platform's sync semantics, and is claimed no further.
-
-#### Scenario: The second skill root cannot be written
-
-- GIVEN two skill roots, the second holding a destination the process cannot write
-- WHEN `sdd skill install --apply` has already rewritten the first root
-- THEN it exits 73 naming the unwritable path and the destinations it finished, keeps the first root's new files, and lands the second on the next run
-
-Verify: `cargo nextest run -E 'binary(cmd_skill)'`
-
 ### `distribution:skill-uninstall-removes-only-what-it-wrote` — Skill uninstall removes only what it wrote
 
 When run without `--apply`, `sdd skill uninstall` MUST list every removal and delete nothing. When applied, it MUST remove a file only where its current digest equals the one the receipt records, and MUST name every file it keeps with the reason. It MUST remove a package directory only once nothing else is left in it.
+
+The verb cleans the home of the copies that earlier releases installed there. It reads a receipt of every schema those releases wrote, honors the variable that relocates the Claude configuration directory, and holds the user-scope lock for its whole run.
 
 #### Scenario: The operator edited an installed skill
 
@@ -205,55 +227,17 @@ When run without `--apply`, `sdd skill uninstall` MUST list every removal and de
 
 Verify: `cargo nextest run -E 'binary(cmd_skill)'`
 
-### `distribution:an-install-sweeps-what-the-payload-dropped` — An install sweeps what the payload dropped
-
-Where the user-scope receipt vouches for a destination the current payload no longer carries, `sdd skill install --apply` and `sdd skill uninstall --apply` MUST remove it and the directory it empties. Both MUST leave a destination the receipt cannot vouch for alone, and the doctor MUST name what they left.
-
-#### Scenario: A release renames a skill
-
-- GIVEN a home directory holding a skill under its old name, recorded by the apply that wrote it
-- WHEN a newer `sdd skill install --apply` runs
-- THEN the old name's `SKILL.md` and its directory are gone, the new name is installed, and only one entry is offered under either name
-
-Verify: `cargo nextest run -E 'binary(cmd_skill)'`
-
-### `distribution:user-scope-files-stay-unrecorded` — User-scope files stay unrecorded
-
-Files `sdd skill install` writes outside an instance MUST NOT appear in any instance manifest. The payload and the user-scope record are the references the installer compares them against, and no verification reads either.
-
-#### Scenario: An instance is verified after a user-scope install
-
-- GIVEN an installed instance and a completed `sdd skill install --apply`
-- WHEN `sdd verify` runs against the instance
-- THEN the report is unchanged by anything under the home directory
-
-Verify: `cargo nextest run -E 'binary(cmd_skill)'`
-
 ### `distribution:a-skill-package-is-self-contained` — A skill package is self-contained
 
-Every installed skill MUST be one directory holding `SKILL.md`, and under `references/` the skill's own reference files and every shared artifact, materialized by the installer from the one authored source of each, and the installer MUST refuse a reference name that both sources claim. Every skill MUST name a reference by a path relative to its own root, and no skill may name one outside its own directory. The first install that copies the shared artifacts into every agent root removes the copies an earlier release installed once under the retired shared root, where the receipt vouches for them. A run limited to one agent family leaves that root alone, because an older manual under the other family's root still reads the gates there.
+Every skill package MUST be one directory holding `SKILL.md`, and under `references/` the skill's own reference files and every shared artifact, materialized from the one authored source of each, and the payload MUST refuse a reference name that both sources claim. Every skill MUST name a reference by a path relative to its own root, and no skill may name one outside its own directory.
 
-#### Scenario: A skill is installed under one agent root
+#### Scenario: A skill is landed under one skill root
 
-- GIVEN an agent root and a completed `sdd skill install --apply`
-- WHEN the installed package is read
+- GIVEN an instance and a completed `sdd init --apply`
+- WHEN the landed package is read
 - THEN it holds `SKILL.md` and a `references/` directory carrying the skill's own reference files and both gates, so the skill resolves each the way the format resolves a supporting file
 
 Verify: `cargo nextest run -E 'binary(cmd_skill) | test(a_skill_reference_lands_beside_the_shared_artifacts)'`
-
-### `distribution:a-user-scope-receipt-is-required-state` — A user-scope receipt is required state
-
-An apply MUST write the user-scope receipt after every file it lands, MUST fail naming the receipt where it cannot, and MUST vouch for every package destination that holds the payload's bytes rather than only the ones it wrote itself. A receipt that vouches for nothing MUST be removed rather than left empty.
-
-The receipt is last because until it lands the previous one still describes the home. Vouching for what is there, rather than for what this run did, is what lets a rerun finish a run that stopped: the files an earlier run wrote are recorded by the run that completes.
-
-#### Scenario: The receipt cannot be replaced
-
-- GIVEN an apply that has already replaced every package file
-- WHEN the receipt cannot be written
-- THEN the apply fails naming the receipt, the package files stay, the previous receipt still stands, and the next run records them
-
-Verify: `cargo nextest run -E 'binary(cmd_skill)'`
 
 ### `distribution:the-payload-names-no-other-project` — The payload names no other project
 

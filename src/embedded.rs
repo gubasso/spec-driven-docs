@@ -13,13 +13,13 @@ use include_dir::{Dir, include_dir};
 
 pub use crate::payload_roots::PAYLOAD_ROOTS;
 
-/// The spec seeds an instance adopts, and the canon-only specs beside them.
+/// This repository's own specs: the canon-only ones and its adopted copies.
+///
+/// A reader takes the specs through [`spec_files`], where a payload spec
+/// wins by name, so an adopted copy is never served.
 pub static SPECS: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/_docs/specs");
 /// The stable document templates.
 pub static TEMPLATES: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/templates");
-/// The documentation root's lint configuration, which an instance receives
-/// managed.
-pub static MARKDOWNLINT: &[u8] = include_bytes!("../_docs/.markdownlint-cli2.jsonc");
 /// What a release says about itself, plus what it seeds and splices.
 ///
 /// One root rather than a root per subdirectory: the projection
@@ -74,7 +74,43 @@ const EMBEDDED_ROOTS: &[(&str, &Dir<'static>)] = &[
 /// A directory static cannot hold a file that sits beside other authored
 /// content, such as a configuration at the top of the documentation root,
 /// so such a root is embedded by itself.
-const EMBEDDED_FILES: &[(&str, &[u8])] = &[("_docs/.markdownlint-cli2.jsonc", MARKDOWNLINT)];
+const EMBEDDED_FILES: &[(&str, &[u8])] = &[];
+
+/// Where the payload keeps the sources that an instance's own paths would
+/// otherwise share with this repository's instance, under the `instance`
+/// root.
+pub const PAYLOAD_DIR: &str = "instance/payload";
+
+/// An empty directory, for a payload folder this build does not carry.
+static EMPTY: Dir<'static> = Dir::new("", &[]);
+
+/// The specs an instance adopts, as the payload carries them.
+#[must_use]
+pub fn payload_specs() -> &'static Dir<'static> {
+    INSTANCE.get_dir("payload/_docs/specs").unwrap_or(&EMPTY)
+}
+
+/// Every spec this binary serves, by file name, sorted: each payload spec,
+/// then each canon-only spec whose name the payload does not carry.
+#[must_use]
+pub fn spec_files() -> Vec<(&'static str, &'static include_dir::File<'static>)> {
+    let named = |dir: &'static Dir<'static>| {
+        dir.files()
+            .filter_map(|file| {
+                let name = file.path().file_name()?.to_str()?;
+                Some((name, file))
+            })
+            .collect::<Vec<_>>()
+    };
+    let mut files = named(payload_specs());
+    for (name, file) in named(&SPECS) {
+        if !files.iter().any(|(held, _)| *held == name) {
+            files.push((name, file));
+        }
+    }
+    files.sort_by(|left, right| left.0.cmp(right.0));
+    files
+}
 
 /// Every embedded root paired with the authored path it came from.
 ///
@@ -151,6 +187,75 @@ pub fn skill_package(name: &str) -> Result<Vec<(String, &'static [u8])>, Package
         .get_dir(name)
         .ok_or_else(|| PackageError::Unknown(name.to_string()))?;
     compose_package(name, dir, &SKILL_SHARED)
+}
+
+/// One file the landing writes for a skill package.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SkillFile {
+    /// The payload path the bytes come from, as [`asset`] resolves it.
+    pub source: String,
+    /// Where the instance holds it, relative to the target root.
+    pub destination: String,
+    /// The package bytes, unchanged.
+    pub bytes: &'static [u8],
+}
+
+/// Every file of every skill package, under each skill root an instance
+/// carries, in a fixed order.
+///
+/// The one inventory: the candidate projects these rows and the verifier
+/// expects them, so the two cannot disagree on which skill entries an
+/// instance owes.
+///
+/// SATISFIES distribution:an-instance-carries-the-skills
+///
+/// # Errors
+///
+/// The composition errors of [`skill_package`].
+pub fn skill_inventory() -> Result<Vec<SkillFile>, PackageError> {
+    use crate::domain::paths::SKILL_REFERENCES_DIR;
+
+    let mut out = Vec::new();
+    for root in SKILL_ROOTS {
+        for name in skill_names() {
+            for (relative, bytes) in skill_package(name)? {
+                let own = format!("skills/{name}/{relative}");
+                let source = if asset(&own).is_some() {
+                    own
+                } else {
+                    let shared = relative
+                        .strip_prefix(&format!("{SKILL_REFERENCES_DIR}/"))
+                        .unwrap_or(&relative);
+                    format!("skill-shared/{shared}")
+                };
+                out.push(SkillFile {
+                    source,
+                    destination: format!("{root}/{name}/{relative}"),
+                    bytes,
+                });
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// The skill roots an instance carries, relative to its root.
+pub const SKILL_ROOTS: [&str; 2] = [
+    crate::domain::paths::CLAUDE_ROOT,
+    crate::domain::paths::AGENTS_ROOT,
+];
+
+/// Every package folder the inventory lands, as `<root>/<name>`.
+#[must_use]
+pub fn skill_package_folders() -> Vec<String> {
+    SKILL_ROOTS
+        .iter()
+        .flat_map(|root| {
+            skill_names()
+                .into_iter()
+                .map(move |name| format!("{root}/{name}"))
+        })
+        .collect()
 }
 
 /// Compose one package from a skill directory and the shared source.
@@ -286,7 +391,7 @@ fn collect_under(root: &str, dir: &'static Dir<'static>, out: &mut Vec<(String, 
 #[must_use]
 pub fn spec_rule_ids() -> BTreeSet<String> {
     let mut ids = BTreeSet::new();
-    for file in SPECS.files() {
+    for (_, file) in spec_files() {
         let Some(text) = file.contents_utf8() else {
             continue;
         };
@@ -297,7 +402,9 @@ pub fn spec_rule_ids() -> BTreeSet<String> {
 
 /// The text of every spec this binary carries.
 pub fn spec_texts() -> impl Iterator<Item = &'static str> {
-    SPECS.files().filter_map(include_dir::File::contents_utf8)
+    spec_files()
+        .into_iter()
+        .filter_map(|(_, file)| file.contents_utf8())
 }
 
 /// The requirement addresses one spec document defines.
@@ -357,7 +464,7 @@ mod tests {
             assert_eq!(asset(path), Some(*bytes), "{path}");
             assert_eq!(assets_under(path), vec![((*path).to_string(), *bytes)]);
         }
-        assert!(asset("_docs/.markdownlint-cli2.jsonc/x").is_none());
+        assert!(asset("instance/payload/_docs/.markdownlint-cli2.jsonc/x").is_none());
     }
 
     #[test]

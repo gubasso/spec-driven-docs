@@ -1,14 +1,13 @@
 //! `self-manifest` subcommand: runtime-shape.
 //!
-//! Regenerates the canon's own manifest from its payload; refuses anywhere
-//! else. The generation lives in `services::self_manifest`.
+//! Writes the payload record of the canon checkout; refuses anywhere else. The generation lives in `services::self_manifest`.
 
 use crate::context::AppContext;
 use crate::error::AppError;
 use crate::output;
 use crate::services::self_manifest::regenerate;
 
-/// Regenerate the canon checkout's instance manifest.
+/// Write the canon checkout's payload record.
 ///
 /// # Errors
 ///

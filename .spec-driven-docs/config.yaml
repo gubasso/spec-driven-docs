@@ -56,7 +56,9 @@ gates:
   # is a fixture or a worked example, never a live citation. The method
   # chapters teach the citation form, the unit and integration tests build
   # records in temporary directories, and the worked examples cite the
-  # fixture record under tests/fixtures. This repository keeps no
+  # fixture record under tests/fixtures. The payload sources under
+  # instance/payload are the specs an instance adopts, which teach the form
+  # the same way. This repository keeps no
   # known-issue zone of its own, so it cites no case, and the record gates
   # find no record here. Cargo tests in tests/canon.rs run the record gates
   # over tests/fixtures and hold every example token to a fixture record. A
@@ -65,6 +67,7 @@ gates:
   suppression-names-its-case:
     exclude:
       - examples/**
+      - instance/payload/**
       - method/**
       - src/**
       - tests/**

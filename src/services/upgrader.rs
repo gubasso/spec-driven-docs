@@ -47,6 +47,9 @@ pub enum ConflictKind {
     /// A destination the candidate lands that holds bytes no record
     /// vouches for.
     Unattributed,
+    /// A skill package folder the candidate lands into whose files no
+    /// record attributes. It is never replaced, so no name resolves it.
+    UnattributedSkillPackage,
 }
 
 /// One destination the upgrade cannot overwrite unasked.
@@ -67,6 +70,12 @@ impl Conflict {
             ConflictKind::EditedManagedBlock => "locally edited managed block",
             ConflictKind::MissingIntegrationHost => "missing integration host",
             ConflictKind::Unattributed => "destination holds bytes no record vouches for",
+            ConflictKind::UnattributedSkillPackage => {
+                return format!(
+                    "CONFLICT {}",
+                    crate::landing::apply::refused_package_line(&self.path)
+                );
+            }
         };
         format!("CONFLICT {what}: {}", self.path)
     }
@@ -244,8 +253,21 @@ fn unattributed(
     known: &[Conflict],
 ) -> Vec<Conflict> {
     let recorded = crate::services::installer::recorded(target);
-    let mut found = Vec::new();
+    let packages = crate::landing::apply::refused_skill_packages(target, &recorded);
+    let mut found: Vec<Conflict> = packages
+        .iter()
+        .map(|folder| Conflict {
+            path: folder.clone(),
+            kind: ConflictKind::UnattributedSkillPackage,
+        })
+        .collect();
     for destination in &candidate.destinations {
+        if packages
+            .iter()
+            .any(|folder| destination.path.as_str().starts_with(folder.as_str()))
+        {
+            continue;
+        }
         let Ok(held) = std::fs::read(target.join(&destination.path)) else {
             continue;
         };
@@ -464,9 +486,14 @@ fn scan(
     // refuse resolves nothing either, so it is refused here, before a copy
     // is saved, rather than by the landing after.
     for name in named {
-        if !conflicts.iter().any(|conflict| &conflict.path == name) {
+        let Some(conflict) = conflicts.iter().find(|conflict| &conflict.path == name) else {
             return Err(AppError::Usage(format!(
                 "--replace {name} names no conflict; the conflicts are the destinations this run lists"
+            )));
+        };
+        if conflict.kind == ConflictKind::UnattributedSkillPackage {
+            return Err(AppError::Refused(format!(
+                "--replace {name} names a skill package folder, which is never replaced; move it aside, then run this again"
             )));
         }
         if let Some((component, kind)) =
@@ -531,7 +558,9 @@ pub(crate) fn replaceable(staged: &crate::stage::StagedChoices) -> Result<Vec<St
     Ok(conflicts
         .into_iter()
         .filter(|conflict| {
-            crate::landing::apply::refuses_named(target, &candidate, &conflict.path).is_none()
+            conflict.kind != ConflictKind::UnattributedSkillPackage
+                && crate::landing::apply::refuses_named(target, &candidate, &conflict.path)
+                    .is_none()
         })
         .map(|conflict| conflict.path)
         .collect())

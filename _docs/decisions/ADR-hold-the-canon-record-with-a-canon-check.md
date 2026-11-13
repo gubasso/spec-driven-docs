@@ -28,4 +28,4 @@ A second gap surfaced alongside it: this repository's managed block is hand-main
 
 ## Status
 
-Accepted
+Superseded by [ADR-run-the-canon-on-its-previous-release](./ADR-run-the-canon-on-its-previous-release.md): the payload record replaces the canon's instance record as the description of the tree.

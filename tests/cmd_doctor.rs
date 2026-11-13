@@ -54,8 +54,6 @@ fn probe<'a>(report: &'a serde_json::Value, id: &str) -> &'a serde_json::Value {
         .unwrap_or_else(|| panic!("no probe {id}"))
 }
 
-/// VERIFIES distribution:the-doctor-answers-for-the-installed-skills
-///
 /// A doctor run answers on any host: probes fail as results, the exit code
 /// stays 0, and the overridable tool binaries keep the test hermetic.
 #[test]
@@ -85,9 +83,7 @@ fn doctor_reports_every_probe_and_exits_0() {
         ids,
         [
             "state-root",
-            "skill-roots",
-            "skill-gate",
-            "skill-payload",
+            "skill-shadow",
             "release-registry",
             "git",
             "prek"
@@ -144,160 +140,58 @@ fn the_prek_probe_reports_a_missing_prek() {
 /// A home with no install is a plan constraint, not a broken host: the
 /// roots answer for writability alone, and both install probes name the
 /// plain apply.
+/// VERIFIES distribution:the-doctor-names-a-shadowing-user-copy
+///
+/// A home `SKILL.md` of an sdd skill fails the probe and names the cleanup,
+/// a folder of notes passes, and a manual the receipt no longer vouches for
+/// is named for a hand removal. The probe is soft, and the doctor exits 0.
 #[test]
-fn the_skill_probes_answer_on_a_home_with_no_install() {
-    let home = Home::new();
-    let report = report(&home);
-    assert_eq!(
-        probe(&report, "skill-roots")["status"],
-        "ok",
-        "an absent root under a writable home is not a refusal"
-    );
-    for id in ["skill-gate", "skill-payload"] {
-        assert_eq!(probe(&report, id)["status"], "failed");
-        assert_eq!(
-            probe(&report, id)["remediation"],
-            "sdd skill install --apply"
-        );
-    }
-}
+fn the_shadow_probe_names_a_user_scope_manual() {
+    let empty = Home::new();
+    assert_eq!(probe(&report(&empty), "skill-shadow")["status"], "ok");
 
-/// After an apply, every install probe reads the payload back.
-#[test]
-fn an_installed_home_passes_every_skill_probe() {
-    let home = Home::new();
-    home.cmd()
-        .args(["skill", "install", "--apply"])
-        .assert()
-        .success();
-    let report = report(&home);
-    for id in ["skill-roots", "skill-gate", "skill-payload"] {
-        assert_eq!(probe(&report, id)["status"], "ok", "{id} failed");
-    }
-}
+    let notes = Home::new();
+    notes.write(".claude/skills/sdd-setup/notes.md", "mine\n");
+    assert_eq!(probe(&report(&notes), "skill-shadow")["status"], "ok");
 
-/// The payload probe names the drift and picks the fix by the record:
-/// bytes it vouches for are an older release's, bytes it cannot account
-/// for are the operator's own, and an absent file is neither.
-#[test]
-fn the_payload_probe_tells_a_stale_skill_from_an_edited_one() {
-    let home = Home::new();
-    home.cmd()
-        .args(["skill", "install", "--apply"])
-        .assert()
-        .success();
-    let edited = home.path().join(".claude/skills/sdd-setup/SKILL.md");
-
-    // Bytes the record cannot account for are the operator's own.
-    std::fs::write(&edited, "mine now\n").unwrap();
-    let payload = &report(&home);
-    assert_eq!(probe(payload, "skill-payload")["status"], "failed");
-    assert_eq!(
-        probe(payload, "skill-payload")["remediation"],
-        "sdd skill install --apply --force"
-    );
-
-    // Bytes the record vouches for are an older release's, and the plain
-    // apply corrects them.
-    let mut record: SkillRecord = serde_json::from_str(&home.read(RECORD)).unwrap();
+    let installed = Home::new();
+    let manual = ".agents/skills/sdd-write-docs/SKILL.md";
+    let bytes = "an earlier release's manual\n";
+    installed.write(manual, bytes);
+    let mut record = SkillRecord::new();
     record.written.insert(
-        Utf8PathBuf::from(edited.to_str().unwrap()),
-        Sha256::of(b"mine now\n"),
+        Utf8PathBuf::from_path_buf(installed.path().join(manual)).unwrap(),
+        Sha256::of(bytes.as_bytes()),
     );
-    home.write(RECORD, &record.to_json());
-    let payload = &report(&home);
-    assert_eq!(
-        probe(payload, "skill-payload")["remediation"],
-        "sdd skill install --apply"
-    );
-
-    // A skill destination that is simply absent is neither.
-    std::fs::remove_file(&edited).unwrap();
-    let payload = &report(&home);
-    assert_eq!(
-        probe(payload, "skill-payload")["remediation"],
-        "sdd skill install --apply"
-    );
-}
-
-/// The gate probe answers for each package's references alone: a home whose
-/// skills are installed but whose gates are gone is exactly the failure it
-/// exists to name.
-#[test]
-fn the_gate_probe_names_a_home_whose_skills_cannot_read_their_gate() {
-    let home = Home::new();
-    home.cmd()
-        .args(["skill", "install", "--apply"])
-        .assert()
-        .success();
-    assert_eq!(probe(&report(&home), "skill-gate")["status"], "ok");
-
-    std::fs::remove_dir_all(home.path().join(".claude/skills/sdd-setup/references")).unwrap();
-    let after = report(&home);
-    assert_eq!(probe(&after, "skill-gate")["status"], "failed");
+    installed.write(RECORD, &record.to_json());
+    let shadow = report(&installed);
+    let shadow = probe(&shadow, "skill-shadow");
+    assert_eq!(shadow["status"], "failed");
+    assert_eq!(shadow["class"], "soft");
+    assert_eq!(shadow["remediation"], "sdd skill uninstall --apply");
     assert!(
-        probe(&after, "skill-gate")["message"]
+        shadow["message"].as_str().unwrap().contains(manual),
+        "{shadow}"
+    );
+
+    let edited = Home::new();
+    edited.write(".claude/skills/sdd-setup/SKILL.md", "my own manual\n");
+    let kept = report(&edited);
+    let kept = probe(&kept, "skill-shadow");
+    assert_eq!(kept["status"], "failed");
+    assert!(
+        kept["message"].as_str().unwrap().contains("(edited)"),
+        "{kept}"
+    );
+    assert!(
+        kept["remediation"]
             .as_str()
             .unwrap()
-            .contains("gate.md"),
-        "the message names the missing artifact"
-    );
-    assert_eq!(
-        probe(&after, "skill-gate")["remediation"],
-        "sdd skill install --apply"
+            .contains("remove it by hand"),
+        "{kept}"
     );
 }
 
-/// A file the sweep left under the retired shared root is the operator's,
-/// and the probe names it rather than deleting it.
-#[test]
-fn the_gate_probe_names_an_unvouched_leftover_at_the_retired_shared_root() {
-    let home = Home::new();
-    home.cmd()
-        .args(["skill", "install", "--apply"])
-        .assert()
-        .success();
-    let leftover = home
-        .path()
-        .join(".local/state/spec-driven-docs/skills/shared/plan-gate.md");
-    std::fs::create_dir_all(leftover.parent().unwrap()).unwrap();
-    std::fs::write(&leftover, "mine\n").unwrap();
-    let after = report(&home);
-    assert_eq!(probe(&after, "skill-gate")["status"], "failed");
-    assert!(
-        probe(&after, "skill-gate")["message"]
-            .as_str()
-            .unwrap()
-            .contains("retired shared root"),
-        "the message names the retired root"
-    );
-    assert!(leftover.is_file(), "the probe removed the leftover");
-}
-
-/// An absence beside an edit the record cannot vouch for takes the force
-/// the edit needs; the plain apply the absence alone would name refuses.
-#[test]
-fn a_missing_skill_beside_an_unvouched_edit_names_force() {
-    let home = Home::new();
-    home.cmd()
-        .args(["skill", "install", "--apply"])
-        .assert()
-        .success();
-    std::fs::remove_file(home.path().join(".claude/skills/sdd-setup/SKILL.md")).unwrap();
-    std::fs::write(
-        home.path().join(".claude/skills/sdd-write-docs/SKILL.md"),
-        "mine now\n",
-    )
-    .unwrap();
-    let after = report(&home);
-    assert_eq!(
-        probe(&after, "skill-payload")["remediation"],
-        "sdd skill install --apply --force"
-    );
-}
-
-/// The registry probe is soft and reads nothing where the operator has said
-/// this host is offline.
 #[test]
 fn the_registry_probe_is_quiet_where_the_host_is_declared_offline() {
     let home = Home::new();

@@ -101,7 +101,8 @@
         "exobrain-tech": "exobrain-tech",
         "nixpkgs": "nixpkgs",
         "release-kit": "release-kit",
-        "rust-overlay": "rust-overlay_4"
+        "rust-overlay": "rust-overlay_4",
+        "spec-driven-docs": "spec-driven-docs"
       }
     },
     "rust-overlay": {
@@ -185,6 +186,36 @@
       "original": {
         "owner": "oxalica",
         "repo": "rust-overlay",
+        "type": "github"
+      }
+    },
+    "spec-driven-docs": {
+      "inputs": {
+        "exobrain-tech": [
+          "exobrain-tech"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ],
+        "release-kit": [
+          "release-kit"
+        ],
+        "rust-overlay": [
+          "rust-overlay"
+        ]
+      },
+      "locked": {
+        "lastModified": 1794568820,
+        "narHash": "sha256-6AqB70o+wNLa8iWwrSK2JM0ng5Ksze2kWRIkGtOVvNU=",
+        "owner": "gubasso",
+        "repo": "spec-driven-docs",
+        "rev": "32a91f9ca029771d7f24336024306ed3cd6c2d24",
+        "type": "github"
+      },
+      "original": {
+        "owner": "gubasso",
+        "ref": "v0.17.0",
+        "repo": "spec-driven-docs",
         "type": "github"
       }
     }

@@ -4,7 +4,8 @@
 
 use clap::{Subcommand, ValueEnum};
 
-/// Read the embedded skills, or install and remove them for coding agents.
+/// Read the embedded skills, and remove the copies an earlier release
+/// installed under the home.
 #[derive(Debug, clap::Args)]
 pub struct SkillArgs {
     /// The verb to run.
@@ -17,39 +18,37 @@ pub struct SkillArgs {
 pub enum SkillCommand {
     /// List every embedded skill.
     List,
-    /// Print one skill's `SKILL.md`.
+    /// Print one skill's `SKILL.md`, or one file of its package.
     Show(ShowArgs),
-    /// Install the skills into the agent skill directories.
+    /// Retired: the skills land into each instance through `sdd init` and
+    /// `sdd upgrade`.
     Install(InstallArgs),
-    /// Remove the installed skills from the agent skill directories.
+    /// Remove the copies an earlier release installed under the home.
     Uninstall(UninstallArgs),
 }
 
-/// Print one skill's `SKILL.md`.
+/// Print one skill's `SKILL.md`, or one file of its package.
 #[derive(Debug, clap::Args)]
 pub struct ShowArgs {
     /// The skill's name.
     pub name: String,
+
+    /// One file of the package, by its path relative to the package root,
+    /// such as `references/pre-flight-gate.md`.
+    #[arg(long, value_name = "PATH")]
+    pub file: Option<String>,
 }
 
-/// Install the skills into the agent skill directories.
+/// The retired install: it states where the skills land now.
 #[derive(Debug, clap::Args)]
 pub struct InstallArgs {
-    /// Which agent's skill directory to install into.
+    /// Which agent's skill directory an earlier release installed into.
     #[arg(long, value_enum, default_value_t = Agent::All)]
     pub agent: Agent,
 
-    /// Where the skills land; `user` is the home-directory scope.
-    #[arg(long, value_enum, default_value_t = Scope::User)]
-    pub scope: Scope,
-
-    /// Write the files; without it the install previews.
+    /// Refuse, naming the landing; without it the same text prints.
     #[arg(long)]
     pub apply: bool,
-
-    /// Overwrite a destination whose bytes differ from the payload.
-    #[arg(long, requires = "apply")]
-    pub force: bool,
 }
 
 /// Remove the installed skills from the agent skill directories.
@@ -58,10 +57,6 @@ pub struct UninstallArgs {
     /// Which agent's skill directory to remove from.
     #[arg(long, value_enum, default_value_t = Agent::All)]
     pub agent: Agent,
-
-    /// Where the skills live; `user` is the home-directory scope.
-    #[arg(long, value_enum, default_value_t = Scope::User)]
-    pub scope: Scope,
 
     /// Remove the files; without it the uninstall previews.
     #[arg(long)]
@@ -83,12 +78,4 @@ pub enum Agent {
     Agents,
     /// Both roots.
     All,
-}
-
-/// Where an install lands.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-#[value(rename_all = "kebab-case")]
-pub enum Scope {
-    /// The home-directory skill roots, shared across projects.
-    User,
 }

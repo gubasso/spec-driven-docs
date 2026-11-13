@@ -122,6 +122,9 @@ pub struct Report {
     pub history: HistoryState,
     /// One row per destination, in the stage's order, then the retired.
     pub rows: Vec<Row>,
+    /// Every skill package folder the landing would refuse, as
+    /// `<root>/<name>/`, by the check the landing itself applies.
+    pub refused_packages: Vec<String>,
 }
 
 /// Compare the stage at `root` against `target`.
@@ -137,6 +140,7 @@ pub fn compare(root: &Utf8Path, target: &Utf8Path) -> Result<Report, AppError> {
     let replaceable = crate::services::upgrader::replaceable(&choices)?;
     let target = choices.target.clone();
     let recorded = crate::services::installer::recorded(&target);
+    let refused_packages = crate::landing::apply::refused_skill_packages(&target, &recorded);
     let (history, history_state) = match History::open(&target) {
         Ok(history) => (
             Some(history),
@@ -235,6 +239,7 @@ pub fn compare(root: &Utf8Path, target: &Utf8Path) -> Result<Report, AppError> {
         target,
         history: history_state,
         rows,
+        refused_packages,
     })
 }
 

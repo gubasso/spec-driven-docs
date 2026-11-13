@@ -65,19 +65,11 @@ fn canonical_target(target: &Utf8Path) -> Result<Utf8PathBuf, AppError> {
     let canonical = std::fs::canonicalize(target)?;
     let canonical = Utf8PathBuf::from_path_buf(canonical)
         .map_err(|p| AppError::Usage(format!("target is not UTF-8: {}", p.display())))?;
+    // The canon checkout is an ordinary target: it lands and upgrades its
+    // own instance like any repository.
+    // SATISFIES release:the-canon-is-an-ordinary-instance
     if canonical.as_str().chars().all(|c| c == '/') {
         return Err(AppError::Usage("refusing root target".to_string()));
-    }
-    let mut ancestor = Some(canonical.as_path());
-    while let Some(dir) = ancestor {
-        if let Ok(cargo) = std::fs::read_to_string(dir.join("Cargo.toml"))
-            && cargo.contains("name = \"spec-driven-docs\"")
-        {
-            return Err(AppError::Usage(
-                "target is inside the canon checkout".to_string(),
-            ));
-        }
-        ancestor = dir.parent();
     }
     Ok(canonical)
 }
@@ -214,7 +206,7 @@ pub fn candidate_for(
 /// # Errors
 ///
 /// [`AppError::Usage`] for a path no verb can mean: relative, absent, the
-/// filesystem root, or inside the canon checkout.
+/// or the filesystem root.
 pub fn resolved_target(target: &Utf8Path) -> Result<Utf8PathBuf, AppError> {
     canonical_target(target)
 }

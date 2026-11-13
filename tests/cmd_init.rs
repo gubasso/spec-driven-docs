@@ -42,20 +42,7 @@ fn installs_both_profiles_and_they_verify() {
                 .exists(),
             "the retired lint directory was landed"
         );
-        // VERIFIES distribution:a-skill-has-one-owner: an instance carries no
-        // skill, so a session opened here sees the user-scope copy alone.
-        for root in [".claude/skills", ".agents/skills"] {
-            assert!(
-                !fixture.path().join(root).exists(),
-                "the instance installed {root}"
-            );
-        }
-        // No agent skill is projected into the instance; user scope is its
-        // only owner.
         assert!(!fixture.path().join(".spec-driven-docs/upstreams").exists());
-        let manifest = fixture.read(".spec-driven-docs/manifest.json");
-        assert!(!manifest.contains(".claude/skills"));
-        assert!(!manifest.contains(".agents/skills"));
         fixture
             .cmd()
             .args(["verify", "--target", &fixture.target()])
@@ -195,7 +182,7 @@ fn an_explicit_dry_run_writes_nothing() {
 }
 
 #[test]
-fn rejects_relative_root_and_canon_targets() {
+fn rejects_relative_and_root_targets() {
     let fixture = Fixture::new();
     fixture
         .cmd()
@@ -209,19 +196,35 @@ fn rejects_relative_root_and_canon_targets() {
         .assert()
         .code(64)
         .stderr(predicate::str::contains("refusing root target"));
+}
 
+/// VERIFIES release:the-canon-is-an-ordinary-instance
+///
+/// A checkout of this crate, and a repository nested inside one, land like
+/// any target.
+#[test]
+fn init_lands_in_the_canon_checkout() {
     let canon = Fixture::new();
     canon.write("Cargo.toml", "[package]\nname = \"spec-driven-docs\"\n");
     canon.write("inner/.git/keep", "");
     for target in [canon.target(), format!("{}/inner", canon.target())] {
         canon
             .cmd()
-            .args(["init", "--target", &target, "--profile", "codebase"])
+            .args([
+                "init",
+                "--target",
+                &target,
+                "--profile",
+                "knowledge-base",
+                "--apply",
+            ])
             .assert()
-            .code(64)
-            .stderr(predicate::str::contains(
-                "target is inside the canon checkout",
-            ));
+            .success();
+        canon
+            .cmd()
+            .args(["verify", "--target", &target])
+            .assert()
+            .success();
     }
 }
 
@@ -1067,4 +1070,207 @@ fn init_from_a_stage_refuses_another_release_another_target_and_a_choice_flag() 
         .code(2);
     assert!(!fixture.path().join(".spec-driven-docs").exists());
     assert!(!other.path().join(".spec-driven-docs").exists());
+}
+
+/// Every file a landing writes for the skills, target-relative, with the
+/// package bytes it must hold.
+fn landed_skill_files() -> Vec<(String, Vec<u8>)> {
+    spec_driven_docs::embedded::skill_inventory()
+        .unwrap()
+        .into_iter()
+        .map(|file| (file.destination, file.bytes.to_vec()))
+        .collect()
+}
+
+/// VERIFIES distribution:a-skill-has-one-owner
+/// VERIFIES distribution:an-instance-carries-the-skills
+#[test]
+fn init_lands_both_skills_into_both_roots() {
+    for profile in ["codebase", "knowledge-base"] {
+        let fixture = Fixture::new();
+        fixture.install(profile);
+        let manifest = fixture.read(".spec-driven-docs/manifest.json");
+        for root in [".claude/skills", ".agents/skills"] {
+            for skill in ["sdd-setup", "sdd-write-docs"] {
+                let manual = format!("{root}/{skill}/SKILL.md");
+                assert!(
+                    fixture.path().join(&manual).is_file(),
+                    "{profile}: {manual}"
+                );
+                assert!(
+                    manifest.contains(&format!("\"{manual}\"")),
+                    "{profile}: the record omits {manual}"
+                );
+            }
+        }
+        let record: serde_json::Value = serde_json::from_str(&manifest).unwrap();
+        let managed = record["managed_files"].as_array().unwrap();
+        for (destination, _) in landed_skill_files() {
+            assert!(
+                managed
+                    .iter()
+                    .any(|entry| entry["destination"] == destination),
+                "{profile}: the record omits {destination}"
+            );
+        }
+        fixture
+            .cmd()
+            .args(["verify", "--target", &fixture.target()])
+            .assert()
+            .success();
+    }
+}
+
+/// VERIFIES distribution:an-instance-carries-the-skills
+#[test]
+fn a_landed_skill_is_byte_equal_to_the_package() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    for (destination, bytes) in landed_skill_files() {
+        assert_eq!(
+            std::fs::read(fixture.path().join(&destination)).unwrap(),
+            bytes,
+            "{destination}"
+        );
+    }
+    let shown = fixture
+        .cmd()
+        .args(["skill", "show", "sdd-setup"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    assert_eq!(
+        shown,
+        std::fs::read(fixture.path().join(".claude/skills/sdd-setup/SKILL.md")).unwrap()
+    );
+}
+
+/// The three ways a folder can hold a package no record attributes.
+fn unattributed_folders() -> Vec<(&'static str, Fixture)> {
+    let full = Fixture::new();
+    full.write(
+        ".claude/skills/sdd-setup/SKILL.md",
+        "somebody else's manual\n",
+    );
+    full.write(".claude/skills/sdd-setup/references/notes.md", "notes\n");
+    let extra = Fixture::new();
+    // Not Markdown: a Markdown file outside a documentation home makes the
+    // target need a decision before any landing, so this case reaches the
+    // package check through a bare `init`.
+    extra.write(".agents/skills/sdd-write-docs/extra.txt", "an extra file\n");
+    let identical = Fixture::new();
+    for (destination, bytes) in landed_skill_files() {
+        if destination.starts_with(".claude/skills/sdd-setup/") {
+            let path = identical.path().join(&destination);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, bytes).unwrap();
+        }
+    }
+    vec![
+        (".claude/skills/sdd-setup/", full),
+        (".agents/skills/sdd-write-docs/", extra),
+        (".claude/skills/sdd-setup/", identical),
+    ]
+}
+
+/// A bare `sdd init --apply` against a fixture.
+fn init_apply(fixture: &Fixture) -> assert_cmd::assert::Assert {
+    fixture
+        .cmd()
+        .args([
+            "init",
+            "--target",
+            &fixture.target(),
+            "--profile",
+            "knowledge-base",
+            "--apply",
+        ])
+        .assert()
+}
+
+/// VERIFIES distribution:an-unattributed-skill-folder-is-never-replaced
+///
+/// Every case refuses with nothing written. A folder holding Markdown makes
+/// the target need a decision first, so the bare landing refuses on that
+/// ground; the package check itself is proved for all three cases by the
+/// landing's own unit test and by the stage comparison below.
+#[test]
+fn a_landing_refuses_an_unattributed_skill_folder() {
+    for (folder, fixture) in unattributed_folders() {
+        let before = fixture.tree_digest();
+        let refused = init_apply(&fixture).code(73);
+        if folder.starts_with(".agents/") {
+            refused
+                .stderr(predicate::str::contains(folder))
+                .stderr(predicate::str::contains("sdd lands its own copy there"));
+        }
+        assert_eq!(before, fixture.tree_digest(), "{folder}: the refusal wrote");
+    }
+}
+
+/// VERIFIES distribution:an-unattributed-skill-folder-is-never-replaced
+#[test]
+fn preview_and_apply_agree_on_a_refused_package() {
+    for (folder, fixture) in unattributed_folders().into_iter().skip(1) {
+        let stage = staged(&fixture, "stage-skills", &["--profile", "knowledge-base"]);
+        let output = fixture
+            .cmd()
+            .args([
+                "stage",
+                "compare",
+                stage.to_str().unwrap(),
+                "--target",
+                &fixture.target(),
+                "--json",
+            ])
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone();
+        let report: serde_json::Value = serde_json::from_slice(&output).unwrap();
+        assert_eq!(report["refused_packages"], serde_json::json!([folder]));
+        if folder.starts_with(".agents/") {
+            init_apply(&fixture)
+                .code(73)
+                .stderr(predicate::str::contains(folder));
+        }
+
+        // The same folder in an instance whose record attributes no skill,
+        // as a record an earlier release wrote: the upgrade preview names it.
+        let instance = Fixture::new();
+        instance.install("knowledge-base");
+        let mut record: serde_json::Value =
+            serde_json::from_str(&instance.read(".spec-driven-docs/manifest.json")).unwrap();
+        record["managed_files"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|entry| !entry["destination"].as_str().unwrap().contains("/skills/"));
+        instance.write(
+            ".spec-driven-docs/manifest.json",
+            &format!("{}\n", serde_json::to_string_pretty(&record).unwrap()),
+        );
+        for root in [".claude", ".agents"] {
+            std::fs::remove_dir_all(instance.path().join(root)).unwrap();
+        }
+        let source = fixture.path().join(folder);
+        let copy = instance.path().join(folder);
+        std::fs::create_dir_all(&copy).unwrap();
+        for entry in walkdir::WalkDir::new(&source) {
+            let entry = entry.unwrap();
+            let relative = entry.path().strip_prefix(&source).unwrap();
+            if entry.file_type().is_dir() {
+                std::fs::create_dir_all(copy.join(relative)).unwrap();
+            } else {
+                std::fs::copy(entry.path(), copy.join(relative)).unwrap();
+            }
+        }
+        instance
+            .upgrade()
+            .arg("--dry-run")
+            .assert()
+            .stdout(predicate::str::contains(format!("CONFLICT {folder}")));
+    }
 }

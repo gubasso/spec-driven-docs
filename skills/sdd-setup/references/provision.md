@@ -32,5 +32,4 @@ Bring `sdd` to this host at the version the repository records, and record in th
 
 1. In the dev environment, `sdd --version` names the version the repository records.
 2. `sdd self-depend status --target . --json` names the wired manager or the host decision, and `envrc_check` matches the answer to the freshness wire. A held host answer still reads `unwired` here, because only the landing records it, and the `land` or `migrate` post-flight proves it.
-3. Where the `skill-payload` probe of `sdd doctor` fails, run `sdd skill install --apply`.
-4. Run the general pre-flight again, now with the binary.
+3. Run the general pre-flight again, now with the binary.

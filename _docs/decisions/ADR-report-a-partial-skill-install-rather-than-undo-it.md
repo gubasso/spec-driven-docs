@@ -27,6 +27,4 @@ Enforced by `distribution:a-skill-install-restores-on-failure` and `distribution
 
 ## Status
 
-Accepted
-
-Supersedes `ADR-make-the-skill-receipt-required-state` on the failure path alone, unedited. The receipt stays required state, and it is written last.
+Superseded by [ADR-land-the-skills-into-each-instance-at-its-pin](./ADR-land-the-skills-into-each-instance-at-its-pin.md), in part: the user-scope install retired, so no install stops partway.

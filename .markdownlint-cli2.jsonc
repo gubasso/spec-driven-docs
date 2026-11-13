@@ -89,6 +89,8 @@
   "ignores": [
     "CHANGELOG.md",
     "SECURITY.md",
+    ".claude/skills/**",
+    ".agents/skills/**",
     "node_modules/",
     ".obsidian/",
     ".trash/",

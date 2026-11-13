@@ -26,6 +26,7 @@ const OPEN: &str = "---\nupstream: https://example.invalid/issues\nstate: invest
 #[test]
 fn a_target_with_no_zone_lists_nothing_and_exits_zero() {
     let fixture = Fixture::new();
+    fixture.install("knowledge-base");
     fixture
         .cmd()
         .args(["ki", "list", "--target", &fixture.target()])
@@ -37,6 +38,7 @@ fn a_target_with_no_zone_lists_nothing_and_exits_zero() {
 #[test]
 fn the_listing_names_each_case_with_both_axes() {
     let fixture = Fixture::new();
+    fixture.install("knowledge-base");
     seed(&fixture, "KI-vendor-replays.md", MASKED);
     seed(&fixture, "KI-other.md", OPEN);
     fixture
@@ -55,6 +57,7 @@ fn the_listing_names_each_case_with_both_axes() {
 #[test]
 fn the_json_listing_carries_one_object_per_record() {
     let fixture = Fixture::new();
+    fixture.install("knowledge-base");
     seed(&fixture, "KI-vendor-replays.md", MASKED);
     let output = fixture
         .cmd()
@@ -79,6 +82,7 @@ fn the_json_listing_carries_one_object_per_record() {
 #[test]
 fn the_json_listing_carries_a_null_checked_for_an_undated_record() {
     let fixture = Fixture::new();
+    fixture.install("knowledge-base");
     seed(&fixture, "KI-other.md", OPEN);
     let output = fixture
         .cmd()
@@ -97,6 +101,7 @@ fn the_json_listing_carries_a_null_checked_for_an_undated_record() {
 #[test]
 fn a_record_stating_no_axis_is_listed_with_the_value_missing() {
     let fixture = Fixture::new();
+    fixture.install("knowledge-base");
     seed(
         &fixture,
         "KI-bare.md",

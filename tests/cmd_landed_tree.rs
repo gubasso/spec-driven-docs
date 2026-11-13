@@ -542,7 +542,7 @@ fn a_path_the_root_ignores_is_skipped_when_passed_by_name() {
     fixture.install("codebase");
     let seed = fixture
         .read(".markdownlint-cli2.jsonc")
-        .replace("\"ignores\": []", "\"ignores\": [\"vendor/**\"]");
+        .replace("\"ignores\": [", "\"ignores\": [\"vendor/**\", ");
     fixture.write(".markdownlint-cli2.jsonc", &seed);
     fixture.write(
         "vendor/notes.md",

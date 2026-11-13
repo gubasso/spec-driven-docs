@@ -482,13 +482,13 @@ fn an_older_schema_at_the_current_version_still_migrates() {
         &(serde_json::to_string_pretty(&manifest).unwrap() + "\n"),
     );
 
-    // Every other verb refuses the record and names the upgrade.
+    // A read-only verb judges the record and warns that the upgrade moves it.
     fixture
         .cmd()
         .args(["verify", "--target", &fixture.target()])
         .assert()
-        .code(65)
-        .stderr(predicate::str::contains("run 'sdd upgrade'"));
+        .success()
+        .stderr(predicate::str::contains("run `sdd upgrade`"));
 
     fixture
         .cmd()
@@ -763,6 +763,10 @@ fn private_lint_layout_instance() -> Fixture {
     fixture.install("knowledge-base");
     std::fs::remove_file(fixture.path().join("_docs/.markdownlint-cli2.jsonc")).unwrap();
     std::fs::remove_file(fixture.path().join(".markdownlint-cli2.jsonc")).unwrap();
+    // A release of that layout landed no skill.
+    for root in [".claude", ".agents"] {
+        std::fs::remove_dir_all(fixture.path().join(root)).unwrap();
+    }
     let mut manifest: serde_json::Value =
         serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
     let mut managed = Vec::new();
@@ -862,7 +866,7 @@ fn a_recorded_root_seed_stays_adopted_across_an_upgrade() {
     let fixture = Fixture::new();
     fixture.install("codebase");
     let seed = fixture.read(".markdownlint-cli2.jsonc");
-    let edited = seed.replace("\"ignores\": []", "\"ignores\": [\"vendor/**\"]");
+    let edited = seed.replace("\"ignores\": [", "\"ignores\": [\"vendor/**\", ");
     assert_ne!(seed, edited);
     fixture.write(".markdownlint-cli2.jsonc", &edited);
     let manifest = fixture
@@ -1175,4 +1179,42 @@ fn a_replacement_goes_under_the_declared_docs_scratch() {
         .code(73)
         .stderr(predicate::str::contains("already keeps other bytes"));
     assert_eq!(fixture.read(lint), "// mine again\n");
+}
+
+/// VERIFIES distribution:an-instance-carries-the-skills
+///
+/// An instance an earlier release landed carries no skill. The upgrade lands
+/// both packages under both roots, and the result verifies.
+#[test]
+fn an_upgrade_brings_the_skills_to_an_older_instance() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    for root in [".claude", ".agents"] {
+        std::fs::remove_dir_all(fixture.path().join(root)).unwrap();
+    }
+    let mut manifest: serde_json::Value =
+        serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
+    manifest["managed_files"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|entry| !entry["destination"].as_str().unwrap().contains("/skills/"));
+    manifest["canon_version"] = "0.16.0".into();
+    fixture.write(
+        ".spec-driven-docs/manifest.json",
+        &format!("{}\n", serde_json::to_string_pretty(&manifest).unwrap()),
+    );
+    fixture.upgrade().assert().success();
+    for file in spec_driven_docs::embedded::skill_inventory().unwrap() {
+        assert_eq!(
+            std::fs::read(fixture.path().join(&file.destination)).unwrap(),
+            file.bytes,
+            "{}",
+            file.destination
+        );
+    }
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .success();
 }

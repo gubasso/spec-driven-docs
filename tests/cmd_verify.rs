@@ -16,19 +16,25 @@ mod support;
 use predicates::prelude::*;
 use support::Fixture;
 
+/// VERIFIES setup:a-gated-command-names-its-fix
 #[test]
-fn a_missing_manifest_exits_sixty_six() {
+fn a_missing_manifest_refuses_and_names_init() {
     let fixture = Fixture::new();
     fixture
         .cmd()
         .args(["verify", "--target", &fixture.target()])
         .assert()
-        .code(66)
-        .stderr(predicate::str::contains("missing manifest"));
+        .code(73)
+        .stderr(predicate::str::contains("no spec-driven-docs instance"))
+        .stderr(predicate::str::contains("sdd init"));
 }
 
+/// VERIFIES setup:a-gated-command-names-its-fix
+///
+/// The gate reads a record of any schema, never a corrupt one: that one
+/// still fails, with the invalid-record code.
 #[test]
-fn a_corrupt_manifest_exits_sixty_five() {
+fn a_corrupt_record_still_fails_verify() {
     let fixture = Fixture::new();
     fixture.write(".spec-driven-docs/manifest.json", "{ not json");
     fixture
@@ -38,8 +44,12 @@ fn a_corrupt_manifest_exits_sixty_five() {
         .code(65);
 }
 
+/// VERIFIES setup:a-gated-command-names-its-fix
+///
+/// After a pin move the hook keeps its exit code: an older schema is judged
+/// for what it records, and the warning names the upgrade.
 #[test]
-fn a_version_one_manifest_points_at_upgrade() {
+fn verify_warns_and_passes_on_an_older_schema() {
     let fixture = Fixture::new();
     fixture.install("knowledge-base");
     let downgraded = fixture
@@ -50,8 +60,10 @@ fn a_version_one_manifest_points_at_upgrade() {
         .cmd()
         .args(["verify", "--target", &fixture.target()])
         .assert()
-        .code(65)
-        .stderr(predicate::str::contains("run 'sdd upgrade'"));
+        .success()
+        .stderr(predicate::str::contains("schema 1"))
+        .stderr(predicate::str::contains("run `sdd upgrade`"))
+        .stdout(predicate::str::contains("OK spec-driven-docs"));
 }
 
 #[test]
@@ -129,8 +141,9 @@ fn a_duplicate_local_rule_id_fails_red() {
         ));
 }
 
+/// VERIFIES setup:a-gated-command-names-its-fix
 #[test]
-fn an_instance_ahead_of_the_binary_fails_red() {
+fn a_record_newer_than_the_binary_names_the_environment() {
     let fixture = Fixture::new();
     fixture.install("knowledge-base");
     let manifest = fixture
@@ -141,8 +154,10 @@ fn an_instance_ahead_of_the_binary_fails_red() {
         .cmd()
         .args(["verify", "--target", &fixture.target()])
         .assert()
-        .code(1)
-        .stdout(predicate::str::contains("upgrade sdd"));
+        .code(73)
+        .stderr(predicate::str::contains("at sdd 9.9.9"))
+        .stderr(predicate::str::contains("which is older"))
+        .stderr(predicate::str::contains("direnv exec . sdd"));
 }
 
 #[test]
@@ -570,4 +585,47 @@ fn a_trailing_spec_section_fails_verify() {
         .stdout(predicate::str::contains(
             "FAIL _docs/specs/SPEC-local.md:21 `## Unenforced rules` follows the requirements; rename it to `## Unenforced` (docs-specs:a-spec-follows-the-heading-shape)",
         ));
+}
+
+/// VERIFIES distribution:an-instance-carries-the-skills
+#[test]
+fn an_edited_landed_skill_fails_verify() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    fixture.write(".agents/skills/sdd-setup/SKILL.md", "an edited manual\n");
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .code(1)
+        .stdout(predicate::str::contains(
+            "FAIL managed drift: .agents/skills/sdd-setup/SKILL.md",
+        ));
+}
+
+/// VERIFIES distribution:an-instance-carries-the-skills
+#[test]
+fn a_removed_skill_entry_fails_verify() {
+    let fixture = Fixture::new();
+    fixture.install("codebase");
+    let removed = ".claude/skills/sdd-write-docs/SKILL.md";
+    std::fs::remove_file(fixture.path().join(removed)).unwrap();
+    let mut record: serde_json::Value =
+        serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
+    record["managed_files"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|entry| entry["destination"] != removed);
+    fixture.write(
+        ".spec-driven-docs/manifest.json",
+        &format!("{}\n", serde_json::to_string_pretty(&record).unwrap()),
+    );
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .code(1)
+        .stdout(predicate::str::contains(format!(
+            "FAIL manifest omits a declared projection: {removed}"
+        )));
 }

@@ -103,7 +103,7 @@ target = { command = ["migrate", "--help"] }
 [[topic]]
 id = "skills"
 title = "Install the agent skills"
-summary = "Land the cross-agent skills at user scope, preview first, and sweep what a release dropped."
+summary = "Land the agent skills into each instance, read them before one exists, and remove old home copies."
 kind = "operator-task"
 aliases = ["agent skills", "claude skills"]
 target = { command = ["skill", "--help"] }

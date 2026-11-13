@@ -1,6 +1,7 @@
-# The release pull request bumps Cargo.toml, and the canon manifest must
-# carry the same version (release:versions-are-semantic-and-aligned), so it
-# is regenerated onto the bot's branch here. When a later master push makes
+# The release pull request bumps Cargo.toml, and the payload record must
+# carry the same version (release:versions-are-semantic-and-aligned and
+# release:the-payload-record-describes-its-tree), so the sdd of the tree
+# regenerates it onto the bot's branch here. When a later master push makes
 # release-plz rewrite that branch, the push retriggers this workflow and the
 # alignment re-applies; the alignment commit itself produces no further diff,
 # so the retrigger it causes ends quietly. This file is the repository's own,
@@ -40,7 +41,7 @@ jobs:
       # The devshell compiles with the pinned toolchain, as every other job
       # does (release:the-devshell-supplies-every-project-tool).
       - uses: DeterminateSystems/nix-installer-action@90bb610b90bf290cad97484ba341453bd1cbefea # v19
-      - name: regenerate the canon manifest on the release branch
+      - name: regenerate the payload record on the release branch
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
@@ -51,6 +52,6 @@ jobs:
             uid="$(gh api "/users/${APP_SLUG}[bot]" -q .id)"
             git config user.name "${APP_SLUG}[bot]"
             git config user.email "${uid}+${APP_SLUG}[bot]@users.noreply.github.com"
-            git commit -am 'chore(release): Align the canon manifest with the release version'
+            git commit -am 'chore(release): Align the payload record with the release version'
             git push
           fi

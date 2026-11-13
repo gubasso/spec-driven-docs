@@ -25,4 +25,4 @@ Enforced by `distribution:manifest-identifies-every-owned-file`.
 
 ## Status
 
-Implemented
+Superseded by [ADR-run-the-canon-on-its-previous-release](./ADR-run-the-canon-on-its-previous-release.md): `sdd verify` selects no canon layout.

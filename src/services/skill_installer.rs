@@ -245,6 +245,7 @@ fn blocked(layout: &Layout, destinations: &[Utf8PathBuf]) -> Vec<Blocked> {
 }
 
 /// What a destination currently holds, judged against the two references.
+#[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Standing {
     /// Nothing is there.
@@ -257,6 +258,7 @@ enum Standing {
     Foreign,
 }
 
+#[cfg(test)]
 fn standing(
     destination: &Utf8Path,
     intended: &Sha256,
@@ -361,7 +363,8 @@ fn load_receipt(layout: &Layout) -> SkillRecord {
 /// [`AppError::Busy`] when another process holds the lock,
 /// [`AppError::Unrecovered`] when an unfinished run cannot be put back, and
 /// [`AppError::Receipt`] when the apply cannot record what it wrote.
-pub fn install(layout: &Layout, apply: bool, force: bool) -> Result<Vec<String>, AppError> {
+#[cfg(test)]
+pub(crate) fn install(layout: &Layout, apply: bool, force: bool) -> Result<Vec<String>, AppError> {
     settle(install_with(layout, apply, force, Interrupt::default()))
 }
 
@@ -405,7 +408,9 @@ fn held(layout: &Layout, apply: bool, purpose: &str) -> Result<Option<Lock>, Fai
     Ok(Some(lock))
 }
 
-/// The install, with the recovery tests' interruption point.
+/// The install, with the recovery tests' interruption point. Only the
+/// tests run it: they build the homes earlier releases left.
+#[cfg(test)]
 fn install_with(
     layout: &Layout,
     apply: bool,

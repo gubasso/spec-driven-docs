@@ -101,7 +101,9 @@ fn render_paths(paths: &Paths) {
     if let Some(user) = paths.user.as_ref() {
         entry("state root", &user.state_root);
         entry("cache root", &user.cache_root);
-        entry("skill receipt", &user.skill_receipt);
+        if let Some(receipt) = &user.skill_receipt {
+            entry("skill receipt", receipt);
+        }
         for root in &user.agent_roots {
             let moved = root
                 .variable

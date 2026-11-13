@@ -205,6 +205,58 @@ impl Manifest {
         Ok(manifest)
     }
 
+    /// Parse a record of this schema or of an older one.
+    ///
+    /// An older record is read for what its schema records: the release,
+    /// the profile, the managed digests, the regions, and the adopted
+    /// entries where it carries them. The second value names its schema,
+    /// so a caller warns that `sdd upgrade` moves it. A corrupt record and
+    /// a newer schema still fail.
+    ///
+    /// # Errors
+    ///
+    /// [`ManifestParseError::Invalid`] for a record no schema reads, and
+    /// [`ManifestParseError::Newer`] for a schema newer than this binary's.
+    pub fn parse_any(json: &str) -> Result<(Self, Option<u32>), ManifestParseError> {
+        let schema = match Self::parse(json) {
+            Ok(manifest) => return Ok((manifest, None)),
+            Err(ManifestParseError::Older(schema)) => schema,
+            Err(error) => return Err(error),
+        };
+        let invalid = |error: serde_json::Error| ManifestParseError::Invalid(error.to_string());
+        let legacy: LegacyManifest = serde_json::from_str(json).map_err(invalid)?;
+        let value: serde_json::Value = serde_json::from_str(json).map_err(invalid)?;
+        let field = |key: &str| value.get(key).cloned().unwrap_or(serde_json::Value::Null);
+        let managed_files: Vec<ManagedEntry> = serde_json::from_value(field("managed_files"))
+            .unwrap_or_else(|_| {
+                legacy
+                    .managed_files
+                    .iter()
+                    .map(|entry| ManagedEntry {
+                        source: entry.destination.clone(),
+                        destination: entry.destination.clone(),
+                        sha256: entry.sha256.clone(),
+                    })
+                    .collect()
+            });
+        let manifest = Self {
+            schema_version: legacy.schema_version,
+            canon_version: legacy.canon_version,
+            canon_source: field("canon_source")
+                .as_str()
+                .unwrap_or(CANON_SOURCE)
+                .to_string(),
+            profile: legacy.profile,
+            docs_root: legacy.docs_root,
+            installed_at: legacy.installed_at,
+            docs_scratch: serde_json::from_value(field("docs_scratch")).unwrap_or_default(),
+            managed_files,
+            adopted_files: serde_json::from_value(field("adopted_files")).unwrap_or_default(),
+            integration_blocks: legacy.integration_blocks,
+        };
+        Ok((manifest, Some(schema)))
+    }
+
     /// Serialize in the canonical on-disk form: two-space indent, trailing newline.
     #[must_use]
     pub fn to_json(&self) -> String {

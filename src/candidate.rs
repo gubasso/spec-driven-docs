@@ -184,6 +184,26 @@ pub fn project(input: &Input) -> Result<Candidate, AppError> {
         });
     }
 
+    // The skills come from the payload rather than the declaration, so
+    // they follow the binary that lands them and no projection row names
+    // them.
+    let inventory =
+        crate::embedded::skill_inventory().map_err(|error| AppError::Refused(error.to_string()))?;
+    for file in inventory {
+        managed_entries.push(ManagedEntry {
+            source: file.source.clone().into(),
+            destination: file.destination.clone().into(),
+            sha256: Sha256::of(file.bytes),
+        });
+        destinations.push(Destination {
+            path: file.destination.into(),
+            bytes: file.bytes.to_vec(),
+            ownership: Ownership::Managed,
+            placement: Placement::WholeFile,
+            source: Some(file.source),
+        });
+    }
+
     for projection in declared.adopted {
         let seed = rendered_seed(&projection.source, docs_root)?;
         let path = resolve_destination(&projection.destination, docs_root);
@@ -560,7 +580,12 @@ mod tests {
                     .map(|entry| &entry.destination),
             )
         {
-            if entry == crate::domain::paths::CONFIG_PATH || root_seeds.contains(&entry.as_str()) {
+            if entry == crate::domain::paths::CONFIG_PATH
+                || root_seeds.contains(&entry.as_str())
+                || crate::embedded::SKILL_ROOTS
+                    .iter()
+                    .any(|skills| entry.as_str().starts_with(&format!("{skills}/")))
+            {
                 continue;
             }
             assert!(

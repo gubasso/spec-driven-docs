@@ -98,7 +98,7 @@ pub enum Commands {
     Assess(assess::AssessArgs),
     /// Print the license terms this binary carries.
     License(license::LicenseArgs),
-    /// Regenerate the canon checkout's own instance manifest.
+    /// Write the payload record of the canon checkout, an artifact of its tree.
     SelfManifest,
     /// Wire this tool as a consumer's dependency, warn of a newer release, and move its pin.
     SelfDepend(self_depend::SelfDependArgs),

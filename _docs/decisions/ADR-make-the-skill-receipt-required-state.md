@@ -28,4 +28,4 @@ Enforced by `distribution:a-user-scope-receipt-is-required-state` and `distribut
 
 ## Status
 
-Accepted
+Superseded by [ADR-land-the-skills-into-each-instance-at-its-pin](./ADR-land-the-skills-into-each-instance-at-its-pin.md), in part: no verb installs a skill under the home, so only the cleanup reads the receipt.

@@ -58,6 +58,30 @@ pub(crate) fn read_manifest(target: &Utf8Path) -> Result<Manifest, AppError> {
     })
 }
 
+/// Read the record of any schema this binary can read, with the older
+/// schema named where it is one.
+///
+/// # Errors
+///
+/// As [`read_manifest`], except that an older schema is read rather than
+/// refused.
+pub(crate) fn read_manifest_any(target: &Utf8Path) -> Result<(Manifest, Option<u32>), AppError> {
+    let path = target.join(MANIFEST_PATH);
+    if reached_through_symlink(target, Utf8Path::new(MANIFEST_PATH)) {
+        return Err(AppError::ManifestInvalid(
+            "manifest reached through a symlink".to_string(),
+        ));
+    }
+    if !path.is_file() {
+        return Err(AppError::ManifestMissing(path));
+    }
+    let text = std::fs::read_to_string(&path)?;
+    Manifest::parse_any(&text).map_err(|error| match error {
+        ManifestParseError::Invalid(detail) => AppError::ManifestInvalid(detail),
+        other => AppError::ManifestInvalid(other.to_string()),
+    })
+}
+
 fn check_block_entries(block: &str, report: &mut VerifyReport) {
     let mut sdd_entries = 0usize;
     for line in block.lines() {
@@ -184,27 +208,14 @@ fn check_declaration(target: &Utf8Path, manifest: &Manifest, report: &mut Verify
     }
 }
 
-/// Where the canon's own record keeps the artifacts every skill shares.
+/// The manifest must record every projection the profile declares, and
+/// every skill file the payload's inventory lands — an omitted record is an
+/// owned file the verifier would silently stop holding. Applies when the
+/// instance is at this binary's version. Every instance, this repository's
+/// own included, is held to the same obligations: every declared
+/// destination, every skill file, and both integration blocks.
 ///
-/// `sdd self-manifest` records them as managed entries at their authored
-/// paths, and no consumer landing writes anything there, so their presence
-/// is what tells the two layouts apart.
-const CANON_ONLY_ROOT: &str = "skill-shared/";
-
-/// The manifest must record every projection the profile declares — an
-/// omitted record is an owned file the verifier would silently stop
-/// holding. Applies when the instance is at this binary's version, in
-/// whichever of the two layouts the record claims.
-///
-/// The layout is read from what only the canon's self-manifest records: a
-/// managed entry under `skill-shared/`. That recognizes the ordinary canon
-/// and consumer records. It authenticates nothing, because the record is a
-/// file a user can edit, and changing the claimed layout changes which
-/// obligations this check enforces. The canon branch requires the managed
-/// projection sources, the embedded specs, the canon templates, and the
-/// pre-commit block. The consumer branch requires every declared
-/// destination and both integration blocks. Neither set contains the
-/// other, and the canon branch does not require the whole skill inventory.
+/// SATISFIES release:the-canon-is-an-ordinary-instance
 ///
 /// A seed that yields, and that the record does not name, is not owed:
 /// the target root held a file of its set, so the landing did not write it.
@@ -231,54 +242,40 @@ fn check_projection_against(
         .map(|entry| entry.destination.as_str())
         .collect();
 
-    let self_layout = managed
-        .iter()
-        .any(|destination| destination.starts_with(CANON_ONLY_ROOT));
-
-    let mut expected: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
     let mut missing: Vec<String> = Vec::new();
-    if self_layout {
-        for projection in declaration.managed {
-            expected.insert(projection.source.clone());
+    for projection in declaration.managed {
+        let destination = crate::domain::profile::resolve_destination(
+            &projection.destination,
+            manifest.docs_root,
+        );
+        if !managed.contains(destination.as_str()) {
+            missing.push(destination.to_string());
         }
-        for file in crate::embedded::SPECS.files() {
-            if let Some(name) = file.path().as_os_str().to_str() {
-                expected.insert(format!("_docs/specs/{name}"));
+    }
+    match crate::embedded::skill_inventory() {
+        Ok(inventory) => {
+            for file in inventory {
+                if !managed.contains(file.destination.as_str()) {
+                    missing.push(file.destination);
+                }
             }
         }
-        for template in crate::domain::profile::CANON_TEMPLATES.iter() {
-            expected.insert((*template).to_string());
+        Err(error) => report.fail(format!("FAIL the payload's skill inventory: {error}")),
+    }
+    for projection in declaration.adopted {
+        let destination = crate::domain::profile::resolve_destination(
+            &projection.destination,
+            manifest.docs_root,
+        );
+        if adopted.contains(destination.as_str()) {
+            continue;
         }
-        for destination in &expected {
-            if !managed.contains(destination.as_str()) && !adopted.contains(destination.as_str()) {
-                missing.push(destination.clone());
-            }
-        }
-    } else {
-        for projection in declaration.managed {
-            let destination = crate::domain::profile::resolve_destination(
-                &projection.destination,
-                manifest.docs_root,
-            );
-            if !managed.contains(destination.as_str()) {
-                missing.push(destination.to_string());
-            }
-        }
-        for projection in declaration.adopted {
-            let destination = crate::domain::profile::resolve_destination(
-                &projection.destination,
-                manifest.docs_root,
-            );
-            if adopted.contains(destination.as_str()) {
-                continue;
-            }
-            let yielded = projection.yield_set().is_some_and(|set| {
-                set.names()
-                    .any(|name| present_at_root.iter().any(|held| held == name))
-            });
-            if !yielded {
-                missing.push(destination.to_string());
-            }
+        let yielded = projection.yield_set().is_some_and(|set| {
+            set.names()
+                .any(|name| present_at_root.iter().any(|held| held == name))
+        });
+        if !yielded {
+            missing.push(destination.to_string());
         }
     }
     for destination in missing {
@@ -286,19 +283,12 @@ fn check_projection_against(
             "FAIL manifest omits a declared projection: {destination}"
         ));
     }
-    // Every installed instance carries both integration blocks. The canon's
-    // own layout carries the pre-commit block, which `just hooks` renders;
-    // its root AGENTS.md is release-kit-owned and outside this projection.
-    let required: &[&str] = if self_layout {
-        &[HOOKS_CONFIG_PATH]
-    } else {
-        &[HOOKS_CONFIG_PATH, AGENTS_DIGEST_PATH]
-    };
-    for path in required {
+    // Every instance carries both integration blocks.
+    for path in [HOOKS_CONFIG_PATH, AGENTS_DIGEST_PATH] {
         if !manifest
             .integration_blocks
             .iter()
-            .any(|block| block.path.as_str() == *path)
+            .any(|block| block.path.as_str() == path)
         {
             report.fail(format!(
                 "FAIL manifest records no integration block for {path}"
@@ -315,7 +305,9 @@ fn check_projection_against(
 /// record itself cannot be trusted, and I/O errors when the disk cannot be
 /// read; recorded-versus-disk differences are reported, not raised.
 pub fn verify(target: &Utf8Path) -> Result<VerifyReport, AppError> {
-    let manifest = read_manifest(target)?;
+    // An older schema is judged for what it records; the version gate
+    // warns that `sdd upgrade` moves it.
+    let (manifest, _) = read_manifest_any(target)?;
     let released = &*crate::domain::profile::DECLARATION;
     let mut report = VerifyReport::default();
 
@@ -378,19 +370,9 @@ pub fn verify(target: &Utf8Path) -> Result<VerifyReport, AppError> {
         report.note(reconciliation.note(manifest.docs_root));
     }
 
-    let current = CanonVersion::current();
-    if manifest.canon_version > current {
-        report.fail(format!(
-            "FAIL sdd {current} is older than the installed canon {}; upgrade sdd",
-            manifest.canon_version
-        ));
-    } else if manifest.canon_version < current {
-        report.note(format!(
-            "note: sdd {current} is newer than the installed canon {}; run 'sdd upgrade'",
-            manifest.canon_version
-        ));
-    }
-
+    // The version gate owns the version text: it refuses a record newer than
+    // this binary before verification runs, and warns on stderr where the
+    // binary is newer.
     if report.failures == 0 {
         report.note(format!(
             "OK spec-driven-docs {} at {target}",
@@ -796,14 +778,53 @@ mod tests {
         );
     }
 
+    /// VERIFIES release:the-canon-is-an-ordinary-instance
+    ///
+    /// This repository's own record is held like any instance's: it owes
+    /// every skill entry and both integration blocks.
     #[test]
-    fn the_canon_record_is_read_as_the_canon() {
+    fn verify_holds_the_canon_to_the_instance_obligations() {
         let text =
             std::fs::read_to_string(Utf8Path::new(env!("CARGO_MANIFEST_DIR")).join(MANIFEST_PATH))
                 .unwrap();
         let mut manifest = Manifest::parse(&text).unwrap();
         manifest.canon_version = CanonVersion::current();
+        // This repository keeps its own root lint configuration, so the root
+        // seed yielded, as it does in any instance that holds one.
+        let failures = |manifest: &Manifest| {
+            let mut report = VerifyReport::default();
+            check_projection_against(
+                &DECLARATION,
+                manifest,
+                &[".markdownlint-cli2.jsonc".to_string()],
+                &mut report,
+            );
+            report.lines
+        };
         assert!(failures(&manifest).is_empty(), "{:?}", failures(&manifest));
+
+        let mut without_skill = manifest.clone();
+        without_skill
+            .managed_files
+            .retain(|entry| entry.destination != ".claude/skills/sdd-setup/SKILL.md");
+        assert!(
+            failures(&without_skill).iter().any(|line| line
+                == "FAIL manifest omits a declared projection: .claude/skills/sdd-setup/SKILL.md"),
+            "{:?}",
+            failures(&without_skill)
+        );
+
+        let mut without_block = manifest;
+        without_block
+            .integration_blocks
+            .retain(|block| block.path != AGENTS_DIGEST_PATH);
+        assert!(
+            failures(&without_block)
+                .iter()
+                .any(|line| line.contains("no integration block for AGENTS.md")),
+            "{:?}",
+            failures(&without_block)
+        );
     }
 
     #[test]
@@ -819,11 +840,10 @@ mod tests {
         );
     }
 
-    /// The marker recognizes a layout and authenticates nothing: a record
-    /// that claims the canon layout is held to the canon's obligations, and
-    /// those do not include the `AGENTS.md` block.
+    /// No entry moves a record to other obligations: a record carrying a
+    /// managed entry under `skill-shared/` still owes the AGENTS.md block.
     #[test]
-    fn a_claimed_canon_layout_changes_which_obligations_are_held() {
+    fn no_entry_selects_another_layout() {
         let mut manifest = consumer(ProfileId::KnowledgeBase);
         manifest
             .integration_blocks
@@ -835,25 +855,9 @@ mod tests {
         assert!(
             lines
                 .iter()
-                .any(|line| line
-                    .contains("omits a declared projection: _docs/specs/SPEC-release.md")),
-            "the canon branch owes the canon-only specs: {lines:?}"
+                .any(|line| line.contains("no integration block for AGENTS.md")),
+            "{lines:?}"
         );
-
-        for projection in &DECLARATION.managed {
-            manifest.managed_files.push(managed(&projection.source));
-        }
-        for file in crate::embedded::SPECS.files() {
-            let name = file.path().to_str().unwrap();
-            manifest
-                .managed_files
-                .push(managed(&format!("_docs/specs/{name}")));
-        }
-        for template in crate::domain::profile::CANON_TEMPLATES.iter() {
-            manifest.managed_files.push(managed(template));
-        }
-        let lines = failures(&manifest);
-        assert!(lines.is_empty(), "{lines:?}");
     }
 
     #[test]

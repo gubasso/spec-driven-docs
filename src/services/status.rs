@@ -28,7 +28,7 @@ use crate::services::verifier;
 /// `classification`, whose `needs-decision` no earlier reader knew. Schema
 /// 5 added `migration`, and `classification` reads `migration` over a
 /// landed instance while one is open, which no earlier reader expected.
-pub const SCHEMA: &str = "sdd.status/5";
+pub const SCHEMA: &str = "sdd.status/6";
 
 /// How an instance's canon version relates to this binary's.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -108,7 +108,12 @@ fn proposals(target: &Utf8Path, env: &UserEnv) -> paths::Proposals {
 /// Every path, with no instance recorded.
 fn derived_paths(target: &Utf8Path, env: &UserEnv) -> Paths {
     Paths {
-        user: env.user_paths(),
+        user: env.user_paths().map(|user| {
+            let legacy = env
+                .legacy_state_root()
+                .map(|root| root.join(crate::domain::paths::SKILL_RECEIPT_FILE));
+            user.with_skill_entries_while_a_receipt_exists(legacy.as_deref())
+        }),
         active: None,
         candidates: paths::candidates(),
         proposals: proposals(target, env),

@@ -13,10 +13,10 @@ This repository is the canonical knowledge product for spec-driven documentation
 ## Ownership boundaries
 
 - `method/`, `comparison-docs/`, `templates/`, `reference/`, and `skills/` are canon product files.
-- `src/` is the distribution: the `sdd` binary embeds the payload at compile time from the authored paths, so canon and binary cannot drift. The payload is spec seeds, templates, the documentation-root lint configuration `_docs/.markdownlint-cli2.jsonc`, `instance/`, `skills/`, and `method/`.
-- `skill-shared/` is the one authored source of what every skill shares. The installer materializes it into every skill package as `references/<file>`, so a skill names a gate by a path relative to its own root and a fix still lands in one file. The plan gate every skill routes to lives there.
+- `src/` is the distribution: the `sdd` binary embeds the payload at compile time from the authored paths, so canon and binary cannot drift. The payload is the canon-only specs, templates, `instance/`, `skills/`, and `method/`. A payload source that an instance also holds sits under `instance/payload/`, such as the adoptable specs and the documentation-root lint configuration, so it never shares a path with this repository's own instance.
+- `skill-shared/` is the one authored source of what every skill shares. The landing materializes it into every skill package as `references/<file>`, so a skill names a gate by a path relative to its own root and a fix still lands in one file. The plan gate every skill routes to lives there.
 - The delivered gate set is declared once, in the registry in `src/gates.rs`. The managed block an instance receives is rendered from the registry at install time and committed nowhere, so there is no copy to hold equal. This repository publishes no `.pre-commit-hooks.yaml`: the gates serve instances, not repositories that reference them remotely.
-- This repository is an instance of itself whose managed region no installer wrote: `just hooks` applies the same render with the entry prefix `cargo run -q --`, and a cargo test holds the region to it. Hooks only this repository runs sit outside the markers.
+- This repository is an ordinary instance of itself, landed and upgraded by the previous release that the devshell pins, as rustc builds with its stage0 compiler (`release:the-canon-runs-its-previous-release`). `just hooks` renders the managed region with that `sdd`. The sdd built from the tree runs only under test and to write the payload record, and `the_tree_gates_pass_on_the_canon` runs the gates under development over the canon. Hooks only this repository runs sit outside the markers.
 - Checks of invariants only this repository has (the license split, version alignment) are cargo tests under `tests/`, never delivered (ADR-split-gates-by-delivery-domain).
 - `_docs/specs/`, `_docs/decisions/`, marker-delimited integrations, and the debt file `SPEC-budget-debt.md` governs are local overlays after installation.
 - Keep each durable fact in one owner and link to it elsewhere.
@@ -38,7 +38,7 @@ This repository is the canonical knowledge product for spec-driven documentation
 - Rust follows the exobrain CLI conventions: clap derive in `src/cli/`, one handler per subcommand in `src/commands/`, typed errors with a tested exit-code matrix in `src/error.rs`.
 - Every gate change lands with its unit tests, and every failure message a gate prints cites a rule ID that a spec defines. The registry test holds the citable set to the specs.
 - Run `just check` before handoff. It lints, tests, and installs into a scratch target.
-- Run `just manifest` after editing the declaration or anything the canon manifest records: `_docs/.markdownlint-cli2.jsonc`, `_docs/specs/`, the recorded templates, or the managed pre-commit block. It applies the managed region first, then regenerates the record. `sdd verify` reports the omission as a note rather than a failure, because an instance owns its adopted files. Here `release:the-canon-record-describes-its-tree` fails instead.
+- Run `just manifest` after editing any payload source. It writes `instance/payload-manifest.json` with the sdd of the tree, and `release:the-payload-record-describes-its-tree` fails without it. Edit a payload spec under `instance/payload/_docs/specs/`, and port the change into its adopted copy under `_docs/specs/` in the same change, as an instance ports a shipped spec.
 - `Cargo.toml` is the release source of truth. Write Conventional Commits, and release-plz derives the version, the changelog, and the tag. Never author a tag: `_docs/guides/release.md` owns the sequence.
 - The forge setup is complete, `install-bot` included. `rk setup check` reads `install-bot` as unknown on every host that lacks the App key `.envrc.local` names. That result is expected, so never report it as a gap and never ask for the key. `_docs/guides/release-setup.md` owns the setup.
 - Manage dependencies through cargo (`cargo add`, `cargo remove`, `cargo update`). Never hand-edit versions in `Cargo.toml`.
@@ -76,3 +76,16 @@ This repository is the canonical knowledge product for spec-driven documentation
 - The full method is `rk method --list`. The recovery paths are `rk method recovery`.
 
 <!-- END release-kit -->
+
+<!-- BEGIN spec-driven-docs docs -->
+## Documentation
+
+- Load the affected specs before editing governed content: `_docs/specs/SPEC-<domain>.md`. <!-- markdownlint-disable-line MD013 -->
+- Treat decision records as immutable rationale and load them only when asked why. <!-- markdownlint-disable-line MD013 -->
+- Read the writing style before you author or edit prose: `sdd method writing-style`. <!-- markdownlint-disable-line MD013 -->
+- Write and edit step-by-step guides to the adopted guides spec, `_docs/specs/SPEC-guides.md`. <!-- markdownlint-disable-line MD013 -->
+- Name a document by a slug drawn from its subject, never by a number. Where its directory holds documents with no kind prefix, give that directory a `README.md` saying what it holds and what each document covers. <!-- markdownlint-disable-line MD013 -->
+- For a question about this method or about operating `sdd`, run `sdd docs` and read only the topic it names. <!-- markdownlint-disable-line MD013 -->
+- Run `sdd verify` before handoff. <!-- markdownlint-disable-line MD013 -->
+- Keep adopted specs, the tracking registry, and local integration instance-owned. <!-- markdownlint-disable-line MD013 -->
+<!-- END spec-driven-docs docs -->
