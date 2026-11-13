@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.0](https://github.com/gubasso/spec-driven-docs/compare/v0.16.1...v0.17.0) - 2026-11-13
+
+### Added
+
+- *(self-depend)* [**breaking**] Warn of a newer release instead of moving the pin
+
+#### Adopter note
+
+This release changes what the `.envrc` line of `sdd self-depend` does, and it carries two breaks.
+
+- `sdd self-depend sync --caller envrc` is now a usage error (exit 64) that names `sdd self-depend check`. The default caller of `sdd self-depend sync` is now the operator, so `sdd self-depend sync --apply` moves the pin when a person runs it. Where `DIRENV_IN_ENVRC` is set, in an `.envrc` evaluation or under `direnv exec`, sync moves nothing, warns, and exits 1. Run it from the loaded shell, or with `nix develop -c sdd self-depend sync --apply`. A landed old line `sdd self-depend sync --apply || true` still loads the shell, because `|| true` absorbs the exit 1.
+- `sdd self-depend sync --json` declares `sdd.self-depend-sync/2`. The outcomes `off`, `unwired`, and `stamped` are gone, and `inside-envrc` is new. `CI` and `SDD_SELF_DEPEND_OFF` no longer stop a sync. A target with no pin is now a usage error. No daily stamp remains. `sdd self-depend status --json` declares `sdd.self-depend-status/2`: `envrc_check`, `envrc_old_line`, and `check` replace `envrc_sync` and `stamp`, and the state `old-line` is new. `sdd self-depend clean --json` declares `sdd.self-depend-clean/2`, with `swaps` and `stamps`.
+- The shell-entry line is now `sdd self-depend check || true`. It warns on stderr when a newer release is out. It reads the network at most once every seven days, or one hour after a failure, writes no file but its cache under `$XDG_CACHE_HOME/spec-driven-docs/`, and exits 0. `CI` and `SDD_SELF_DEPEND_OFF` stop the check.
+
+To move a landed project:
+
+1. Run `sdd self-depend status --target . --json`. The state `old-line` means `.envrc` still runs `sdd self-depend sync --apply || true`.
+2. Move the pin first, from the loaded shell: `sdd self-depend sync --apply`. Review and commit the diff.
+3. Run `sdd self-depend clean --target .` to preview the swap. Then run `sdd self-depend clean --target . --apply`. It replaces the old line with `sdd self-depend check || true`, or removes the old line where the check line is already there. It keeps every other line byte for byte, and it removes the retired daily stamps `*.stamp` under `$XDG_STATE_HOME/spec-driven-docs/self-depend/`.
+4. Run step 1 again until the state reads `ready`, and commit `.envrc`.
+
 ## [0.16.1](https://github.com/gubasso/spec-driven-docs/compare/v0.16.0...v0.16.1) - 2026-11-12
 
 ### Fixed
