@@ -195,6 +195,38 @@ fn status_exits_zero_for_every_state_it_reports() {
     assert_eq!(report["managers"][0]["version"], "0.10.1");
 }
 
+/// A dependency that brings its own input on this tool can hold the plain
+/// node name in `flake.lock`, so the project's own input reads another
+/// name. Status reads the revision of the node the root input resolves to.
+#[test]
+fn status_reads_the_lock_through_the_root_input() {
+    let (owner, repo) = coordinates();
+    let fixture = Fixture::new();
+    fixture.write("flake.nix", &flake_pinned("0.10.1"));
+    let node = |rev: &str| {
+        format!(
+            "{{\"locked\":{{\"rev\":\"{rev}\",\"type\":\"github\"}},\"original\":{{\"owner\":\"{owner}\",\"repo\":\"{repo}\",\"type\":\"github\"}}}}"
+        )
+    };
+    fixture.write(
+        "flake.lock",
+        &format!(
+            "{{\"nodes\":{{\"dependency\":{{\"inputs\":{{\"spec-driven-docs\":\"spec-driven-docs\"}}}},\"spec-driven-docs\":{},\"spec-driven-docs_2\":{},\"root\":{{\"inputs\":{{\"dependency\":\"dependency\",\"docs-tool\":\"spec-driven-docs_2\"}}}}}},\"root\":\"root\",\"version\":7}}\n",
+            node("nested"),
+            node("own")
+        ),
+    );
+    let report = json(sdd(&fixture).args([
+        "self-depend",
+        "status",
+        "--target",
+        &fixture.target(),
+        "--json",
+    ]));
+    assert_eq!(report["managers"][0]["lock"], "present");
+    assert_eq!(report["managers"][0]["locked_rev"], "own");
+}
+
 /// The setup skill offers the wire from `wired` and `envrc_check` alone, so
 /// the three states it branches on are held here: nothing wired, wired
 /// with the line absent, and wired with the line landed.

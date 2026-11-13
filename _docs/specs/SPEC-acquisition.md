@@ -93,7 +93,7 @@ Verify: `cargo nextest run -E 'binary(cmd_self_depend)'`
 
 ### `acquisition:the-pin-moves-in-one-transaction` — The pin moves in one transaction
 
-Where the manager records two facts, `sync` MUST move the tag and the locked node together or move neither, restoring both files byte-identical on any failure. Where the manager records one fact, it MUST move that one fact in place. The flake input MUST be found by the URL it names, never by the input's name.
+Where the manager records two facts, `sync` MUST move the tag and the locked node together or move neither, restoring both files byte-identical on any failure. Where the manager records one fact, it MUST move that one fact in place. The flake input MUST be found by the URL it names, never by the input's name, and its locked node is the node that the root's input resolves to in `flake.lock`, never a node that another input nests.
 
 #### Scenario: The lock refresh fails
 

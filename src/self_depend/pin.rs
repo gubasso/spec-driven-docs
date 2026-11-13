@@ -139,24 +139,60 @@ pub fn rewrite(manager: Manager, text: &str, to: &Version) -> Result<(String, Pi
     Ok((moved, held))
 }
 
+/// The deepest chain of follows paths [`input_node`] walks before it gives
+/// up: a lock that loops reads as one naming no input.
+const MAX_FOLLOWS: usize = 32;
+
 /// The revision `flake.lock` holds for this tool's input, where it holds one.
+///
+/// A lock names a node after the input that first introduced it, so a
+/// dependency's own input on this tool can hold the plain name while the
+/// project's input reads `spec-driven-docs_2`. The root node, which the
+/// lock's `root` key names, is the one owner of the project's inputs, so
+/// the revision is read from the node one of its inputs resolves to. That
+/// input is found by the repository its node names, never by its name.
 #[must_use]
 pub fn locked_rev(lock: &str) -> Option<String> {
     let value: serde_json::Value = serde_json::from_str(lock).ok()?;
     let (owner, repo) = crate::self_depend::coordinates();
-    let nodes = value.get("nodes")?.as_object()?;
-    nodes.values().find_map(|node| {
-        let original = node.get("original")?;
+    let nodes = &value["nodes"];
+    let root = value["root"].as_str().unwrap_or("root");
+    let inputs = nodes[root]["inputs"].as_object()?;
+    inputs.keys().find_map(|input| {
+        let name = input_node(nodes, root, root, input, 0)?;
+        let node = &nodes[name.as_str()];
+        let original = &node["original"];
         let same = |key: &str, want: &str| {
-            original
-                .get(key)
-                .and_then(serde_json::Value::as_str)
+            original[key]
+                .as_str()
                 .is_some_and(|held| held.eq_ignore_ascii_case(want))
         };
         (same("owner", owner) && same("repo", repo))
-            .then(|| node.get("locked")?.get("rev")?.as_str().map(str::to_string))
+            .then(|| node["locked"]["rev"].as_str().map(str::to_string))
             .flatten()
     })
+}
+
+/// The node one input of `node` resolves to. The input names a node, or
+/// holds a follows path: a list of input names walked from the root node.
+fn input_node(
+    nodes: &serde_json::Value,
+    root: &str,
+    node: &str,
+    input: &str,
+    depth: usize,
+) -> Option<String> {
+    match &nodes[node]["inputs"][input] {
+        serde_json::Value::String(name) => Some(name.clone()),
+        serde_json::Value::Array(path) if depth < MAX_FOLLOWS => {
+            let mut at = root.to_owned();
+            for step in path {
+                at = input_node(nodes, root, &at, step.as_str()?, depth + 1)?;
+            }
+            Some(at)
+        }
+        _ => None,
+    }
 }
 
 /// The name of the flake input whose URL names this tool.
@@ -292,5 +328,60 @@ mod tests {
         );
         assert_eq!(locked_rev(&lock).as_deref(), Some("abc123"));
         assert_eq!(locked_rev("{\"nodes\":{}}"), None);
+    }
+
+    /// A node that names this tool's repository, locked at `rev`.
+    fn node(rev: &str) -> String {
+        let (owner, repo) = crate::self_depend::coordinates();
+        format!(
+            "{{\"locked\":{{\"rev\":\"{rev}\"}},\"original\":{{\"owner\":\"{owner}\",\"repo\":\"{repo}\",\"type\":\"github\"}}}}"
+        )
+    }
+
+    #[test]
+    fn a_nested_node_does_not_shadow_the_root_input() {
+        let lock = format!(
+            "{{\"nodes\":{{\"exobrain-tech\":{{\"inputs\":{{\"spec-driven-docs\":\"spec-driven-docs\"}}}},\"spec-driven-docs\":{},\"spec-driven-docs_2\":{},\"top\":{{\"inputs\":{{\"exobrain-tech\":\"exobrain-tech\",\"sdd\":\"spec-driven-docs_2\"}}}}}},\"root\":\"top\",\"version\":7}}",
+            node("nested"),
+            node("own")
+        );
+        assert_eq!(locked_rev(&lock).as_deref(), Some("own"));
+    }
+
+    #[test]
+    fn a_followed_root_input_resolves_through_its_path() {
+        let lock = format!(
+            "{{\"nodes\":{{\"exobrain-tech\":{{\"inputs\":{{\"spec-driven-docs\":\"spec-driven-docs_2\"}}}},\"spec-driven-docs_2\":{},\"root\":{{\"inputs\":{{\"exobrain-tech\":\"exobrain-tech\",\"sdd\":[\"exobrain-tech\",\"spec-driven-docs\"]}}}}}},\"root\":\"root\",\"version\":7}}",
+            node("followed")
+        );
+        assert_eq!(locked_rev(&lock).as_deref(), Some("followed"));
+        let chained = format!(
+            "{{\"nodes\":{{\"a\":{{\"inputs\":{{\"tool\":[\"b\",\"tool\"]}}}},\"b\":{{\"inputs\":{{\"tool\":\"tool_3\"}}}},\"tool_3\":{},\"root\":{{\"inputs\":{{\"a\":\"a\",\"b\":\"b\",\"sdd\":[\"a\",\"tool\"]}}}}}},\"version\":7}}",
+            node("chained")
+        );
+        assert_eq!(locked_rev(&chained).as_deref(), Some("chained"));
+    }
+
+    #[test]
+    fn a_looped_or_broken_follows_path_names_no_input() {
+        let looped = format!(
+            "{{\"nodes\":{{\"spec-driven-docs\":{},\"root\":{{\"inputs\":{{\"sdd\":[\"sdd\"]}}}}}},\"version\":7}}",
+            node("never")
+        );
+        assert_eq!(locked_rev(&looped), None, "a loop names no input");
+        let broken = format!(
+            "{{\"nodes\":{{\"spec-driven-docs\":{},\"root\":{{\"inputs\":{{\"sdd\":[\"absent\",\"sdd\"]}}}}}},\"version\":7}}",
+            node("never")
+        );
+        assert_eq!(locked_rev(&broken), None);
+    }
+
+    #[test]
+    fn a_node_the_root_does_not_reach_is_not_the_project_input() {
+        let lock = format!(
+            "{{\"nodes\":{{\"spec-driven-docs\":{},\"root\":{{\"inputs\":{{\"nixpkgs\":\"nixpkgs\"}}}},\"nixpkgs\":{{\"locked\":{{\"rev\":\"n1\"}}}}}},\"version\":7}}",
+            node("stray")
+        );
+        assert_eq!(locked_rev(&lock), None);
     }
 }
