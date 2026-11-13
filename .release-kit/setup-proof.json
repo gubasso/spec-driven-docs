@@ -1,7 +1,7 @@
 {
   "schema": "rk.setup-proof/1",
-  "rk_version": "0.9.8",
-  "verified_at": "2026-11-11T20:12:50Z",
+  "rk_version": "0.9.15",
+  "verified_at": "2026-11-13T14:52:19Z",
   "subject": {
     "target": {
       "bot_app_id": "",
@@ -16,7 +16,6 @@
       "release_lines": "false",
       "repo": "gubasso/spec-driven-docs",
       "required_check": "test",
-      "required_workflow": "ci",
       "retired_branches": "[\"main\",\"develop\"]",
       "safety_ruleset": "master-safety",
       "tag_ruleset": "release-tags",
@@ -105,11 +104,9 @@
         "stance": "applicable"
       },
       {
-        "name": "auto-merge",
-        "proves": "a request may merge itself once its required checks pass",
-        "prerequisites": [
-          "default-branch"
-        ],
+        "name": "merge-on-order",
+        "proves": "no release request stands armed to merge itself",
+        "prerequisites": [],
         "stance": "applicable"
       },
       {
@@ -126,7 +123,7 @@
       }
     ]
   },
-  "subject_digest": "12eddbf821f266fa6bc8baae14b8293c677b6e7fed0f7ab03898cf07f477f48b",
+  "subject_digest": "c2da5d861d12e04d594da02c9788b650bb1719fe56459e544a84dc58ab466ede",
   "steps": [
     {
       "name": "package-check",
@@ -177,7 +174,7 @@
       "state": "skipped"
     },
     {
-      "name": "auto-merge",
+      "name": "merge-on-order",
       "state": "satisfied"
     },
     {

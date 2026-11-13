@@ -1,6 +1,6 @@
 {
   "schema_version": 12,
-  "rk_version": "0.9.12",
+  "rk_version": "0.9.15",
   "origin": "init",
   "landed_at": "2026-09-02T20:44:07Z",
   "profile": {
@@ -31,30 +31,29 @@
     "repo": "gubasso/spec-driven-docs",
     "security_contact": "",
     "security_response": "best-effort",
-    "required_check": "test",
-    "required_workflow": "ci"
+    "required_check": "test"
   },
   "files": [
     {
       "destination": ".github/workflows/pr-title.yml",
       "kind": "rendered",
-      "sha256": "972336ac17d76fa11d785a8dfb381b3bdc7dc8af318ae9225a4855c08bc1b13c"
+      "sha256": "0ee43c01d0036757935e4398d4c793b925ce37cbdef78baee48a8d7f0bd7146e"
     },
     {
       "destination": ".github/workflows/release-plz.yml",
       "kind": "rendered",
-      "sha256": "e348c6cf8b45d3aa62ca5871a8ee4cb7dc2baa854cb7d22eb55db828de06a7cc"
+      "sha256": "58eb5cb6cbab8c1992ee4ae7e177c7e13167873182c31e4a1f989d22dbed6a13"
     },
     {
       "destination": ".pre-commit-config.yaml",
       "kind": "rendered",
-      "sha256": "0b70e0e8d8345931cee5064c0bf7bc1f7680f7d7c9df1edb5b86a12233d996e9",
+      "sha256": "6af1a9b4f22433dff5c8401adf982bbab2ac1f70b675d9a6464055a3c1529746",
       "placement": "region"
     },
     {
       "destination": "AGENTS.md",
       "kind": "rendered",
-      "sha256": "68aff6f88f758755ce2d066d6bcbdba5562589bdc7945db4e6e8cab3ef1ae5c3",
+      "sha256": "efb65372771a20c77cba5a4f6c04b89c3464df4ce4843073360eea54345b22db",
       "placement": "region"
     },
     {

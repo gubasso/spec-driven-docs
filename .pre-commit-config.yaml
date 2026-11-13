@@ -2,7 +2,7 @@
 # configuration accepts
 # (https://prek.j178.dev/reference/configuration/#minimum_prek_version).
 minimum_prek_version: "0.5.7"
-default_install_hook_types: [pre-commit, commit-msg, pre-push]
+default_install_hook_types: [pre-commit, commit-msg, pre-push, pre-merge-commit]
 # The node hook runs on the devshell nodejs. With `system`, prek takes a
 # node from outside its own store and downloads none
 # (https://prek.j178.dev/reference/language-support/, prek 0.5.7,
@@ -11,27 +11,29 @@ default_language_version:
   node: system
 # The commit stage and the push stage together run every check of ci.yml,
 # and the push stage carries only the costly checks, so a hook that names no
-# stage runs at commit and in the manual stage rk integrate runs, never again
+# stage runs at commit and in the pre-merge-commit hook rk integrate runs, never again
 # at push (release:the-local-hooks-run-every-check-of-ci). A remote manifest
 # that declares its own stages wins over this default, so those hooks below
 # name theirs.
-default_stages: [pre-commit, manual]
+default_stages: [pre-commit, pre-merge-commit]
 
 repos:
 # BEGIN release-kit
-# The release convention's hooks. Install every stage they run at, with
-# the hook runner on PATH, prek or pre-commit, which take the same flags:
-# prek install --hook-type pre-commit --hook-type commit-msg --hook-type pre-push
-# A CI sweep commits nothing, so a job running the hook runner against a trunk
-# checkout sets SKIP=no-commit-to-branch,rk-worktree-location in its environment. Append the id of
-# every check this project classifies local-only: the value is a list the
-# project owns the tail of.
-# rk integrate runs this project's pre-integrate suite as
-# `prek run --hook-stage manual --all-files`, or as `pre-commit run` with
-# the same arguments where prek is not on PATH. Assign to the manual
-# stage every check that must pass before work reaches the trunk, and have
-# continuous integration invoke the same stages: a check that runs on one
-# side of the boundary alone guards one side alone.
+# The release convention's hooks. Install every stage they run at with
+# the hook manager this project uses, for example:
+# prek install --hook-type pre-commit --hook-type commit-msg --hook-type pre-push --hook-type pre-merge-commit
+# A CI sweep commits nothing, so a job running the project's hook manager
+# against a trunk checkout sets SKIP=no-commit-to-branch,rk-worktree-location in its environment.
+# Append the id of every check this project classifies local-only: the
+# value is a list the project owns the tail of.
+# rk integrate runs this clone's pre-merge-commit hook through git, on the
+# change the integration squashes, and refuses where none is installed.
+# Tag pre-merge-commit on every check that must pass before work reaches
+# the trunk, and add it to default_stages where this file sets them. Have
+# continuous integration invoke the same checks: a check that runs on one
+# side of the boundary alone guards one side alone. prek runs each nested
+# .pre-commit-config.yaml as a project of its own, so a project that runs
+# prek lists a directory of fixtures in a root .prekignore.
   - repo: https://github.com/compilerla/conventional-pre-commit
     rev: v4.5.0
     hooks:
@@ -58,7 +60,7 @@ repos:
         language: system
         always_run: true
         pass_filenames: false
-        entry: sh -c 'branch=$(git symbolic-ref --quiet --short HEAD) || exit 0; [ "$branch" = master ] && exit 0; printf %s "$branch" | grep -Eq "^((build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)/[A-Za-z0-9._/-]+|([0-9]+|[A-Z][A-Z0-9]+-[0-9]+)-[A-Za-z0-9._-]+|release[-/].+)$" && exit 0; echo "branch $branch is neither <type>/<slug> nor <issue-id>-<slug>; gh issue develop <issue> --checkout or its glab counterpart mints the linked form" >&2; exit 1'
+        entry: sh -c 'branch=$(git symbolic-ref --quiet --short HEAD) || exit 0; [ "$branch" = master ] && exit 0; printf %s "$branch" | grep -Eq "^((build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)/[A-Za-z0-9._/-]+|([0-9]+|[A-Z][A-Z0-9]+-[0-9]+)-[A-Za-z0-9._-]+|release[-/].+|rk-release/.+)$" && exit 0; echo "branch $branch is neither <type>/<slug> nor <issue-id>-<slug>; gh issue develop <issue> --checkout or its glab counterpart mints the linked form" >&2; exit 1'
       - id: rk-worktree-location
         name: rk worktree location
         language: system
@@ -71,7 +73,7 @@ repos:
         language: system
         always_run: true
         pass_filenames: false
-        entry: sh -c '[ "$PRE_COMMIT_REMOTE_BRANCH" = refs/heads/master ] || exit 0; tracked=$(git rev-parse --verify --quiet "refs/remotes/$PRE_COMMIT_REMOTE_NAME/master"); for base in "$PRE_COMMIT_FROM_REF" "$tracked"; do case "$base" in "") continue;; *[!0]*) ;; *) continue;; esac; git merge-base --is-ancestor "$base" "$PRE_COMMIT_TO_REF" 2>/dev/null && continue; echo "refusing a force push to master, because $base is not an ancestor of the pushed tip; rebase onto the remote trunk instead of rewriting it" >&2; exit 1; done'
+        entry: sh -c '[ "$PRE_COMMIT_REMOTE_BRANCH" = refs/heads/master ] || exit 0; listed=$(git ls-remote "${PRE_COMMIT_REMOTE_URL:-$PRE_COMMIT_REMOTE_NAME}" refs/heads/master) || { echo "the remote master cannot be read, so a push to it is refused" >&2; exit 1; }; remote=${listed%%[[:space:]]*}; tracked=$(git rev-parse --verify --quiet "refs/remotes/$PRE_COMMIT_REMOTE_NAME/master"); for base in "$remote" "$PRE_COMMIT_FROM_REF" "$tracked"; do case "$base" in "") continue;; *[!0]*) ;; *) continue;; esac; git cat-file -e "$base^{commit}" 2>/dev/null || { echo "refusing a force push to master, because the remote holds $base, which this clone has not fetched; fetch, then rebase onto the remote trunk" >&2; exit 1; }; git merge-base --is-ancestor "$base" "$PRE_COMMIT_TO_REF" 2>/dev/null && continue; echo "refusing a force push to master, because $base is not an ancestor of the pushed tip; rebase onto the remote trunk instead of rewriting it" >&2; exit 1; done'
       - id: rk-no-merge-commit-to-trunk
         name: rk no merge commit to trunk
         stages: [pre-push]
@@ -91,7 +93,7 @@ repos:
         language: system
         pass_filenames: false
         entry: rk status --check --target .
-        files: '^(\.github/workflows/|\.gitlab-ci\.yml$|\.gitlab/ci/|AGENTS\.md$|\.release-kit/|\.pre-commit-config\.yaml$|release-plz\.toml$|dist-workspace\.toml$|release-please-config\.json$|cliff\.toml$|\.release-please-manifest\.json$|VERSION$)'
+        files: '^(\.github/workflows/|\.gitlab-ci\.yml$|\.gitlab/ci/|AGENTS\.md$|\.release-kit/|\.pre-commit-config\.yaml$|release-plz\.toml$|dist-workspace\.toml$|cliff\.toml$|VERSION$)'
 # END release-kit
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
@@ -106,22 +108,22 @@ repos:
       # own configuration: dprint.json, .markdownlint-cli2.jsonc, _typos.toml,
       # and .editorconfig-checker.json. The reading hooks keep every one.
       - id: trailing-whitespace
-        stages: [pre-commit, manual]
+        stages: [pre-commit, pre-merge-commit]
         args: [--markdown-linebreak-ext=md]
         exclude: &generated '^(CHANGELOG\.md|SECURITY\.md|\.github/workflows/(pr-title|release-plz|release)\.yml|\.release-kit/manifest\.json|\.spec-driven-docs/manifest\.json|Cargo\.lock|flake\.lock)$'
       - id: end-of-file-fixer
-        stages: [pre-commit, manual]
+        stages: [pre-commit, pre-merge-commit]
         exclude: *generated
       - id: mixed-line-ending
         args: [--fix=lf]
         exclude: *generated
       - id: check-added-large-files
-        stages: [pre-commit, manual]
+        stages: [pre-commit, pre-merge-commit]
         args: ['--maxkb=16384']
       - id: check-case-conflict
       - id: check-merge-conflict
       - id: destroyed-symlinks
-        stages: [pre-commit, manual]
+        stages: [pre-commit, pre-merge-commit]
       - id: check-yaml
       - id: check-toml
       - id: detect-private-key
@@ -179,14 +181,14 @@ repos:
         language: system
         files: '^(instance/manifest\.schema\.json|\.spec-driven-docs/manifest\.json)$'
         pass_filenames: false
-      # The costly checks run at push, and in the manual stage rk integrate
+      # The costly checks run at push, and in the pre-merge-commit hook rk integrate
       # runs, so a push that passed its hooks passes CI.
       # owner: devshell (project-environment) cargo deny is a cargo subcommand that reads the lock file of the crate.
       - id: cargo-deny
         name: cargo deny
         entry: cargo deny check
         language: system
-        stages: [pre-push, manual]
+        stages: [pre-push, pre-merge-commit]
         always_run: true
         pass_filenames: false
       # owner: devshell (project-environment) the just recipe builds sdd and installs it into a scratch repository.
@@ -194,7 +196,7 @@ repos:
         name: install into a scratch repository and verify it
         entry: just build
         language: system
-        stages: [pre-push, manual]
+        stages: [pre-push, pre-merge-commit]
         always_run: true
         pass_filenames: false
       # nix flake check builds only the checks output, so the package is
@@ -205,7 +207,7 @@ repos:
         name: nix build of the package
         entry: nix build .#default --no-link
         language: system
-        stages: [pre-push, manual]
+        stages: [pre-push, pre-merge-commit]
         always_run: true
         pass_filenames: false
       # owner: host (no-hook-language) nix comes from the host and has no hook in a language that pre-commit builds.
@@ -213,7 +215,7 @@ repos:
         name: nix flake check
         entry: nix flake check
         language: system
-        stages: [pre-push, manual]
+        stages: [pre-push, pre-merge-commit]
         always_run: true
         pass_filenames: false
       # The evaluated half of release:the-binary-builds-for-every-declared-target:
@@ -224,7 +226,7 @@ repos:
         name: the flake exposes one system
         entry: ./scripts/check-one-system.sh
         language: system
-        stages: [pre-push, manual]
+        stages: [pre-push, pre-merge-commit]
         always_run: true
         pass_filenames: false
   - repo: https://github.com/shellcheck-py/shellcheck-py
@@ -237,7 +239,7 @@ repos:
     hooks:
       - id: shfmt
         args: [-d, -i, '2', -ci]
-        stages: [pre-commit, manual]
+        stages: [pre-commit, pre-merge-commit]
   - repo: local
     hooks:
       # A flake holds no language library: a package belongs to the manifest
@@ -257,7 +259,7 @@ repos:
     rev: v1.52.0
     hooks:
       - id: typos
-        stages: [pre-commit, manual]
+        stages: [pre-commit, pre-merge-commit]
         args: [--force-exclude]
   - repo: https://github.com/sirwart/ripsecrets
     rev: v0.1.11

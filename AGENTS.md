@@ -57,14 +57,14 @@ This repository is the canonical knowledge product for spec-driven documentation
 - Cutting a release: `_docs/guides/release.md`.
 - Step-by-step guides: `_docs/specs/SPEC-guides.md`.
 - This repository works in linked worktrees: every code-changing branch lives in its linked worktree, which `rk worktree add <branch>` creates or adopts beside the checkout, the main checkout commits nothing, and `rk worktree prune` retires a merged worktree. One branch, one writer. The procedure is `rk guide worktree`.
-- Work reaches `master` as one squash commit that `rk integrate <branch>` writes from a short-lived branch, once the `manual` stage passes. The branch name is `<type>/<slug>`, whose type matches the squash title's type, or the forge-minted `<issue-id>-<slug>`. Nothing else commits on `master`, pushing the trunk is a separate operator action, and `--forge` sends one execution through a pull request instead. The procedure is `rk guide integration`.
+- Work reaches `master` as one squash commit that `rk integrate <branch>` writes from a short-lived branch, once the `pre-merge-commit` hook passes. The branch name is `<type>/<slug>`, whose type matches the squash title's type, or the forge-minted `<issue-id>-<slug>`. Nothing else commits on `master`, pushing the trunk is a separate operator action, and `--forge` sends one execution through a pull request instead. The procedure is `rk guide integration`.
 - A request that names an issue starts from the forge's own branch: `rk issue start <issue>` mints it at the forge, seats it in its linked worktree, and links it to the issue, with `rk guide issue` as the procedure. Never invent a name for work an issue already names.
 
 <!-- BEGIN release-kit -->
 
 ## Releases
 
-- This repository runs the release-kit convention. `rk method invariants` states what must stay true.
+- This repository runs the release-kit convention. `rk method invariants` states what must stay true. A release needs a commit typed `feat`, `fix`, or `perf`, or a breaking change, that changed a file the package ships. A dependency update that changes what ships is `fix(deps)`, and one for development only is `chore(deps-dev)` or `build(deps-dev)`. A security update is always `fix(deps)`, also where it changes only a shipped lock file. Its body names the advisory ID: `RUSTSEC-`, `GHSA-`, or `CVE-`.
 - An agent here guides and never drives. It reads this convention and tells the operator which step comes next. It takes no git or forge action unless the operator's request named that action. The bounded actions include the following. Create, switch, or delete a branch. Mint a branch at the forge from an issue. Create or remove a worktree. Commit, push, or tag. Integrate a branch onto the trunk, locally or through a request. Open, update, or merge a pull request. A request to change code authorizes the file changes alone.
 - The workflow terms live in `GLOSSARY.md` at this repository's root. The terms release-kit owns there are `implement-and-request`, `implement-and-merge`, and `full-implement`. A request that carries one of them names every action that term lists.
 - The title of every commit that reaches the trunk MUST be a scoped Conventional Commit, because the version and the changelog come from it.
