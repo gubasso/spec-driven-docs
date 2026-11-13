@@ -5,7 +5,7 @@ Bring `sdd` to this host at the version the repository records, and record in th
 ## Pre-flight
 
 1. Run `command -v nix mise asdf devbox direnv` to learn which managers and loaders the host carries.
-2. Where `sdd` runs, run `sdd self-depend status --target . --json`. Hold `wired` and `envrc_sync`, and the state of each manager.
+2. Where `sdd` runs, run `sdd self-depend status --target . --json`. Hold `wired`, `envrc_check`, and `envrc_old_line`, and the state of each manager.
 
 ## Step A: how the project obtains sdd
 
@@ -22,14 +22,15 @@ Bring `sdd` to this host at the version the repository records, and record in th
 
 1. Ask whether the environment loads through direnv, another loader, or none.
 2. With direnv, the loader line the manager needs goes into `.envrc` as a gated edit.
-3. Where `wired` names a manager, this step does not close until the operator has answered about the freshness wire. Where `wired` is `null`, there is no pin to keep fresh, and where `envrc_sync` is `true`, the wire is landed: in either case say nothing and continue.
-4. Where `envrc_sync` is `false`, ask with `AskUserQuestion` whether the project lands the line `sdd self-depend sync --apply || true` in its `.envrc`. State what the line does: on each directory entry it moves the pin to the latest release through that manager, it attempts at most one bump a day, and it leaves a diff for the operator to review and commit.
-5. On yes, landing the line is a gated step and you place it, because `sdd self-depend add --target . --manager <wired>` prints the fragment, edits no file the project owns, and seeds `.envrc` only where the target has none. Where that read-only run names `.envrc` among its seeds, gate the same command with `--apply`. Where it seeds nothing, the target already carries an `.envrc`, and you append the line to it yourself. Then re-observe with the status verb until `envrc_sync` reads `true`.
-6. On no, the landing is complete without the wire. Record the answer in the report, so the question reads as asked and answered.
+3. Where `wired` names a manager, this step does not close until the operator has answered about the freshness wire. Where `wired` is `null`, there is no pin to keep fresh, and where `envrc_check` is `true`, the wire is landed: in either case say nothing and continue.
+4. Where `envrc_old_line` is `true`, the `.envrc` still runs the retired line `sdd self-depend sync --apply || true`, which no longer moves the pin. Gate `sdd self-depend sync --apply` first, because a check line under an old pin only warns. Run it from the loaded shell or with `nix develop -c`, because under `direnv exec` it moves nothing and exits 1. Then gate `sdd self-depend clean --target . --apply`, which swaps the retired line for the check line and keeps every other line byte for byte. Re-observe with the status verb, and continue at the next step only where `envrc_check` is still `false`.
+5. Where `envrc_check` is `false`, ask with `AskUserQuestion` whether the project lands the line `sdd self-depend check || true` in its `.envrc`. State what the line does: on each directory entry it warns on stderr when a newer release is out, it reads the network at most once every seven days, it writes no file but its cache, and it never moves the pin. Moving the pin stays the operator's act, `sdd self-depend sync --apply`, which leaves a diff for the operator to review and commit.
+6. On yes, landing the line is a gated step and you place it, because `sdd self-depend add --target . --manager <wired>` prints the fragment, edits no file the project owns, and seeds `.envrc` only where the target has none. Where that read-only run names `.envrc` among its seeds, gate the same command with `--apply`. Where it seeds nothing, the target already carries an `.envrc`, and you append the line to it yourself. Then re-observe with the status verb until `envrc_check` reads `true`.
+7. On no, the landing is complete without the wire. Record the answer in the report, so the question reads as asked and answered.
 
 ## Post-flight
 
 1. In the dev environment, `sdd --version` names the version the repository records.
-2. `sdd self-depend status --target . --json` names the wired manager or the host decision, and `envrc_sync` matches the answer to the freshness wire. A held host answer still reads `unwired` here, because only the landing records it, and the `land` or `migrate` post-flight proves it.
+2. `sdd self-depend status --target . --json` names the wired manager or the host decision, and `envrc_check` matches the answer to the freshness wire. A held host answer still reads `unwired` here, because only the landing records it, and the `land` or `migrate` post-flight proves it.
 3. Where the `skill-payload` probe of `sdd doctor` fails, run `sdd skill install --apply`.
 4. Run the general pre-flight again, now with the binary.

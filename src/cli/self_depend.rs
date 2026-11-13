@@ -8,7 +8,7 @@ use clap::{Subcommand, ValueEnum};
 use crate::self_depend::manager::Manager;
 use crate::self_depend::venue::Venue;
 
-/// Wire this tool as a consumer's dependency and keep its pin fresh.
+/// Wire this tool as a consumer's dependency, warn of a newer release, and move its pin.
 #[derive(Debug, clap::Args)]
 pub struct SelfDependArgs {
     /// The verb to run.
@@ -23,7 +23,9 @@ pub enum SelfDependCommand {
     Status(StatusArgs),
     /// Serve the fragments for one manager and venue pair and the shell-entry line; seed the manager file where the target has none.
     Add(AddArgs),
-    /// Move the pin to the latest release through the wired manager; the flake pair moves both files or neither.
+    /// Warn on stderr when a newer release is out; reads the network at most once every seven days, writes only its cache, exits 0.
+    Check(CheckArgs),
+    /// Move the pin to the latest release through the wired manager; the operator's act, never the shell loader's.
     Sync(SyncArgs),
     /// Remove what a predecessor bump mechanism left, and name what a line scan must not touch.
     Clean(CleanArgs),
@@ -77,10 +79,18 @@ pub struct AddArgs {
     pub json: bool,
 }
 
+/// Check for a newer release.
+#[derive(Debug, clap::Args)]
+pub struct CheckArgs {
+    /// The project to check; absolute, or the working directory.
+    #[arg(long, default_value = ".")]
+    pub target: Utf8PathBuf,
+}
+
 /// Who is calling the sync.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum Caller {
-    /// The shell-entry line on directory entry: gated by the stamp, silent, exit 0.
+    /// Retired: the shell-entry line is `sdd self-depend check || true`, so this value is a usage error.
     Envrc,
     /// A person or an agent at a prompt: every outcome reported, the exit-code matrix.
     Operator,
@@ -101,8 +111,8 @@ pub struct SyncArgs {
     #[arg(long, value_enum)]
     pub manager: Option<Manager>,
 
-    /// Who is calling: envrc stays silent and exits 0 on every outcome, operator reports and fails loudly.
-    #[arg(long, value_enum, default_value_t = Caller::Envrc)]
+    /// Who is calling: the operator, who sees every outcome; envrc is retired and names `check`.
+    #[arg(long, value_enum, default_value_t = Caller::Operator)]
     pub caller: Caller,
 
     /// Rewrite the pin and refresh the lock; without it the bump is reported and nothing runs.
@@ -125,7 +135,7 @@ pub struct CleanArgs {
     #[arg(long)]
     pub also: Vec<Utf8PathBuf>,
 
-    /// Remove the files; without it every leftover is listed.
+    /// Remove the files, swap the retired shell-entry line, and remove the retired stamps; without it each is listed.
     #[arg(long)]
     pub apply: bool,
 

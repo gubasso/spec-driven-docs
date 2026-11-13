@@ -10,7 +10,7 @@ use serde::Serialize;
 use crate::self_depend::manager::Manager;
 use crate::self_depend::registry::CRATE_NAME;
 use crate::self_depend::venue::{Venue, Verdict, verdict};
-use crate::self_depend::{BINARY_NAME, ENVRC, SYNC_LINE, slug};
+use crate::self_depend::{BINARY_NAME, CHECK_LINE, ENVRC, SYNC_COMMAND, slug};
 
 /// The name the flake input and the devshell reference share.
 pub const FLAKE_INPUT: &str = "spec-driven-docs";
@@ -91,7 +91,7 @@ pub fn envrc_fragment() -> Fragment {
         file: ENVRC.to_string(),
         anchor: "use flake".to_string(),
         placement: "after the line that loads the environment".to_string(),
-        text: format!("{SYNC_LINE}\n"),
+        text: format!("{CHECK_LINE}\n"),
     }
 }
 
@@ -104,7 +104,7 @@ pub fn seed(manager: Manager, venue: Venue, version: &Version) -> Option<(String
     let file = manager.files().first()?.to_string();
     let contents = match (manager, venue) {
         (Manager::Flake, Venue::Flake) => format!(
-            "{{\n  description = \"Development shell\";\n\n  inputs = {{\n    nixpkgs.url = \"github:NixOS/nixpkgs/nixos-unstable\";\n    {FLAKE_INPUT} = {{\n      # Moved by `{SYNC_LINE}` from {ENVRC}: the tag in this URL is the\n      # version, and flake.lock is the content pin.\n      url = \"{}\";\n      inputs.nixpkgs.follows = \"nixpkgs\";\n    }};\n  }};\n\n  outputs =\n    {{ nixpkgs, {FLAKE_INPUT}, ... }}:\n    let\n      system = \"x86_64-linux\";\n      pkgs = nixpkgs.legacyPackages.${{system}};\n    in\n    {{\n      devShells.${{system}}.default = pkgs.mkShell {{\n        packages = [\n          {FLAKE_INPUT}.packages.${{system}}.default\n        ];\n      }};\n    }};\n}}\n",
+            "{{\n  description = \"Development shell\";\n\n  inputs = {{\n    nixpkgs.url = \"github:NixOS/nixpkgs/nixos-unstable\";\n    {FLAKE_INPUT} = {{\n      # Moved by `{SYNC_COMMAND}`, which the operator runs: the tag in\n      # this URL is the version, and flake.lock is the content pin.\n      url = \"{}\";\n      inputs.nixpkgs.follows = \"nixpkgs\";\n    }};\n  }};\n\n  outputs =\n    {{ nixpkgs, {FLAKE_INPUT}, ... }}:\n    let\n      system = \"x86_64-linux\";\n      pkgs = nixpkgs.legacyPackages.${{system}};\n    in\n    {{\n      devShells.${{system}}.default = pkgs.mkShell {{\n        packages = [\n          {FLAKE_INPUT}.packages.${{system}}.default\n        ];\n      }};\n    }};\n}}\n",
             flake_ref(version)
         ),
         (Manager::Mise, _) => {
@@ -127,7 +127,7 @@ pub fn seed(manager: Manager, venue: Venue, version: &Version) -> Option<(String
 #[must_use]
 pub fn envrc_seed() -> String {
     format!(
-        "use flake\n\n# Move the {CRATE_NAME} pin to its latest release. The verb owns the\n# transaction over flake.nix and flake.lock, attempts at most once a day,\n# stays silent, exits 0 on every outcome, and leaves a diff for review.\n{SYNC_LINE}\n"
+        "use flake\n\n# Warn on stderr when a newer {CRATE_NAME} release is out. The check reads\n# the network at most once every seven days, writes no file but its cache,\n# and exits 0. To move the pin, run: {SYNC_COMMAND}\n{CHECK_LINE}\n"
     )
 }
 
@@ -183,8 +183,9 @@ mod tests {
     }
 
     #[test]
-    fn the_shell_loader_seed_carries_the_sync_line_once() {
-        assert_eq!(envrc_seed().matches(SYNC_LINE).count(), 1);
-        assert_eq!(envrc_fragment().text.trim(), SYNC_LINE);
+    fn the_shell_loader_seed_carries_the_check_line_once() {
+        assert_eq!(envrc_seed().matches(CHECK_LINE).count(), 1);
+        assert_eq!(envrc_fragment().text.trim(), CHECK_LINE);
+        assert!(!envrc_seed().contains(crate::self_depend::OLD_SYNC_LINE));
     }
 }

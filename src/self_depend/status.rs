@@ -8,15 +8,15 @@ use semver::Version;
 use serde::Serialize;
 
 use crate::domain::paths::{CI_VAR, SELF_DEPEND_OFF_VAR, UserEnv, variable};
+use crate::self_depend::cache::{self, Entry};
 use crate::self_depend::leftovers::{self, Leftover};
 use crate::self_depend::manager::{self, Detected, Manager};
 use crate::self_depend::pin;
-use crate::self_depend::stamp;
 use crate::self_depend::venue::Venue;
-use crate::self_depend::{ENVRC, SYNC_LINE};
+use crate::self_depend::{CHECK_LINE, ENVRC, OLD_SYNC_LINE, SYNC_COMMAND};
 
 /// The machine schema `sdd self-depend status --json` declares.
-pub const SCHEMA: &str = "sdd.self-depend-status/1";
+pub const SCHEMA: &str = "sdd.self-depend-status/2";
 
 /// Whether a file is on disk.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -82,12 +82,14 @@ pub struct ManagerEntry {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum State {
-    /// One manager pins this tool, the sync line is landed, nothing is left over.
+    /// One manager pins this tool, the check line is landed, nothing is left over.
     Ready,
     /// No manager file names this tool.
     Unwired,
-    /// A manager pins this tool and the shell loader carries no sync line.
+    /// A manager pins this tool and the shell loader carries no check line.
     LineAbsent,
+    /// The shell loader still carries the retired sync line.
+    OldLine,
     /// More than one manager names this tool.
     Ambiguous,
     /// A predecessor mechanism left a file behind.
@@ -124,10 +126,13 @@ pub struct Report {
     pub managers: Vec<ManagerEntry>,
     /// Whether the shell loader file exists.
     pub envrc: Presence,
-    /// Whether the shell loader carries the sync line.
-    pub envrc_sync: bool,
-    /// The day of the last attempt for this checkout, where one is stamped.
-    pub stamp: Option<String>,
+    /// Whether the shell loader carries the check line.
+    pub envrc_check: bool,
+    /// Whether the shell loader still carries the retired sync line.
+    pub envrc_old_line: bool,
+    /// What the version-check cache records for this checkout, where it
+    /// records anything.
+    pub check: Option<Entry>,
     /// Whether the loop is switched off in this environment.
     pub off: bool,
     /// What the host offers.
@@ -163,24 +168,28 @@ pub fn report(target: &Utf8Path, env: &UserEnv, this: &Version) -> Report {
         .collect();
     let wired = manager::wired(&detected);
     let envrc_text = std::fs::read_to_string(target.join(ENVRC)).ok();
-    let envrc_sync = envrc_text
+    let envrc_check = envrc_text
         .as_deref()
-        .is_some_and(|text| text.contains(SYNC_LINE));
+        .is_some_and(leftovers::carries_check_line);
+    let envrc_old_line = envrc_text
+        .as_deref()
+        .is_some_and(leftovers::carries_old_line);
     let leftovers = leftovers::find(target, &[]);
-    let stamp = env
-        .state_root()
-        .map(|root| stamp::path(&root.path, target))
-        .and_then(|path| stamp::read(&path))
-        .map(|day| day.to_string());
+    let check = env
+        .cache_root()
+        .map(|root| cache::path(&root.path, target))
+        .and_then(|path| cache::read(&path));
     // A declaration that does not parse records no decision this report
     // can read; `sdd verify` is what names that failure.
     let acquisition = crate::domain::instance_config::InstanceConfig::read(target)
         .ok()
         .and_then(|declaration| declaration.acquisition);
-    let state = match (wired.len(), envrc_sync, leftovers.is_empty()) {
+    let state = match (wired.len(), envrc_check, leftovers.is_empty()) {
         // SATISFIES acquisition:a-host-install-is-a-recorded-decision
         (0, _, _) if acquisition.is_some() => State::Host,
         (0, _, _) => State::Unwired,
+        // SATISFIES acquisition:clean-swaps-the-retired-line
+        (1, _, _) if envrc_old_line => State::OldLine,
         (1, true, true) => State::Ready,
         (1, true, false) => State::Leftovers,
         (1, false, _) => State::LineAbsent,
@@ -195,8 +204,9 @@ pub fn report(target: &Utf8Path, env: &UserEnv, this: &Version) -> Report {
         acquisition,
         managers,
         envrc: Presence::of(envrc_text.is_some()),
-        envrc_sync,
-        stamp,
+        envrc_check,
+        envrc_old_line,
+        check,
         off: switched_off(),
         host: Host {
             nix: on_path("nix"),
@@ -247,13 +257,16 @@ fn next_lines(
             acquisition.map_or("", |decision| decision.minimum.as_str())
         )],
         State::Ready => vec![format!(
-            "sdd self-depend sync --caller operator --target {target} moves the pin by hand"
+            "{SYNC_COMMAND} --target {target} moves the pin when a newer release is out"
         )],
         State::Unwired => vec![format!(
             "sdd self-depend add --target {target} serves the fragments for the manager this project runs"
         )],
         State::LineAbsent => vec![format!(
-            "add `{SYNC_LINE}` to {ENVRC}; sdd self-depend add --target {target} prints it with its placement"
+            "add `{CHECK_LINE}` to {ENVRC}; sdd self-depend add --target {target} prints it with its placement"
+        )],
+        State::OldLine => vec![format!(
+            "{ENVRC} still runs `{OLD_SYNC_LINE}`: move the pin first with {SYNC_COMMAND} --target {target}, then sdd self-depend clean --target {target} --apply swaps the line for `{CHECK_LINE}`"
         )],
         State::Ambiguous => {
             let names: Vec<&str> = wired.iter().map(|held| held.manager.as_str()).collect();

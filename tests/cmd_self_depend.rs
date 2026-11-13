@@ -17,7 +17,7 @@ use std::path::Path;
 
 use assert_cmd::Command;
 use predicates::prelude::*;
-use spec_driven_docs::self_depend::{SYNC_LINE, coordinates, slug};
+use spec_driven_docs::self_depend::{CHECK_LINE, OLD_SYNC_LINE, coordinates, slug};
 use support::Fixture;
 
 const THIS: &str = env!("CARGO_PKG_VERSION");
@@ -28,6 +28,8 @@ fn sdd(fixture: &Fixture) -> Command {
     let mut cmd = fixture.cmd();
     cmd.env_remove("CI");
     cmd.env_remove("SDD_SELF_DEPEND_OFF");
+    cmd.env_remove("DIRENV_IN_ENVRC");
+    cmd.env_remove("SDD_HTTP_ORIGIN");
     cmd
 }
 
@@ -106,7 +108,7 @@ fn status_reports_every_manager_in_order_and_exits_zero_for_an_empty_target() {
         &fixture.target(),
         "--json",
     ]));
-    assert_eq!(report["schema"], "sdd.self-depend-status/1");
+    assert_eq!(report["schema"], "sdd.self-depend-status/2");
     assert_eq!(report["state"], "unwired");
     assert_eq!(report["wired"], serde_json::Value::Null);
     let managers: Vec<&str> = report["managers"]
@@ -122,7 +124,7 @@ fn status_reports_every_manager_in_order_and_exits_zero_for_an_empty_target() {
     }
     // The shell loader is reported beside the list, because it pins nothing.
     assert_eq!(report["envrc"], "absent");
-    assert_eq!(report["envrc_sync"], false);
+    assert_eq!(report["envrc_check"], false);
     assert!(
         report["next"].as_array().unwrap()[0]
             .as_str()
@@ -152,7 +154,7 @@ fn status_exits_zero_for_every_state_it_reports() {
     assert_eq!(flake["venue"], "flake");
     assert_eq!(flake["lock"], "absent");
 
-    fixture.write(".envrc", &format!("use flake\n{SYNC_LINE}\n"));
+    fixture.write(".envrc", &format!("use flake\n{CHECK_LINE}\n"));
     fixture.write("flake.lock", &lock_at("abc123"));
     let report = json(sdd(&fixture).args([
         "self-depend",
@@ -162,7 +164,7 @@ fn status_exits_zero_for_every_state_it_reports() {
         "--json",
     ]));
     assert_eq!(report["state"], "ready");
-    assert_eq!(report["envrc_sync"], true);
+    assert_eq!(report["envrc_check"], true);
     assert_eq!(report["managers"][0]["lock"], "present");
     assert_eq!(report["managers"][0]["locked_rev"], "abc123");
     assert_eq!(report["leftovers"].as_array().unwrap().len(), 0);
@@ -193,7 +195,7 @@ fn status_exits_zero_for_every_state_it_reports() {
     assert_eq!(report["managers"][0]["version"], "0.10.1");
 }
 
-/// The setup skill offers the wire from `wired` and `envrc_sync` alone, so
+/// The setup skill offers the wire from `wired` and `envrc_check` alone, so
 /// the three states it branches on are held here: nothing wired, wired
 /// with the line absent, and wired with the line landed.
 ///
@@ -215,7 +217,7 @@ fn the_setup_offer_follows_the_wiring_state() {
     let report = status(&fixture);
     assert_eq!(report["state"], "unwired");
     assert_eq!(report["wired"], serde_json::Value::Null);
-    assert_eq!(report["envrc_sync"], false);
+    assert_eq!(report["envrc_check"], false);
 
     // Wired with the line absent: the one state that produces the offer,
     // and the next line names the verb that serves the line.
@@ -226,17 +228,17 @@ fn the_setup_offer_follows_the_wiring_state() {
     let report = status(&fixture);
     assert_eq!(report["state"], "line-absent");
     assert_eq!(report["wired"], "mise");
-    assert_eq!(report["envrc_sync"], false);
+    assert_eq!(report["envrc_check"], false);
     let next = report["next"][0].as_str().unwrap();
-    assert!(next.contains(SYNC_LINE), "{next}");
+    assert!(next.contains(CHECK_LINE), "{next}");
     assert!(next.contains("sdd self-depend add"), "{next}");
 
     // The line already landed: no offer.
-    fixture.write(".envrc", &format!("{SYNC_LINE}\n"));
+    fixture.write(".envrc", &format!("{CHECK_LINE}\n"));
     let report = status(&fixture);
     assert_eq!(report["state"], "ready");
     assert_eq!(report["wired"], "mise");
-    assert_eq!(report["envrc_sync"], true);
+    assert_eq!(report["envrc_check"], true);
 }
 
 #[test]
@@ -328,7 +330,7 @@ fn add_writes_nothing_without_apply_and_seeds_only_what_the_target_lacks() {
     ]));
     let flake = fixture.read("flake.nix");
     assert!(flake.contains(&format!("github:{}/v{THIS}", slug())));
-    assert_eq!(fixture.read(".envrc").matches(SYNC_LINE).count(), 1);
+    assert_eq!(fixture.read(".envrc").matches(CHECK_LINE).count(), 1);
     let report = json(sdd(&fixture).args([
         "self-depend",
         "status",
@@ -368,7 +370,7 @@ fn add_leaves_a_manager_file_the_target_owns_byte_identical() {
             .contains(&format!("github:{}/v{THIS}", slug()))
     );
     assert_eq!(fragments[2]["file"], ".envrc");
-    assert_eq!(fragments[2]["text"].as_str().unwrap().trim(), SYNC_LINE);
+    assert_eq!(fragments[2]["text"].as_str().unwrap().trim(), CHECK_LINE);
 }
 
 /// VERIFIES acquisition:a-fragment-names-the-venue-form
@@ -517,7 +519,7 @@ fn a_flake_sync_moves_the_tag_and_the_lock_together() {
         "--apply",
         "--json",
     ]));
-    assert_eq!(report["schema"], "sdd.self-depend-sync/1");
+    assert_eq!(report["schema"], "sdd.self-depend-sync/2");
     assert_eq!(report["outcome"], "moved");
     assert_eq!(report["from"], "v0.10.1");
     assert_eq!(report["to"], "v0.10.2");
@@ -790,172 +792,645 @@ fn the_operator_caller_reports_each_outcome_with_its_own_exit_code() {
         .stdout(predicate::str::contains("asdf moved from 0.10.1 to 0.10.2"));
 }
 
-/// VERIFIES acquisition:the-shell-entry-caller-is-rate-limited-and-silent
-#[test]
-fn the_shell_entry_caller_exits_zero_silently_on_every_outcome() {
-    // No wire.
-    let unwired = Fixture::new();
-    sdd(&unwired)
-        .args([
-            "self-depend",
-            "sync",
-            "--target",
-            &unwired.target(),
-            "--apply",
-        ])
-        .assert()
-        .success()
-        .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::is_empty());
-    // An unreachable network.
-    let offline = Fixture::new();
-    offline.write(".tool-versions", "spec-driven-docs 0.10.1\n");
-    sdd(&offline)
-        .args([
-            "self-depend",
-            "sync",
-            "--target",
-            &offline.target(),
-            "--apply",
-        ])
-        .assert()
-        .success()
-        .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::is_empty());
-    // A failed sync.
-    let failed = Fixture::new();
-    failed.write("flake.nix", &flake_pinned("0.10.1"));
-    let before = digest(failed.path());
-    let nix = FakeNix::new(false);
-    sdd(&failed)
-        .env("PATH", nix.path_env())
-        .args([
-            "self-depend",
-            "sync",
-            "--target",
-            &failed.target(),
-            "--tag",
-            "v0.10.2",
-            "--apply",
-        ])
-        .assert()
-        .success()
-        .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::is_empty());
-    assert_eq!(digest(failed.path()), before);
-    // A successful sync.
-    let moved = Fixture::new();
-    moved.write("flake.nix", &flake_pinned("0.10.1"));
-    let nix = FakeNix::new(true);
-    sdd(&moved)
-        .env("PATH", nix.path_env())
-        .args([
-            "self-depend",
-            "sync",
-            "--target",
-            &moved.target(),
-            "--tag",
-            "v0.10.2",
-            "--apply",
-        ])
-        .assert()
-        .success()
-        .stdout(predicate::str::is_empty());
-    assert!(moved.read("flake.nix").contains("v0.10.2"));
+// --- check ------------------------------------------------------------------
+
+/// A registry index on the loopback that counts the requests it answers.
+///
+/// It serves one stable version, or answers 404 where it serves none, and
+/// waits `delay` before each answer so two checks can overlap.
+struct FakeIndex {
+    origin: String,
+    hits: std::sync::Arc<std::sync::atomic::AtomicUsize>,
 }
 
-/// VERIFIES acquisition:the-shell-entry-caller-is-rate-limited-and-silent
-#[test]
-fn the_shell_entry_caller_attempts_at_most_once_a_day_per_checkout() {
+impl FakeIndex {
+    fn serving(version: Option<&str>) -> Self {
+        Self::slow(version, std::time::Duration::ZERO)
+    }
+
+    fn slow(version: Option<&str>, delay: std::time::Duration) -> Self {
+        use std::io::{Read, Write};
+        use std::sync::atomic::Ordering;
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let origin = format!("http://{}", listener.local_addr().unwrap());
+        let hits = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let counter = hits.clone();
+        let body = version.map(|version| {
+            format!("{{\"name\":\"spec-driven-docs\",\"vers\":\"{version}\",\"yanked\":false}}\n")
+        });
+        std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                let Ok(mut stream) = stream else { continue };
+                let mut seen = Vec::new();
+                let mut buf = [0_u8; 1024];
+                while !seen.windows(4).any(|w| w == b"\r\n\r\n") {
+                    match stream.read(&mut buf) {
+                        Ok(0) | Err(_) => break,
+                        Ok(n) => seen.extend_from_slice(&buf[..n]),
+                    }
+                }
+                counter.fetch_add(1, Ordering::SeqCst);
+                std::thread::sleep(delay);
+                let answer = body.as_ref().map_or_else(
+                    || "HTTP/1.1 404 Not Found\r\ncontent-length: 0\r\nconnection: close\r\n\r\n".to_string(),
+                    |body| {
+                        format!(
+                            "HTTP/1.1 200 OK\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+                            body.len()
+                        )
+                    },
+                );
+                let _ = stream.write_all(answer.as_bytes());
+            }
+        });
+        Self { origin, hits }
+    }
+
+    fn hits(&self) -> usize {
+        self.hits.load(std::sync::atomic::Ordering::SeqCst)
+    }
+}
+
+/// An invocation that reads `index` in place of the public registry.
+fn against(fixture: &Fixture, index: &FakeIndex) -> Command {
+    let mut cmd = sdd(fixture);
+    cmd.env_remove("SDD_OFFLINE");
+    cmd.env("SDD_HTTP_ORIGIN", &index.origin);
+    cmd
+}
+
+/// `sdd self-depend check` on the fixture, against `index`.
+fn check(fixture: &Fixture, index: &FakeIndex) -> Command {
+    let mut cmd = against(fixture, index);
+    cmd.args(["self-depend", "check", "--target", &fixture.target()]);
+    cmd
+}
+
+/// The cache file the check keeps for this fixture's checkout.
+fn cache_file(fixture: &Fixture) -> std::path::PathBuf {
+    let root = fixture.cache_root().join("spec-driven-docs");
+    let path = spec_driven_docs::self_depend::cache::path(
+        camino::Utf8Path::from_path(&root).unwrap(),
+        camino::Utf8Path::new(&fixture.target()),
+    );
+    path.into_std_path_buf()
+}
+
+fn ago(minutes: i64) -> String {
+    jiff::Timestamp::now()
+        .checked_sub(jiff::SignedDuration::from_mins(minutes))
+        .unwrap()
+        .to_string()
+}
+
+const DAY: i64 = 24 * 60;
+
+/// Seed the cache with the given fields.
+fn seed_cache(
+    fixture: &Fixture,
+    attempt: Option<i64>,
+    success: Option<i64>,
+    latest: Option<&str>,
+    error: Option<&str>,
+) {
+    let path = cache_file(fixture);
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let entry = serde_json::json!({
+        "last_attempt": attempt.map(ago),
+        "last_success": success.map(ago),
+        "latest": latest,
+        "error": error,
+    });
+    std::fs::write(path, entry.to_string()).unwrap();
+}
+
+fn read_cache(fixture: &Fixture) -> serde_json::Value {
+    serde_json::from_str(&std::fs::read_to_string(cache_file(fixture)).unwrap()).unwrap()
+}
+
+/// A checkout that pins this tool at 0.10.1 through asdf.
+fn pinned() -> Fixture {
     let fixture = Fixture::new();
     fixture.write(".tool-versions", "spec-driven-docs 0.10.1\n");
-    // The first attempt reaches for the latest release, which the fixture
-    // forbids; the day is stamped all the same.
-    let first = json(sdd(&fixture).args([
-        "self-depend",
-        "sync",
-        "--target",
-        &fixture.target(),
-        "--apply",
-        "--json",
-    ]));
-    assert_eq!(first["outcome"], "failed");
-    let stamps: Vec<_> =
-        walkdir::WalkDir::new(fixture.state_root().join("spec-driven-docs/self-depend"))
-            .into_iter()
-            .filter_map(Result::ok)
-            .filter(|e| e.file_type().is_file())
-            .collect();
-    assert_eq!(stamps.len(), 1, "one stamp per checkout");
-    let second = json(sdd(&fixture).args([
-        "self-depend",
-        "sync",
-        "--target",
-        &fixture.target(),
-        "--apply",
-        "--json",
-    ]));
-    assert_eq!(second["outcome"], "stamped");
-    // Another checkout of the same project keeps its own stamp.
-    let other = Fixture::new();
-    other.write(".tool-versions", "spec-driven-docs 0.10.1\n");
-    let mut cmd = sdd(&other);
-    cmd.env(
-        "XDG_STATE_HOME",
-        fixture.state_root().parent().unwrap().join("state"),
+    fixture
+}
+
+/// VERIFIES acquisition:the-check-refreshes-weekly-and-retries-hourly
+#[test]
+fn a_fresh_cache_reads_no_network() {
+    let fixture = pinned();
+    let index = FakeIndex::serving(Some("0.10.1"));
+    seed_cache(&fixture, Some(6 * DAY), Some(6 * DAY), Some("0.10.1"), None);
+    check(&fixture, &index).assert().success();
+    assert_eq!(index.hits(), 0, "a six-day-old success read the network");
+    seed_cache(
+        &fixture,
+        Some(7 * DAY + 1),
+        Some(7 * DAY + 1),
+        Some("0.10.1"),
+        None,
     );
-    let third = json(cmd.args([
+    check(&fixture, &index).assert().success();
+    assert_eq!(index.hits(), 1, "a seven-day-old success did not refresh");
+}
+
+/// VERIFIES acquisition:the-check-warns-and-writes-only-its-cache
+#[test]
+fn an_update_warns_from_the_cache() {
+    let fixture = pinned();
+    let index = FakeIndex::serving(Some("0.11.0"));
+    seed_cache(&fixture, Some(60), Some(60), Some("0.11.0"), None);
+    for _ in 0..2 {
+        check(&fixture, &index)
+            .assert()
+            .success()
+            .stdout(predicate::str::is_empty())
+            .stderr(predicate::str::contains(
+                "sdd 0.11.0 is out, this project pins 0.10.1. To move: sdd self-depend sync --apply",
+            ));
+    }
+    assert_eq!(index.hits(), 0);
+}
+
+/// VERIFIES acquisition:the-check-warns-and-writes-only-its-cache
+#[test]
+fn check_is_silent_when_current() {
+    let fixture = pinned();
+    let index = FakeIndex::serving(Some("0.10.1"));
+    check(&fixture, &index)
+        .assert()
+        .success()
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::is_empty());
+    assert_eq!(index.hits(), 1);
+    let cache = read_cache(&fixture);
+    assert_eq!(cache["latest"], "0.10.1");
+    assert_eq!(cache["error"], serde_json::Value::Null);
+    assert_eq!(cache["last_attempt"], cache["last_success"]);
+}
+
+/// VERIFIES acquisition:the-check-warns-and-writes-only-its-cache
+#[test]
+fn a_failed_read_warns_with_its_reason_and_exits_zero() {
+    let fixture = pinned();
+    let index = FakeIndex::serving(None);
+    check(&fixture, &index)
+        .assert()
+        .success()
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains(
+            "sdd could not check for a newer release: ",
+        ))
+        .stderr(predicate::str::contains("404"))
+        .stderr(predicate::str::contains(". Next try after "));
+    assert!(read_cache(&fixture)["error"].is_string());
+}
+
+/// VERIFIES acquisition:the-check-refreshes-weekly-and-retries-hourly
+#[test]
+fn a_failure_after_an_overdue_success_waits_one_hour() {
+    let fixture = pinned();
+    let index = FakeIndex::serving(Some("0.10.1"));
+    seed_cache(
+        &fixture,
+        Some(1),
+        Some(8 * DAY),
+        Some("0.10.1"),
+        Some("down"),
+    );
+    check(&fixture, &index)
+        .assert()
+        .success()
+        .stderr(predicate::str::contains(
+            "could not check for a newer release: down",
+        ));
+    assert_eq!(index.hits(), 0, "a failure one minute old read the network");
+    seed_cache(
+        &fixture,
+        Some(61),
+        Some(8 * DAY),
+        Some("0.10.1"),
+        Some("down"),
+    );
+    check(&fixture, &index)
+        .assert()
+        .success()
+        .stderr(predicate::str::is_empty());
+    assert_eq!(index.hits(), 1);
+}
+
+/// VERIFIES acquisition:the-check-refreshes-weekly-and-retries-hourly
+#[test]
+fn a_failed_first_check_retries_after_one_hour() {
+    let fixture = pinned();
+    let index = FakeIndex::serving(None);
+    check(&fixture, &index).assert().success();
+    assert_eq!(index.hits(), 1);
+    check(&fixture, &index).assert().success();
+    assert_eq!(index.hits(), 1, "a fresh failure was retried at once");
+    let error = read_cache(&fixture)["error"].as_str().unwrap().to_string();
+    seed_cache(&fixture, Some(61), None, None, Some(&error));
+    check(&fixture, &index).assert().success();
+    assert_eq!(index.hits(), 2);
+}
+
+/// sdd's pin move keeps no transaction files, so what must survive the
+/// stamp cleanup is every other file of the state root: another
+/// checkout's skill lock and receipt, a staged landing, and any file in the
+/// stamp folder that is not a stamp.
+///
+/// VERIFIES acquisition:clean-swaps-the-retired-line
+#[test]
+fn the_stamp_cleanup_keeps_locks_and_transactions() {
+    let fixture = pinned();
+    let state = fixture.state_root().join("spec-driven-docs");
+    let write = |relative: &str| {
+        let path = state.join(relative);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, "held\n").unwrap();
+        path
+    };
+    let stamps = [
+        write("self-depend/0123456789abcdef.stamp"),
+        write("self-depend/fedcba9876543210.stamp"),
+    ];
+    let survivors = [
+        write("skills.lock"),
+        write("skills.json"),
+        write("stage/candidate/manifest.json"),
+        write("self-depend/notes.txt"),
+    ];
+    seed_cache(&fixture, Some(60), Some(60), Some("0.10.1"), None);
+    let preview = json(sdd(&fixture).args([
         "self-depend",
-        "sync",
+        "clean",
         "--target",
-        &other.target(),
-        "--apply",
+        &fixture.target(),
         "--json",
     ]));
-    assert_eq!(third["outcome"], "failed");
-    // The operator caller is not stamped.
+    assert_eq!(preview["stamps"].as_array().unwrap().len(), 2);
+    assert!(
+        stamps.iter().all(|stamp| stamp.exists()),
+        "a preview removed a stamp"
+    );
     let report = json(sdd(&fixture).args([
         "self-depend",
-        "sync",
+        "clean",
         "--target",
         &fixture.target(),
-        "--caller",
-        "operator",
-        "--tag",
-        "0.10.1",
+        "--apply",
         "--json",
     ]));
-    assert_eq!(report["outcome"], "current");
+    assert_eq!(report["stamps"].as_array().unwrap().len(), 2);
+    for stamp in &stamps {
+        assert!(!stamp.exists(), "{} survived", stamp.display());
+    }
+    for survivor in &survivors {
+        assert!(survivor.exists(), "{} was removed", survivor.display());
+    }
+    assert!(cache_file(&fixture).exists(), "the clean removed the cache");
 }
 
-/// VERIFIES acquisition:the-shell-entry-caller-is-rate-limited-and-silent
+/// VERIFIES acquisition:the-check-refreshes-weekly-and-retries-hourly
 #[test]
-fn the_loop_is_off_under_ci_and_under_the_operator_variable() {
+fn cached_error_warnings_do_not_postpone_the_retry() {
+    let fixture = pinned();
+    let index = FakeIndex::serving(None);
+    seed_cache(&fixture, Some(58), None, None, Some("down"));
+    let before = read_cache(&fixture)["last_attempt"].clone();
+    for _ in 0..3 {
+        check(&fixture, &index)
+            .assert()
+            .success()
+            .stderr(predicate::str::contains(
+                "could not check for a newer release: down",
+            ));
+    }
+    assert_eq!(
+        index.hits(),
+        0,
+        "an entry 58 minutes after the failure read the network"
+    );
+    assert_eq!(
+        read_cache(&fixture)["last_attempt"],
+        before,
+        "a warning moved the attempt time"
+    );
+    seed_cache(&fixture, Some(61), None, None, Some("down"));
+    check(&fixture, &index).assert().success();
+    assert_eq!(index.hits(), 1);
+}
+
+/// VERIFIES acquisition:the-check-warns-and-writes-only-its-cache
+#[test]
+fn an_unwritable_cache_warns_and_reads_no_network() {
+    let fixture = pinned();
+    let index = FakeIndex::serving(Some("0.11.0"));
+    let blocker = fixture.cache_root();
+    std::fs::create_dir_all(blocker.parent().unwrap()).unwrap();
+    std::fs::write(&blocker, "a file where the cache root goes\n").unwrap();
+    check(&fixture, &index)
+        .assert()
+        .success()
+        .stderr(predicate::str::contains(
+            "sdd cannot record its version check at ",
+        ));
+    assert_eq!(index.hits(), 0);
+}
+
+/// VERIFIES acquisition:the-check-refreshes-weekly-and-retries-hourly
+#[test]
+fn overlapping_checks_read_the_network_once() {
+    let fixture = pinned();
+    let index = FakeIndex::slow(Some("0.10.1"), std::time::Duration::from_millis(1500));
+    std::thread::scope(|scope| {
+        for _ in 0..2 {
+            scope.spawn(|| check(&fixture, &index).assert().success());
+        }
+    });
+    assert_eq!(index.hits(), 1);
+    let lock = std::fs::File::open(cache_file(&fixture).with_extension("lock")).unwrap();
+    assert!(lock.try_lock().is_ok(), "the lock outlived the refresh");
+}
+
+/// VERIFIES acquisition:the-check-warns-and-writes-only-its-cache
+#[test]
+fn check_writes_no_file_but_its_cache() {
     let fixture = Fixture::new();
-    fixture.write(".tool-versions", "spec-driven-docs 0.10.1\n");
+    fixture.write("flake.nix", &flake_pinned("0.10.1"));
+    fixture.write("flake.lock", &lock_at("abc123"));
+    fixture.write(".envrc", &format!("use flake\n{CHECK_LINE}\n"));
+    let before = digest(fixture.path());
+    let index = FakeIndex::serving(Some("0.11.0"));
+    check(&fixture, &index)
+        .assert()
+        .success()
+        .stderr(predicate::str::contains(
+            "sdd 0.11.0 is out, this project pins 0.10.1",
+        ));
+    assert_eq!(
+        digest(fixture.path()),
+        before,
+        "the check wrote into the project"
+    );
+    assert!(
+        !fixture.state_root().exists(),
+        "the check wrote under the state root"
+    );
+    let mut written: Vec<_> = walkdir::WalkDir::new(fixture.cache_root())
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_type().is_file())
+        .map(walkdir::DirEntry::into_path)
+        .collect();
+    written.sort();
+    // The cache, and the lock file beside it, which stays in place.
+    assert_eq!(
+        written,
+        [
+            cache_file(&fixture),
+            cache_file(&fixture).with_extension("lock")
+        ]
+    );
+}
+
+/// VERIFIES acquisition:sync-is-the-operators-act
+#[test]
+fn sync_apply_from_a_shell_moves_the_pin() {
+    let fixture = pinned();
+    let index = FakeIndex::serving(Some("0.10.2"));
+    against(&fixture, &index)
+        .args([
+            "self-depend",
+            "sync",
+            "--target",
+            &fixture.target(),
+            "--apply",
+        ])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("asdf moved from 0.10.1 to 0.10.2"));
+    assert_eq!(fixture.read(".tool-versions"), "spec-driven-docs 0.10.2\n");
+}
+
+/// VERIFIES acquisition:the-off-switch-stops-the-check-alone
+#[test]
+fn the_off_switch_stops_check_but_not_an_operator_sync() {
     for (name, value) in [("CI", "1"), ("SDD_SELF_DEPEND_OFF", "1")] {
-        let report = json(sdd(&fixture).env(name, value).args([
+        let fixture = pinned();
+        let index = FakeIndex::serving(Some("0.10.2"));
+        check(&fixture, &index)
+            .env(name, value)
+            .assert()
+            .success()
+            .stdout(predicate::str::is_empty())
+            .stderr(predicate::str::is_empty());
+        assert_eq!(index.hits(), 0, "{name} did not stop the check");
+        assert!(
+            !cache_file(&fixture).exists(),
+            "{name}: the check wrote its cache"
+        );
+        let report = json(against(&fixture, &index).env(name, value).args([
+            "self-depend",
+            "sync",
+            "--target",
+            &fixture.target(),
+            "--apply",
+            "--json",
+        ]));
+        assert_eq!(
+            report["outcome"], "moved",
+            "{name} stopped the operator's sync"
+        );
+        assert_eq!(fixture.read(".tool-versions"), "spec-driven-docs 0.10.2\n");
+    }
+}
+
+/// VERIFIES acquisition:sync-is-the-operators-act
+#[test]
+fn sync_inside_an_envrc_moves_nothing() {
+    let fixture = pinned();
+    let before = digest(fixture.path());
+    sdd(&fixture)
+        .env("DIRENV_IN_ENVRC", "1")
+        .args([
+            "self-depend",
+            "sync",
+            "--target",
+            &fixture.target(),
+            "--tag",
+            "0.10.2",
+            "--apply",
+        ])
+        .assert()
+        .code(1)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains(
+            "moved nothing: DIRENV_IN_ENVRC is set",
+        ))
+        .stderr(predicate::str::contains(
+            "nix develop -c sdd self-depend sync --apply",
+        ))
+        .stderr(predicate::str::contains(CHECK_LINE));
+    let output = sdd(&fixture)
+        .env("DIRENV_IN_ENVRC", "1")
+        .args([
+            "self-depend",
+            "sync",
+            "--target",
+            &fixture.target(),
+            "--tag",
+            "0.10.2",
+            "--apply",
+            "--json",
+        ])
+        .assert()
+        .code(1)
+        .get_output()
+        .stdout
+        .clone();
+    let report: serde_json::Value = serde_json::from_slice(&output).unwrap();
+    assert_eq!(report["outcome"], "inside-envrc");
+    assert_eq!(digest(fixture.path()), before);
+    // The retired line still loads the shell, because it ends in `|| true`.
+    let loaded = std::process::Command::new("sh")
+        .arg("-c")
+        .arg(format!("{OLD_SYNC_LINE}; echo loaded"))
+        .env("PATH", sdd_on_path())
+        .env("DIRENV_IN_ENVRC", "1")
+        .env("XDG_CACHE_HOME", fixture.cache_root())
+        .env("XDG_STATE_HOME", fixture.state_root())
+        .env_remove("SDD_SELF_DEPEND_OFF")
+        .current_dir(fixture.path())
+        .output()
+        .unwrap();
+    assert!(loaded.status.success());
+    assert_eq!(String::from_utf8_lossy(&loaded.stdout).trim(), "loaded");
+    assert_eq!(digest(fixture.path()), before);
+}
+
+/// A `PATH` whose first entry holds the `sdd` this suite built.
+fn sdd_on_path() -> std::ffi::OsString {
+    let bin = assert_cmd::cargo::cargo_bin("sdd");
+    let mut paths = vec![bin.parent().unwrap().to_path_buf()];
+    if let Some(held) = std::env::var_os("PATH") {
+        paths.extend(std::env::split_paths(&held));
+    }
+    std::env::join_paths(paths).unwrap()
+}
+
+/// `direnv exec` exports `DIRENV_IN_ENVRC=1` too, so a sync under it is
+/// refused the same way.
+///
+/// VERIFIES acquisition:sync-is-the-operators-act
+#[test]
+fn sync_under_direnv_exec_exits_one_and_moves_nothing() {
+    let fixture = Fixture::new();
+    fixture.write("flake.nix", &flake_pinned("0.10.1"));
+    fixture.write("flake.lock", &lock_at("abc123"));
+    let nix = FakeNix::new(true);
+    sdd(&fixture)
+        .env("DIRENV_IN_ENVRC", "1")
+        .env("PATH", nix.path_env())
+        .args([
+            "self-depend",
+            "sync",
+            "--target",
+            &fixture.target(),
+            "--tag",
+            "v0.10.2",
+            "--apply",
+        ])
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("`direnv exec`"));
+    assert_eq!(fixture.read("flake.nix"), flake_pinned("0.10.1"));
+    assert_eq!(fixture.read("flake.lock"), lock_at("abc123"));
+    assert!(nix.calls().is_none(), "the lock refresh ran");
+}
+
+/// VERIFIES acquisition:the-check-refreshes-weekly-and-retries-hourly
+#[test]
+fn a_held_lock_makes_check_read_the_cache_only() {
+    let fixture = pinned();
+    let index = FakeIndex::serving(Some("0.10.1"));
+    seed_cache(&fixture, Some(8 * DAY), Some(8 * DAY), Some("0.11.0"), None);
+    // Another refresh holds the lock: this test process holds it here.
+    let lock = std::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(cache_file(&fixture).with_extension("lock"))
+        .unwrap();
+    lock.lock().unwrap();
+    check(&fixture, &index)
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("sdd 0.11.0 is out"));
+    assert_eq!(index.hits(), 0, "a check read the network past a held lock");
+    drop(lock);
+}
+
+/// A process that died holding the lock released it with its death, so
+/// the lock file it left blocks nothing.
+///
+/// VERIFIES acquisition:the-check-refreshes-weekly-and-retries-hourly
+#[test]
+fn a_lock_left_by_a_dead_process_does_not_block() {
+    let fixture = pinned();
+    let index = FakeIndex::serving(Some("0.10.1"));
+    let lock = cache_file(&fixture).with_extension("lock");
+    std::fs::create_dir_all(lock.parent().unwrap()).unwrap();
+    std::fs::write(&lock, "").unwrap();
+    check(&fixture, &index).assert().success();
+    assert_eq!(index.hits(), 1, "an unheld lock file blocked the refresh");
+    assert_eq!(read_cache(&fixture)["latest"], "0.10.1");
+    assert!(lock.exists(), "the lock file was removed");
+}
+
+/// VERIFIES acquisition:sync-is-the-operators-act
+#[test]
+fn the_envrc_caller_is_a_usage_error() {
+    let fixture = pinned();
+    let before = digest(fixture.path());
+    sdd(&fixture)
+        .args([
             "self-depend",
             "sync",
             "--target",
             &fixture.target(),
             "--caller",
-            "operator",
+            "envrc",
             "--tag",
             "0.10.2",
             "--apply",
-            "--json",
-        ]));
-        assert_eq!(report["outcome"], "off");
-    }
-    assert_eq!(fixture.read(".tool-versions"), "spec-driven-docs 0.10.1\n");
-    assert!(
-        !fixture
-            .state_root()
-            .join("spec-driven-docs/self-depend")
-            .exists(),
-        "a switched-off run stamped"
-    );
+        ])
+        .assert()
+        .failure()
+        .code(64)
+        .stderr(predicate::str::contains("sdd self-depend check"));
+    assert_eq!(digest(fixture.path()), before);
+}
+
+/// VERIFIES acquisition:the-check-warns-and-writes-only-its-cache
+#[test]
+fn the_seeded_envrc_line_is_the_check() {
+    let fixture = Fixture::new();
+    let report = json(sdd(&fixture).args([
+        "self-depend",
+        "add",
+        "--target",
+        &fixture.target(),
+        "--apply",
+        "--json",
+    ]));
+    let fragments = report["fragments"].as_array().unwrap();
+    let envrc = fragments.iter().find(|f| f["file"] == ".envrc").unwrap();
+    assert_eq!(envrc["text"].as_str().unwrap().trim(), CHECK_LINE);
+    let seeded = fixture.read(".envrc");
+    assert_eq!(seeded.matches(CHECK_LINE).count(), 1);
+    assert!(!seeded.contains(OLD_SYNC_LINE));
+    assert!(!fixture.read("flake.nix").contains(OLD_SYNC_LINE));
 }
 
 // --- clean ------------------------------------------------------------------
@@ -966,7 +1441,7 @@ fn clean_names_a_leftover_and_what_it_keeps_and_removes_only_with_apply() {
     let fixture = Fixture::new();
     fixture.write("flake.nix", &flake_pinned("0.10.1"));
     fixture.write("flake.lock", &lock_at("abc123"));
-    fixture.write(".envrc", &format!("use flake\n{SYNC_LINE}\n"));
+    fixture.write(".envrc", &format!("use flake\n{CHECK_LINE}\n"));
     fixture.write("scripts/bump.sh", "#!/bin/sh\n");
     let before = digest(fixture.path());
     let report = json(sdd(&fixture).args([
@@ -978,7 +1453,7 @@ fn clean_names_a_leftover_and_what_it_keeps_and_removes_only_with_apply() {
         "scripts/bump.sh",
         "--json",
     ]));
-    assert_eq!(report["schema"], "sdd.self-depend-clean/1");
+    assert_eq!(report["schema"], "sdd.self-depend-clean/2");
     assert_eq!(report["leftovers"][0]["file"], "scripts/bump.sh");
     assert_eq!(report["removed"].as_array().unwrap().len(), 0);
     let kept: Vec<(&str, Option<&str>)> = report["kept"]
@@ -989,7 +1464,7 @@ fn clean_names_a_leftover_and_what_it_keeps_and_removes_only_with_apply() {
         .collect();
     assert!(kept.contains(&("flake.nix", Some("line 5"))));
     assert!(kept.contains(&("flake.lock", None)));
-    assert!(kept.contains(&(".envrc", Some(SYNC_LINE))));
+    assert!(kept.contains(&(".envrc", Some(CHECK_LINE))));
     assert_eq!(digest(fixture.path()), before);
 
     let report = json(sdd(&fixture).args([
@@ -1004,7 +1479,7 @@ fn clean_names_a_leftover_and_what_it_keeps_and_removes_only_with_apply() {
     ]));
     assert_eq!(report["removed"], serde_json::json!(["scripts/bump.sh"]));
     assert!(!fixture.path().join("scripts/bump.sh").exists());
-    assert_eq!(fixture.read(".envrc"), format!("use flake\n{SYNC_LINE}\n"));
+    assert_eq!(fixture.read(".envrc"), format!("use flake\n{CHECK_LINE}\n"));
     assert_eq!(fixture.read("flake.nix"), flake_pinned("0.10.1"));
 }
 
@@ -1148,4 +1623,147 @@ fn a_host_decision_refuses_where_a_manager_pins_the_tool() {
         ])
         .assert()
         .code(73);
+}
+
+/// VERIFIES acquisition:clean-swaps-the-retired-line
+#[test]
+fn clean_previews_the_envrc_swap() {
+    let fixture = pinned();
+    fixture.write(".envrc", &format!("use flake\n{OLD_SYNC_LINE}\n"));
+    let status = json(sdd(&fixture).args([
+        "self-depend",
+        "status",
+        "--target",
+        &fixture.target(),
+        "--json",
+    ]));
+    assert_eq!(status["state"], "old-line");
+    assert_eq!(status["envrc_old_line"], true);
+    let next = status["next"][0].as_str().unwrap();
+    assert!(next.contains("sdd self-depend clean"), "{next}");
+    assert!(next.contains("sdd self-depend sync --apply"), "{next}");
+    let before = digest(fixture.path());
+    let report = json(sdd(&fixture).args([
+        "self-depend",
+        "clean",
+        "--target",
+        &fixture.target(),
+        "--json",
+    ]));
+    assert_eq!(
+        report["swaps"],
+        serde_json::json!([{ "file": ".envrc", "action": "swap", "from": OLD_SYNC_LINE, "to": CHECK_LINE }])
+    );
+    assert_eq!(report["applied"], false);
+    assert_eq!(digest(fixture.path()), before, "a preview rewrote .envrc");
+}
+
+/// VERIFIES acquisition:clean-swaps-the-retired-line
+#[test]
+fn clean_apply_swaps_the_old_line() {
+    let fixture = pinned();
+    fixture.write(".envrc", &format!("use flake\n{OLD_SYNC_LINE}\n"));
+    let report = json(sdd(&fixture).args([
+        "self-depend",
+        "clean",
+        "--target",
+        &fixture.target(),
+        "--apply",
+        "--json",
+    ]));
+    assert_eq!(report["swaps"][0]["to"], CHECK_LINE);
+    assert_eq!(fixture.read(".envrc"), format!("use flake\n{CHECK_LINE}\n"));
+    let status = json(sdd(&fixture).args([
+        "self-depend",
+        "status",
+        "--target",
+        &fixture.target(),
+        "--json",
+    ]));
+    assert_eq!(status["state"], "ready");
+    assert_eq!(status["envrc_old_line"], false);
+}
+
+/// VERIFIES acquisition:clean-swaps-the-retired-line
+#[test]
+fn clean_twice_changes_nothing() {
+    let fixture = pinned();
+    fixture.write(".envrc", &format!("use flake\n{OLD_SYNC_LINE}\n"));
+    let apply = |fixture: &Fixture| {
+        json(sdd(fixture).args([
+            "self-depend",
+            "clean",
+            "--target",
+            &fixture.target(),
+            "--apply",
+            "--json",
+        ]))
+    };
+    apply(&fixture);
+    let once = digest(fixture.path());
+    let second = apply(&fixture);
+    assert_eq!(second["swaps"].as_array().unwrap().len(), 0);
+    assert_eq!(second["stamps"].as_array().unwrap().len(), 0);
+    assert_eq!(digest(fixture.path()), once);
+}
+
+/// VERIFIES acquisition:clean-swaps-the-retired-line
+#[test]
+fn clean_keeps_unrelated_envrc_lines() {
+    let fixture = pinned();
+    let around = |line: &str| {
+        format!(
+            "# Load the shell.\r\nuse flake\r\nexport GH_PAGER=\"\"\r\n\r\nif has sdd; then\r\n  {line}\r\nfi\r\n# {OLD_SYNC_LINE} in a comment stays\r\nsource_env_if_exists .envrc.local"
+        )
+    };
+    fixture.write(".envrc", &around(OLD_SYNC_LINE));
+    json(sdd(&fixture).args([
+        "self-depend",
+        "clean",
+        "--target",
+        &fixture.target(),
+        "--apply",
+        "--json",
+    ]));
+    assert_eq!(fixture.read(".envrc"), around(CHECK_LINE));
+}
+
+/// VERIFIES acquisition:clean-swaps-the-retired-line
+#[test]
+fn clean_reports_a_removal_where_the_check_line_is_there() {
+    let fixture = pinned();
+    fixture.write(
+        ".envrc",
+        &format!("use flake\n  {CHECK_LINE}\n{OLD_SYNC_LINE}\n"),
+    );
+    let report = json(sdd(&fixture).args([
+        "self-depend",
+        "clean",
+        "--target",
+        &fixture.target(),
+        "--apply",
+        "--json",
+    ]));
+    assert_eq!(report["swaps"][0]["action"], "remove");
+    assert_eq!(report["swaps"][0]["to"], serde_json::Value::Null);
+    assert_eq!(
+        fixture.read(".envrc"),
+        format!("use flake\n  {CHECK_LINE}\n")
+    );
+    let kept: Vec<&str> = report["kept"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|k| k["line"].as_str())
+        .collect();
+    assert!(kept.contains(&CHECK_LINE), "{kept:?}");
+    let status = json(sdd(&fixture).args([
+        "self-depend",
+        "status",
+        "--target",
+        &fixture.target(),
+        "--json",
+    ]));
+    assert_eq!(status["envrc_check"], true);
+    assert_eq!(status["state"], "ready");
 }

@@ -28,4 +28,4 @@ Enforced by `acquisition:every-pair-carries-a-verdict`, `acquisition:the-pin-mov
 
 ## Status
 
-Accepted
+Superseded by [ADR-check-for-a-newer-release-and-let-the-operator-move-the-pin](./ADR-check-for-a-newer-release-and-let-the-operator-move-the-pin.md)

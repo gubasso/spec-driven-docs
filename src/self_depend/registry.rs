@@ -48,6 +48,8 @@ struct IndexEntry {
 pub struct Index {
     root: String,
     offline: bool,
+    /// Why the test seam's value was refused, where it was.
+    refused_seam: Option<String>,
 }
 
 impl Default for Index {
@@ -63,12 +65,25 @@ impl Index {
     /// which is a stronger statement than a flag nobody passed. A read that
     /// would otherwise fail slowly at a name it cannot resolve refuses at
     /// once instead.
+    ///
+    /// `SDD_HTTP_ORIGIN` is the one test seam: an `http://` origin on the
+    /// loopback that serves the index in place of the public one. Any other
+    /// value refuses every read, so the seam never sends a request elsewhere.
     #[must_use]
     pub fn new() -> Self {
-        Self {
+        let mut index = Self {
             root: INDEX_ROOT.to_string(),
             offline: crate::domain::paths::variable(crate::domain::paths::OFFLINE_VAR).is_some(),
+            refused_seam: None,
+        };
+        if let Some(origin) = crate::domain::paths::variable(crate::domain::paths::HTTP_ORIGIN_VAR)
+        {
+            match seam_origin(&origin) {
+                Ok(root) => index.root = root,
+                Err(reason) => index.refused_seam = Some(reason),
+            }
         }
+        index
     }
 
     /// Refuse every read, for a caller that declared itself offline.
@@ -92,6 +107,9 @@ impl Index {
     /// [`AppError::Refused`] when the caller is offline, when the index
     /// cannot be read, or when it lists no stable version.
     pub fn latest_version(&self) -> Result<Version, AppError> {
+        if let Some(reason) = self.refused_seam.as_ref() {
+            return Err(AppError::Refused(reason.clone()));
+        }
         if self.offline {
             return Err(AppError::Refused(
                 "offline: only the index says which release is newest".to_string(),
@@ -170,6 +188,35 @@ fn read(url: &str) -> Result<Vec<u8>, AppError> {
     }
 }
 
+/// The index root the test seam names, where it is an `http://` origin on
+/// the loopback.
+fn seam_origin(origin: &str) -> Result<String, String> {
+    let refused = || {
+        format!(
+            "{} names {origin}, which is not an http:// origin on 127.0.0.1, ::1, or localhost; it is a test seam and never sends a request elsewhere",
+            crate::domain::paths::HTTP_ORIGIN_VAR
+        )
+    };
+    let rest = origin.strip_prefix("http://").ok_or_else(refused)?;
+    let authority = rest.trim_end_matches('/');
+    if authority.contains('/') || authority.contains('@') {
+        return Err(refused());
+    }
+    let host = if let Some(bracketed) = authority.strip_prefix('[') {
+        bracketed
+            .split_once(']')
+            .map(|(host, _)| host)
+            .ok_or_else(refused)?
+    } else {
+        authority.split(':').next().unwrap_or_default()
+    };
+    if matches!(host, "127.0.0.1" | "::1" | "localhost") {
+        Ok(format!("http://{authority}"))
+    } else {
+        Err(refused())
+    }
+}
+
 /// The sparse index path for a crate name, as the protocol defines it.
 #[must_use]
 pub fn index_path(name: &str) -> String {
@@ -210,6 +257,8 @@ fn retry_after(response: &ureq::http::Response<ureq::Body>) -> Duration {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, reason = "a test panics as its failure signal")]
+
     use super::*;
 
     #[test]
@@ -225,6 +274,21 @@ mod tests {
         let error = Index::new().offline(true).latest_version().unwrap_err();
         assert_eq!(error.kind(), "Refused");
         assert!(error.to_string().contains("newest"), "{error}");
+    }
+
+    #[test]
+    fn the_seam_accepts_only_a_loopback_http_origin() {
+        assert_eq!(
+            seam_origin("http://127.0.0.1:4000/").unwrap(),
+            "http://127.0.0.1:4000"
+        );
+        assert!(seam_origin("http://[::1]:80").is_ok());
+        assert!(seam_origin("http://localhost").is_ok());
+        assert!(seam_origin("https://127.0.0.1").is_err());
+        assert!(seam_origin("http://index.crates.io").is_err());
+        assert!(seam_origin("http://127.0.0.1.evil.example").is_err());
+        assert!(seam_origin("http://u@127.0.0.1").is_err());
+        assert!(seam_origin("http://127.0.0.1/path").is_err());
     }
 
     #[test]

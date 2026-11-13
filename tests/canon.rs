@@ -1458,19 +1458,20 @@ fn the_setup_skill_offers_the_freshness_wire() {
     for held in [
         // The observation the offer rests on.
         "sdd self-depend status --target . --json",
-        "Hold `wired` and `envrc_sync`",
+        "Hold `wired`, `envrc_check`, and `envrc_old_line`",
         // Silence where nothing is wired, and where the wire is landed.
         "Where `wired` is `null`, there is no pin to keep fresh",
-        "`envrc_sync` is `true`, the wire is landed",
-        // The offer, with its three facts.
-        "`envrc_sync` is `false`, ask with `AskUserQuestion`",
-        "sdd self-depend sync --apply || true",
-        "attempts at most one bump a day",
+        "`envrc_check` is `true`, the wire is landed",
+        // The offer, with its facts.
+        "`envrc_check` is `false`, ask with `AskUserQuestion`",
+        "sdd self-depend check || true",
+        "reads the network at most once every seven days",
+        "it never moves the pin",
         "leaves a diff for the operator to review and commit",
         // Landing the line is gated, and a no is recorded.
         "landing the line is a gated step",
         "sdd self-depend add --target . --manager <wired>",
-        "re-observe with the status verb until `envrc_sync` reads `true`",
+        "re-observe with the status verb until `envrc_check` reads `true`",
         "the landing is complete without the wire",
         "Record the answer in the report",
         // Both placement cases, because the verb covers one of them. A
@@ -1487,8 +1488,8 @@ fn the_setup_skill_offers_the_freshness_wire() {
     // The skill quotes the binary's own line and the binary's own file, so
     // a rename in one place cannot leave the other reading almost right.
     assert!(
-        provision.contains(spec_driven_docs::self_depend::SYNC_LINE),
-        "the provision task quotes a sync line the binary does not write"
+        provision.contains(spec_driven_docs::self_depend::CHECK_LINE),
+        "the provision task quotes a check line the binary does not write"
     );
     assert!(
         provision.contains(spec_driven_docs::self_depend::ENVRC),
@@ -1512,7 +1513,7 @@ fn the_setup_skill_offers_the_freshness_wire() {
     for shared in [
         "does not close until the operator has answered about the freshness wire",
         "Where `wired` is `null`, there is no pin to keep fresh",
-        "attempts at most one bump a day",
+        "reads the network at most once every seven days",
         "leaves a diff for the operator to review and commit",
         "seeds `.envrc` only where the target has none",
     ] {
@@ -1525,6 +1526,37 @@ fn the_setup_skill_offers_the_freshness_wire() {
             "instance/README.md does not carry '{shared}'"
         );
     }
+}
+
+/// The skill installs the check line, swaps the retired sync line through
+/// the clean verb after the pin moves, and names the sync as the
+/// operator's act. Read from the packaged skill, as an agent resolves it.
+///
+/// VERIFIES acquisition:the-setup-path-offers-the-wire
+#[test]
+fn the_provisioning_skill_serves_the_check_line() {
+    use spec_driven_docs::self_depend::{CHECK_LINE, OLD_SYNC_LINE, SYNC_COMMAND};
+    let provision = setup_file("references/provision.md");
+    assert!(provision.contains(CHECK_LINE));
+    assert!(provision.contains(&format!(
+        "Moving the pin stays the operator's act, `{SYNC_COMMAND}`"
+    )));
+    for line in provision.lines() {
+        if line.contains(OLD_SYNC_LINE) {
+            assert!(
+                line.contains("retired")
+                    && line.contains("sdd self-depend clean --target . --apply"),
+                "provision.md offers the retired sync line as a line to land: {line}"
+            );
+        }
+    }
+    let swap = provision
+        .find("sdd self-depend clean --target . --apply")
+        .expect("the provision task names no swap of the retired line");
+    let moved = provision
+        .find(&format!("Gate `{SYNC_COMMAND}` first"))
+        .expect("the provision task does not move the pin before the swap");
+    assert!(moved < swap, "the swap comes before the pin moves");
 }
 
 #[test]

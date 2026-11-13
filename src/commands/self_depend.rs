@@ -1,9 +1,10 @@
 //! `self-depend` subcommand: runtime-shape.
 //!
-//! Four verbs over one detection. `status` reports and never judges. `add`
-//! prints fragments and seeds only where the target has nothing. `sync`
-//! moves the pin in one transaction, under a stamp for the shell-entry
-//! caller. `clean` removes only what it names.
+//! Five verbs over one detection. `status` reports and never judges. `add`
+//! prints fragments and seeds only where the target has nothing. `check`
+//! warns from a cache on every directory entry and writes nothing else.
+//! `sync` is the operator's act that moves the pin in one transaction.
+//! `clean` removes or swaps only what it names.
 
 use std::fmt::Write as _;
 
@@ -12,20 +13,21 @@ use semver::Version;
 use serde::Serialize;
 
 use crate::cli::self_depend::{
-    AddArgs, Caller, CleanArgs, SelfDependArgs, SelfDependCommand, StatusArgs, SyncArgs,
+    AddArgs, Caller, CheckArgs, CleanArgs, SelfDependArgs, SelfDependCommand, StatusArgs, SyncArgs,
 };
 use crate::context::AppContext;
-use crate::domain::paths::{CI_VAR, SELF_DEPEND_OFF_VAR, UserEnv};
+use crate::domain::paths::{CI_VAR, DIRENV_IN_ENVRC_VAR, SELF_DEPEND_OFF_VAR, UserEnv, variable};
 use crate::error::AppError;
 use crate::output;
+use crate::self_depend::cache::{self, Entry};
 use crate::self_depend::fragments::{self, Fragment};
-use crate::self_depend::leftovers::{self, Kept, Leftover};
+use crate::self_depend::leftovers::{self, Kept, Leftover, Swap};
 use crate::self_depend::manager::{self, Detected, Manager};
 use crate::self_depend::registry::Index;
 use crate::self_depend::status::{self, Freshness, Presence, Report, State};
 use crate::self_depend::txn::{self, Moved};
 use crate::self_depend::venue::{self, Venue, Verdict};
-use crate::self_depend::{ENVRC, parse_tag, stamp};
+use crate::self_depend::{CHECK_LINE, ENVRC, OLD_SYNC_LINE, SYNC_COMMAND, parse_tag};
 
 /// Dispatch one verb.
 ///
@@ -36,6 +38,10 @@ pub fn run(ctx: &AppContext, args: SelfDependArgs) -> Result<(), AppError> {
     match args.command {
         SelfDependCommand::Status(args) => run_status(ctx, args),
         SelfDependCommand::Add(args) => run_add(ctx, args),
+        SelfDependCommand::Check(args) => {
+            run_check(ctx, args);
+            Ok(())
+        }
         SelfDependCommand::Sync(args) => run_sync(ctx, args),
         SelfDependCommand::Clean(args) => run_clean(ctx, args),
     }
@@ -91,6 +97,7 @@ fn render_status(report: &Report) {
         State::Ready => "ready",
         State::Unwired => "unwired",
         State::LineAbsent => "line-absent",
+        State::OldLine => "old-line",
         State::Ambiguous => "ambiguous",
         State::Leftovers => "leftovers",
         State::Host => "host",
@@ -133,12 +140,25 @@ fn render_status(report: &Report) {
         output::line(line);
     }
     output::line(format!(
-        "{ENVRC} {}, sync line {}",
+        "{ENVRC} {}, check line {}",
         presence_word(report.envrc),
-        if report.envrc_sync { "yes" } else { "no" }
+        if report.envrc_check { "yes" } else { "no" }
     ));
-    if let Some(stamp) = report.stamp.as_ref() {
-        output::line(format!("last sync attempt {stamp}"));
+    if report.envrc_old_line {
+        output::line(format!(
+            "{ENVRC} still runs the retired line `{OLD_SYNC_LINE}`"
+        ));
+    }
+    if let Some(check) = report.check.as_ref() {
+        if let Some(success) = check.last_success.as_ref() {
+            output::line(format!(
+                "last version check {success}, latest {}",
+                check.latest.as_deref().unwrap_or("unknown")
+            ));
+        }
+        if let Some(error) = check.error.as_ref() {
+            output::line(format!("last version check failed: {error}"));
+        }
     }
     if report.off {
         output::line(format!(
@@ -404,18 +424,111 @@ fn render_add(report: &AddReport) {
     }
 }
 
+// --- check ------------------------------------------------------------------
+
+/// Write one warning to stderr.
+fn warn(message: &str) {
+    eprintln!("{message}");
+}
+
+/// Warn when a newer release is out, from the cache alone unless a refresh
+/// is due.
+///
+/// Every outcome exits 0, so the shell loads. The one file written is the
+/// cache, under its lock.
+///
+/// SATISFIES acquisition:the-check-warns-and-writes-only-its-cache
+fn run_check(ctx: &AppContext, args: CheckArgs) {
+    // SATISFIES acquisition:the-off-switch-stops-the-check-alone
+    if status::switched_off() {
+        return;
+    }
+    let Ok(target) = resolve_target(ctx, args.target) else {
+        warn("sdd self-depend check: the target must be absolute or .");
+        return;
+    };
+    let detected = manager::detect(&target);
+    let [held] = manager::wired(&detected)[..] else {
+        return;
+    };
+    let Some(pin) = held.pin.as_ref() else {
+        return;
+    };
+    let Some(root) = UserEnv::from_process().cache_root() else {
+        return;
+    };
+    let path = cache::path(&root.path, &target);
+    let mut entry = cache::read(&path);
+    let now = jiff::Timestamp::now();
+    if cache::due(entry.as_ref(), now) {
+        match refresh(&path, now) {
+            Ok(Some(fresh)) => entry = Some(fresh),
+            Ok(None) => {}
+            Err(reason) => {
+                warn(&format!(
+                    "sdd cannot record its version check at {path}: {reason}."
+                ));
+                return;
+            }
+        }
+    }
+    let Some(entry) = entry else {
+        return;
+    };
+    if let (Some(error), Some(next)) = (entry.error.as_ref(), entry.next_try()) {
+        warn(&format!(
+            "sdd could not check for a newer release: {error}. Next try after {next}."
+        ));
+    }
+    if let Some(latest) = entry.latest_version()
+        && latest > pin.version
+    {
+        warn(&format!(
+            "sdd {latest} is out, this project pins {}. To move: {SYNC_COMMAND}",
+            pin.version
+        ));
+    }
+}
+
+/// Refresh the cache under its lock: record the attempt, read the latest
+/// release, record the result.
+///
+/// `Ok(None)` means another check holds the lock, so this one reads the
+/// cache alone. `Err` carries why the cache cannot be written, and then
+/// nothing reads the network.
+fn refresh(path: &camino::Utf8Path, now: jiff::Timestamp) -> Result<Option<Entry>, String> {
+    let Some(_lock) =
+        cache::try_lock(&cache::lock_path(path)).map_err(|error| error.to_string())?
+    else {
+        return Ok(None);
+    };
+    // Another check may have refreshed between the read and the lock.
+    let mut entry = cache::read(path).unwrap_or_default();
+    if !cache::due(Some(&entry), now) {
+        return Ok(Some(entry));
+    }
+    entry.last_attempt = Some(now.to_string());
+    cache::write(path, &entry).map_err(|error| error.to_string())?;
+    match Index::new().latest_version() {
+        Ok(version) => {
+            entry.last_success = Some(now.to_string());
+            entry.latest = Some(version.to_string());
+            entry.error = None;
+        }
+        Err(error) => entry.error = Some(error.to_string()),
+    }
+    cache::write(path, &entry).map_err(|error| error.to_string())?;
+    Ok(Some(entry))
+}
+
 // --- sync -------------------------------------------------------------------
 
 /// What one sync run concluded.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "kebab-case")]
 enum Outcome {
-    /// The loop is switched off in this environment.
-    Off,
-    /// No manager names this tool, so there is no pin to move.
-    Unwired,
-    /// The stamp says an attempt already ran today.
-    Stamped,
+    /// The sync ran inside an `.envrc` evaluation, so nothing moved.
+    InsideEnvrc,
     /// The pin already names the release asked for.
     Current,
     /// The pin would move; `--apply` was not passed.
@@ -443,14 +556,11 @@ struct SyncReport {
 }
 
 impl SyncReport {
-    fn new(target: &Utf8PathBuf, caller: Caller, outcome: Outcome, message: String) -> Self {
+    fn new(target: &Utf8PathBuf, outcome: Outcome, message: String) -> Self {
         Self {
-            schema: "sdd.self-depend-sync/1",
+            schema: "sdd.self-depend-sync/2",
             target: target.clone(),
-            caller: match caller {
-                Caller::Envrc => "envrc",
-                Caller::Operator => "operator",
-            },
+            caller: "operator",
             outcome,
             manager: None,
             from: None,
@@ -461,63 +571,59 @@ impl SyncReport {
     }
 }
 
-/// Move the pin through the wired manager.
+/// Move the pin through the wired manager, as the operator's act.
 ///
-/// The shell-entry caller stays silent and exits 0 on every outcome. The
-/// operator caller reports every outcome and fails with the matrix below.
+/// Where `DIRENV_IN_ENVRC` is set, inside an `.envrc` evaluation or under
+/// `direnv exec`, it moves nothing, warns, and exits 1, so a retired
+/// shell-entry line cannot resume automatic moves. That line still loads
+/// the shell, because it ends in `|| true`.
 ///
 /// # Errors
 ///
-/// For the operator caller: [`AppError::Usage`] for a relative target, a
-/// tag that is not a release, no wired manager, or several managers with
-/// none named; [`AppError::Other`] where the latest release cannot be read;
+/// [`AppError::Violations`] where `DIRENV_IN_ENVRC` is set;
+/// [`AppError::Usage`] for `--caller envrc`, a relative target, a tag that
+/// is not a release, no wired manager, or several managers with none named;
+/// [`AppError::Other`] where the latest release cannot be read;
 /// [`AppError::Refused`] where the transaction failed and both files were
 /// put back.
 fn run_sync(ctx: &AppContext, args: SyncArgs) -> Result<(), AppError> {
-    let caller = args.caller;
+    // SATISFIES acquisition:sync-is-the-operators-act
+    if args.caller == Caller::Envrc {
+        return Err(AppError::Usage(format!(
+            "--caller envrc is retired: the shell-entry line is `{CHECK_LINE}`, and sync moves the pin only when a person runs it"
+        )));
+    }
     let json = args.json;
-    match sync_inner(ctx, args) {
-        Ok(report) => {
-            if json {
-                output::json(&report)?;
-            } else if caller == Caller::Operator {
-                output::line(report.message);
-            }
-            Ok(())
+    let report = sync_inner(ctx, args)?;
+    if report.outcome == Outcome::InsideEnvrc {
+        warn(&report.message);
+        if json {
+            output::json(&report)?;
         }
-        // SATISFIES acquisition:the-shell-entry-caller-is-rate-limited-and-silent
-        Err(_) if caller == Caller::Envrc && !json => Ok(()),
-        Err(error) if caller == Caller::Envrc => output::json(&serde_json::json!({
-            "schema": "sdd.self-depend-sync/1",
-            "caller": "envrc",
-            "outcome": "failed",
-            "message": error.to_string(),
-        })),
-        Err(error) => Err(error),
+        // The exit-1 path carries no envelope: the warning is on stderr
+        // already, and a red exit is what a person running it must see.
+        return Err(AppError::Violations { count: 1 });
+    }
+    if json {
+        output::json(&report)
+    } else {
+        output::line(report.message);
+        Ok(())
     }
 }
 
 /// The one wired manager a sync moves, or why none can be chosen.
-///
-/// `Ok(None)` is the shell-entry caller's silent answer to a target that
-/// pins nothing.
-fn choose_wired(
-    asked: Option<Manager>,
-    detected: &[Detected],
-    caller: Caller,
-) -> Result<Option<&Detected>, AppError> {
+fn choose_wired(asked: Option<Manager>, detected: &[Detected]) -> Result<&Detected, AppError> {
     let wired = manager::wired(detected);
     match (asked, wired.as_slice()) {
         (Some(asked), held) => held
             .iter()
             .find(|held| held.manager == asked)
             .copied()
-            .map(Some)
             .ok_or_else(|| {
                 AppError::Usage(format!("{asked} does not pin this tool in this target"))
             }),
-        (None, [one]) => Ok(Some(one)),
-        (None, []) if caller == Caller::Envrc => Ok(None),
+        (None, [one]) => Ok(one),
         (None, []) => Err(AppError::Usage(
             "no manager names this tool in this target; sdd self-depend add serves the fragments"
                 .to_string(),
@@ -534,42 +640,22 @@ fn choose_wired(
 
 fn sync_inner(ctx: &AppContext, args: SyncArgs) -> Result<SyncReport, AppError> {
     let target = resolve_target(ctx, args.target)?;
-    let report =
-        |outcome: Outcome, message: String| SyncReport::new(&target, args.caller, outcome, message);
-    if status::switched_off() {
+    let report = |outcome: Outcome, message: String| SyncReport::new(&target, outcome, message);
+    // SATISFIES acquisition:sync-is-the-operators-act
+    if variable(DIRENV_IN_ENVRC_VAR).is_some() {
         return Ok(report(
-            Outcome::Off,
-            format!("the loop is switched off: {CI_VAR} or {SELF_DEPEND_OFF_VAR} is set"),
+            Outcome::InsideEnvrc,
+            format!(
+                "sdd self-depend sync moved nothing: {DIRENV_IN_ENVRC_VAR} is set, because this is an {ENVRC} evaluation or `direnv exec`. Run the sync from the loaded shell, or with `nix develop -c {SYNC_COMMAND}`. The shell-entry line is `{CHECK_LINE}`, which sdd self-depend clean --apply swaps in."
+            ),
         ));
     }
     let detected = manager::detect(&target);
-    let Some(held) = choose_wired(args.manager, &detected, args.caller)? else {
-        return Ok(report(
-            Outcome::Unwired,
-            "no manager names this tool, so there is no pin to move".to_string(),
-        ));
-    };
+    let held = choose_wired(args.manager, &detected)?;
     let pin = held
         .pin
         .as_ref()
         .ok_or_else(|| AppError::Refused(format!("{} names no pin", held.manager)))?;
-
-    // SATISFIES acquisition:the-shell-entry-caller-is-rate-limited-and-silent
-    let env = UserEnv::from_process();
-    if args.caller == Caller::Envrc
-        && args.tag.is_none()
-        && let Some(root) = env.state_root()
-    {
-        let path = stamp::path(&root.path, &target);
-        let today = stamp::today();
-        if stamp::attempted(&path, today) {
-            return Ok(report(
-                Outcome::Stamped,
-                format!("an attempt already ran today ({today}); at most one runs a day"),
-            ));
-        }
-        stamp::mark(&path, today)?;
-    }
 
     let to = match args.tag.as_deref() {
         Some(tag) => parse_tag(tag).map_err(AppError::Usage)?,
@@ -632,6 +718,10 @@ struct CleanReport {
     leftovers: Vec<Leftover>,
     kept: Vec<Kept>,
     removed: Vec<Utf8PathBuf>,
+    /// The line swaps the clean makes, or would make without `--apply`.
+    swaps: Vec<Swap>,
+    /// The retired daily stamps under the state root it removes, or would.
+    stamps: Vec<Utf8PathBuf>,
     applied: bool,
 }
 
@@ -657,7 +747,11 @@ fn run_clean(ctx: &AppContext, args: CleanArgs) -> Result<(), AppError> {
     let detected = manager::detect(&target);
     let wired = manager::wired(&detected);
     let found = leftovers::find(&target, &args.also);
-    let kept = leftovers::kept(&target, &wired);
+    let swaps: Vec<Swap> = leftovers::envrc_swaps(&target);
+    let stamps = UserEnv::from_process()
+        .state_root()
+        .map(|root| cache::retired_stamps(&root.path))
+        .unwrap_or_default();
     let mut removed = Vec::new();
     if args.apply {
         // SATISFIES acquisition:clean-removes-only-a-named-leftover
@@ -665,20 +759,64 @@ fn run_clean(ctx: &AppContext, args: CleanArgs) -> Result<(), AppError> {
             std::fs::remove_file(target.join(&leftover.file))?;
             removed.push(leftover.file.clone());
         }
+        // SATISFIES acquisition:clean-swaps-the-retired-line
+        let envrc = target.join(ENVRC);
+        if !swaps.is_empty()
+            && let Some((next, _)) = leftovers::swapped(&std::fs::read_to_string(&envrc)?)
+        {
+            crate::adapters::fs::write_atomic(&envrc, next.as_bytes())?;
+        }
+        for stamp in &stamps {
+            std::fs::remove_file(stamp)?;
+        }
     }
+    let kept = leftovers::kept(&target, &wired);
     let report = CleanReport {
-        schema: "sdd.self-depend-clean/1",
+        schema: "sdd.self-depend-clean/2",
         target,
         leftovers: found,
         kept,
         removed,
+        swaps,
+        stamps,
         applied: args.apply,
     };
     if args.json {
         return output::json(&report);
     }
-    if report.leftovers.is_empty() {
+    if report.leftovers.is_empty() && report.swaps.is_empty() && report.stamps.is_empty() {
         output::line("no leftover: this target runs one mechanism");
+    }
+    for swap in &report.swaps {
+        let line = match (swap.action, swap.to.as_ref()) {
+            (leftovers::Action::Swap, Some(to)) => format!(
+                "{} {}: `{}` -> `{to}`",
+                if args.apply { "swapped" } else { "would swap" },
+                swap.file,
+                swap.from
+            ),
+            _ => format!(
+                "{} {}: `{}`, because the check line is already there",
+                if args.apply {
+                    "removed from"
+                } else {
+                    "would remove from"
+                },
+                swap.file,
+                swap.from
+            ),
+        };
+        output::line(line);
+    }
+    for stamp in &report.stamps {
+        output::line(format!(
+            "{} {stamp}: a retired daily stamp",
+            if args.apply {
+                "removed"
+            } else {
+                "would remove"
+            }
+        ));
     }
     for leftover in &report.leftovers {
         output::line(format!(

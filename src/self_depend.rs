@@ -12,12 +12,12 @@
 //! matrix in [`venue`], and every pair carries a verdict there and nowhere
 //! else.
 
+pub mod cache;
 pub mod fragments;
 pub mod leftovers;
 pub mod manager;
 pub mod pin;
 pub mod registry;
-pub mod stamp;
 pub mod status;
 pub mod txn;
 pub mod venue;
@@ -28,7 +28,14 @@ use crate::domain::manifest::CANON_SOURCE;
 pub const BINARY_NAME: &str = "sdd";
 
 /// The line a project's shell loader runs on every directory entry.
-pub const SYNC_LINE: &str = "sdd self-depend sync --apply || true";
+pub const CHECK_LINE: &str = "sdd self-depend check || true";
+
+/// The retired shell-entry line, which moved the pin once a day. A clean
+/// swaps it for [`CHECK_LINE`].
+pub const OLD_SYNC_LINE: &str = "sdd self-depend sync --apply || true";
+
+/// The operator's act that moves the pin.
+pub const SYNC_COMMAND: &str = "sdd self-depend sync --apply";
 
 /// The shell loader file a project keeps at its root.
 pub const ENVRC: &str = ".envrc";

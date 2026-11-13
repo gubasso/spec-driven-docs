@@ -35,7 +35,7 @@
     {
       "source": "skills/sdd-setup/references/provision.md",
       "destination": "skills/sdd-setup/references/provision.md",
-      "sha256": "d28c3aa17db137c82cc5b1f4437a2203f6fbbbf3f2a7603edfc02df77509c72b"
+      "sha256": "ff9c72b954b9bd5a240a47d8e188a52d0b1553e5664b3abbbc209e9114fd6ce2"
     },
     {
       "source": "skills/sdd-setup/references/repair.md",
@@ -72,8 +72,8 @@
     {
       "source": "_docs/specs/SPEC-acquisition.md",
       "destination": "_docs/specs/SPEC-acquisition.md",
-      "sha256": "48553cb50d607555eb3bda6e2cdf3fcdedb99db3a032df5cf267d4b374f86d1d",
-      "baseline_sha256": "48553cb50d607555eb3bda6e2cdf3fcdedb99db3a032df5cf267d4b374f86d1d"
+      "sha256": "1492f9540add90c511e521b8b1a91f5f145aecfe8fa0f5134d10f037894f63ee",
+      "baseline_sha256": "1492f9540add90c511e521b8b1a91f5f145aecfe8fa0f5134d10f037894f63ee"
     },
     {
       "source": "_docs/specs/SPEC-budget-debt.md",
@@ -144,8 +144,8 @@
     {
       "source": "_docs/specs/SPEC-release.md",
       "destination": "_docs/specs/SPEC-release.md",
-      "sha256": "fd06d982d3ed5388eacf0ca666c04107597c87efc8a66f9c7a988d67c873c060",
-      "baseline_sha256": "fd06d982d3ed5388eacf0ca666c04107597c87efc8a66f9c7a988d67c873c060"
+      "sha256": "4d47d0a648f66066e97ebcba9669c71ccda18856f810d2d916b6d47d1d2a9d42",
+      "baseline_sha256": "4d47d0a648f66066e97ebcba9669c71ccda18856f810d2d916b6d47d1d2a9d42"
     },
     {
       "source": "_docs/specs/SPEC-setup.md",

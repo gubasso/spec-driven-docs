@@ -100,7 +100,7 @@ pub enum Commands {
     License(license::LicenseArgs),
     /// Regenerate the canon checkout's own instance manifest.
     SelfManifest,
-    /// Wire this tool as a consumer's dependency and keep its pin fresh.
+    /// Wire this tool as a consumer's dependency, warn of a newer release, and move its pin.
     SelfDepend(self_depend::SelfDependArgs),
     /// Generate shell completions.
     Completions(completions::CompletionsArgs),

@@ -131,6 +131,11 @@ impl Fixture {
         self.home.path().join("state")
     }
 
+    /// Where this fixture's invocations keep caches.
+    pub fn cache_root(&self) -> PathBuf {
+        self.home.path().join("cache")
+    }
+
     /// Write a file under the target, creating parents.
     pub fn write(&self, relative: &str, content: &str) {
         let path = self.dir.path().join(relative);
