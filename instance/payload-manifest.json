@@ -1,6 +1,6 @@
 {
   "schema": "sdd.payload-manifest/1",
-  "version": "0.17.0",
+  "version": "0.18.0",
   "files": [
     {
       "path": "_docs/specs/SPEC-acquisition.md",
