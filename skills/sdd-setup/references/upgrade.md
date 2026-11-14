@@ -36,3 +36,4 @@ Fill the landing pipeline with:
 1. The Prove step passed, and `sdd status --target . --json` reads `classification` `current`.
 2. Route each saved copy by the rule at the end of the landing pipeline.
 3. Offer the removal of each `legacy_state` entry whose `active` is false, by its exact path, as a gated step.
+4. Where a formatter, a linter, or a spell checker excludes the landed skills, it excludes only the package folders `sdd-setup` and `sdd-write-docs` under each skill root that the `paths` section of `sdd status --target . --json` reports. The project's own skills in those roots stay under its checks. Narrow an exclude of a whole skill root to those folders, as a gated edit.

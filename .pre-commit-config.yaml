@@ -103,15 +103,18 @@ repos:
       # the rule for every instance). The three fixers have no configuration
       # of their own, so the list lives here: release-plz's CHANGELOG.md,
       # release-kit's rendered SECURITY.md, pr-title.yml, release-plz.yml and
-      # manifest, cargo-dist's release.yml, this tool's own instance record
-      # and the skills it lands under .claude/skills and .agents/skills, the
-      # payload record the tree writes, and the cargo and nix lock files. Each other tool excludes them in its
-      # own configuration: dprint.json, .markdownlint-cli2.jsonc, _typos.toml,
+      # manifest, cargo-dist's release.yml, this tool's own instance record,
+      # the skill packages that it and release-kit land under .claude/skills
+      # and .agents/skills (never a whole skill root, so a skill of this
+      # repository's own stays under the checks), the payload record the
+      # tree writes, and the cargo and nix lock files. Each other tool
+      # excludes them in its own configuration: dprint.json,
+      # .markdownlint-cli2.jsonc, _typos.toml,
       # and .editorconfig-checker.json. The reading hooks keep every one.
       - id: trailing-whitespace
         stages: [pre-commit, pre-merge-commit]
         args: [--markdown-linebreak-ext=md]
-        exclude: &generated '^(CHANGELOG\.md|SECURITY\.md|\.github/workflows/(pr-title|release-plz|release)\.yml|\.release-kit/manifest\.json|\.spec-driven-docs/manifest\.json|instance/payload-manifest\.json|\.(claude|agents)/skills/.*|Cargo\.lock|flake\.lock)$'
+        exclude: &generated '^(CHANGELOG\.md|SECURITY\.md|\.github/workflows/(pr-title|release-plz|release)\.yml|\.release-kit/manifest\.json|\.spec-driven-docs/manifest\.json|instance/payload-manifest\.json|\.(claude|agents)/skills/(sdd-setup|sdd-write-docs|rk-setup|rk-release)/.*|Cargo\.lock|flake\.lock)$'
       - id: end-of-file-fixer
         stages: [pre-commit, pre-merge-commit]
         exclude: *generated

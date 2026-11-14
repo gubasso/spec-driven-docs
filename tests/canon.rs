@@ -3553,3 +3553,29 @@ fn the_skill_and_the_release_guide_carry_the_moved_text() {
         );
     }
 }
+
+/// The seeded lint configuration skips each skill package the payload
+/// lands, under both skill roots, and never a whole root, so the skills
+/// an adopter keeps beside them stay under its linter.
+#[test]
+fn the_seeded_lint_ignores_only_the_landed_skill_packages() {
+    let seed = read("instance/seeds/markdownlint-cli2.jsonc");
+    let mut packages: Vec<String> = std::fs::read_dir(canon().join("skills"))
+        .unwrap()
+        .filter_map(Result::ok)
+        .filter(|entry| entry.path().join("SKILL.md").is_file())
+        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .collect();
+    packages.sort();
+    assert!(!packages.is_empty());
+    for root in [".claude/skills", ".agents/skills"] {
+        assert!(
+            !seed.contains(&format!("\"{root}/**\"")),
+            "the seed ignores the whole root {root}"
+        );
+        for package in &packages {
+            let entry = format!("\"{root}/{package}/**\"");
+            assert!(seed.contains(&entry), "the seed lacks {entry}");
+        }
+    }
+}

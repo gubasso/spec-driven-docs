@@ -136,7 +136,7 @@
     },
     {
       "path": "instance/README.md",
-      "sha256": "c5ab3b28767840abca6a9397a27c24701bd74a67823076263327b77974808381"
+      "sha256": "abfea56614c635bca5f9cba606782b80861178fcf9bff110cad5ee3c4c8b7489"
     },
     {
       "path": "instance/docs-catalog.toml",
@@ -216,7 +216,7 @@
     },
     {
       "path": "instance/seeds/markdownlint-cli2.jsonc",
-      "sha256": "72f5c3e20608b41ca623503a9168b1b8423179a58058927a909e520a67f7599b"
+      "sha256": "6e31baea2f33322eca8dd947c040dde52ba67428b1893005ff2fe9b4e09fcc82"
     },
     {
       "path": "instance/snippets/AGENTS-docs.md",
@@ -356,7 +356,7 @@
     },
     {
       "path": "skills/sdd-setup/references/upgrade.md",
-      "sha256": "f1b537c29e72a5368063d4883eb89f8d8371753b1d7282915cf83535ced1cdf7"
+      "sha256": "699e65432da54b91bfae7f386fac27c1296c86c56c2ae71524e2dd400f149aec"
     },
     {
       "path": "skills/sdd-write-docs/SKILL.md",

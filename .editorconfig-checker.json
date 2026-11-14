@@ -6,7 +6,7 @@
     "^\\.release-kit/manifest\\.json$",
     "^\\.spec-driven-docs/manifest\\.json$",
     "^instance/payload-manifest\\.json$",
-    "^\\.(claude|agents)/skills/",
+    "^\\.(claude|agents)/skills/(sdd-setup|sdd-write-docs|rk-setup|rk-release)/",
     "^Cargo\\.lock$",
     "^flake\\.lock$"
   ]
