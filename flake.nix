@@ -11,7 +11,7 @@
       # Moved by the operator with `rk self-depend sync --apply`: the tag in this URL
       # is the version, flake.lock is the content pin, and nothing else in
       # this repository names an rk version.
-      url = "github:gubasso/release-kit/v0.9.15";
+      url = "github:gubasso/release-kit/v0.10.0";
       # A deliberate deal, not a tidy-up: with follows, rk rebuilds against
       # this repository's nixpkgs rather than the revision it tested
       # upstream, so this consumer owns that compatibility — proven by the
@@ -21,6 +21,13 @@
       # release-kit reads spec-driven-docs for its own development; here
       # that is this flake, so the lock carries no nested chain of either.
       inputs.spec-driven-docs.follows = "";
+      # rk pins an earlier rk release for its own development. The empty
+      # follows points that input at this flake, so flake.lock carries no
+      # node for that release, and nothing here builds it.
+      inputs.release-kit.follows = "";
+      # One node of each shared input.
+      inputs.rust-overlay.follows = "rust-overlay";
+      inputs.exobrain-tech.follows = "exobrain-tech";
     };
     # The previous release of this tool. It lands, verifies, and upgrades
     # this repository's own instance, and the rendered hooks run it, as in
@@ -28,12 +35,12 @@
     # (release:the-canon-runs-its-previous-release). The operator moves the
     # pin with `sdd self-depend sync --apply` after each release, then runs
     # `sdd upgrade` here. The follows keep one node of each shared input.
-    # From the first release that carries this input, the pinned release
-    # brings its own previous-release input: at the first pin move after
-    # that release, add `inputs.spec-driven-docs.follows = "";` here, so
-    # flake.lock holds one sdd node rather than a chain of older ones.
+    # The pinned release brings its own previous-release input, and the
+    # empty follows points it at this flake, so flake.lock holds one sdd
+    # node rather than a chain of older ones.
     spec-driven-docs = {
-      url = "github:gubasso/spec-driven-docs/v0.17.0";
+      url = "github:gubasso/spec-driven-docs/v0.18.0";
+      inputs.spec-driven-docs.follows = "";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.rust-overlay.follows = "rust-overlay";
       inputs.release-kit.follows = "release-kit";

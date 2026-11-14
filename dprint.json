@@ -18,7 +18,6 @@
     "SECURITY.md",
     ".release-kit/manifest.json",
     ".spec-driven-docs/manifest.json",
-    "AGENTS.md",
     "instance/payload-manifest.json",
     ".claude/skills",
     ".agents/skills",

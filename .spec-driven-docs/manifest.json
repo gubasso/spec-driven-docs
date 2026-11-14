@@ -1,6 +1,6 @@
 {
   "schema_version": 3,
-  "canon_version": "0.17.0",
+  "canon_version": "0.18.0",
   "canon_source": "https://github.com/gubasso/spec-driven-docs",
   "profile": "knowledge-base",
   "docs_root": "_docs",
@@ -278,7 +278,7 @@
     },
     {
       "path": "AGENTS.md",
-      "marker_hash": "e1d883ba0c84969aaa2602f279250fbd86ad671596df0be682a0b0bac2ad6eb1"
+      "marker_hash": "ed193a9e9fe44618bedfd8e83efa29738601b8dd28e2e74846cb1d591df36dc5"
     }
   ]
 }

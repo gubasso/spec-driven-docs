@@ -26,36 +26,6 @@
         "type": "github"
       }
     },
-    "exobrain-tech_2": {
-      "inputs": {
-        "nixpkgs": [
-          "release-kit",
-          "nixpkgs"
-        ],
-        "release-kit": [
-          "release-kit"
-        ],
-        "rust-overlay": "rust-overlay_2",
-        "spec-driven-docs": [
-          "release-kit",
-          "spec-driven-docs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1794417935,
-        "narHash": "sha256-tHYPUSvVvoXH4DtAt7HnLrS2rxeEWJ5agNuX7fJWJXQ=",
-        "owner": "gubasso",
-        "repo": "exobrain-tech",
-        "rev": "9abb55d665bc8c7b515e1bcc4cbfaeeb5410fa40",
-        "type": "github"
-      },
-      "original": {
-        "owner": "gubasso",
-        "ref": "v1.0.0",
-        "repo": "exobrain-tech",
-        "type": "github"
-      }
-    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1787498568,
@@ -74,24 +44,29 @@
     },
     "release-kit": {
       "inputs": {
-        "exobrain-tech": "exobrain-tech_2",
+        "exobrain-tech": [
+          "exobrain-tech"
+        ],
         "nixpkgs": [
           "nixpkgs"
         ],
-        "rust-overlay": "rust-overlay_3",
+        "release-kit": [],
+        "rust-overlay": [
+          "rust-overlay"
+        ],
         "spec-driven-docs": []
       },
       "locked": {
-        "lastModified": 1794580099,
-        "narHash": "sha256-Y+jg9f7wo3YzcIc4a5uptd4JKknzWRZsPdjy4cFWZ8I=",
+        "lastModified": 1794670359,
+        "narHash": "sha256-Vj9ZS1cI7iP2k3fJ6AOTdLISMtIIbgr42eBBEoN4ZrM=",
         "owner": "gubasso",
         "repo": "release-kit",
-        "rev": "3fd21b57a6c930ce0c41874dbb40b0b0be26ca99",
+        "rev": "b16bd64f4418cad98ccfd6cf69e345831a9e44c9",
         "type": "github"
       },
       "original": {
         "owner": "gubasso",
-        "ref": "v0.9.15",
+        "ref": "v0.10.0",
         "repo": "release-kit",
         "type": "github"
       }
@@ -101,7 +76,7 @@
         "exobrain-tech": "exobrain-tech",
         "nixpkgs": "nixpkgs",
         "release-kit": "release-kit",
-        "rust-overlay": "rust-overlay_4",
+        "rust-overlay": "rust-overlay_2",
         "spec-driven-docs": "spec-driven-docs"
       }
     },
@@ -127,49 +102,6 @@
       }
     },
     "rust-overlay_2": {
-      "inputs": {
-        "nixpkgs": [
-          "release-kit",
-          "exobrain-tech",
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1787834454,
-        "narHash": "sha256-jXSvqn04IOecJCvSvl8+g3PsbDVNP6qKs6dKUs/b16k=",
-        "owner": "oxalica",
-        "repo": "rust-overlay",
-        "rev": "dc2fd1acc537f3583744e1373597a5731ff7a6e3",
-        "type": "github"
-      },
-      "original": {
-        "owner": "oxalica",
-        "repo": "rust-overlay",
-        "type": "github"
-      }
-    },
-    "rust-overlay_3": {
-      "inputs": {
-        "nixpkgs": [
-          "release-kit",
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1787834454,
-        "narHash": "sha256-jXSvqn04IOecJCvSvl8+g3PsbDVNP6qKs6dKUs/b16k=",
-        "owner": "oxalica",
-        "repo": "rust-overlay",
-        "rev": "dc2fd1acc537f3583744e1373597a5731ff7a6e3",
-        "type": "github"
-      },
-      "original": {
-        "owner": "oxalica",
-        "repo": "rust-overlay",
-        "type": "github"
-      }
-    },
-    "rust-overlay_4": {
       "inputs": {
         "nixpkgs": [
           "nixpkgs"
@@ -202,19 +134,20 @@
         ],
         "rust-overlay": [
           "rust-overlay"
-        ]
+        ],
+        "spec-driven-docs": []
       },
       "locked": {
-        "lastModified": 1794568820,
-        "narHash": "sha256-6AqB70o+wNLa8iWwrSK2JM0ng5Ksze2kWRIkGtOVvNU=",
+        "lastModified": 1794670398,
+        "narHash": "sha256-L4WqvxRtSvl9bUNkEHAFd8BEpqiBU/N3STedfUhXivQ=",
         "owner": "gubasso",
         "repo": "spec-driven-docs",
-        "rev": "32a91f9ca029771d7f24336024306ed3cd6c2d24",
+        "rev": "ff09685f142d0799596bf960da29a1bd3d840e70",
         "type": "github"
       },
       "original": {
         "owner": "gubasso",
-        "ref": "v0.17.0",
+        "ref": "v0.18.0",
         "repo": "spec-driven-docs",
         "type": "github"
       }
