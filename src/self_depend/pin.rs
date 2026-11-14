@@ -154,23 +154,99 @@ const MAX_FOLLOWS: usize = 32;
 #[must_use]
 pub fn locked_rev(lock: &str) -> Option<String> {
     let value: serde_json::Value = serde_json::from_str(lock).ok()?;
+    let (_, node) = own_input(&value)?;
+    value["nodes"][node.as_str()]["locked"]["rev"]
+        .as_str()
+        .map(str::to_string)
+}
+
+/// Whether a lock node names this tool's repository.
+fn names_this_tool(node: &serde_json::Value) -> bool {
     let (owner, repo) = crate::self_depend::coordinates();
+    let original = &node["original"];
+    let same = |key: &str, want: &str| {
+        original[key]
+            .as_str()
+            .is_some_and(|held| held.eq_ignore_ascii_case(want))
+    };
+    same("owner", owner) && same("repo", repo)
+}
+
+/// The root input that resolves to this tool, and the node it resolves to.
+fn own_input(value: &serde_json::Value) -> Option<(String, String)> {
     let nodes = &value["nodes"];
     let root = value["root"].as_str().unwrap_or("root");
     let inputs = nodes[root]["inputs"].as_object()?;
     inputs.keys().find_map(|input| {
         let name = input_node(nodes, root, root, input, 0)?;
-        let node = &nodes[name.as_str()];
-        let original = &node["original"];
-        let same = |key: &str, want: &str| {
-            original[key]
-                .as_str()
-                .is_some_and(|held| held.eq_ignore_ascii_case(want))
-        };
-        (same("owner", owner) && same("repo", repo))
-            .then(|| node["locked"]["rev"].as_str().map(str::to_string))
-            .flatten()
+        names_this_tool(&nodes[name.as_str()]).then(|| (input.clone(), name))
     })
+}
+
+/// The inputs of this tool's own flake that only its development shell reads.
+///
+/// The package never reads them. A consumer that lacks one points it at its
+/// own flake with an empty follows, so the lock holds no node for it. Read
+/// from this repository's `flake.nix`: the package output builds from
+/// `nixpkgs` and `rust-overlay` alone.
+pub const DEVELOPMENT_ONLY_INPUTS: [&str; 2] = ["release-kit", "exobrain-tech"];
+
+/// One follows line a consumer's flake lacks on this tool's input.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Follows {
+    /// The consumer's input that pins this tool, which holds the line.
+    pub input: String,
+    /// The nested input the line points.
+    pub nested: String,
+    /// The line, as `flake.nix` carries it inside the input's attribute set.
+    pub line: String,
+}
+
+/// The follows lines that remove a nested copy from a consumer's lock.
+///
+/// For each input of this tool's node that still holds its own node: this
+/// tool's own previous release follows nothing, an input the root also
+/// declares follows the root's, and a development-only input the root
+/// lacks follows nothing. Every other input keeps its node, because the
+/// package build needs it. The lock grammar alone decides, and nothing is
+/// written.
+///
+/// SATISFIES acquisition:sync-advises-the-follows-lines-and-writes-none
+#[must_use]
+pub fn follows_advice(lock: &str) -> Vec<Follows> {
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(lock) else {
+        return Vec::new();
+    };
+    let Some((input, node)) = own_input(&value) else {
+        return Vec::new();
+    };
+    let nodes = &value["nodes"];
+    let root = value["root"].as_str().unwrap_or("root");
+    let declared = |name: &str| nodes[root]["inputs"].get(name).is_some();
+    let Some(nested) = nodes[node.as_str()]["inputs"].as_object() else {
+        return Vec::new();
+    };
+    nested
+        .iter()
+        .filter_map(|(name, held)| {
+            // A follows path is a list: the line is already there.
+            let own = held.as_str()?;
+            let target = if names_this_tool(&nodes[own]) {
+                String::new()
+            } else if declared(name) {
+                name.clone()
+            } else if DEVELOPMENT_ONLY_INPUTS.contains(&name.as_str()) {
+                String::new()
+            } else {
+                return None;
+            };
+            Some(Follows {
+                input: input.clone(),
+                nested: name.clone(),
+                line: format!("inputs.{name}.follows = \"{target}\";"),
+            })
+        })
+        .collect()
 }
 
 /// The node one input of `node` resolves to. The input names a node, or
@@ -383,5 +459,99 @@ mod tests {
             node("stray")
         );
         assert_eq!(locked_rev(&lock), None);
+    }
+
+    /// A lock whose root pins this tool as `sdd`, with `root_extra` more
+    /// root inputs and `nested` the inputs of this tool's node.
+    fn advice_lock(root_extra: &[&str], nested: &str, extra_nodes: &str) -> String {
+        let (owner, repo) = crate::self_depend::coordinates();
+        let root: String = std::iter::once("\"sdd\":\"sdd\"".to_string())
+            .chain(
+                root_extra
+                    .iter()
+                    .map(|name| format!("\"{name}\":\"{name}\"")),
+            )
+            .collect::<Vec<_>>()
+            .join(",");
+        format!(
+            "{{\"nodes\":{{\"root\":{{\"inputs\":{{{root}}}}},\"sdd\":{{\"inputs\":{{{nested}}},\"locked\":{{\"rev\":\"r\"}},\"original\":{{\"owner\":\"{owner}\",\"repo\":\"{repo}\",\"type\":\"github\"}}}}{extra_nodes}}},\"root\":\"root\",\"version\":7}}"
+        )
+    }
+
+    fn lines(advice: &[Follows]) -> Vec<&str> {
+        advice.iter().map(|follows| follows.line.as_str()).collect()
+    }
+
+    /// VERIFIES acquisition:sync-advises-the-follows-lines-and-writes-none
+    #[test]
+    fn a_nested_input_the_root_declares_follows_the_roots() {
+        let lock = advice_lock(
+            &["release-kit"],
+            "\"release-kit\":\"release-kit_2\"",
+            ",\"release-kit\":{},\"release-kit_2\":{}",
+        );
+        let advice = follows_advice(&lock);
+        assert_eq!(
+            lines(&advice),
+            ["inputs.release-kit.follows = \"release-kit\";"]
+        );
+        assert_eq!(advice[0].input, "sdd");
+    }
+
+    /// VERIFIES acquisition:sync-advises-the-follows-lines-and-writes-none
+    #[test]
+    fn a_development_only_input_the_root_lacks_follows_nothing() {
+        let lock = advice_lock(
+            &[],
+            "\"exobrain-tech\":\"exobrain-tech\",\"release-kit\":\"release-kit\"",
+            ",\"exobrain-tech\":{},\"release-kit\":{}",
+        );
+        assert_eq!(
+            lines(&follows_advice(&lock)),
+            [
+                "inputs.exobrain-tech.follows = \"\";",
+                "inputs.release-kit.follows = \"\";"
+            ]
+        );
+    }
+
+    /// VERIFIES acquisition:sync-advises-the-follows-lines-and-writes-none
+    #[test]
+    fn a_nested_nixpkgs_the_root_lacks_gets_no_advice() {
+        let lock = advice_lock(
+            &[],
+            "\"nixpkgs\":\"nixpkgs\",\"rust-overlay\":\"rust-overlay\"",
+            ",\"nixpkgs\":{},\"rust-overlay\":{}",
+        );
+        assert!(follows_advice(&lock).is_empty());
+    }
+
+    /// VERIFIES acquisition:sync-advises-the-follows-lines-and-writes-none
+    #[test]
+    fn a_nested_older_release_of_this_tool_follows_nothing() {
+        let (owner, repo) = crate::self_depend::coordinates();
+        let lock = advice_lock(
+            &[],
+            "\"spec-driven-docs\":\"spec-driven-docs\"",
+            &format!(
+                ",\"spec-driven-docs\":{{\"original\":{{\"owner\":\"{owner}\",\"repo\":\"{repo}\",\"type\":\"github\"}}}}"
+            ),
+        );
+        assert_eq!(
+            lines(&follows_advice(&lock)),
+            ["inputs.spec-driven-docs.follows = \"\";"]
+        );
+    }
+
+    /// VERIFIES acquisition:sync-advises-the-follows-lines-and-writes-none
+    #[test]
+    fn a_lock_with_every_follows_line_in_place_advises_nothing() {
+        let lock = advice_lock(
+            &["nixpkgs", "release-kit"],
+            "\"nixpkgs\":[\"nixpkgs\"],\"release-kit\":[\"release-kit\"],\"exobrain-tech\":[],\"spec-driven-docs\":[]",
+            ",\"nixpkgs\":{},\"release-kit\":{}",
+        );
+        assert!(follows_advice(&lock).is_empty());
+        assert!(follows_advice("not json").is_empty());
     }
 }

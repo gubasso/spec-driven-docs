@@ -15,6 +15,7 @@
 mod support;
 
 use predicates::prelude::*;
+use spec_driven_docs::self_depend::guidance::MOVED;
 use support::Fixture;
 
 /// Rewrite a fresh instance into the version-one shape the previous
@@ -488,7 +489,9 @@ fn an_older_schema_at_the_current_version_still_migrates() {
         .args(["verify", "--target", &fixture.target()])
         .assert()
         .success()
-        .stderr(predicate::str::contains("run `sdd upgrade`"));
+        .stderr(predicate::str::contains(
+            "Run `sdd upgrade` to move the record.",
+        ));
 
     fixture
         .cmd()
@@ -1217,4 +1220,67 @@ fn an_upgrade_brings_the_skills_to_an_older_instance() {
         .args(["verify", "--target", &fixture.target()])
         .assert()
         .success();
+}
+
+/// Rewrite the version the instance record names.
+fn record_at(fixture: &Fixture, version: &str) {
+    let mut record: serde_json::Value =
+        serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
+    record["canon_version"] = version.into();
+    fixture.write(
+        ".spec-driven-docs/manifest.json",
+        &format!("{}\n", serde_json::to_string_pretty(&record).unwrap()),
+    );
+}
+
+/// VERIFIES staging:an-upgrade-from-an-older-release-names-the-skill-route
+#[test]
+fn an_upgrade_from_an_older_record_names_the_skill_route_first() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    record_at(&fixture, "0.16.0");
+    let (code, report) = upgrade_json(&fixture, &["--dry-run"]);
+    assert_eq!(code, Some(0), "{report}");
+    assert_eq!(report["next"], MOVED);
+    assert_eq!(report["lines"][0], MOVED, "{report}");
+    let text = String::from_utf8(
+        fixture
+            .upgrade()
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone(),
+    )
+    .unwrap();
+    assert_eq!(text.lines().next(), Some(MOVED), "{text}");
+}
+
+/// VERIFIES staging:an-upgrade-from-an-older-release-names-the-skill-route
+#[test]
+fn an_upgrade_at_the_same_version_names_no_skill_route() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    let (code, report) = upgrade_json(&fixture, &["--dry-run"]);
+    assert_eq!(code, Some(0), "{report}");
+    assert!(report.get("next").is_none(), "{report}");
+    fixture
+        .upgrade()
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(MOVED).not());
+}
+
+/// The bullet the managed documentation block carries for a pin move.
+const PIN_MOVE_BULLET: &str = "- After an sdd pin move, run the upgrade through the sdd-setup skill of the sdd in the devshell (`sdd skill show sdd-setup` before `sdd upgrade`), never a host copy.";
+
+/// VERIFIES instance:the-agents-block-stays-managed
+#[test]
+fn a_landed_agents_block_carries_the_pin_move_bullet_once() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    record_at(&fixture, "0.16.0");
+    fixture.upgrade().assert().success();
+    let agents = fixture.read("AGENTS.md");
+    assert_eq!(agents.matches(PIN_MOVE_BULLET).count(), 1, "{agents}");
 }

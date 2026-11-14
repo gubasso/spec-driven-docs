@@ -13,9 +13,12 @@
   - [`acquisition:the-check-refreshes-weekly-and-retries-hourly` — The check refreshes weekly and retries hourly](#acquisitionthe-check-refreshes-weekly-and-retries-hourly--the-check-refreshes-weekly-and-retries-hourly)
   - [`acquisition:the-check-warns-and-writes-only-its-cache` — The check warns and writes only its cache](#acquisitionthe-check-warns-and-writes-only-its-cache--the-check-warns-and-writes-only-its-cache)
   - [`acquisition:the-off-switch-stops-the-check-alone` — The off switch stops the check alone](#acquisitionthe-off-switch-stops-the-check-alone--the-off-switch-stops-the-check-alone)
+  - [`acquisition:every-report-names-a-pending-move` — Every report names a pending move](#acquisitionevery-report-names-a-pending-move--every-report-names-a-pending-move)
   - [`acquisition:sync-is-the-operators-act` — Sync is the operator's act](#acquisitionsync-is-the-operators-act--sync-is-the-operators-act)
   - [`acquisition:the-operator-caller-reports-every-outcome` — The operator caller reports every outcome](#acquisitionthe-operator-caller-reports-every-outcome--the-operator-caller-reports-every-outcome)
   - [`acquisition:the-sync-leaves-a-diff-nobody-committed` — The sync leaves a diff nobody committed](#acquisitionthe-sync-leaves-a-diff-nobody-committed--the-sync-leaves-a-diff-nobody-committed)
+  - [`acquisition:a-pin-move-names-the-skill-route` — A pin move names the skill route](#acquisitiona-pin-move-names-the-skill-route--a-pin-move-names-the-skill-route)
+  - [`acquisition:sync-advises-the-follows-lines-and-writes-none` — Sync advises the follows lines and writes none](#acquisitionsync-advises-the-follows-lines-and-writes-none--sync-advises-the-follows-lines-and-writes-none)
   - [`acquisition:clean-removes-only-a-named-leftover` — Clean removes only a named leftover](#acquisitionclean-removes-only-a-named-leftover--clean-removes-only-a-named-leftover)
   - [`acquisition:clean-swaps-the-retired-line` — Clean swaps the retired line](#acquisitionclean-swaps-the-retired-line--clean-swaps-the-retired-line)
   - [`acquisition:a-host-install-is-a-recorded-decision` — A host install is a recorded decision](#acquisitiona-host-install-is-a-recorded-decision--a-host-install-is-a-recorded-decision)
@@ -45,7 +48,7 @@ Verify: `cargo nextest run -E 'binary(cmd_self_depend)'`
 
 ### `acquisition:a-fragment-names-the-venue-form` — A fragment names the venue form
 
-A fragment for a registry-backed pair MUST name the crate as the registry knows it, and a fragment for an archive-backed pair MUST name the binary inside the archive. A flake pair MUST name the repository at a release tag.
+A fragment for a registry-backed pair MUST name the crate as the registry knows it, and a fragment for an archive-backed pair MUST name the binary inside the archive. A flake pair MUST name the repository at a release tag and MUST carry `inputs.spec-driven-docs.follows = "";` on its own input, in the fragment and in the seeded `flake.nix`, so the lock holds no node for the release that the tool pins for its own development.
 
 #### Scenario: The crate name and the binary name differ
 
@@ -117,19 +120,23 @@ Verify: `cargo nextest run -E 'binary(cmd_self_depend)'`
 
 ### `acquisition:the-check-warns-and-writes-only-its-cache` — The check warns and writes only its cache
 
-The shell-entry line MUST be `sdd self-depend check || true`, and the check MUST write no file except its cache and its lock. On every directory entry it MUST warn on stderr: `sdd <latest> is out, this project pins <pin>. To move: sdd self-depend sync --apply` where the cache holds a newer release, and `sdd could not check for a newer release: <reason>. Next try after <time>.` where it holds an error. Where the cache cannot be written, it MUST warn `sdd cannot record its version check at <path>: <reason>.` and read no network. It MUST exit 0 on every outcome, so the shell loads.
+The shell-entry line MUST be `sdd self-depend check || true`, and the check MUST write no file except its cache and its lock. On every directory entry it MUST warn on stderr with the pending text where the cache holds a newer release, and `sdd could not check for a newer release: <reason>. Next try after <time>.` where it holds an error. Where the cache cannot be written, it MUST warn `sdd cannot record its version check at <path>: <reason>.` and read no network. It MUST exit 0 on every outcome, so the shell loads. One constant in the binary holds the pending text:
+
+```text
+sdd <latest> is out, this project pins <pin>. To move: sdd self-depend sync --apply, then upgrade through the sdd-setup skill of the new sdd.
+```
 
 #### Scenario: A newer release is cached
 
 - GIVEN a fresh cache that records a newer release than the pin
 - WHEN the shell loader runs the check line
-- THEN the check names both versions and the sync command on stderr, reads no network, leaves every project file byte-identical, and exits 0
+- THEN the check prints the pending text with both versions on stderr, reads no network, leaves every project file byte-identical, and exits 0
 
 Verify: `cargo nextest run -E 'binary(cmd_self_depend)'`
 
 ### `acquisition:the-off-switch-stops-the-check-alone` — The off switch stops the check alone
 
-The check MUST read nothing and write nothing where `CI` or `SDD_SELF_DEPEND_OFF` is set. Neither variable MUST stop a sync, because only a person runs it.
+The check MUST read nothing and write nothing where `CI` or `SDD_SELF_DEPEND_OFF` is set. Neither variable MUST stop a sync, because only a person runs it. The reports that `acquisition:every-report-names-a-pending-move` names stay silent about a pending move under either variable too, because they read the same cache.
 
 #### Scenario: An operator moves the pin with the switch set
 
@@ -138,6 +145,18 @@ The check MUST read nothing and write nothing where `CI` or `SDD_SELF_DEPEND_OFF
 - THEN the check is silent and writes no cache, and the pin moves
 
 Verify: `cargo nextest run -E 'binary(cmd_self_depend)'`
+
+### `acquisition:every-report-names-a-pending-move` — Every report names a pending move
+
+Where the version-check cache records a newer release than the one wired pin, `sdd self-depend status`, `sdd status`, and `sdd verify` MUST print the pending text of `acquisition:the-check-warns-and-writes-only-its-cache`, and the `pin-fresh` probe of `sdd doctor` MUST fail with it as its remediation. Each MUST read the cache alone, never the network, and write nothing. A pending move MUST NOT change an exit code, because `sdd verify` runs as a hook. `sdd verify` prints the text on stderr. The status verbs print it on stdout, and their `--json` carries a `pending` object with `latest`, `pin`, and `text`. The probe reads the current folder, is soft, and reads ok where the pin names the newest recorded release and unknown where no pin or no cache exists. Where `CI` or `SDD_SELF_DEPEND_OFF` is set, every report stays silent about the move, as the check does.
+
+#### Scenario: A clean instance meets a cached newer release
+
+- GIVEN an instance whose wired pin is older than the release the cache records
+- WHEN `sdd verify --target .` runs
+- THEN it prints the pending text on stderr, reads no network, and exits 0
+
+Verify: `cargo nextest run -E 'binary(cmd_self_depend) | binary(cmd_status) | binary(cmd_doctor) | binary(cmd_verify)'`
 
 ### `acquisition:sync-is-the-operators-act` — Sync is the operator's act
 
@@ -174,6 +193,38 @@ Verify: `cargo nextest run -E 'binary(cmd_self_depend)'`
 - THEN that line names the new version, no other line changed, and no other file changed
 
 Verify: `cargo nextest run -E 'binary(cmd_self_depend)'`
+
+### `acquisition:a-pin-move-names-the-skill-route` — A pin move names the skill route
+
+Where `sdd self-depend sync` moves the pin, or would move it without `--apply`, its message MUST end with the moved text, and `--json` MUST carry the same text in `next`. A sync on a pin that already names the release MUST print no moved text. One constant in the binary holds the moved text:
+
+```text
+After the pin move, load the devshell and run the upgrade through the sdd-setup skill of the sdd in that devshell, and do every migration it names. Before `sdd upgrade`, read it with `sdd skill show sdd-setup`. After it, the project's .claude/skills/sdd-setup is that skill. Never use a host copy or an older skill.
+```
+
+`sdd upgrade` writes the new release's skill into the project, so an agent that reads `.claude/skills/sdd-setup` before the upgrade reads the older release's skill. `sdd skill show sdd-setup` prints the skill that the binary embeds, which is why the text names it for the read before the upgrade. The version gate, `sdd status`, an upgrade from an older record, the sdd-setup skill, and the release guide quote the same constant.
+
+#### Scenario: The operator moves a pin that is behind
+
+- GIVEN a target whose wired manager pins an older release
+- WHEN `sdd self-depend sync --apply --json` runs
+- THEN the message names the move and then the moved text, and `next` carries the moved text
+
+Verify: `cargo nextest run -E 'binary(cmd_self_depend)'`
+
+### `acquisition:sync-advises-the-follows-lines-and-writes-none` — Sync advises the follows lines and writes none
+
+Where a flake pins this tool, `sdd self-depend sync` and `sdd self-depend status` MUST read `flake.lock` and print each follows line that the tool's input lacks, and `--json` MUST carry the lines in `follows`. Neither MUST write `flake.nix` for them. For each input of the tool's node that still holds its own node, the tool's own previous release gets `inputs.spec-driven-docs.follows = "";`, an input whose name the root also declares gets `inputs.<name>.follows = "<name>";`, and a development-only input of the tool's own flake that the root lacks gets `inputs.<name>.follows = "";`. Every other input keeps its node, because the package build needs it. The binary holds the list of development-only inputs, read from the tool's own `flake.nix`.
+
+A text edit of Nix is fragile, and `acquisition:the-pin-moves-in-one-transaction` covers the tag and the lock alone, so the sync advises and the operator writes the lines.
+
+#### Scenario: A consumer pins this tool alone
+
+- GIVEN a flake whose lock nests a development-only input under the tool's input
+- WHEN `sdd self-depend sync --apply` runs
+- THEN it names the empty follows line for that input, and `flake.nix` differs from before only in the tag
+
+Verify: `cargo nextest run -E 'binary(cmd_self_depend) | test(follows)'`
 
 ### `acquisition:clean-removes-only-a-named-leftover` — Clean removes only a named leftover
 

@@ -202,14 +202,14 @@ Verify: `cargo nextest run -E 'test(every_action_has_a_gate_class)'`
 
 Before the handler of a `read-only` or `writing` action runs, the binary MUST compare the `canon_version` of the target's instance record with its own version and act by the row the state selects, naming the command that fixes a mismatch.
 
-| State of the target          | Writing action                    | Read-only action                                           |
-| ---------------------------- | --------------------------------- | ---------------------------------------------------------- |
-| No instance                  | Refuses and names `sdd init`      | Refuses and names `sdd init`                               |
-| Binary newer than the record | Refuses and names `sdd upgrade`   | Runs, with one warning line on stderr naming `sdd upgrade` |
-| Record newer than the binary | Refuses and names the environment | Refuses and names the environment                          |
-| Versions match               | Runs                              | Runs                                                       |
+| State of the target          | Writing action                    | Read-only action                                            |
+| ---------------------------- | --------------------------------- | ----------------------------------------------------------- |
+| No instance                  | Refuses and names `sdd init`      | Refuses and names `sdd init`                                |
+| Binary newer than the record | Refuses and names the moved text  | Runs, with one warning line on stderr naming the moved text |
+| Record newer than the binary | Refuses and names the environment | Refuses and names the environment                           |
+| Versions match               | Runs                              | Runs                                                        |
 
-A refusal exits 73 and writes nothing. The refusal on a target with no instance names `sdd init`, and the setup skill as `sdd skill show sdd-setup`, with each file it names through `sdd skill show sdd-setup --file <path>`. A record newer than the binary names the recorded version and tells the reader to run the sdd of the project's own environment, and names the pin as the fix only where `self-depend` reads a pin older than the record. The warning never enters a JSON body.
+A refusal exits 73 and writes nothing. The moved text is the constant that `acquisition:a-pin-move-names-the-skill-route` holds, and `sdd status` names it for the alignment `binary-newer` too. A record of an older schema at the binary's own version moved no pin, so its refusal and its warning name `sdd upgrade` instead. The refusal on a target with no instance names `sdd init`, and the setup skill as `sdd skill show sdd-setup`, with each file it names through `sdd skill show sdd-setup --file <path>`. A record newer than the binary names the recorded version and tells the reader to run the sdd of the project's own environment, and names the pin as the fix only where `self-depend` reads a pin older than the record. The warning never enters a JSON body.
 
 `sdd verify` and `sdd gate` run on every commit as hooks, so after a pin move they warn and keep their exit code, and they judge a record of an older schema by what that schema records. A corrupt record and real drift still fail. The gate never writes, never moves the pin, and never runs `init` or `upgrade` by itself. No gate of `sdd gate` runs outside an instance by design, so a gate run refuses a target with no instance. Its fallback to `_docs` serves only a record no schema reads, which the `instance-manifest` gate then reports.
 
@@ -217,6 +217,6 @@ A refusal exits 73 and writes nothing. The refusal on a target with no instance 
 
 - GIVEN an instance recorded at an older sdd than the binary
 - WHEN `sdd policy --apply` runs
-- THEN it exits 73 naming both versions and `sdd upgrade`, and the target is unchanged, while `sdd verify` on the same target warns once on stderr and keeps its own exit code
+- THEN it exits 73 naming both versions and the moved text, and the target is unchanged, while `sdd verify` on the same target warns once on stderr with the moved text and keeps its own exit code
 
 Verify: `cargo nextest run -E 'binary(cmd_version_gate)'`

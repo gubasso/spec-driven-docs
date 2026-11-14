@@ -14,6 +14,7 @@
 
 pub mod cache;
 pub mod fragments;
+pub mod guidance;
 pub mod leftovers;
 pub mod manager;
 pub mod pin;

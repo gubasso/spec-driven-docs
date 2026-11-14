@@ -116,6 +116,9 @@ pub struct UpgradeOutcome {
     pub replaced: Vec<Replaced>,
     /// Every citation of a rule ID this binary no longer defines.
     pub retired_citations: Vec<Citation>,
+    /// What the reader does after a pin move, where the record is older
+    /// than this binary.
+    pub next: Option<&'static str>,
 }
 
 struct Installed {
@@ -366,7 +369,6 @@ pub fn upgrade(options: &UpgradeOptions) -> Result<UpgradeOutcome, AppError> {
     // binary to install, and that binary projects only itself.
     let new = CanonVersion::current();
     let old = installed.version;
-    let mut outcome = UpgradeOutcome::default();
 
     if old > new {
         return Err(AppError::Refused(format!(
@@ -382,7 +384,7 @@ pub fn upgrade(options: &UpgradeOptions) -> Result<UpgradeOutcome, AppError> {
             staged.profile, installed.profile
         )));
     }
-    outcome.from = Some(old);
+    let mut outcome = UpgradeOutcome::from_record(old, new);
     let reinstall = reinstall_options(&target, installed.profile, options);
     outcome.retired_citations = retired_citations(&target, &installed);
 
@@ -623,6 +625,27 @@ fn preview(
     Ok(())
 }
 
+impl UpgradeOutcome {
+    /// The outcome of an upgrade from the record `old` to `new`. Where the
+    /// record is older, it names the skill route first, because an upgrade
+    /// alone runs none of the migrations the skill carries.
+    ///
+    /// SATISFIES staging:an-upgrade-from-an-older-release-names-the-skill-route
+    fn from_record(old: CanonVersion, new: CanonVersion) -> Self {
+        let mut outcome = Self {
+            from: Some(old),
+            ..Self::default()
+        };
+        if old < new {
+            outcome.next = Some(crate::self_depend::guidance::MOVED);
+            outcome
+                .lines
+                .push(crate::self_depend::guidance::MOVED.to_string());
+        }
+        outcome
+    }
+}
+
 /// Print every retired citation, one line each.
 fn report_citations(outcome: &mut UpgradeOutcome) {
     for citation in &outcome.retired_citations {
@@ -813,6 +836,11 @@ fn retired_citations(target: &Utf8Path, installed: &Installed) -> Vec<Citation> 
             continue;
         };
         let record = relative.starts_with(&decisions);
+        // A superseded record keeps the pointer it was frozen with, as the
+        // citation gate exempts it, and its successor carries what binds.
+        if record && crate::gates::adr_cites_a_live_rule::superseded(&text) {
+            continue;
+        }
         let enforced: std::collections::BTreeSet<usize> = if record {
             crate::gates::adr_cites_a_live_rule::enforced_by(&text)
                 .into_iter()
@@ -905,5 +933,51 @@ mod tests {
         assert_ne!(kept, again);
         assert_eq!(std::fs::read(&kept).unwrap(), b"first");
         assert_eq!(std::fs::read(&again).unwrap(), b"second");
+    }
+
+    /// An installed record at `docs/`, with nothing managed.
+    fn installed() -> Installed {
+        Installed {
+            version: CanonVersion::current(),
+            profile: ProfileId::Codebase,
+            docs_root: "docs".to_string(),
+            managed: Vec::new(),
+            integration: Vec::new(),
+            schema_current: true,
+        }
+    }
+
+    /// A target holding one decision record, written from `status`.
+    fn record_with_status(status: &str) -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        let root = Utf8Path::from_path(dir.path()).unwrap();
+        crate::adapters::fs::write_file(
+            &root.join("docs/decisions/ADR-old-choice.md"),
+            format!(
+                "# Old choice\n\n## Status\n\n{status}\n\n## Decision\n\nEnforced by `staging:a-rule-no-release-defines`.\n"
+            )
+            .as_bytes(),
+        )
+        .unwrap();
+        dir
+    }
+
+    /// VERIFIES staging:an-upgrade-lists-every-retired-citation-first
+    #[test]
+    fn a_superseded_record_gives_no_retired_citation() {
+        let dir = record_with_status("Superseded by [ADR-new-choice](ADR-new-choice.md)");
+        let target = Utf8Path::from_path(dir.path()).unwrap();
+        assert!(retired_citations(target, &installed()).is_empty());
+    }
+
+    /// VERIFIES staging:an-upgrade-lists-every-retired-citation-first
+    #[test]
+    fn a_record_with_no_superseded_line_still_gives_its_retired_citation() {
+        let dir = record_with_status("Accepted");
+        let target = Utf8Path::from_path(dir.path()).unwrap();
+        let found = retired_citations(target, &installed());
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!(found[0].id, "staging:a-rule-no-release-defines");
+        assert_eq!(found[0].path, "docs/decisions/ADR-old-choice.md");
     }
 }

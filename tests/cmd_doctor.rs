@@ -85,6 +85,7 @@ fn doctor_reports_every_probe_and_exits_0() {
             "state-root",
             "skill-shadow",
             "release-registry",
+            "pin-fresh",
             "git",
             "prek"
         ]
@@ -206,4 +207,69 @@ fn the_registry_probe_is_quiet_where_the_host_is_declared_offline() {
             .contains("SDD_OFFLINE is set"),
         "{probe}"
     );
+}
+
+/// The `pin-fresh` probe of a doctor run in `fixture`'s folder.
+fn pin_fresh(fixture: &support::Fixture, index: &support::SilentIndex) -> serde_json::Value {
+    let mut cmd = fixture.cmd_loop_on();
+    index.serve(&mut cmd);
+    // The registry probe reads the network unless the host is offline.
+    cmd.env("SDD_OFFLINE", "1");
+    let out = cmd
+        .current_dir(fixture.path())
+        .args(["doctor", "--json"])
+        .env("SDD_GIT_BIN", "/no/such/git")
+        .env("SDD_PREK_BIN", "/no/such/prek")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let report: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    probe(&report, "pin-fresh").clone()
+}
+
+/// VERIFIES acquisition:every-report-names-a-pending-move
+#[test]
+fn the_pin_fresh_probe_reads_behind_ok_and_unknown() {
+    let index = support::SilentIndex::new();
+    let unpinned = support::Fixture::new();
+    unpinned.seed_version_check("0.11.0");
+    let unknown = pin_fresh(&unpinned, &index);
+    assert_eq!(unknown["status"], "ok");
+    assert!(
+        unknown["message"].as_str().unwrap().starts_with("unknown"),
+        "{unknown}"
+    );
+
+    let pinned = support::Fixture::new();
+    pinned.write(".tool-versions", "spec-driven-docs 0.10.1\n");
+    let empty = pin_fresh(&pinned, &index);
+    assert!(
+        empty["message"].as_str().unwrap().starts_with("unknown"),
+        "{empty}"
+    );
+    assert!(!index.reached(), "the probe read the network");
+
+    pinned.seed_version_check("0.10.1");
+    let current = pin_fresh(&pinned, &index);
+    assert_eq!(current["status"], "ok");
+    assert!(
+        current["message"].as_str().unwrap().starts_with("ok"),
+        "{current}"
+    );
+
+    pinned.seed_version_check("0.11.0");
+    let behind = pin_fresh(&pinned, &index);
+    assert_eq!(behind["class"], "soft");
+    assert_eq!(behind["status"], "failed");
+    assert!(
+        behind["message"].as_str().unwrap().starts_with("behind"),
+        "{behind}"
+    );
+    assert_eq!(
+        behind["remediation"],
+        "sdd 0.11.0 is out, this project pins 0.10.1. To move: sdd self-depend sync --apply, then upgrade through the sdd-setup skill of the new sdd."
+    );
+    assert!(!index.reached(), "the probe read the network");
 }

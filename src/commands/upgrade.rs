@@ -30,6 +30,8 @@ struct Report<'a> {
     conflicts: &'a [Conflict],
     replaced: &'a [Replaced],
     retired_citations: &'a [Citation],
+    #[serde(skip_serializing_if = "Option::is_none")]
+    next: Option<&'static str>,
     lines: &'a [String],
 }
 
@@ -89,6 +91,7 @@ fn report<'a>(
         conflicts: &outcome.conflicts,
         replaced: &outcome.replaced,
         retired_citations: &outcome.retired_citations,
+        next: outcome.next,
         lines: &outcome.lines,
     }
 }

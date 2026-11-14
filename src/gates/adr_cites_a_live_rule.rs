@@ -50,7 +50,7 @@ pub(crate) fn cited_ids(line: &str) -> Vec<&str> {
 }
 
 /// Whether a record's status says another record replaced it.
-fn superseded(text: &str) -> bool {
+pub(crate) fn superseded(text: &str) -> bool {
     text.lines()
         .skip_while(|line| line.trim() != "## Status")
         .any(|line| line.trim_start().starts_with("Superseded by"))

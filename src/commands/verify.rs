@@ -24,6 +24,13 @@ pub fn run(ctx: &AppContext, args: VerifyArgs) -> Result<(), AppError> {
     } else {
         return Err(AppError::Usage("target must be absolute or .".to_string()));
     };
+    // A pending move warns and never fails, because verify runs as a hook.
+    // SATISFIES acquisition:every-report-names-a-pending-move
+    if let Some(pending) =
+        crate::self_depend::status::pending(&target, &crate::domain::paths::UserEnv::from_process())
+    {
+        eprintln!("{}", pending.text);
+    }
     let report = verify(&target)?;
     for line in &report.lines {
         output::line(line);

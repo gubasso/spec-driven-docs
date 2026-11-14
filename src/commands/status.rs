@@ -28,6 +28,10 @@ pub fn run(ctx: &AppContext, args: StatusArgs) -> Result<(), AppError> {
     if args.json {
         return output::json(&report);
     }
+    // SATISFIES acquisition:every-report-names-a-pending-move
+    if let Some(pending) = report.pending.as_ref() {
+        output::line(&pending.text);
+    }
     match report.classification {
         Some(classification) => output::line(format!("classification: {classification}")),
         None => output::line("classification: none; the instance is newer than this binary"),
@@ -59,9 +63,14 @@ pub fn run(ctx: &AppContext, args: StatusArgs) -> Result<(), AppError> {
     }
     if let Some(alignment) = report.alignment {
         let word = match alignment {
-            crate::services::status::Alignment::Aligned => "aligned",
-            crate::services::status::Alignment::BinaryNewer => "binary newer; run 'sdd upgrade'",
-            crate::services::status::Alignment::InstanceNewer => "instance newer; upgrade sdd",
+            crate::services::status::Alignment::Aligned => "aligned".to_string(),
+            // SATISFIES setup:a-gated-command-names-its-fix
+            crate::services::status::Alignment::BinaryNewer => {
+                format!("binary newer. {}", crate::self_depend::guidance::MOVED)
+            }
+            crate::services::status::Alignment::InstanceNewer => {
+                "instance newer; upgrade sdd".to_string()
+            }
         };
         output::line(format!("alignment: {word}"));
     }

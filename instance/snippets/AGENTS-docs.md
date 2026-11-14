@@ -7,4 +7,5 @@
 - Name a document by a slug drawn from its subject, never by a number. Where its directory holds documents with no kind prefix, give that directory a `README.md` saying what it holds and what each document covers.
 - For a question about this method or about operating `sdd`, run `sdd docs` and read only the topic it names.
 - Run `sdd verify` before handoff.
+- After an sdd pin move, run the upgrade through the sdd-setup skill of the sdd in the devshell (`sdd skill show sdd-setup` before `sdd upgrade`), never a host copy.
 - Keep adopted specs, the tracking registry, and local integration instance-owned.

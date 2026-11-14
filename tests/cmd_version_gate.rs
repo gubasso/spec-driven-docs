@@ -15,6 +15,7 @@ mod support;
 
 use predicates::prelude::*;
 use spec_driven_docs::landing::gate::{Class, TABLE, TargetSource, row_of};
+use spec_driven_docs::self_depend::guidance::MOVED;
 use support::Fixture;
 
 /// The refusal of a target with no instance.
@@ -193,7 +194,9 @@ fn a_writing_action_refuses_when_the_binary_is_newer() {
         .assert()
         .code(73)
         .stderr(predicate::str::contains("at sdd 0.16.0"))
-        .stderr(predicate::str::contains("Run `sdd upgrade`"));
+        .stderr(predicate::str::contains(format!(
+            "{MOVED} Then run this command again. (setup:a-gated-command-names-its-fix)"
+        )));
     assert_eq!(
         before,
         fixture.tree_digest(),
@@ -310,10 +313,61 @@ fn the_warning_never_enters_the_json_body() {
         .args(["ki", "list", "--target", &fixture.target(), "--json"])
         .assert()
         .success()
-        .stderr(predicate::str::contains("run `sdd upgrade`"))
+        .stderr(predicate::str::contains(format!(
+            "{MOVED} (setup:a-gated-command-names-its-fix)"
+        )))
         .get_output()
         .stdout
         .clone();
     let body: serde_json::Value = serde_json::from_slice(&output).unwrap();
     assert!(body.is_array() || body.is_object(), "{body}");
+}
+
+/// VERIFIES setup:a-gated-command-names-its-fix
+///
+/// A record of an older schema at this release moved no pin, so the gate
+/// names the upgrade alone and not the moved text.
+#[test]
+fn an_older_schema_at_this_release_names_the_upgrade_alone() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    let mut record: serde_json::Value =
+        serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
+    record["schema_version"] = 2.into();
+    record.as_object_mut().unwrap().remove("docs_scratch");
+    fixture.write(
+        ".spec-driven-docs/manifest.json",
+        &format!("{}\n", serde_json::to_string_pretty(&record).unwrap()),
+    );
+    let before = fixture.tree_digest();
+    fixture
+        .cmd()
+        .args([
+            "policy",
+            "reconcile",
+            "--target",
+            &fixture.target(),
+            "--apply",
+        ])
+        .assert()
+        .code(73)
+        .stderr(predicate::str::contains("schema 2"))
+        .stderr(predicate::str::contains(
+            "Run `sdd upgrade` to move the record.",
+        ))
+        .stderr(predicate::str::contains(MOVED).not());
+    assert_eq!(
+        before,
+        fixture.tree_digest(),
+        "the refusal changed the target"
+    );
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains(
+            "Run `sdd upgrade` to move the record.",
+        ))
+        .stderr(predicate::str::contains(MOVED).not());
 }

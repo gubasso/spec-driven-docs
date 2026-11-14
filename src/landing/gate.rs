@@ -18,6 +18,7 @@ use crate::cli::Commands;
 use crate::domain::manifest::{MANIFEST_PATH, Manifest};
 use crate::domain::version::CanonVersion;
 use crate::error::AppError;
+use crate::self_depend::guidance::MOVED;
 
 /// What the gate holds an action to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -535,13 +536,20 @@ pub fn require_aligned(row: &Row, applied: bool, target: &Utf8Path) -> Result<Pa
             .older_schema
             .map(|schema| format!(", recorded in schema {schema},"))
             .unwrap_or_default();
+        // A pin moved only where the recorded release is older. A record of
+        // an older schema at this release needs the upgrade alone.
+        let fix = if older(&instance, &binary) {
+            MOVED
+        } else {
+            "Run `sdd upgrade` to move the record."
+        };
         if effective == Class::Writing {
             return Err(AppError::Refused(format!(
-                "The instance is at sdd {instance}{schema} and this sdd is {binary}. Run `sdd upgrade` to move the instance, then run this command again. (setup:a-gated-command-names-its-fix)"
+                "The instance is at sdd {instance}{schema} and this sdd is {binary}. {fix} Then run this command again. (setup:a-gated-command-names-its-fix)"
             )));
         }
         return Ok(Passed::Warn(format!(
-            "warning: the instance is at sdd {instance}{schema} and this sdd is {binary}; run `sdd upgrade` (setup:a-gated-command-names-its-fix)"
+            "warning: the instance is at sdd {instance}{schema} and this sdd is {binary}. {fix} (setup:a-gated-command-names-its-fix)"
         )));
     }
     Ok(Passed::Quiet)

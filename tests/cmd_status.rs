@@ -421,3 +421,44 @@ fn the_text_form_prints_the_paths_under_one_heading() {
     std::fs::write(&receipt, "{\"schema_version\": 2, \"written\": {}}\n").unwrap();
     status().stdout(predicate::str::contains("agent root claude:"));
 }
+
+/// An installed instance whose asdf file pins this tool at 0.10.1.
+fn pinned_instance() -> Fixture {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    fixture.write(".tool-versions", "spec-driven-docs 0.10.1\n");
+    fixture
+}
+
+/// VERIFIES acquisition:every-report-names-a-pending-move
+#[test]
+fn status_names_a_pending_move_and_nothing_new_otherwise() {
+    let fixture = pinned_instance();
+    let index = support::SilentIndex::new();
+    let run = |json: bool| {
+        let mut cmd = fixture.cmd_loop_on();
+        index.serve(&mut cmd);
+        cmd.args(["status", "--target", &fixture.target()]);
+        if json {
+            cmd.arg("--json");
+        }
+        String::from_utf8(cmd.assert().success().get_output().stdout.clone()).unwrap()
+    };
+    // No cache: nothing new, and no network read.
+    assert!(!run(false).contains("is out"));
+    assert!(!run(true).contains("\"pending\""));
+    assert!(!index.reached(), "status read the network");
+    // A current pin: nothing new.
+    fixture.seed_version_check("0.10.1");
+    assert!(!run(false).contains("is out"));
+    // A newer release: the pending text and the field.
+    fixture.seed_version_check("0.11.0");
+    assert!(run(false).contains("sdd 0.11.0 is out, this project pins 0.10.1. To move: sdd self-depend sync --apply, then upgrade through the sdd-setup skill of the new sdd."));
+    let report: serde_json::Value = serde_json::from_str(&run(true)).unwrap();
+    assert_eq!(
+        report["pending"]["text"],
+        "sdd 0.11.0 is out, this project pins 0.10.1. To move: sdd self-depend sync --apply, then upgrade through the sdd-setup skill of the new sdd."
+    );
+    assert_eq!(report["pending"]["latest"], "0.11.0");
+    assert!(!index.reached(), "status read the network");
+}

@@ -152,6 +152,64 @@ impl Fixture {
     pub fn tree_digest(&self) -> String {
         tree_digest(self.dir.path())
     }
+
+    /// An `sdd` invocation with the version-check loop switched on, so a
+    /// developer's shell or a runner that switches it off cannot hide it.
+    pub fn cmd_loop_on(&self) -> Command {
+        let mut cmd = self.cmd();
+        for name in ["CI", "SDD_SELF_DEPEND_OFF", "DIRENV_IN_ENVRC"] {
+            cmd.env_remove(name);
+        }
+        cmd
+    }
+
+    /// Record a fresh version check that found `latest`, as the check
+    /// writes it for this checkout.
+    pub fn seed_version_check(&self, latest: &str) {
+        let root = self.cache_root().join("spec-driven-docs");
+        let path = spec_driven_docs::self_depend::cache::path(
+            camino::Utf8Path::from_path(&root).unwrap(),
+            camino::Utf8Path::new(&self.target()),
+        );
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let now = jiff::Timestamp::now().to_string();
+        let entry = serde_json::json!({
+            "last_attempt": now,
+            "last_success": now,
+            "latest": latest,
+            "error": null,
+        });
+        std::fs::write(path, entry.to_string()).unwrap();
+    }
+}
+
+/// A registry origin on the loopback that answers nothing, so a test can
+/// tell whether a command tried to read the network.
+pub struct SilentIndex {
+    listener: std::net::TcpListener,
+    /// The origin `SDD_HTTP_ORIGIN` takes.
+    pub origin: String,
+}
+
+impl SilentIndex {
+    /// Bind a fresh loopback port.
+    pub fn new() -> Self {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let origin = format!("http://{}", listener.local_addr().unwrap());
+        Self { listener, origin }
+    }
+
+    /// Point `cmd` at this origin, with the network allowed.
+    pub fn serve(&self, cmd: &mut Command) {
+        cmd.env_remove(OFFLINE.0);
+        cmd.env("SDD_HTTP_ORIGIN", &self.origin);
+    }
+
+    /// Whether any connection reached the origin.
+    pub fn reached(&self) -> bool {
+        self.listener.accept().is_ok()
+    }
 }
 
 /// A digest of every file under a root outside `.git/`.

@@ -122,6 +122,7 @@ pub fn run_all() -> Vec<ProbeResult> {
         state_root(),
         skill_shadow(),
         registry(),
+        pin_fresh(),
         tool(
             "git",
             "SDD_GIT_BIN",
@@ -169,6 +170,50 @@ fn tool(
             ProbeClass::Soft,
             format!("{default_bin} is not on PATH"),
             format!("install {label}"),
+        ),
+    }
+}
+
+/// The pin of the current folder against the newest release the
+/// version-check cache records, offline.
+///
+/// Soft, because a pin that is behind is the operator's to move, and
+/// unknown where the folder pins nothing or no check has run yet. A pin
+/// that is behind fails with the pending text as its remediation.
+///
+/// SATISFIES acquisition:every-report-names-a-pending-move
+fn pin_fresh() -> ProbeResult {
+    use crate::self_depend::status::{PinFreshness, freshness};
+    let id = "pin-fresh";
+    let Some(folder) = std::env::current_dir()
+        .ok()
+        .and_then(|dir| Utf8PathBuf::from_path_buf(dir).ok())
+    else {
+        return ProbeResult::ok(
+            id,
+            ProbeClass::Soft,
+            "unknown: the current folder is unreadable",
+        );
+    };
+    match freshness(&folder, &UserEnv::from_process()) {
+        PinFreshness::Unknown => ProbeResult::ok(
+            id,
+            ProbeClass::Soft,
+            "unknown: no pin or no version check recorded here",
+        ),
+        PinFreshness::Current { pin } => ProbeResult::ok(
+            id,
+            ProbeClass::Soft,
+            format!("ok: the pin {pin} names the newest recorded release"),
+        ),
+        PinFreshness::Behind(pending) => ProbeResult::failed(
+            id,
+            ProbeClass::Soft,
+            format!(
+                "behind: sdd {} is out, the pin names {}",
+                pending.latest, pending.pin
+            ),
+            pending.text,
         ),
     }
 }

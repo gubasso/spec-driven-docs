@@ -13,6 +13,7 @@
   - [`staging:compare-reports-every-destination-the-stage-carries` — Compare reports every destination the stage carries](#stagingcompare-reports-every-destination-the-stage-carries--compare-reports-every-destination-the-stage-carries)
   - [`staging:a-replacement-keeps-the-bytes-it-replaces` — A replacement keeps the bytes it replaces](#staginga-replacement-keeps-the-bytes-it-replaces--a-replacement-keeps-the-bytes-it-replaces)
   - [`staging:an-upgrade-lists-every-retired-citation-first` — An upgrade lists every retired citation first](#stagingan-upgrade-lists-every-retired-citation-first--an-upgrade-lists-every-retired-citation-first)
+  - [`staging:an-upgrade-from-an-older-release-names-the-skill-route` — An upgrade from an older release names the skill route](#stagingan-upgrade-from-an-older-release-names-the-skill-route--an-upgrade-from-an-older-release-names-the-skill-route)
   - [`staging:a-stage-persists-until-it-is-cleaned` — A stage persists until it is cleaned](#staginga-stage-persists-until-it-is-cleaned--a-stage-persists-until-it-is-cleaned)
   - [`staging:the-manifest-attributes-every-refresh` — The manifest attributes every refresh](#stagingthe-manifest-attributes-every-refresh--the-manifest-attributes-every-refresh)
   - [`staging:an-unattributed-collision-refuses-first` — An unattributed collision refuses first](#stagingan-unattributed-collision-refuses-first--an-unattributed-collision-refuses-first)
@@ -150,13 +151,33 @@ Verify: `cargo nextest run -E 'binary(cmd_upgrade)'`
 
 `sdd upgrade --dry-run` MUST list every citation of a rule ID in a domain this binary defines that this binary no longer defines, by file and line, before any write.
 
-A rule heading is a definition and is not listed. A decision record is read on its `Enforced by` paragraph alone, every line it wraps onto included, a file this tool manages is about to be replaced, and the changelog is history, so none of those is listed. A rule the instance's own specs define is live, even where this binary once retired a rule of the same name, so a citation of it is not listed. Re-pointing a citation stays the author's, because the tool cannot know which rule the author meant.
+A rule heading is a definition and is not listed. A decision record is read on its `Enforced by` paragraph alone, every line it wraps onto included, and a record whose status says another record superseded it is not read at all, as the citation gate exempts it, a file this tool manages is about to be replaced, and the changelog is history, so none of those is listed. A rule the instance's own specs define is live, even where this binary once retired a rule of the same name, so a citation of it is not listed. Re-pointing a citation stays the author's, because the tool cannot know which rule the author meant.
 
 #### Scenario: A guide cites a rule the new release retired
 
 - GIVEN a guide citing a rule ID the installed release no longer defines
 - WHEN `sdd upgrade --dry-run --json` runs
 - THEN `retired_citations` names the guide, the line, and the ID, and nothing is written
+
+#### Scenario: A superseded record cites a rule the new release retired
+
+- GIVEN a decision record whose status reads `Superseded by` and whose `Enforced by` paragraph cites a retired rule ID
+- WHEN `sdd upgrade --dry-run --json` runs
+- THEN `retired_citations` names no line of that record, because a record is not revised and its successor carries what binds
+
+Verify: `cargo nextest run -E 'binary(cmd_upgrade) | test(retired_citation)'`
+
+### `staging:an-upgrade-from-an-older-release-names-the-skill-route` — An upgrade from an older release names the skill route
+
+Where the record is older than the binary, `sdd upgrade` MUST print the moved text of `acquisition:a-pin-move-names-the-skill-route` as its first line, with or without `--dry-run`, and `--json` MUST carry it in `next`. An upgrade of a record at the binary's own version MUST print no moved text.
+
+`sdd upgrade` alone keeps the old bytes of every adopted spec and runs none of the migrations that the sdd-setup skill carries, so its first line sends the reader to that skill.
+
+#### Scenario: An upgrade follows a pin move
+
+- GIVEN an instance recorded at an older release than the binary
+- WHEN `sdd upgrade --dry-run --json` runs
+- THEN the first line is the moved text and `next` carries it, while an upgrade of an instance at the binary's version prints neither
 
 Verify: `cargo nextest run -E 'binary(cmd_upgrade)'`
 

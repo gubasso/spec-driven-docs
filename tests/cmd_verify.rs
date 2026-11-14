@@ -62,7 +62,9 @@ fn verify_warns_and_passes_on_an_older_schema() {
         .assert()
         .success()
         .stderr(predicate::str::contains("schema 1"))
-        .stderr(predicate::str::contains("run `sdd upgrade`"))
+        .stderr(predicate::str::contains(
+            "Run `sdd upgrade` to move the record.",
+        ))
         .stdout(predicate::str::contains("OK spec-driven-docs"));
 }
 
@@ -628,4 +630,38 @@ fn a_removed_skill_entry_fails_verify() {
         .stdout(predicate::str::contains(format!(
             "FAIL manifest omits a declared projection: {removed}"
         )));
+}
+
+/// An installed instance whose asdf file pins this tool at 0.10.1.
+fn pinned_instance() -> Fixture {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    fixture.write(".tool-versions", "spec-driven-docs 0.10.1\n");
+    fixture
+}
+
+/// VERIFIES acquisition:every-report-names-a-pending-move
+#[test]
+fn verify_names_a_pending_move_on_stderr_and_keeps_its_exit() {
+    let fixture = pinned_instance();
+    let index = support::SilentIndex::new();
+    let verify = || {
+        let mut cmd = fixture.cmd_loop_on();
+        index.serve(&mut cmd);
+        cmd.args(["verify", "--target", &fixture.target()]);
+        cmd
+    };
+    verify()
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("is out").not());
+    assert!(!index.reached(), "verify read the network");
+    fixture.seed_version_check("0.11.0");
+    verify()
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("sdd 0.11.0 is out, this project pins 0.10.1. To move: sdd self-depend sync --apply, then upgrade through the sdd-setup skill of the new sdd."))
+        .stdout(predicate::str::contains("is out").not())
+        .stdout(predicate::str::contains("OK spec-driven-docs"));
+    assert!(!index.reached(), "verify read the network");
 }

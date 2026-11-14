@@ -21,6 +21,7 @@ use crate::error::AppError;
 use crate::output;
 use crate::self_depend::cache::{self, Entry};
 use crate::self_depend::fragments::{self, Fragment};
+use crate::self_depend::guidance::{self, MOVED};
 use crate::self_depend::leftovers::{self, Kept, Leftover, Swap};
 use crate::self_depend::manager::{self, Detected, Manager};
 use crate::self_depend::registry::Index;
@@ -172,6 +173,14 @@ fn render_status(report: &Report) {
     ));
     for leftover in &report.leftovers {
         output::line(format!("leftover {}: {}", leftover.file, leftover.reason));
+    }
+    // SATISFIES acquisition:every-report-names-a-pending-move
+    if let Some(pending) = report.pending.as_ref() {
+        output::line(&pending.text);
+    }
+    // SATISFIES acquisition:sync-advises-the-follows-lines-and-writes-none
+    for follows in &report.follows {
+        output::line(status::follows_line(follows));
     }
     output::line("Next:");
     for line in &report.next {
@@ -451,9 +460,9 @@ fn run_check(ctx: &AppContext, args: CheckArgs) {
     let [held] = manager::wired(&detected)[..] else {
         return;
     };
-    let Some(pin) = held.pin.as_ref() else {
+    if held.pin.is_none() {
         return;
-    };
+    }
     let Some(root) = UserEnv::from_process().cache_root() else {
         return;
     };
@@ -480,13 +489,8 @@ fn run_check(ctx: &AppContext, args: CheckArgs) {
             "sdd could not check for a newer release: {error}. Next try after {next}."
         ));
     }
-    if let Some(latest) = entry.latest_version()
-        && latest > pin.version
-    {
-        warn(&format!(
-            "sdd {latest} is out, this project pins {}. To move: {SYNC_COMMAND}",
-            pin.version
-        ));
+    if let Some(pending) = status::pending(&target, &UserEnv::from_process()) {
+        warn(&pending.text);
     }
 }
 
@@ -553,6 +557,12 @@ struct SyncReport {
     #[serde(skip_serializing_if = "Option::is_none")]
     moved: Option<Moved>,
     message: String,
+    /// What the reader does after the pin moves, where it moves or would.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    next: Option<&'static str>,
+    /// The follows lines the flake lacks on this tool's input.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    follows: Vec<crate::self_depend::pin::Follows>,
 }
 
 impl SyncReport {
@@ -567,6 +577,8 @@ impl SyncReport {
             to: None,
             moved: None,
             message,
+            next: None,
+            follows: Vec::new(),
         }
     }
 }
@@ -607,7 +619,10 @@ fn run_sync(ctx: &AppContext, args: SyncArgs) -> Result<(), AppError> {
     if json {
         output::json(&report)
     } else {
-        output::line(report.message);
+        output::line(&report.message);
+        for follows in &report.follows {
+            output::line(status::follows_line(follows));
+        }
         Ok(())
     }
 }
@@ -670,14 +685,18 @@ fn sync_inner(ctx: &AppContext, args: SyncArgs) -> Result<SyncReport, AppError> 
     out.manager = Some(held.manager);
     out.from = Some(pin.spelled.clone());
     out.to = Some(spelled_to.clone());
+    // SATISFIES acquisition:sync-advises-the-follows-lines-and-writes-none
+    out.follows = status::follows(&target, Some(held.manager));
     if pin.version == to {
         out.message = format!("{} pins {} already", held.manager, pin.spelled);
         return Ok(out);
     }
+    // SATISFIES acquisition:a-pin-move-names-the-skill-route
+    out.next = Some(guidance::MOVED);
     if !args.apply {
         out.outcome = Outcome::Pending;
         out.message = format!(
-            "{} would move from {} to {spelled_to}; pass --apply",
+            "{} would move from {} to {spelled_to}; pass --apply. {MOVED}",
             held.manager, pin.spelled
         );
         return Ok(out);
@@ -686,7 +705,7 @@ fn sync_inner(ctx: &AppContext, args: SyncArgs) -> Result<SyncReport, AppError> 
     let moved = txn::sync(&target, held, &to)?;
     out.outcome = Outcome::Moved;
     out.message = format!(
-        "{} moved from {} to {}; review and commit {}",
+        "{} moved from {} to {}; review and commit {}. {MOVED}",
         moved.manager,
         moved.from,
         moved.to,
@@ -698,6 +717,8 @@ fn sync_inner(ctx: &AppContext, args: SyncArgs) -> Result<SyncReport, AppError> 
             .join(" and ")
     );
     out.moved = Some(moved);
+    // The lock moved with the pin, so the advice reads the new one.
+    out.follows = status::follows(&target, Some(held.manager));
     Ok(out)
 }
 

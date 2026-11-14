@@ -4,7 +4,7 @@
   "files": [
     {
       "path": "_docs/specs/SPEC-acquisition.md",
-      "sha256": "e0f772f4983b6e2af6f27560c65c50c12eadeaa408fa8dd701b68ed7be3eb459"
+      "sha256": "42bdcd22f1661a68ab3071b6256012907c25a7d82b225a846fc53692bbabd9c7"
     },
     {
       "path": "_docs/specs/SPEC-budget-debt.md",
@@ -56,7 +56,7 @@
     },
     {
       "path": "_docs/specs/SPEC-setup.md",
-      "sha256": "c428ead0fc18a7f491f59a2457488e07fac1766a416a506dc0f7d510f75c5a8f"
+      "sha256": "3d8f25caa8606a89ef112f432dd4cf1211dd7a14de3244f68403f71391e87d87"
     },
     {
       "path": "_docs/specs/SPEC-skill-format.md",
@@ -68,7 +68,7 @@
     },
     {
       "path": "_docs/specs/SPEC-staging.md",
-      "sha256": "baad03ca37cfdbe3907734e7634e3b2e6367625c65a37ef7ac806b01c705e612"
+      "sha256": "4d82374af0758029c48bdaacbc5558c64d94e7ab9970e1f9f1e0a27125267d8d"
     },
     {
       "path": "_docs/specs/SPEC-tracking/tracking.schema.json",
@@ -220,7 +220,7 @@
     },
     {
       "path": "instance/snippets/AGENTS-docs.md",
-      "sha256": "6fa1440efe98a8e30e3ffffb7cd26b3174bab94ba65039edf6b1932e24e741f6"
+      "sha256": "8cbad8c10db2a481ad0f56eb3beeaefd4cf88b8e4d837e4115bc4a42c8cc073e"
     },
     {
       "path": "method/AGENTS.md",
@@ -328,7 +328,7 @@
     },
     {
       "path": "skills/sdd-setup/SKILL.md",
-      "sha256": "fcf6ea7107852c2ca292d6f79e7c00010d679f278548ddaeac3084c0083d8520"
+      "sha256": "0f15d01ac8b814e2c79656ed609a9c4bc66313e81fae910265f080e38a9591b8"
     },
     {
       "path": "skills/sdd-setup/references/land.md",
@@ -356,7 +356,7 @@
     },
     {
       "path": "skills/sdd-setup/references/upgrade.md",
-      "sha256": "5791559eced75169edb78c903e4f0bef80d6ad7eb3629afda888e6dd80eb8af3"
+      "sha256": "f1b537c29e72a5368063d4883eb89f8d8371753b1d7282915cf83535ced1cdf7"
     },
     {
       "path": "skills/sdd-write-docs/SKILL.md",

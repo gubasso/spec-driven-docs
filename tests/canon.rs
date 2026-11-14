@@ -2636,11 +2636,15 @@ fn without_json_examples(text: &str) -> String {
 }
 
 /// SATISFIES distribution:a-declared-location-is-named-by-its-variable
+///
+/// The moved text is the binary's own output, which a skill quotes byte for
+/// byte, so its spelling is the report's and not a restatement.
 #[test]
 fn no_skill_spells_a_path_the_binary_reports() {
+    use spec_driven_docs::self_depend::guidance::MOVED;
     let spellings = reported_paths();
     for (relative, text) in skill_prose() {
-        let scanned = without_json_examples(&text);
+        let scanned = without_json_examples(&text).replace(MOVED, "");
         for spelling in &spellings {
             assert!(
                 !scanned.contains(spelling.as_str()),
@@ -3527,6 +3531,25 @@ fn the_gates_chapter_lists_no_spec_rule() {
             "method/gates.md:{}: a table row names a spec rule; list it in the \
              ## Unenforced table of its own spec instead: {line}",
             index + 1
+        );
+    }
+}
+
+/// The moved text reaches the agent and the release author byte for byte,
+/// so the skill and the guide cannot drift from what the binary prints.
+///
+/// VERIFIES acquisition:a-pin-move-names-the-skill-route
+#[test]
+fn the_skill_and_the_release_guide_carry_the_moved_text() {
+    use spec_driven_docs::self_depend::guidance::MOVED;
+    for relative in [
+        "skills/sdd-setup/references/upgrade.md",
+        "_docs/guides/release.md",
+    ] {
+        let text = read(relative);
+        assert!(
+            text.lines().any(|line| line.trim_start() == MOVED),
+            "{relative} does not carry the moved text on a line of its own"
         );
     }
 }

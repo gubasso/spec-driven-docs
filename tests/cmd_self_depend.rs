@@ -17,6 +17,7 @@ use std::path::Path;
 
 use assert_cmd::Command;
 use predicates::prelude::*;
+use spec_driven_docs::self_depend::guidance::MOVED;
 use spec_driven_docs::self_depend::{CHECK_LINE, OLD_SYNC_LINE, coordinates, slug};
 use support::Fixture;
 
@@ -59,15 +60,21 @@ struct FakeNix {
 
 impl FakeNix {
     fn new(succeeds: bool) -> Self {
+        Self::refreshing(succeeds.then(|| lock_at("refreshed")))
+    }
+
+    /// A `nix` that writes `lock` as the refreshed lock, or fails for none.
+    fn refreshing(lock: Option<String>) -> Self {
         let dir = tempfile::tempdir().unwrap();
-        let script = if succeeds {
-            format!(
-                "#!/bin/sh\necho \"$@\" > \"$(dirname \"$0\")/calls\"\nprintf '%s' '{}' > flake.lock\nexit 0\n",
-                lock_at("refreshed").trim_end()
-            )
-        } else {
-            "#!/bin/sh\necho \"$@\" > \"$(dirname \"$0\")/calls\"\necho 'error: refused by the fake' >&2\nexit 1\n".to_string()
-        };
+        let script = lock.map_or_else(
+            || "#!/bin/sh\necho \"$@\" > \"$(dirname \"$0\")/calls\"\necho 'error: refused by the fake' >&2\nexit 1\n".to_string(),
+            |lock| {
+                format!(
+                    "#!/bin/sh\necho \"$@\" > \"$(dirname \"$0\")/calls\"\nprintf '%s' '{}' > flake.lock\nexit 0\n",
+                    lock.trim_end()
+                )
+            },
+        );
         let path = dir.path().join("nix");
         std::fs::write(&path, script).unwrap();
         #[cfg(unix)]
@@ -824,6 +831,79 @@ fn the_operator_caller_reports_each_outcome_with_its_own_exit_code() {
         .stdout(predicate::str::contains("asdf moved from 0.10.1 to 0.10.2"));
 }
 
+/// A sync on a pin of `0.10.1`, asked to move to `tag`.
+fn sync_to(fixture: &Fixture, tag: &str, extra: &[&str]) -> Command {
+    let mut cmd = sdd(fixture);
+    cmd.args([
+        "self-depend",
+        "sync",
+        "--target",
+        &fixture.target(),
+        "--tag",
+        tag,
+    ])
+    .args(extra);
+    cmd
+}
+
+/// VERIFIES acquisition:a-pin-move-names-the-skill-route
+#[test]
+fn a_sync_preview_on_a_behind_pin_names_the_skill_route() {
+    let fixture = Fixture::new();
+    fixture.write(".tool-versions", "spec-driven-docs 0.10.1\n");
+    let before = digest(fixture.path());
+    let output = sync_to(&fixture, "0.10.2", &[])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let text = String::from_utf8(output).unwrap();
+    assert!(
+        text.trim_end().ends_with(MOVED),
+        "the preview does not end with the moved text: {text}"
+    );
+    assert!(text.contains("would move from 0.10.1 to 0.10.2"), "{text}");
+    assert_eq!(digest(fixture.path()), before);
+}
+
+/// VERIFIES acquisition:a-pin-move-names-the-skill-route
+#[test]
+fn a_sync_apply_names_the_skill_route_after_the_move() {
+    let fixture = Fixture::new();
+    fixture.write(".tool-versions", "spec-driven-docs 0.10.1\n");
+    let report = json(&mut sync_to(&fixture, "0.10.2", &["--apply", "--json"]));
+    assert_eq!(report["outcome"], "moved");
+    assert_eq!(report["next"], MOVED);
+    let message = report["message"].as_str().unwrap();
+    let moved_at = message.find("moved from 0.10.1 to 0.10.2").unwrap();
+    assert!(message[moved_at..].ends_with(MOVED), "{message}");
+    let text = String::from_utf8(
+        sync_to(&fixture, "0.10.3", &["--apply"])
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone(),
+    )
+    .unwrap();
+    assert!(text.trim_end().ends_with(MOVED), "{text}");
+}
+
+/// VERIFIES acquisition:a-pin-move-names-the-skill-route
+#[test]
+fn a_sync_on_a_current_pin_names_no_skill_route() {
+    let fixture = Fixture::new();
+    fixture.write(".tool-versions", "spec-driven-docs 0.10.1\n");
+    let report = json(&mut sync_to(&fixture, "0.10.1", &["--json"]));
+    assert_eq!(report["outcome"], "current");
+    assert!(report.get("next").is_none(), "{report}");
+    sync_to(&fixture, "0.10.1", &["--apply"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(MOVED).not());
+}
+
 // --- check ------------------------------------------------------------------
 
 /// A registry index on the loopback that counts the requests it answers.
@@ -972,16 +1052,20 @@ fn an_update_warns_from_the_cache() {
     let fixture = pinned();
     let index = FakeIndex::serving(Some("0.11.0"));
     seed_cache(&fixture, Some(60), Some(60), Some("0.11.0"), None);
+    let before = digest(fixture.path());
     for _ in 0..2 {
         check(&fixture, &index)
             .assert()
             .success()
             .stdout(predicate::str::is_empty())
-            .stderr(predicate::str::contains(
-                "sdd 0.11.0 is out, this project pins 0.10.1. To move: sdd self-depend sync --apply",
-            ));
+            .stderr(predicate::str::diff(format!("{}\n", "sdd 0.11.0 is out, this project pins 0.10.1. To move: sdd self-depend sync --apply, then upgrade through the sdd-setup skill of the new sdd.")));
     }
     assert_eq!(index.hits(), 0);
+    assert_eq!(
+        digest(fixture.path()),
+        before,
+        "the check wrote a project file"
+    );
 }
 
 /// VERIFIES acquisition:the-check-warns-and-writes-only-its-cache
@@ -1798,4 +1882,155 @@ fn clean_reports_a_removal_where_the_check_line_is_there() {
     ]));
     assert_eq!(status["envrc_check"], true);
     assert_eq!(status["state"], "ready");
+}
+
+// --- pending move -----------------------------------------------------------
+
+/// VERIFIES acquisition:every-report-names-a-pending-move
+#[test]
+fn status_names_a_pending_move_from_the_cache() {
+    let fixture = pinned();
+    let index = FakeIndex::serving(Some("0.12.0"));
+    seed_cache(&fixture, Some(60), Some(60), Some("0.11.0"), None);
+    against(&fixture, &index)
+        .args(["self-depend", "status", "--target", &fixture.target()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("sdd 0.11.0 is out, this project pins 0.10.1. To move: sdd self-depend sync --apply, then upgrade through the sdd-setup skill of the new sdd."));
+    let report = json(against(&fixture, &index).args([
+        "self-depend",
+        "status",
+        "--target",
+        &fixture.target(),
+        "--json",
+    ]));
+    assert_eq!(report["pending"]["latest"], "0.11.0");
+    assert_eq!(report["pending"]["pin"], "0.10.1");
+    assert_eq!(
+        report["pending"]["text"],
+        "sdd 0.11.0 is out, this project pins 0.10.1. To move: sdd self-depend sync --apply, then upgrade through the sdd-setup skill of the new sdd."
+    );
+    assert_eq!(index.hits(), 0, "status read the network");
+}
+
+/// VERIFIES acquisition:every-report-names-a-pending-move
+#[test]
+fn status_with_an_empty_cache_reads_no_network_and_names_no_move() {
+    let fixture = pinned();
+    let index = FakeIndex::serving(Some("0.12.0"));
+    let report = json(against(&fixture, &index).args([
+        "self-depend",
+        "status",
+        "--target",
+        &fixture.target(),
+        "--json",
+    ]));
+    assert!(report.get("pending").is_none(), "{report}");
+    assert_eq!(index.hits(), 0, "status read the network");
+}
+
+/// VERIFIES acquisition:every-report-names-a-pending-move
+#[test]
+fn a_ready_target_puts_the_pending_move_first_in_next() {
+    let fixture = pinned();
+    fixture.write(".envrc", &format!("use flake\n{CHECK_LINE}\n"));
+    seed_cache(&fixture, Some(60), Some(60), Some("0.11.0"), None);
+    let report = json(sdd(&fixture).args([
+        "self-depend",
+        "status",
+        "--target",
+        &fixture.target(),
+        "--json",
+    ]));
+    assert_eq!(report["state"], "ready", "{report}");
+    assert_eq!(
+        report["next"][0],
+        "sdd 0.11.0 is out, this project pins 0.10.1. To move: sdd self-depend sync --apply, then upgrade through the sdd-setup skill of the new sdd."
+    );
+}
+
+/// VERIFIES acquisition:every-report-names-a-pending-move
+#[test]
+fn the_off_switch_silences_the_pending_move_in_status() {
+    let fixture = pinned();
+    seed_cache(&fixture, Some(60), Some(60), Some("0.11.0"), None);
+    for name in ["CI", "SDD_SELF_DEPEND_OFF"] {
+        let report = json(sdd(&fixture).env(name, "1").args([
+            "self-depend",
+            "status",
+            "--target",
+            &fixture.target(),
+            "--json",
+        ]));
+        assert!(report.get("pending").is_none(), "{name}: {report}");
+    }
+}
+
+// --- follows advice ---------------------------------------------------------
+
+/// A lock whose `docs-tool` input nests its own `nixpkgs`, a
+/// development-only input, and an older release of this tool.
+fn nested_lock(rev: &str) -> String {
+    let (owner, repo) = coordinates();
+    let ours =
+        format!("\"original\":{{\"owner\":\"{owner}\",\"repo\":\"{repo}\",\"type\":\"github\"}}");
+    format!(
+        "{{\"nodes\":{{\"root\":{{\"inputs\":{{\"docs-tool\":\"docs-tool\",\"nixpkgs\":\"nixpkgs\"}}}},\"nixpkgs\":{{}},\"nixpkgs_2\":{{}},\"release-kit\":{{}},\"spec-driven-docs\":{{{ours}}},\"docs-tool\":{{\"inputs\":{{\"nixpkgs\":\"nixpkgs_2\",\"release-kit\":\"release-kit\",\"rust-overlay\":\"rust-overlay\",\"spec-driven-docs\":\"spec-driven-docs\"}},\"locked\":{{\"rev\":\"{rev}\",\"type\":\"github\"}},{ours}}},\"rust-overlay\":{{}}}},\"root\":\"root\",\"version\":7}}\n"
+    )
+}
+
+/// VERIFIES acquisition:sync-advises-the-follows-lines-and-writes-none
+#[test]
+fn a_sync_apply_advises_the_follows_lines_and_moves_only_the_tag() {
+    let fixture = Fixture::new();
+    fixture.write("flake.nix", &flake_pinned("0.10.1"));
+    fixture.write("flake.lock", &nested_lock("abc123"));
+    let nix = FakeNix::refreshing(Some(nested_lock("refreshed")));
+    let report = json(sdd(&fixture).env("PATH", nix.path_env()).args([
+        "self-depend",
+        "sync",
+        "--target",
+        &fixture.target(),
+        "--tag",
+        "v0.10.2",
+        "--apply",
+        "--json",
+    ]));
+    assert_eq!(report["outcome"], "moved");
+    let lines: Vec<&str> = report["follows"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|follows| {
+            assert_eq!(follows["input"], "docs-tool");
+            follows["line"].as_str().unwrap()
+        })
+        .collect();
+    assert_eq!(
+        lines,
+        [
+            "inputs.nixpkgs.follows = \"nixpkgs\";",
+            "inputs.release-kit.follows = \"\";",
+            "inputs.spec-driven-docs.follows = \"\";"
+        ]
+    );
+    assert_eq!(
+        fixture.read("flake.nix"),
+        flake_pinned("0.10.1").replace("/v0.10.1\"", "/v0.10.2\""),
+        "the sync wrote more than the tag"
+    );
+    let text = String::from_utf8(
+        sdd(&fixture)
+            .args(["self-depend", "status", "--target", &fixture.target()])
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone(),
+    )
+    .unwrap();
+    assert!(
+        text.contains("add `inputs.release-kit.follows = \"\";` inside the `docs-tool` input"),
+        "{text}"
+    );
 }

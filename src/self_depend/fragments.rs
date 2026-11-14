@@ -15,6 +15,29 @@ use crate::self_depend::{BINARY_NAME, CHECK_LINE, ENVRC, SYNC_COMMAND, slug};
 /// The name the flake input and the devshell reference share.
 pub const FLAKE_INPUT: &str = "spec-driven-docs";
 
+/// Why the flake input carries an empty follows line on its own name.
+const SELF_FOLLOWS_WHY: [&str; 3] = [
+    "Each release pins its previous release for its own development. The",
+    "empty follows points that input at this flake, so flake.lock holds",
+    "no node for it, and nothing here builds it.",
+];
+
+/// The comment above the empty follows line, at one indent.
+fn self_follows_why(indent: &str) -> String {
+    let mut out = String::new();
+    for line in SELF_FOLLOWS_WHY {
+        out.push_str(indent);
+        out.push_str("# ");
+        out.push_str(line);
+        out.push('\n');
+    }
+    out
+}
+
+/// The empty follows line on this tool's own input, as a consumer's
+/// flake carries it inside the input's attribute set.
+pub const SELF_FOLLOWS: &str = "inputs.spec-driven-docs.follows = \"\";";
+
 /// One fragment, with where it goes.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Fragment {
@@ -45,9 +68,11 @@ pub fn render(manager: Manager, venue: Venue, version: &Version) -> Vec<Fragment
                 file: "flake.nix".to_string(),
                 anchor: "inputs = {".to_string(),
                 placement: "inside the inputs attribute set".to_string(),
+                // SATISFIES acquisition:a-fragment-names-the-venue-form
                 text: format!(
-                    "{FLAKE_INPUT} = {{\n  url = \"{}\";\n  inputs.nixpkgs.follows = \"nixpkgs\";\n}};\n",
-                    flake_ref(version)
+                    "{FLAKE_INPUT} = {{\n  url = \"{}\";\n  inputs.nixpkgs.follows = \"nixpkgs\";\n{}  {SELF_FOLLOWS}\n}};\n",
+                    flake_ref(version),
+                    self_follows_why("  ")
                 ),
             },
             Fragment {
@@ -104,8 +129,9 @@ pub fn seed(manager: Manager, venue: Venue, version: &Version) -> Option<(String
     let file = manager.files().first()?.to_string();
     let contents = match (manager, venue) {
         (Manager::Flake, Venue::Flake) => format!(
-            "{{\n  description = \"Development shell\";\n\n  inputs = {{\n    nixpkgs.url = \"github:NixOS/nixpkgs/nixos-unstable\";\n    {FLAKE_INPUT} = {{\n      # Moved by `{SYNC_COMMAND}`, which the operator runs: the tag in\n      # this URL is the version, and flake.lock is the content pin.\n      url = \"{}\";\n      inputs.nixpkgs.follows = \"nixpkgs\";\n    }};\n  }};\n\n  outputs =\n    {{ nixpkgs, {FLAKE_INPUT}, ... }}:\n    let\n      system = \"x86_64-linux\";\n      pkgs = nixpkgs.legacyPackages.${{system}};\n    in\n    {{\n      devShells.${{system}}.default = pkgs.mkShell {{\n        packages = [\n          {FLAKE_INPUT}.packages.${{system}}.default\n        ];\n      }};\n    }};\n}}\n",
-            flake_ref(version)
+            "{{\n  description = \"Development shell\";\n\n  inputs = {{\n    nixpkgs.url = \"github:NixOS/nixpkgs/nixos-unstable\";\n    {FLAKE_INPUT} = {{\n      # Moved by `{SYNC_COMMAND}`, which the operator runs: the tag in\n      # this URL is the version, and flake.lock is the content pin.\n      url = \"{}\";\n      inputs.nixpkgs.follows = \"nixpkgs\";\n{}      {SELF_FOLLOWS}\n    }};\n  }};\n\n  outputs =\n    {{ nixpkgs, {FLAKE_INPUT}, ... }}:\n    let\n      system = \"x86_64-linux\";\n      pkgs = nixpkgs.legacyPackages.${{system}};\n    in\n    {{\n      devShells.${{system}}.default = pkgs.mkShell {{\n        packages = [\n          {FLAKE_INPUT}.packages.${{system}}.default\n        ];\n      }};\n    }};\n}}\n",
+            flake_ref(version),
+            self_follows_why("      ")
         ),
         (Manager::Mise, _) => {
             let entry = render(manager, venue, version)
@@ -179,6 +205,20 @@ mod tests {
         assert_eq!(
             pin::input_name(&seed(Manager::Flake, Venue::Flake, &version()).unwrap().1).as_deref(),
             Some(FLAKE_INPUT)
+        );
+    }
+
+    /// VERIFIES acquisition:a-fragment-names-the-venue-form
+    #[test]
+    fn the_flake_fragment_and_the_seed_carry_the_empty_follows_line() {
+        let fragment = &render(Manager::Flake, Venue::Flake, &version())[0].text;
+        assert_eq!(fragment.matches(SELF_FOLLOWS).count(), 1, "{fragment}");
+        let (_, seeded) = seed(Manager::Flake, Venue::Flake, &version()).unwrap();
+        assert_eq!(seeded.matches(SELF_FOLLOWS).count(), 1, "{seeded}");
+        assert!(seeded.contains("      # Each release pins its previous release"));
+        assert!(
+            seeded.contains("\n      # empty follows points"),
+            "{seeded}"
         );
     }
 

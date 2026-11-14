@@ -9,6 +9,7 @@ use serde::Serialize;
 
 use crate::domain::paths::{CI_VAR, SELF_DEPEND_OFF_VAR, UserEnv, variable};
 use crate::self_depend::cache::{self, Entry};
+use crate::self_depend::guidance;
 use crate::self_depend::leftovers::{self, Leftover};
 use crate::self_depend::manager::{self, Detected, Manager};
 use crate::self_depend::pin;
@@ -139,8 +140,109 @@ pub struct Report {
     pub host: Host,
     /// What a predecessor mechanism left behind.
     pub leftovers: Vec<Leftover>,
+    /// A newer release than the pin, where the cache records one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pending: Option<Pending>,
+    /// The follows lines a flake target lacks on this tool's input.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub follows: Vec<pin::Follows>,
     /// What an operator does next, one line each.
     pub next: Vec<String>,
+}
+
+/// A newer release than the pin, as the version-check cache records it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Pending {
+    /// The newest release the cache records.
+    pub latest: String,
+    /// The release the wired manager pins.
+    pub pin: String,
+    /// The pending text a reader prints.
+    pub text: String,
+}
+
+/// How the pin compares with the newest release the cache records.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PinFreshness {
+    /// No single wired pin, no cache, no recorded release, or the loop is
+    /// switched off, so nothing can be said.
+    Unknown,
+    /// The pin names the newest recorded release, or a newer one.
+    Current {
+        /// The release the pin names.
+        pin: String,
+    },
+    /// A newer release is out than the pin.
+    Behind(Pending),
+}
+
+/// Read the wired pin and the version-check cache, offline, and say how
+/// they compare. Nothing here reads the network or writes a file, so every
+/// report can call it.
+///
+/// SATISFIES acquisition:every-report-names-a-pending-move
+#[must_use]
+pub fn freshness(target: &Utf8Path, env: &UserEnv) -> PinFreshness {
+    if switched_off() {
+        return PinFreshness::Unknown;
+    }
+    let detected = manager::detect(target);
+    let [held] = manager::wired(&detected)[..] else {
+        return PinFreshness::Unknown;
+    };
+    let Some(pin) = held.pin.as_ref() else {
+        return PinFreshness::Unknown;
+    };
+    let Some(latest) = env
+        .cache_root()
+        .and_then(|root| cache::read(&cache::path(&root.path, target)))
+        .and_then(|entry| entry.latest_version())
+    else {
+        return PinFreshness::Unknown;
+    };
+    if latest > pin.version {
+        PinFreshness::Behind(Pending {
+            latest: latest.to_string(),
+            pin: pin.version.to_string(),
+            text: guidance::pending(&latest, &pin.version),
+        })
+    } else {
+        PinFreshness::Current {
+            pin: pin.version.to_string(),
+        }
+    }
+}
+
+/// The pending move of a target, where the cache records a newer release.
+#[must_use]
+pub fn pending(target: &Utf8Path, env: &UserEnv) -> Option<Pending> {
+    match freshness(target, env) {
+        PinFreshness::Behind(pending) => Some(pending),
+        PinFreshness::Unknown | PinFreshness::Current { .. } => None,
+    }
+}
+
+/// The follows lines a flake target lacks on this tool's input, read from
+/// its lock, offline. Empty for every other manager.
+#[must_use]
+pub fn follows(target: &Utf8Path, manager: Option<Manager>) -> Vec<pin::Follows> {
+    if manager != Some(Manager::Flake) {
+        return Vec::new();
+    }
+    manager::Manager::Flake
+        .lock_file()
+        .and_then(|lock| std::fs::read_to_string(target.join(lock)).ok())
+        .map(|text| pin::follows_advice(&text))
+        .unwrap_or_default()
+}
+
+/// Print-ready advice for one follows line.
+#[must_use]
+pub fn follows_line(follows: &pin::Follows) -> String {
+    format!(
+        "flake.nix lacks a follows line: add `{}` inside the `{}` input, then run nix flake lock",
+        follows.line, follows.input
+    )
 }
 
 /// Whether the loop is switched off: in continuous integration, or by the
@@ -195,7 +297,13 @@ pub fn report(target: &Utf8Path, env: &UserEnv, this: &Version) -> Report {
         (1, false, _) => State::LineAbsent,
         (_, _, _) => State::Ambiguous,
     };
-    let next = next_lines(state, &wired, target, acquisition.as_ref());
+    let pending = pending(target, env);
+    let mut next = next_lines(state, &wired, target, acquisition.as_ref());
+    if state == State::Ready
+        && let Some(pending) = pending.as_ref()
+    {
+        next.insert(0, pending.text.clone());
+    }
     Report {
         schema: SCHEMA,
         target: target.to_owned(),
@@ -213,6 +321,8 @@ pub fn report(target: &Utf8Path, env: &UserEnv, this: &Version) -> Report {
             direnv: on_path("direnv"),
         },
         leftovers,
+        pending,
+        follows: follows(target, (wired.len() == 1).then(|| wired[0].manager)),
         next,
     }
 }
