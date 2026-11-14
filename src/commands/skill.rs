@@ -95,8 +95,18 @@ pub fn run(_ctx: &AppContext, args: SkillArgs) -> Result<(), AppError> {
         SkillCommand::Uninstall(uninstall) => {
             let layout = layout(uninstall.agent)?;
             let lines = skill_installer::uninstall(&layout, uninstall.apply)?;
+            let kept = lines
+                .iter()
+                .filter(|line| line.starts_with(skill_installer::KEPT_BLOCKED))
+                .count();
             for line in lines {
                 output::line(line);
+            }
+            // SATISFIES distribution:skill-uninstall-removes-only-what-it-wrote
+            if uninstall.apply && kept > 0 {
+                return Err(AppError::Refused(format!(
+                    "the uninstall removed what it could and kept {kept} blocked path, named above; move each one aside, then run it again (distribution:skill-uninstall-removes-only-what-it-wrote)"
+                )));
             }
             Ok(())
         }

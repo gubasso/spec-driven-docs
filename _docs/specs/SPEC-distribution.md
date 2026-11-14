@@ -219,11 +219,19 @@ When run without `--apply`, `sdd skill uninstall` MUST list every removal and de
 
 The verb cleans the home of the copies that earlier releases installed there. It reads a receipt of every schema those releases wrote, honors the variable that relocates the Claude configuration directory, and holds the user-scope lock for its whole run.
 
+A skill root that is itself a link MUST be read at the directory it reaches, two roots that reach one directory MUST count as one, and a receipt path spelled through the link MUST count as the same file. A path below a root that cannot be removed through, such as a link, MUST stay and be named as kept, and it MUST NOT stop the removal of any other file. An applied run that kept such a path MUST exit 73 after its removals.
+
 #### Scenario: The operator edited an installed skill
 
 - GIVEN an installed skill package whose `SKILL.md` the operator has since rewritten
 - WHEN `sdd skill uninstall --apply` runs
 - THEN the edited file stays and is named as kept, because the receipt vouches for bytes and these are not those bytes
+
+#### Scenario: The Claude skill root is a link
+
+- GIVEN a relocated Claude configuration directory whose `skills` links to the user's own Claude skill root, and a package under another root that is a link
+- WHEN `sdd skill uninstall --apply` runs
+- THEN every recorded copy reached through the linked root is removed, the linked package stays and is named as kept, every other recorded copy is removed, and the run exits 73
 
 Verify: `cargo nextest run -E 'binary(cmd_skill)'`
 

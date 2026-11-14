@@ -333,3 +333,63 @@ fn claude_config_dir_relocates_the_claude_root_and_nothing_else() {
             .exists()
     );
 }
+
+/// VERIFIES distribution:skill-uninstall-removes-only-what-it-wrote
+///
+/// A configuration directory whose skill root links to the user's own is
+/// read at that target: the copies under both roots go, and the link stays.
+#[test]
+fn a_linked_claude_root_is_cleaned_through_its_target() {
+    let home = Home::new();
+    installed(&home);
+    let config = tempfile::tempdir().unwrap();
+    std::os::unix::fs::symlink(
+        home.path().join(".claude/skills"),
+        config.path().join("skills"),
+    )
+    .unwrap();
+    home.cmd()
+        .env("CLAUDE_CONFIG_DIR", config.path())
+        .args(["skill", "uninstall", "--apply"])
+        .assert()
+        .success();
+    for destination in destinations() {
+        assert!(
+            !home.path().join(&destination).exists(),
+            "kept {destination}"
+        );
+    }
+    assert!(config.path().join("skills").is_symlink());
+}
+
+/// VERIFIES distribution:skill-uninstall-removes-only-what-it-wrote
+///
+/// A link below a root stays and is named, every other recorded file goes,
+/// and the run exits 73 so the operator sees what is left.
+#[test]
+fn a_linked_package_stays_named_while_the_rest_goes() {
+    let home = Home::new();
+    installed(&home);
+    let linked = home.path().join(".claude/skills/sdd-setup");
+    let elsewhere = tempfile::tempdir().unwrap();
+    let moved = elsewhere.path().join("sdd-setup");
+    std::fs::rename(&linked, &moved).unwrap();
+    std::os::unix::fs::symlink(&moved, &linked).unwrap();
+    home.cmd()
+        .args(["skill", "uninstall", "--apply"])
+        .assert()
+        .code(73)
+        .stdout(predicate::str::contains(format!(
+            "kept (blocked): {}",
+            linked.display()
+        )))
+        .stderr(predicate::str::contains("kept 1 blocked path"));
+    assert!(linked.is_symlink());
+    assert!(moved.join("SKILL.md").is_file());
+    for (destination, _) in package(".agents/skills", "sdd-setup") {
+        assert!(
+            !home.path().join(&destination).exists(),
+            "kept {destination}"
+        );
+    }
+}

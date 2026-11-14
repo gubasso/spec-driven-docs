@@ -368,12 +368,22 @@ pub(crate) fn install(layout: &Layout, apply: bool, force: bool) -> Result<Vec<S
     settle(install_with(layout, apply, force, Interrupt::default()))
 }
 
+/// The line an uninstall writes for a path it cannot remove through, such
+/// as a link below an agent root. The caller counts these lines and exits
+/// with the refusal code once the rest is removed.
+pub const KEPT_BLOCKED: &str = "kept (blocked): ";
+
 /// Remove every installed skill package under each root, previewing by default.
+///
+/// A root that is itself a link is read at its target, because the
+/// operator placed that link. A path below a root that cannot be removed
+/// through, such as a link, stays and is named with [`KEPT_BLOCKED`], and
+/// every other recorded file still goes.
 ///
 /// # Errors
 ///
-/// As [`install`], except that nothing here refuses on foreign bytes: a
-/// file the receipt cannot vouch for stays and is named.
+/// As [`install`], except that nothing here refuses on foreign bytes or on
+/// a blocked path: a file the receipt cannot vouch for stays and is named.
 pub fn uninstall(layout: &Layout, apply: bool) -> Result<Vec<String>, AppError> {
     settle(uninstall_with(layout, apply, Interrupt::default()))
 }
@@ -518,21 +528,88 @@ fn install_with(
 }
 
 /// The uninstall, with the recovery tests' interruption point.
+/// A layout whose roots are read at their targets, and the moves that took
+/// each root there.
+struct Resolved {
+    layout: Layout,
+    aliases: Vec<(Utf8PathBuf, Utf8PathBuf)>,
+}
+
+/// Read each root at the directory it reaches, and drop a root that reaches
+/// one already held.
+///
+/// A configuration directory often holds its skill root as a link to the
+/// user's own, and judged without following links that root would block
+/// every file under it.
+fn resolve(layout: &Layout) -> Resolved {
+    let mut aliases: Vec<(Utf8PathBuf, Utf8PathBuf)> = Vec::new();
+    let mut resolve_one = |root: &Utf8Path| -> Utf8PathBuf {
+        match std::fs::canonicalize(root)
+            .ok()
+            .and_then(|found| Utf8PathBuf::from_path_buf(found).ok())
+        {
+            Some(target) if target != root => {
+                aliases.push((root.to_owned(), target.clone()));
+                target
+            }
+            _ => root.to_owned(),
+        }
+    };
+    let mut roots: Vec<Utf8PathBuf> = Vec::new();
+    for root in &layout.roots {
+        let target = resolve_one(root);
+        if !roots.contains(&target) {
+            roots.push(target);
+        }
+    }
+    let legacy_shared = layout.legacy_shared.as_deref().map(&mut resolve_one);
+    Resolved {
+        layout: Layout {
+            roots,
+            legacy_shared,
+            ..layout.clone()
+        },
+        aliases,
+    }
+}
+
+/// The receipt with each path recorded under a root's former spelling moved
+/// to the directory that root reaches, so a file an install wrote through a
+/// link is still the file it vouches for.
+fn rebased(mut record: SkillRecord, aliases: &[(Utf8PathBuf, Utf8PathBuf)]) -> SkillRecord {
+    if aliases.is_empty() {
+        return record;
+    }
+    record.written = std::mem::take(&mut record.written)
+        .into_iter()
+        .map(|(path, digest)| {
+            let moved = aliases.iter().find_map(|(former, target)| {
+                path.strip_prefix(former).ok().map(|rest| target.join(rest))
+            });
+            (moved.unwrap_or(path), digest)
+        })
+        .collect();
+    record
+}
+
 fn uninstall_with(
     layout: &Layout,
     apply: bool,
     interrupt: Interrupt,
 ) -> Result<Vec<String>, Failure> {
+    // SATISFIES distribution:skill-uninstall-removes-only-what-it-wrote
+    let resolved = resolve(layout);
+    let layout = &resolved.layout;
     // A home with no receipt has nothing this tool wrote, so an uninstall
     // there removes nothing and takes no lock: creating the lock file
     // would itself be the write that home was promised it would not get.
     let _lock = held(layout, apply && layout.receipt.exists(), "skill uninstall")?;
     let planned = plan(&layout.roots)?;
-    let record = load_receipt(layout);
+    let record = rebased(load_receipt(layout), &resolved.aliases);
     let mut lines: Vec<String> = Vec::new();
     let mut removals: Vec<(Utf8PathBuf, Sha256)> = Vec::new();
 
-    let refused = blocked(
+    let mut refused = blocked(
         layout,
         &planned
             .iter()
@@ -540,7 +617,7 @@ fn uninstall_with(
             .collect::<Vec<_>>(),
     );
     for one in &refused {
-        lines.push(format!("conflict: {one}"));
+        lines.push(format!("{KEPT_BLOCKED}{one}"));
     }
 
     for entry in &planned {
@@ -571,6 +648,16 @@ fn uninstall_with(
         .map(|(destination, _)| destination.clone())
         .collect();
     for (destination, digest, ours) in leftovers(&layout.scanned(), &record, &keep) {
+        // A leftover below a link is never removed through it.
+        if let Some(one) =
+            owning_root(layout, &destination).and_then(|root| blocked_by(root, &destination))
+        {
+            if !refused.contains(&one) {
+                lines.push(format!("{KEPT_BLOCKED}{one}"));
+                refused.push(one);
+            }
+            continue;
+        }
         if ours {
             lines.push(format!("sweep (no longer in the payload): {destination}"));
             removals.push((destination, digest));
@@ -582,9 +669,6 @@ fn uninstall_with(
     if !apply {
         lines.push("DRY RUN: no files removed".to_string());
         return Ok(lines);
-    }
-    if !refused.is_empty() {
-        return Err(refuse_blocked(&refused).into());
     }
     // A home this tool never wrote into has nothing to take back, and an
     // uninstall there must leave it exactly as it found it — no state root,
@@ -1150,9 +1234,105 @@ mod tests {
 
         let message = install(&layout, true, true).unwrap_err().to_string();
         assert!(message.contains("symlink"), "{message}");
-        let message = uninstall(&layout, true).unwrap_err().to_string();
-        assert!(message.contains("symlink"), "{message}");
+        let lines = uninstall(&layout, true).unwrap();
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.starts_with(KEPT_BLOCKED) && line.contains(destination.as_str())),
+            "{lines:?}"
+        );
         assert!(destination.is_symlink());
+    }
+
+    /// The layout with its Claude root spelled through a link, the way a
+    /// configuration directory holds its skill root, and the link itself.
+    fn through_a_link(dir: &tempfile::TempDir, layout: &Layout) -> (Layout, Utf8PathBuf) {
+        let config = root(dir).join("config");
+        std::fs::create_dir_all(&config).unwrap();
+        let link = config.join("skills");
+        std::os::unix::fs::symlink(&layout.roots[1], link.as_std_path()).unwrap();
+        let mut linked = layout.clone();
+        linked.roots[1] = link.clone();
+        (linked, link)
+    }
+
+    #[test]
+    fn a_root_that_is_a_link_is_emptied_through_its_target() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = home(&dir);
+        install(&layout, true, false).unwrap();
+        let (linked, link) = through_a_link(&dir, &layout);
+        uninstall(&linked, true).unwrap();
+        for root in &layout.roots {
+            assert!(
+                !root.join("sdd-setup/SKILL.md").exists(),
+                "kept under {root}"
+            );
+        }
+        assert!(link.is_symlink(), "the operator's link was removed");
+        assert!(!layout.receipt.exists());
+    }
+
+    #[test]
+    fn a_receipt_recorded_under_the_link_still_vouches_for_the_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = home(&dir);
+        install(&layout, true, false).unwrap();
+        let (linked, link) = through_a_link(&dir, &layout);
+        let mut record = load_receipt(&layout);
+        record.written = std::mem::take(&mut record.written)
+            .into_iter()
+            .map(|(path, digest)| match path.strip_prefix(&layout.roots[1]) {
+                Ok(rest) => (link.join(rest), digest),
+                Err(_) => (path, digest),
+            })
+            .collect();
+        crate::adapters::fs::write_file(&layout.receipt, record.to_json().as_bytes()).unwrap();
+        uninstall(&linked, true).unwrap();
+        assert!(!layout.roots[1].join("sdd-setup/SKILL.md").exists());
+        assert!(!layout.receipt.exists());
+    }
+
+    #[test]
+    fn two_roots_that_reach_one_directory_list_each_file_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = home(&dir);
+        install(&layout, true, false).unwrap();
+        let (mut linked, link) = through_a_link(&dir, &layout);
+        linked.roots = vec![layout.roots[1].clone(), link];
+        let lines = uninstall(&linked, false).unwrap();
+        let listed = lines
+            .iter()
+            .filter(|line| line.ends_with("sdd-setup/SKILL.md"))
+            .count();
+        assert_eq!(listed, 1, "{lines:?}");
+    }
+
+    #[test]
+    fn a_linked_package_is_kept_while_every_other_file_goes() {
+        let dir = tempfile::tempdir().unwrap();
+        let layout = home(&dir);
+        install(&layout, true, false).unwrap();
+        let package = layout.roots[1].join("sdd-setup");
+        let elsewhere = root(&dir).join("elsewhere");
+        std::fs::rename(&package, &elsewhere).unwrap();
+        std::os::unix::fs::symlink(&elsewhere, package.as_std_path()).unwrap();
+
+        let lines = uninstall(&layout, true).unwrap();
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.starts_with(KEPT_BLOCKED) && line.contains(package.as_str())),
+            "{lines:?}"
+        );
+        assert!(package.is_symlink());
+        assert!(
+            elsewhere.join("SKILL.md").is_file(),
+            "removed through the link"
+        );
+        assert!(!layout.roots[0].join("sdd-setup/SKILL.md").exists());
+        assert!(!layout.roots[1].join("sdd-write-docs/SKILL.md").exists());
+        assert!(layout.receipt.exists(), "the kept files left the receipt");
     }
 
     #[test]

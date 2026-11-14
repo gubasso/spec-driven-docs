@@ -531,7 +531,8 @@ impl UserEnv {
         ))
     }
 
-    /// Every selected agent root, in table order, deduplicated by path.
+    /// Every selected agent root, in table order, deduplicated by the
+    /// directory each one reaches.
     ///
     /// Two selected roots that resolve to one directory are one destination.
     /// Planning it twice would list every file twice and make an install
@@ -546,7 +547,15 @@ impl UserEnv {
             let Some(entry) = self.agent_root(row.id) else {
                 continue;
             };
-            if resolved.iter().any(|held| held.path == entry.path) {
+            // Two spellings of one directory, such as a configuration
+            // directory whose skill root links to the user's own, are one.
+            let reached = |path: &Utf8Path| {
+                std::fs::canonicalize(path).unwrap_or_else(|_| path.as_std_path().to_path_buf())
+            };
+            if resolved
+                .iter()
+                .any(|held| reached(&held.path) == reached(&entry.path))
+            {
                 continue;
             }
             resolved.push(entry);
