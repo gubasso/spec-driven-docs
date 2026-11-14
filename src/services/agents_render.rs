@@ -64,8 +64,11 @@ pub fn render_block(docs_root: &str, selection: &WritingStyle) -> String {
         }
         body.push('\n');
     }
-    let body = body.trim_end_matches('\n');
-    format!("{AGENTS_BEGIN}\n{body}\n{AGENTS_END}\n")
+    let body = body.trim_matches('\n');
+    // A blank line separates each marker from the body, as a Markdown
+    // formatter such as dprint writes a comment beside a heading or a list,
+    // so a formatter run leaves the placed block byte-equal to the render.
+    format!("{AGENTS_BEGIN}\n\n{body}\n\n{AGENTS_END}\n")
 }
 
 #[cfg(test)]
@@ -84,6 +87,28 @@ mod tests {
         assert!(!block.contains("{docs_root}"));
         assert!(!block.contains("{writing_style}"));
         assert!(!block.contains("simple-english"));
+    }
+
+    #[test]
+    fn a_blank_line_separates_each_marker_from_the_body() {
+        for selection in [
+            WritingStyle::default(),
+            WritingStyle {
+                source: WritingSource::None,
+                path: None,
+            },
+        ] {
+            let block = render_block("docs", &selection);
+            assert!(
+                block.starts_with("<!-- BEGIN spec-driven-docs docs -->\n\n## "),
+                "{block}"
+            );
+            assert!(
+                block.ends_with(" -->\n\n<!-- END spec-driven-docs docs -->\n"),
+                "{block}"
+            );
+            assert!(!block.contains("\n\n\n"), "{block}");
+        }
     }
 
     #[test]
@@ -153,7 +178,7 @@ mod tests {
         assert!(!block.contains("writing style"), "{block}");
         assert!(!block.contains("{writing_style}"));
         assert!(
-            !block.contains("\n\n<!-- END"),
+            !block.contains("\n\n\n"),
             "the removed route left a blank line:\n{block}"
         );
     }
