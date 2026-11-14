@@ -18,6 +18,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(instance)* Separate the AGENTS block markers from its body
 - *(self-depend)* Read the locked sdd through the root input of the lock
 
+#### Adopter note
+
+This release lands the sdd skills into each instance, holds every command to the version that the instance records, and retires the user-scope skill install. It carries these breaks.
+
+- `sdd init` and `sdd upgrade` land `sdd-setup` and `sdd-write-docs` under `.claude/skills/` and `.agents/skills/`, and the instance manifest records each file. `sdd verify` judges each landed skill file. A landing refuses a skill folder that the record does not attribute (exit 73), and `sdd upgrade` and `sdd stage compare` report it.
+- A writing command exits 73 on an instance whose recorded version differs from the binary, and names `sdd upgrade` or the sdd of the project's environment. A read-only command warns when the binary is newer, and exits 73 on a missing instance or a newer record. `sdd verify` and the `instance-manifest` gate accept an older record schema with a warning.
+- `sdd verify` with no instance exits 73, not 66. `sdd gate <id>`, `sdd ki list`, `sdd track status`, and `sdd track check` refuse a target with no instance.
+- `sdd skill install --apply` refuses and names the landing. `sdd skill uninstall --apply` stays, to remove the copies that earlier releases wrote under the home. `sdd skill show --file <path>` prints one file of a skill package.
+- `sdd status --json` declares `sdd.status/6`: `paths.user.skill_receipt` and the agent roots appear only while a receipt exists. `sdd doctor` replaces `skill-roots`, `skill-gate`, and `skill-payload` with `skill-shadow`. `sdd stage compare --json` gains `refused_packages`, and `sdd upgrade` gains the conflict kind `unattributed-skill-package`.
+- The documentation block in `AGENTS.md` now carries one blank line after its BEGIN marker and one before its END marker, as a Markdown formatter writes them.
+
+To move a landed project:
+
+1. Add `.claude/skills/**` and `.agents/skills/**` to the ignores of the root markdownlint configuration, and to any other formatter that rewrites Markdown.
+2. Move aside any folder of `sdd-setup` or `sdd-write-docs` under `.claude/skills/` or `.agents/skills/` that sdd did not land.
+3. Move the pin, then run `sdd upgrade` before any writing command. Commit the landed skills with the upgrade.
+4. If a formatter rewrote the documentation block of `AGENTS.md`, `sdd upgrade` stops on `CONFLICT locally edited managed block: AGENTS.md`. Run `sdd upgrade --replace AGENTS.md` once. A project whose block is unformatted needs no step.
+5. Update any script that reads the exit codes, the probe ids, or the status fields above.
+6. Optionally, add `inputs.spec-driven-docs.follows = "";` to the sdd input of `flake.nix`, so that `flake.lock` carries no nested sdd node.
+7. Once every project on a host has moved, run `sdd skill uninstall --apply` once on that host, then `sdd doctor` until `skill-shadow` passes.
+
 ## [0.17.0](https://github.com/gubasso/spec-driven-docs/compare/v0.16.1...v0.17.0) - 2026-11-13
 
 ### Added
