@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.1](https://github.com/gubasso/spec-driven-docs/compare/v0.18.0...v0.18.1) - 2026-11-14
+
+### Added
+
+- *(self-depend)* Guide every pin move through the new setup skill
+
+### Fixed
+
+- *(skills)* Let the skill uninstall work through a linked skill root
+- *(instance)* Exclude only the landed skill packages from the checks
+
+### Other
+
+- *(flake)* Move to sdd 0.18.0 and release-kit 0.10.0
+
+#### Adopter note
+
+This release routes every pin move through the sdd-setup skill of the new sdd, narrows the skill ignores of the seeded lint configuration, and lets `sdd skill uninstall` work through a linked skill root. No JSON schema id changes.
+
+- When a newer release is out, `sdd self-depend check`, `sdd self-depend status`, `sdd status`, `sdd verify` (on stderr), and the new `sdd doctor` probe `pin-fresh` name the pending move: `sdd <latest> is out, this project pins <pin>. To move: sdd self-depend sync --apply, then upgrade through the sdd-setup skill of the new sdd.`
+- After a pin move, `sdd self-depend sync`, the version gate, `sdd upgrade`, and `sdd status` print the text that ends this note.
+- `sdd self-depend sync` and `sdd self-depend status` advise each `follows` line that the sdd input of `flake.nix` lacks. They never edit `flake.nix`.
+- The documentation block of `AGENTS.md` gains one line: `` - After an sdd pin move, run the upgrade through the sdd-setup skill of the sdd in the devshell (`sdd skill show sdd-setup` before `sdd upgrade`), never a host copy. `` A root `AGENTS.md` near its 100-line budget can then fail `agents-digest-size`.
+- The seeded root markdownlint configuration ignores only `.claude/skills/{sdd-setup,sdd-write-docs}/**` and the same folders under `.agents/skills/`, not the whole skill roots. A configuration that an earlier release seeded keeps its bytes.
+- `sdd skill uninstall` resolves a skill root that is a symbolic link, and removes the recorded files through its target. A path that it cannot remove prints as `kept (blocked): <path>`, which replaces the `conflict:` prefix. An applied run removes every other recorded file, then exits 73 when it kept a path.
+- New optional JSON fields: `next` in `sdd self-depend sync --json` and `sdd upgrade --json`, `pending` in `sdd self-depend status --json` and `sdd status --json`, and `follows` in `sdd self-depend sync --json` and `sdd self-depend status --json`.
+
+To move a landed project:
+
+1. Move the pin with `sdd self-depend sync --apply`, then run the upgrade as the text at the end of this note says.
+2. Add each `follows` line that `sdd self-depend sync` advises to the sdd input of `flake.nix`.
+3. If the root lint configuration ignores the whole `.claude/skills/**` or `.agents/skills/**`, narrow it by hand to the `sdd-setup` and `sdd-write-docs` folders, so that the checks judge the project's own skills.
+4. If `sdd verify` then fails `agents-digest-size`, shorten the project's own text in the root `AGENTS.md`.
+5. Update any script that matches the `conflict:` prefix of `sdd skill uninstall` or reads the `sdd doctor` probe ids.
+
+After the pin move, load the devshell and run the upgrade through the sdd-setup skill of the sdd in that devshell, and do every migration it names. Before `sdd upgrade`, read it with `sdd skill show sdd-setup`. After it, the project's .claude/skills/sdd-setup is that skill. Never use a host copy or an older skill.
+
 ## [0.18.0](https://github.com/gubasso/spec-driven-docs/compare/v0.17.0...v0.18.0) - 2026-11-14
 
 ### Added
