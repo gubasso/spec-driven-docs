@@ -73,6 +73,7 @@ This repository is the canonical knowledge product for spec-driven documentation
 - The scope names the area you changed, and reads as `area/subarea` where that is clearer. Prefer a scope this repository already uses, which `git log --format=%s | sed -n 's/^[a-z]*(\([^)]*\)).*/\1/p' | sort -u` lists. Coin a new scope only where no existing one names the area.
 - Never author a tag, and never hand-edit a generated artifact workflow.
 - Run `rk status` before changing anything under `.github/workflows/` or `.gitlab-ci.yml`, or any file `.release-kit/manifest.json` names. Before reading a gap in `rk setup check` as a setup defect, run `rk setup status`. A credential this runtime cannot reach leaves a step unknown, which is an observation boundary and not drift. Never ask the operator to mount, expose, recreate, or rotate a secret only so an agent check can pass.
+- After an rk pin move, run the upgrade through the rk-setup skill of the rk in the devshell (`rk skill show rk-setup` before `rk upgrade`), never a host copy.
 - The full method is `rk method --list`. The recovery paths are `rk method recovery`.
 
 <!-- END release-kit -->
@@ -88,6 +89,7 @@ This repository is the canonical knowledge product for spec-driven documentation
 - Name a document by a slug drawn from its subject, never by a number. Where its directory holds documents with no kind prefix, give that directory a `README.md` saying what it holds and what each document covers. <!-- markdownlint-disable-line MD013 -->
 - For a question about this method or about operating `sdd`, run `sdd docs` and read only the topic it names. <!-- markdownlint-disable-line MD013 -->
 - Run `sdd verify` before handoff. <!-- markdownlint-disable-line MD013 -->
+- After an sdd pin move, run the upgrade through the sdd-setup skill of the sdd in the devshell (`sdd skill show sdd-setup` before `sdd upgrade`), never a host copy. <!-- markdownlint-disable-line MD013 -->
 - Keep adopted specs, the tracking registry, and local integration instance-owned. <!-- markdownlint-disable-line MD013 -->
 
 <!-- END spec-driven-docs docs -->

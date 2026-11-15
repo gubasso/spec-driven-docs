@@ -57,16 +57,16 @@
         "spec-driven-docs": []
       },
       "locked": {
-        "lastModified": 1794670359,
-        "narHash": "sha256-Vj9ZS1cI7iP2k3fJ6AOTdLISMtIIbgr42eBBEoN4ZrM=",
+        "lastModified": 1794766942,
+        "narHash": "sha256-0XQcW69jCO5jiX4H9l/rPeff3r6Ik95Edzh7hznHwy8=",
         "owner": "gubasso",
         "repo": "release-kit",
-        "rev": "b16bd64f4418cad98ccfd6cf69e345831a9e44c9",
+        "rev": "20ffd0ad359ed192dc12998c9595c5f2caf782bb",
         "type": "github"
       },
       "original": {
         "owner": "gubasso",
-        "ref": "v0.10.0",
+        "ref": "v0.10.1",
         "repo": "release-kit",
         "type": "github"
       }
@@ -138,16 +138,16 @@
         "spec-driven-docs": []
       },
       "locked": {
-        "lastModified": 1794670398,
-        "narHash": "sha256-L4WqvxRtSvl9bUNkEHAFd8BEpqiBU/N3STedfUhXivQ=",
+        "lastModified": 1794766711,
+        "narHash": "sha256-bk2ABlC7rSAMMaxenPmraVMTCMzqVSPBvIeSHs+zLZI=",
         "owner": "gubasso",
         "repo": "spec-driven-docs",
-        "rev": "ff09685f142d0799596bf960da29a1bd3d840e70",
+        "rev": "57fa78f8791567281b375caff5f0ed9e50234a81",
         "type": "github"
       },
       "original": {
         "owner": "gubasso",
-        "ref": "v0.18.0",
+        "ref": "v0.18.1",
         "repo": "spec-driven-docs",
         "type": "github"
       }

@@ -11,7 +11,7 @@
       # Moved by the operator with `rk self-depend sync --apply`: the tag in this URL
       # is the version, flake.lock is the content pin, and nothing else in
       # this repository names an rk version.
-      url = "github:gubasso/release-kit/v0.10.0";
+      url = "github:gubasso/release-kit/v0.10.1";
       # A deliberate deal, not a tidy-up: with follows, rk rebuilds against
       # this repository's nixpkgs rather than the revision it tested
       # upstream, so this consumer owns that compatibility — proven by the
@@ -39,7 +39,7 @@
     # empty follows points it at this flake, so flake.lock holds one sdd
     # node rather than a chain of older ones.
     spec-driven-docs = {
-      url = "github:gubasso/spec-driven-docs/v0.18.0";
+      url = "github:gubasso/spec-driven-docs/v0.18.1";
       inputs.spec-driven-docs.follows = "";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.rust-overlay.follows = "rust-overlay";
