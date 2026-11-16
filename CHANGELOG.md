@@ -22,6 +22,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - *(flake)* Move to sdd 0.18.1 and release-kit 0.10.1
 
+#### Adopter note
+
+This release makes the landing follow the portable rule for a file that a release stops landing, lets one upgrade record an adopted edit, and makes the `AGENTS.md` budget count only the project's own lines. It carries these breaks. `sdd stage compare --json` declares `sdd.stage-compare/2`.
+
+- `sdd upgrade` deletes an unedited managed file that the release stops landing, wherever it lies in the tree. Before, it deleted such a file only under `.spec-driven-docs/`, `.claude/skills/`, and `.agents/skills/`. An emptied directory still goes only inside those three roots.
+- An edited managed file that the release stops landing is dropped. It stays on disk, leaves the instance manifest, and is the project's from that landing. The upgrade exits 0 and asks for no `--replace`. A file reached through a link, or one that cannot be read, is dropped too, where before a link refused the upgrade. A dropped `SKILL.md` adds a note that its folder still loads as a skill.
+- `--replace` names only a file that the release still lands. A name for a departing file exits 64 with "names no conflict".
+- The upgrade prints `retired managed file, deleted: <path>` and `dropped managed file, kept as the project's: <path>`, which replace `removed managed file no longer owned: <path>`. `sdd upgrade --dry-run` prints the same lines with `DRY RUN ` first.
+- `sdd stage compare` reads `retired` only for a departing file with the recorded bytes, and the new state `dropped` for every other one. A departing file that is already gone has no row. New JSON fields: `retired` and `dropped` in `sdd upgrade --json` and in the stage receipt `stage.json`.
+- An edited adopted file makes `sdd status` classify the target `drift`, not `current`. One `sdd upgrade` at the installed version records the edit and prints `OK recorded the adopted edits at <version>`. Before, the upgrade printed `OK already at <version>`, and `sdd verify` kept the `DRIFT adopted file` note.
+- `agents-digest-size` counts only the lines outside the managed blocks: 100 at the root and 150 in a subtree. A managed block runs from a whole-line `<!-- BEGIN <label> -->` to the `<!-- END <label> -->` of the same label, outside any fenced code block. Each block must be at or below 20 lines, its markers included. A BEGIN with no END, a nested BEGIN, or an END with no BEGIN fails on its line, and every line then counts as the project's. A budget failure names the lines that the blocks hold beside the project's count.
+- A recorded `agents-digest-size` ceiling in `.spec-driven-docs/debt.yaml` compares with the smaller count, so the gate fails it as stale until `sdd debt tighten --apply` lowers it.
+- The documentation block of `AGENTS.md` gains and loses no line.
+
+To move a landed project:
+
+1. Run `sdd upgrade --dry-run`, and read each `retired` and `dropped` line before the apply.
+2. For each dropped file, delete it or keep it as the project's own. A dropped skill folder still loads as a skill.
+3. If `.spec-driven-docs/debt.yaml` records an `agents-digest-size` ceiling, run `sdd debt tighten --apply` after the upgrade.
+4. If the project's own text sits between markers in an `AGENTS.md`, make sure that each pair closes and that each block stays at or below 20 lines.
+5. Update any script that matches `removed managed file no longer owned:`, the `retired` state of `sdd stage compare`, or the schema `sdd.stage-compare/1`.
+
+After the pin move, load the devshell and run the upgrade through the sdd-setup skill of the sdd in that devshell, and do every migration it names. Before `sdd upgrade`, read it with `sdd skill show sdd-setup`. After it, the project's .claude/skills/sdd-setup is that skill. Never use a host copy or an older skill.
+
 ## [0.18.1](https://github.com/gubasso/spec-driven-docs/compare/v0.18.0...v0.18.1) - 2026-11-14
 
 ### Added
