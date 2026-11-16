@@ -41,6 +41,8 @@ exclude = [
     "/lychee.toml",
     "/_typos.toml",
     "/committed.toml",
+    "/.claude",
+    "/.agents",
 ]
 
 [[bin]]
