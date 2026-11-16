@@ -77,6 +77,14 @@ pub fn run(ctx: &AppContext, args: StageArgs) -> Result<(), AppError> {
         stage::ARTIFACTS_DIR,
         stage::REFERENCE_DIR
     ));
+    for path in &receipt.retired {
+        output::line(format!("retired, the landing deletes it: {path}"));
+    }
+    for path in &receipt.dropped {
+        output::line(format!(
+            "dropped, the landing keeps it as the project's: {path}"
+        ));
+    }
     for note in &receipt.notes {
         output::line(note.clone());
     }
@@ -101,6 +109,7 @@ fn compared(ctx: &AppContext, args: StageCompareArgs) -> Result<(), AppError> {
         State::Absent => "absent",
         State::Differs => "differs",
         State::Retired => "retired",
+        State::Dropped => "dropped",
     };
     let mut equal = 0usize;
     for row in &report.rows {

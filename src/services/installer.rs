@@ -51,8 +51,12 @@ pub struct InitOutcome {
     pub lines: Vec<String>,
     /// Whether files were written.
     pub applied: bool,
-    /// Every destination the landing took back, relative to the target.
+    /// Every destination the landing retired and deleted, or would, relative
+    /// to the target.
     pub removed: Vec<String>,
+    /// Every destination the landing dropped and left as the project's, or
+    /// would, relative to the target.
+    pub dropped: Vec<String>,
 }
 
 fn canonical_target(target: &Utf8Path) -> Result<Utf8PathBuf, AppError> {
@@ -387,10 +391,15 @@ pub fn init_holding(
             );
         }
         lines.push("DRY RUN: no files written".to_string());
+        // A preview names what the apply deletes and what it leaves, by the
+        // sort the apply itself runs.
+        let (removed, dropped) =
+            crate::landing::apply::departures(&target, &candidate, &recorded(&target)).into_paths();
         return Ok(InitOutcome {
             lines,
             applied: false,
-            removed: Vec::new(),
+            removed,
+            dropped,
         });
     }
 
@@ -402,6 +411,7 @@ pub fn init_holding(
         lines,
         applied: true,
         removed: outcome.removed,
+        dropped: outcome.dropped,
     })
 }
 

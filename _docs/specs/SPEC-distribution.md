@@ -73,7 +73,7 @@ Verify: `cargo nextest run -E 'binary(cmd_verify) + binary(cmd_upgrade)'`
 
 ### `distribution:upgrade-conflicts-are-atomic` — Upgrade conflicts are atomic
 
-If a managed file differs from its installed hash and the operator did not name it with `--replace`, then the upgrader MUST abort without changing the target. It names every conflict in one pass, and it decides before its first write, which `SPEC-staging.md` states as the rule a landing holds for any destination it cannot account for, beside the rule that keeps a named conflict's bytes.
+If a managed file that the candidate still lands differs from its installed hash and the operator did not name it with `--replace`, then the upgrader MUST abort without changing the target. A managed file the candidate no longer lands is no conflict, as `staging:a-landing-retires-or-drops-what-it-stops-landing` states. It names every conflict in one pass, and it decides before its first write, which `SPEC-staging.md` states as the rule a landing holds for any destination it cannot account for, beside the rule that keeps a named conflict's bytes.
 
 #### Scenario: One managed configuration is edited locally
 

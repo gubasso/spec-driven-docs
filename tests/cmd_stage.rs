@@ -479,7 +479,7 @@ fn compare_reports_each_state_ownership_and_provenance() {
     std::fs::remove_file(fixture.path().join("docs/specs/SPEC-docs-format.md")).unwrap();
     stage(&fixture);
     let report = compare(&fixture);
-    assert_eq!(report["schema"], "sdd.stage-compare/1");
+    assert_eq!(report["schema"], "sdd.stage-compare/2");
     assert_eq!(report["history"]["available"], history);
 
     let managed = row(&report, "docs/.markdownlint-cli2.jsonc");
@@ -644,44 +644,60 @@ fn no_row_is_replaceable_where_the_upgrade_refuses_first() {
     }
 }
 
-/// A retired destination outside the roots the landing prunes is one the
-/// landing leaves alone, so a name for it is accepted whatever its path is:
-/// its bytes are kept, and the upgrade proceeds without following the link.
-#[test]
-fn a_retired_link_the_landing_leaves_alone_stays_replaceable() {
-    let fixture = Fixture::new();
-    fixture.install("codebase");
-    let retired = "docs/retired.md";
-    let outside = fixture.path().parent().unwrap().join("outside-retired.md");
-    std::fs::write(&outside, "# Kept\n").unwrap();
-    std::os::unix::fs::symlink(&outside, fixture.path().join(retired)).unwrap();
+/// Push one managed entry the candidate does not land into the record.
+fn record_departing(fixture: &Fixture, destination: &str, sha256: &str) {
     let record_path = ".spec-driven-docs/manifest.json";
     let mut record: serde_json::Value = serde_json::from_str(&fixture.read(record_path)).unwrap();
     record["managed_files"]
         .as_array_mut()
         .unwrap()
         .push(serde_json::json!({
-            "source": "retired.md",
-            "destination": retired,
-            "sha256": "0".repeat(64),
+            "source": destination,
+            "destination": destination,
+            "sha256": sha256,
         }));
     fixture.write(record_path, &serde_json::to_string_pretty(&record).unwrap());
+}
+
+fn digest(bytes: &str) -> String {
+    spec_driven_docs::domain::ownership::Sha256::of(bytes.as_bytes()).to_string()
+}
+
+/// VERIFIES staging:a-landing-retires-or-drops-what-it-stops-landing
+///
+/// A departing destination reached through a link is dropped: the landing
+/// never follows it, takes no name for it, and goes on.
+#[test]
+fn a_departing_link_is_dropped_and_never_followed() {
+    let fixture = Fixture::new();
+    fixture.install("codebase");
+    let linked = "docs/retired.md";
+    let outside = fixture.path().parent().unwrap().join("outside-retired.md");
+    std::fs::write(&outside, "# Kept\n").unwrap();
+    std::os::unix::fs::symlink(&outside, fixture.path().join(linked)).unwrap();
+    record_departing(&fixture, linked, &digest("# Kept\n"));
     stage(&fixture);
     let report = compare(&fixture);
-    assert_eq!(row(&report, retired)["state"], "retired");
-    assert_eq!(row(&report, retired)["replaceable"], true, "{report}");
+    assert_eq!(row(&report, linked)["state"], "dropped");
+    assert_eq!(row(&report, linked)["replaceable"], false, "{report}");
     fixture
         .upgrade()
         .args(["--stage", stage_path(&fixture).to_str().unwrap()])
-        .args(["--replace", retired])
         .assert()
-        .success();
+        .success()
+        .stdout(predicate::str::contains(format!(
+            "dropped managed file, kept as the project's: {linked}"
+        )));
     assert_eq!(std::fs::read_to_string(&outside).unwrap(), "# Kept\n");
+    assert!(fixture.path().join(linked).is_symlink());
 }
 
-/// Every destination the record names gets a row, readable or not.
+/// VERIFIES staging:a-landing-retires-or-drops-what-it-stops-landing
+///
+/// A departing destination already gone has no row, and one that cannot
+/// be read as a file is dropped, because nothing vouches for its bytes.
 #[test]
-fn compare_reports_a_retired_destination_it_cannot_read() {
+fn compare_drops_a_departing_destination_it_cannot_read() {
     let fixture = Fixture::new();
     fixture.install("codebase");
     let gone = "docs/gone.md";
@@ -689,55 +705,74 @@ fn compare_reports_a_retired_destination_it_cannot_read() {
     // A directory where the file was cannot be read as one, whoever runs
     // the test.
     std::fs::create_dir_all(fixture.path().join(unreadable)).unwrap();
-    let record_path = ".spec-driven-docs/manifest.json";
-    let mut record: serde_json::Value = serde_json::from_str(&fixture.read(record_path)).unwrap();
     for destination in [gone, unreadable] {
-        record["managed_files"]
-            .as_array_mut()
-            .unwrap()
-            .push(serde_json::json!({
-                "source": destination,
-                "destination": destination,
-                "sha256": "0".repeat(64),
-            }));
+        record_departing(&fixture, destination, &"0".repeat(64));
     }
-    fixture.write(record_path, &serde_json::to_string_pretty(&record).unwrap());
     stage(&fixture);
     let report = compare(&fixture);
-    // No commit touches the gone file, so the Git half reads unknown.
-    assert_eq!(row(&report, gone)["state"], "retired");
-    assert_eq!(row(&report, gone)["provenance"], "unknown");
-    assert!(row(&report, gone)["vouched"].is_null());
-    assert_eq!(row(&report, unreadable)["state"], "retired");
+    assert!(
+        !report["rows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|row| row["path"] == gone),
+        "{report}"
+    );
+    assert_eq!(row(&report, unreadable)["state"], "dropped");
+    assert_eq!(row(&report, unreadable)["vouched"], false);
     assert_eq!(row(&report, unreadable)["provenance"], "unknown");
-    assert!(row(&report, unreadable)["vouched"].is_null());
 }
 
+/// VERIFIES staging:a-landing-retires-or-drops-what-it-stops-landing
+///
+/// The stage receipt, its report, and the comparison name each retired and
+/// each dropped destination before the landing.
 #[test]
-fn compare_reports_a_retired_file_with_its_provenance() {
+fn the_stage_and_the_comparison_name_the_retired_and_the_dropped() {
     let fixture = Fixture::new();
     fixture.install("codebase");
-    // A managed file the record names and this release does not land: what
-    // an older release left, edited since.
-    let path = ".spec-driven-docs/markdownlint/spec.markdownlint-cli2.jsonc";
-    fixture.write(path, "// edited\n");
-    let record_path = ".spec-driven-docs/manifest.json";
-    let mut record: serde_json::Value = serde_json::from_str(&fixture.read(record_path)).unwrap();
-    record["managed_files"]
-        .as_array_mut()
-        .unwrap()
-        .push(serde_json::json!({
-            "source": ".markdownlint/spec.markdownlint-cli2.jsonc",
-            "destination": path,
-            "sha256": "0".repeat(64),
-        }));
-    fixture.write(record_path, &serde_json::to_string_pretty(&record).unwrap());
-    stage(&fixture);
+    let _ = committed(&fixture);
+    let retired = "docs/old-lint.jsonc";
+    let dropped = ".spec-driven-docs/markdownlint/spec.markdownlint-cli2.jsonc";
+    fixture.write(retired, "{}\n");
+    record_departing(&fixture, retired, &digest("{}\n"));
+    fixture.write(dropped, "// edited\n");
+    record_departing(&fixture, dropped, &digest("{}\n"));
+
+    let path = stage_path(&fixture);
+    let receipt = fixture
+        .cmd()
+        .args(["stage", "--target", &fixture.target()])
+        .args(["--output", path.to_str().unwrap(), "--json"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let receipt: serde_json::Value = serde_json::from_slice(&receipt).unwrap();
+    assert_eq!(receipt["retired"], serde_json::json!([retired]));
+    assert_eq!(receipt["dropped"], serde_json::json!([dropped]));
+    fixture
+        .cmd()
+        .args(["stage", "--target", &fixture.target()])
+        .args(["--output", path.with_extension("text").to_str().unwrap()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(format!(
+            "retired, the landing deletes it: {retired}"
+        )))
+        .stdout(predicate::str::contains(format!(
+            "dropped, the landing keeps it as the project's: {dropped}"
+        )));
+
     let report = compare(&fixture);
-    let retired = row(&report, path);
-    assert_eq!(retired["state"], "retired");
-    assert_eq!(retired["vouched"], false);
-    let provenance = retired["provenance"].as_str().unwrap();
+    let row_retired = row(&report, retired);
+    assert_eq!(row_retired["state"], "retired");
+    assert_eq!(row_retired["vouched"], true);
+    let row_dropped = row(&report, dropped);
+    assert_eq!(row_dropped["state"], "dropped");
+    assert_eq!(row_dropped["vouched"], false);
+    let provenance = row_dropped["provenance"].as_str().unwrap();
     assert!(
         provenance == "reduced" || provenance == "unknown",
         "{provenance}"

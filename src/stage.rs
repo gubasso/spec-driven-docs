@@ -125,6 +125,12 @@ pub struct Receipt {
     pub acquisition: Option<crate::domain::instance_config::Acquisition>,
     /// Every destination the candidate would land.
     pub artifacts: Vec<Artifact>,
+    /// Every recorded managed file the candidate no longer lands whose
+    /// bytes are the recorded ones, which the landing would delete.
+    pub retired: Vec<String>,
+    /// Every recorded managed file the candidate no longer lands that was
+    /// edited, which the landing would leave as the project's.
+    pub dropped: Vec<String>,
     /// Every reference root copied, relative to the stage.
     pub reference: Vec<String>,
     /// What the projection chose to leave alone, and why.
@@ -430,6 +436,14 @@ fn render(
         reference.push(format!("{REFERENCE_DIR}/instance/docs-catalog.toml"));
     }
 
+    // The sort the landing itself runs, so the stage names what the apply
+    // deletes and what it leaves.
+    let (retired, dropped) = crate::landing::apply::departures(
+        target,
+        candidate,
+        &crate::services::installer::recorded(target),
+    )
+    .into_paths();
     let receipt = Receipt {
         schema: STAGE_SCHEMA,
         version: crate::domain::version::CanonVersion::current().to_string(),
@@ -445,6 +459,8 @@ fn render(
         writing_style: writing_style_of(&candidate.declaration),
         acquisition: candidate.declaration.acquisition.clone(),
         artifacts,
+        retired,
+        dropped,
         reference,
         notes: candidate.notes.clone(),
     };

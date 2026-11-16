@@ -25,8 +25,35 @@ use crate::transaction::stage::Stage;
 pub struct Outcome {
     /// Every destination this run wrote, in the order it wrote them.
     pub written: Vec<Utf8PathBuf>,
-    /// Every managed destination this release no longer owns, taken back.
+    /// Every managed destination this release retired, deleted because
+    /// its bytes were the recorded ones.
     pub removed: Vec<String>,
+    /// Every managed destination this release dropped: edited since it
+    /// landed, so it stays on disk, leaves the record, and is the
+    /// project's from this landing.
+    pub dropped: Vec<String>,
+}
+
+/// What a landing does with every managed destination the record names and
+/// the candidate no longer lands.
+///
+/// SATISFIES staging:a-landing-retires-or-drops-what-it-stops-landing
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct Departures {
+    /// Each destination whose bytes match the recorded digest, with that
+    /// digest. The landing deletes it.
+    pub retired: Vec<(String, Sha256)>,
+    /// Each destination whose bytes do not, or cannot be read. It stays.
+    pub dropped: Vec<String>,
+}
+
+impl Departures {
+    /// The retired paths and the dropped paths, as a report names them.
+    #[must_use]
+    pub fn into_paths(self) -> (Vec<String>, Vec<String>) {
+        let retired = self.retired.into_iter().map(|(path, _)| path).collect();
+        (retired, self.dropped)
+    }
 }
 
 /// What the target's own record says this tool owns today.
@@ -43,9 +70,8 @@ pub struct Recorded {
     /// Destinations the operator named for replacement, whatever they hold.
     ///
     /// The one authority beside the record. The caller saved each one's
-    /// bytes before the landing, so a named destination is overwritten,
-    /// or taken back where the release no longer lands it, rather than
-    /// refused.
+    /// bytes before the landing, so a named destination is overwritten
+    /// rather than refused.
     pub replace: Vec<String>,
 }
 
@@ -68,8 +94,11 @@ pub fn land(
     contained(target, candidate)?;
     unattributed_packages(target, recorded)?;
     unattributed(target, candidate, recorded)?;
-    let retired = retired(target, candidate, recorded)?;
-    let mut outcome = Outcome::default();
+    let departures = departures(target, candidate, recorded);
+    let mut outcome = Outcome {
+        dropped: departures.dropped,
+        ..Outcome::default()
+    };
 
     for destination in &candidate.destinations {
         let path = target.join(&destination.path);
@@ -90,7 +119,7 @@ pub fn land(
         outcome.written.push(destination.path.clone());
     }
 
-    for (destination, vouched) in retired {
+    for (destination, vouched) in departures.retired {
         let path = target.join(&destination);
         // Re-checked here, not only when the list was built: a component
         // swapped since then is refused rather than followed, and bytes
@@ -104,10 +133,13 @@ pub fn land(
         }
         match std::fs::read(&path) {
             Ok(held) if Sha256::of(&held) == vouched => {}
-            // The operator named it, and the caller saved its bytes first.
-            Ok(_) if recorded.replace.contains(&destination) => {}
-            // Gone already, or no longer the bytes the record vouches for.
-            _ => continue,
+            // Gone already, or edited since the list was built: what stays
+            // is the project's, as every dropped destination is.
+            Ok(_) => {
+                outcome.dropped.push(destination);
+                continue;
+            }
+            Err(_) => continue,
         }
         match std::fs::remove_file(&path) {
             Ok(()) => {
@@ -248,24 +280,18 @@ fn escapes(target: &Utf8Path, destination: &Utf8Path) -> Option<(Utf8PathBuf, &'
 /// Why the landing would refuse one destination the operator names, where
 /// it would.
 ///
-/// A destination the candidate writes, and a retired one the landing
-/// removes, must resolve beneath the target. A retired destination outside
-/// the prunable roots is one the landing leaves alone, so nothing about its
-/// path stops the landing.
+/// A name answers a conflict, and every conflict is a destination the
+/// candidate writes, so it must resolve beneath the target.
 #[must_use]
 pub(crate) fn refuses_named(
     target: &Utf8Path,
     candidate: &Candidate,
     destination: &str,
 ) -> Option<(Utf8PathBuf, &'static str)> {
-    let written = candidate
+    candidate
         .destinations
         .iter()
-        .any(|landed| landed.path.as_str() == destination);
-    let removed = PRUNABLE_ROOTS
-        .iter()
-        .any(|prefix| destination.starts_with(prefix));
-    (written || removed)
+        .any(|landed| landed.path.as_str() == destination)
         .then(|| escapes(target, Utf8Path::new(destination)))
         .flatten()
 }
@@ -385,18 +411,6 @@ pub fn vouches(recorded: &Recorded, path: &Utf8Path, ownership: Ownership, held:
     }
 }
 
-/// Whether the record vouches for a managed file the release retires.
-///
-/// The landing takes such a file back only where this answers yes.
-#[must_use]
-pub fn vouches_retired(recorded: &Recorded, path: &str, held: &[u8]) -> bool {
-    recorded
-        .managed
-        .iter()
-        .find(|(name, _)| name == path)
-        .is_some_and(|(_, digest)| digest == &Sha256::of(held))
-}
-
 /// Whether the record vouches for the marked region a host file holds.
 ///
 /// A host with no region yet is a first landing into a file the project
@@ -428,7 +442,8 @@ fn region_vouched(path: &Utf8Path, held: &[u8], recorded: &Recorded) -> bool {
 ///
 /// A release that stops landing a whole package would otherwise leave its
 /// directory behind, and an empty directory reads as something the tool
-/// still owns.
+/// still owns. A directory outside those roots is the project's, emptied
+/// or not, so it stays.
 fn prune_empty(target: &Utf8Path, destination: &str) {
     let mut parent = Utf8Path::new(destination).parent();
     while let Some(directory) = parent {
@@ -445,53 +460,56 @@ fn prune_empty(target: &Utf8Path, destination: &str) {
     }
 }
 
-/// Every managed destination the record holds that this release no longer
-/// lands.
+/// Sort every managed destination the record holds that this release no
+/// longer lands into the retired and the dropped.
 ///
-/// Only managed, and only under a root this tool owns. An adopted file a
-/// release stops seeding stays: the project owns it from the moment it
-/// lands, and a version moving is not permission to take it back. A file
-/// whose bytes are not the ones the record vouches for stays too, because
-/// somebody edited it and a removal would be a silent loss.
-fn retired(
-    target: &Utf8Path,
-    candidate: &Candidate,
-    recorded: &Recorded,
-) -> Result<Vec<(String, Sha256)>, AppError> {
-    let recorded_managed = &recorded.managed;
+/// Wherever it lies in the target. A file whose bytes are the ones the
+/// record vouches for is retired, and the landing deletes it. Any other is
+/// dropped: somebody edited it, so a deletion would be a silent loss, and
+/// it stays as the project's own. A destination already gone is neither.
+/// An adopted file a release stops seeding is never listed: the project
+/// owns it from the moment it lands.
+///
+/// A destination reached through a link, or otherwise outside the target,
+/// is dropped too: a deletion through it could remove somebody else's
+/// file, so it is never followed and never deleted.
+///
+/// The one sort. The landing, the preview of `sdd upgrade`, `sdd stage`,
+/// and `sdd stage compare` all read it, so each names what the apply does.
+#[must_use]
+pub fn departures(target: &Utf8Path, candidate: &Candidate, recorded: &Recorded) -> Departures {
     let landing: Vec<&str> = candidate
         .destinations
         .iter()
         .map(|destination| destination.path.as_str())
         .collect();
-    let mut retired = Vec::new();
-    for (destination, digest) in recorded_managed {
+    departures_from(target, &landing, recorded)
+}
+
+/// [`departures`], where the caller holds the paths a candidate lands
+/// rather than the candidate, as a stage does.
+#[must_use]
+pub fn departures_from(target: &Utf8Path, landing: &[&str], recorded: &Recorded) -> Departures {
+    let mut departures = Departures::default();
+    for (destination, digest) in &recorded.managed {
         if landing.contains(&destination.as_str()) {
             continue;
         }
-        if !PRUNABLE_ROOTS
-            .iter()
-            .any(|prefix| destination.starts_with(prefix))
-        {
+        if escapes(target, Utf8Path::new(destination)).is_some() {
+            departures.dropped.push(destination.clone());
             continue;
         }
-        // A removal reached through a link would delete somebody else's
-        // file, so it refuses rather than following it.
-        if let Some((_, kind)) = escapes(target, Utf8Path::new(destination)) {
-            return Err(AppError::Refused(format!(
-                "destination {kind}: {destination}"
-            )));
+        match std::fs::read(target.join(destination)) {
+            Ok(held) if &Sha256::of(&held) == digest => {
+                departures
+                    .retired
+                    .push((destination.clone(), digest.clone()));
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            _ => departures.dropped.push(destination.clone()),
         }
-        let Ok(held) = std::fs::read(target.join(destination)) else {
-            continue;
-        };
-        let named = recorded.replace.contains(destination);
-        if &Sha256::of(&held) != digest && !named {
-            continue;
-        }
-        retired.push((destination.clone(), digest.clone()));
     }
-    Ok(retired)
+    departures
 }
 
 #[cfg(test)]
@@ -684,42 +702,92 @@ mod tests {
         );
     }
 
+    /// VERIFIES staging:a-landing-retires-or-drops-what-it-stops-landing
     #[test]
-    fn a_managed_file_this_release_dropped_is_taken_back() {
+    fn an_unedited_managed_file_this_release_stops_landing_is_retired() {
         let dir = tempfile::tempdir().unwrap();
         let target = target(&dir);
-        let dropped = ".spec-driven-docs/markdownlint/retired.jsonc";
-        crate::adapters::fs::write_file(&target.join(dropped), b"old").unwrap();
+        let retired = ".spec-driven-docs/markdownlint/retired.jsonc";
+        crate::adapters::fs::write_file(&target.join(retired), b"old").unwrap();
         let recorded = Recorded {
-            managed: vec![(dropped.to_string(), Sha256::of(b"old"))],
+            managed: vec![(retired.to_string(), Sha256::of(b"old"))],
             integration: Vec::new(),
             replace: Vec::new(),
         };
 
         let outcome = land(&target, &candidate(), &recorded).unwrap();
-        assert_eq!(outcome.removed, vec![dropped.to_string()]);
-        assert!(!target.join(dropped).exists());
+        assert_eq!(outcome.removed, vec![retired.to_string()]);
+        assert!(outcome.dropped.is_empty());
+        assert!(!target.join(retired).exists());
+        assert!(
+            !target.join(".spec-driven-docs/markdownlint").exists(),
+            "the emptied directory inside the instance stayed"
+        );
     }
 
+    /// VERIFIES staging:a-landing-retires-or-drops-what-it-stops-landing
+    ///
+    /// Wherever it lies: a retired file outside the roots this tool owns
+    /// whole is deleted too, and the directory it leaves is the project's.
     #[test]
-    fn an_edited_file_this_release_dropped_stays() {
+    fn an_unedited_retired_file_outside_the_owned_roots_is_deleted() {
         let dir = tempfile::tempdir().unwrap();
         let target = target(&dir);
-        let dropped = ".spec-driven-docs/markdownlint/retired.jsonc";
-        crate::adapters::fs::write_file(&target.join(dropped), b"edited since").unwrap();
+        let retired = "docs/lint/retired.jsonc";
+        crate::adapters::fs::write_file(&target.join(retired), b"old").unwrap();
         let recorded = Recorded {
-            managed: vec![(dropped.to_string(), Sha256::of(b"old"))],
+            managed: vec![(retired.to_string(), Sha256::of(b"old"))],
+            integration: Vec::new(),
+            replace: Vec::new(),
+        };
+
+        let outcome = land(&target, &candidate(), &recorded).unwrap();
+        assert_eq!(outcome.removed, vec![retired.to_string()]);
+        assert!(!target.join(retired).exists());
+        assert!(
+            target.join("docs/lint").is_dir(),
+            "a project directory went"
+        );
+    }
+
+    /// VERIFIES staging:a-landing-retires-or-drops-what-it-stops-landing
+    #[test]
+    fn an_edited_file_this_release_stops_landing_is_dropped() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = target(&dir);
+        let inside = ".spec-driven-docs/markdownlint/retired.jsonc";
+        let outside = "docs/lint/retired.jsonc";
+        let gone = ".claude/skills/old/SKILL.md";
+        for path in [inside, outside] {
+            crate::adapters::fs::write_file(&target.join(path), b"edited since").unwrap();
+        }
+        let recorded = Recorded {
+            managed: vec![
+                (inside.to_string(), Sha256::of(b"old")),
+                (outside.to_string(), Sha256::of(b"old")),
+                (gone.to_string(), Sha256::of(b"old")),
+            ],
             integration: Vec::new(),
             replace: Vec::new(),
         };
 
         let outcome = land(&target, &candidate(), &recorded).unwrap();
         assert!(outcome.removed.is_empty());
-        assert!(target.join(dropped).exists());
+        assert_eq!(
+            outcome.dropped,
+            vec![inside.to_string(), outside.to_string()]
+        );
+        for path in [inside, outside] {
+            assert_eq!(std::fs::read(target.join(path)).unwrap(), b"edited since");
+        }
+        let record = std::fs::read_to_string(target.join(MANIFEST_PATH)).unwrap();
+        for path in [inside, outside, gone] {
+            assert!(!record.contains(path), "{path} stayed in the record");
+        }
     }
 
     #[test]
-    fn a_named_destination_is_overwritten_and_a_named_retired_file_taken_back() {
+    fn a_named_destination_is_overwritten() {
         let dir = tempfile::tempdir().unwrap();
         let target = target(&dir);
         let candidate = candidate();
@@ -730,15 +798,10 @@ mod tests {
             .unwrap()
             .clone();
         crate::adapters::fs::write_file(&target.join(&managed.path), b"edited since").unwrap();
-        let dropped = ".spec-driven-docs/markdownlint/retired.jsonc";
-        crate::adapters::fs::write_file(&target.join(dropped), b"edited since").unwrap();
         let recorded = Recorded {
-            managed: vec![
-                (managed.path.to_string(), Sha256::of(b"older")),
-                (dropped.to_string(), Sha256::of(b"old")),
-            ],
+            managed: vec![(managed.path.to_string(), Sha256::of(b"older"))],
             integration: Vec::new(),
-            replace: vec![managed.path.to_string(), dropped.to_string()],
+            replace: vec![managed.path.to_string()],
         };
         assert!(!vouches(
             &recorded,
@@ -747,12 +810,11 @@ mod tests {
             b"edited since"
         ));
 
-        let outcome = land(&target, &candidate, &recorded).unwrap();
+        land(&target, &candidate, &recorded).unwrap();
         assert_eq!(
             std::fs::read(target.join(&managed.path)).unwrap(),
             managed.bytes
         );
-        assert_eq!(outcome.removed, vec![dropped.to_string()]);
     }
 
     #[test]

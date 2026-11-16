@@ -1,10 +1,11 @@
 //! Binary-driven instance upgrade.
 //!
 //! The newer binary carries the newer payload, so an upgrade is mechanical:
-//! refuse atomically while any managed file is locally edited, reinstall
-//! from the embedded payload, prune what the new version stopped managing —
-//! inside the vendored directory only, and never through a symlink — and
-//! report the rule-ID diff the operator reconciles by hand. Copier's model;
+//! refuse atomically while any managed file it still lands is locally
+//! edited, reinstall from the embedded payload, delete each file the new
+//! version stopped landing whose bytes are the recorded ones, leave each
+//! edited one as the project's, never through a symlink, and report the
+//! rule-ID diff the operator reconciles by hand. Copier's model;
 //! what changed between versions is the changelog's business.
 
 use camino::{Utf8Path, Utf8PathBuf};
@@ -116,6 +117,12 @@ pub struct UpgradeOutcome {
     pub replaced: Vec<Replaced>,
     /// Every citation of a rule ID this binary no longer defines.
     pub retired_citations: Vec<Citation>,
+    /// Every managed file this release stopped landing whose bytes were the
+    /// recorded ones: deleted, or deleted by the apply a dry run previews.
+    pub retired: Vec<String>,
+    /// Every managed file this release stopped landing that was edited: it
+    /// stays, leaves the record, and is the project's.
+    pub dropped: Vec<String>,
     /// What the reader does after a pin move, where the record is older
     /// than this binary.
     pub next: Option<&'static str>,
@@ -127,6 +134,9 @@ struct Installed {
     docs_root: String,
     managed: Vec<(Utf8PathBuf, Sha256)>,
     integration: Vec<(Utf8PathBuf, Sha256)>,
+    /// Whether an adopted file holds bytes the record does not, so a
+    /// landing at this version still has an edit to record.
+    adopted_moved: bool,
     /// Whether the record is already at this binary's schema.
     ///
     /// The two versions move independently, so an instance can carry this
@@ -154,6 +164,9 @@ fn read_installed(target: &Utf8Path) -> Result<Installed, AppError> {
     let text = std::fs::read_to_string(&path)?;
     match Manifest::parse(&text) {
         Ok(manifest) => Ok(Installed {
+            adopted_moved: manifest.adopted_files.iter().any(|entry| {
+                sha256_file(&target.join(&entry.destination)).ok().as_ref() != Some(&entry.sha256)
+            }),
             version: manifest.canon_version,
             profile: manifest.profile,
             docs_root: manifest.docs_root.as_str().to_string(),
@@ -173,6 +186,9 @@ fn read_installed(target: &Utf8Path) -> Result<Installed, AppError> {
             let legacy: LegacyManifest = serde_json::from_str(&text)
                 .map_err(|e| AppError::ManifestInvalid(e.to_string()))?;
             Ok(Installed {
+                // An older record migrates on every run, which records the
+                // adopted bytes anyway.
+                adopted_moved: false,
                 version: legacy.canon_version,
                 profile: legacy.profile,
                 docs_root: legacy.docs_root.as_str().to_string(),
@@ -204,17 +220,33 @@ fn read_installed(target: &Utf8Path) -> Result<Installed, AppError> {
 /// # Errors
 ///
 /// [`AppError::Usage`] naming the decision nothing offered.
-/// Every managed file and region the target no longer holds as recorded.
+/// Every managed file the candidate still lands, and every region, that
+/// the target no longer holds as recorded.
 ///
 /// A reinstall replaces a managed file and re-splices a managed region, so
 /// an edit to either would be lost. An edit outside the markers is the
 /// project's own and survives, which is why the region is compared by its
-/// own hash rather than the host file's.
+/// own hash rather than the host file's. A managed file the candidate no
+/// longer lands is no conflict: the landing deletes it where its bytes are
+/// the recorded ones and leaves it as the project's where they are not, so
+/// no edit is lost either way.
+///
+/// SATISFIES staging:a-landing-retires-or-drops-what-it-stops-landing
 ///
 /// # Errors
 ///
 /// Any I/O error reading a destination.
-fn conflicts_at(target: &Utf8Path, installed: &Installed) -> Result<Vec<Conflict>, AppError> {
+fn conflicts_at(
+    target: &Utf8Path,
+    installed: &Installed,
+    candidate: &crate::candidate::Candidate,
+) -> Result<Vec<Conflict>, AppError> {
+    let lands = |destination: &Utf8Path| {
+        candidate
+            .destinations
+            .iter()
+            .any(|landed| landed.path == destination)
+    };
     let mut conflicts = Vec::new();
     let mut push = |path: &Utf8Path, kind| {
         conflicts.push(Conflict {
@@ -223,6 +255,9 @@ fn conflicts_at(target: &Utf8Path, installed: &Installed) -> Result<Vec<Conflict
         });
     };
     for (destination, recorded) in &installed.managed {
+        if !lands(destination) {
+            continue;
+        }
         let file = target.join(destination);
         if !file.is_file() {
             push(destination, ConflictKind::MissingManagedFile);
@@ -321,16 +356,54 @@ fn reinstall_options(
     }
 }
 
-/// Report what the landing took back.
+/// Report what the landing deleted and what it left, or would.
 ///
-/// The removals are the landing's own, taken only where the record
-/// vouched for the bytes it removed. This only says what happened.
-fn report_removals(removed: &[String], outcome: &mut UpgradeOutcome) {
-    for raw in removed {
+/// The deletions are the landing's own, taken only where the record
+/// vouched for the bytes it deleted. This only says what happened.
+fn report_departures(
+    retired: Vec<String>,
+    dropped: Vec<String>,
+    prefix: &str,
+    outcome: &mut UpgradeOutcome,
+) {
+    for path in &retired {
         outcome
             .lines
-            .push(format!("removed managed file no longer owned: {raw}"));
+            .push(format!("{prefix}retired managed file, deleted: {path}"));
     }
+    for path in &dropped {
+        outcome.lines.push(format!(
+            "{prefix}dropped managed file, kept as the project's: {path}"
+        ));
+        if let Some(line) = still_acts(path) {
+            outcome.lines.push(format!("{prefix}{line}"));
+        }
+    }
+    outcome.retired = retired;
+    outcome.dropped = dropped;
+}
+
+/// The note for a dropped file that still acts, where this tool can tell.
+///
+/// A `SKILL.md` under a skill root is what an agent loads, so a dropped one
+/// keeps offering a skill this release no longer ships, now with nobody's
+/// record behind it. Only the landing that drops it knows that: the record
+/// forgets it in the same write, so no later check can name it.
+fn still_acts(path: &str) -> Option<String> {
+    let folder = path.strip_suffix(&format!("/{}", crate::domain::paths::SKILL_FILE))?;
+    crate::embedded::SKILL_ROOTS
+        .iter()
+        .any(|root| {
+            folder
+                .strip_prefix(root)
+                .and_then(|rest| rest.strip_prefix('/'))
+                .is_some_and(|name| !name.is_empty() && !name.contains('/'))
+        })
+        .then(|| {
+            format!(
+                "note: {folder}/ still loads as a skill that this release no longer ships; delete the folder, or keep it as the project's own skill"
+            )
+        })
 }
 
 /// Upgrade an installed instance to this binary's version.
@@ -407,8 +480,11 @@ pub fn upgrade(options: &UpgradeOptions) -> Result<UpgradeOutcome, AppError> {
         return Ok(outcome);
     }
 
+    // An adopted edit is recorded by a landing, so a target that holds
+    // one is not done at this version even where nothing else moved.
     if old == new
         && installed.schema_current
+        && !installed.adopted_moved
         && options.replace.is_empty()
         && options.staged.is_none()
     {
@@ -421,6 +497,7 @@ pub fn upgrade(options: &UpgradeOptions) -> Result<UpgradeOutcome, AppError> {
     if options.dry_run {
         preview(
             &target,
+            installed.schema_current && installed.adopted_moved,
             options,
             &reinstall,
             save_root.as_deref(),
@@ -455,18 +532,7 @@ pub fn upgrade(options: &UpgradeOptions) -> Result<UpgradeOutcome, AppError> {
             "upgrade aborted during reinstall from {old} to {new}: {error}"
         ))
     })?;
-    // The reinstall's destination list is noise here, and its notes are
-    // not: a seed that did not land because the project already holds the
-    // destination is something the operator must hear about once.
-    let removed = reinstalled.removed.clone();
-    outcome.lines.extend(
-        reinstalled
-            .lines
-            .into_iter()
-            .filter(|line| line.starts_with("note:")),
-    );
-
-    finish(&target, &installed, &removed, old, new, &mut outcome);
+    finish(&target, &installed, reinstalled, &mut outcome);
     Ok(outcome)
 }
 
@@ -515,13 +581,13 @@ fn conflicts_with_candidate(
     installed: &Installed,
     reinstall: &InitOptions,
 ) -> Result<(Vec<Conflict>, crate::candidate::Candidate), AppError> {
-    let mut conflicts = conflicts_at(target, installed)?;
     let candidate =
         crate::services::installer::candidate_for(target, reinstall).map_err(|error| {
             AppError::Refused(format!(
                 "upgrade could not render the candidate for {target}: {error}"
             ))
         })?;
+    let mut conflicts = conflicts_at(target, installed, &candidate)?;
     let unattributed = unattributed(target, &candidate, &conflicts);
     conflicts.extend(unattributed);
     Ok((conflicts, candidate))
@@ -572,6 +638,7 @@ pub(crate) fn replaceable(staged: &crate::stage::StagedChoices) -> Result<Vec<St
 /// bytes would go, and the notes the landing would print.
 fn preview(
     target: &Utf8Path,
+    adopted_edits: bool,
     options: &UpgradeOptions,
     reinstall: &InitOptions,
     save_root: Option<&Utf8Path>,
@@ -587,9 +654,11 @@ fn preview(
             .lines
             .push(format!("DRY RUN upgrade {old} to {new}"));
     } else if options.replace.is_empty() {
-        outcome
-            .lines
-            .push(format!("DRY RUN migrate the record of {new}"));
+        outcome.lines.push(if adopted_edits {
+            format!("DRY RUN record the adopted edits at {new}")
+        } else {
+            format!("DRY RUN migrate the record of {new}")
+        });
     } else {
         outcome.lines.push(format!("DRY RUN repair {new}"));
     }
@@ -622,6 +691,7 @@ fn preview(
             .into_iter()
             .filter(|line| line.starts_with("note:")),
     );
+    report_departures(preview.removed, preview.dropped, "DRY RUN ", outcome);
     Ok(())
 }
 
@@ -875,12 +945,21 @@ fn retired_citations(target: &Utf8Path, installed: &Installed) -> Vec<Citation> 
 fn finish(
     target: &Utf8Path,
     installed: &Installed,
-    removed: &[String],
-    old: CanonVersion,
-    new: CanonVersion,
+    reinstalled: crate::services::installer::InitOutcome,
     outcome: &mut UpgradeOutcome,
 ) {
-    report_removals(removed, outcome);
+    let old = installed.version;
+    let new = CanonVersion::current();
+    // The reinstall's destination list is noise here, and its notes are
+    // not: a seed that did not land because the project already holds the
+    // destination is something the operator must hear about once.
+    outcome.lines.extend(
+        reinstalled
+            .lines
+            .into_iter()
+            .filter(|line| line.starts_with("note:")),
+    );
+    report_departures(reinstalled.removed, reinstalled.dropped, "", outcome);
 
     let local_ids = instance_rule_ids(target, &installed.docs_root);
     let upstream_only: Vec<String> = crate::embedded::spec_rule_ids()
@@ -903,7 +982,11 @@ fn finish(
     } else if old == new {
         outcome
             .lines
-            .push(format!("OK migrated the record of {new}"));
+            .push(if installed.schema_current && installed.adopted_moved {
+                format!("OK recorded the adopted edits at {new}")
+            } else {
+                format!("OK migrated the record of {new}")
+            });
     } else {
         outcome.lines.push(format!("OK upgraded {old} to {new}"));
     }
@@ -943,6 +1026,7 @@ mod tests {
             docs_root: "docs".to_string(),
             managed: Vec::new(),
             integration: Vec::new(),
+            adopted_moved: false,
             schema_current: true,
         }
     }

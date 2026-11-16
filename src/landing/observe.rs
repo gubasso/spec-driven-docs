@@ -107,11 +107,15 @@ pub struct RecordedBlock {
 }
 
 impl Installation {
-    /// Whether any recorded managed file has moved or gone.
+    /// Whether any recorded file or region has moved or gone.
+    ///
+    /// An adopted edit counts: the project keeps it, and a landing still
+    /// owes the record its bytes.
     #[must_use]
     pub fn drifted(&self) -> bool {
         self.managed
             .iter()
+            .chain(&self.adopted)
             .any(|file| file.held.as_ref() != Some(&file.recorded))
             || self
                 .blocks

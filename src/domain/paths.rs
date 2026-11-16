@@ -67,7 +67,8 @@ pub const HOOKS_CONFIG_PATH: &str = ".pre-commit-config.yaml";
 /// Where the documentation block lives in a target.
 pub const AGENTS_DIGEST_PATH: &str = "AGENTS.md";
 
-/// The only roots an upgrade may remove dropped managed files from.
+/// The roots this tool owns whole, where a landing also removes a directory
+/// that a deletion emptied.
 pub const PRUNABLE_ROOTS: &[&str] = &[".spec-driven-docs/", ".claude/skills/", ".agents/skills/"];
 
 /// The state root, relative to the home directory, where no variable moves it.

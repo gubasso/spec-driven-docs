@@ -222,6 +222,7 @@ rule_ids! {
     IncrementalLandingIsNamed => "setup:an-incremental-landing-is-named",
     StatusReportsWhatAnOlderReleaseLeft => "setup:status-reports-what-an-older-release-left",
     LandingTakesTheChoicesItsStageRecorded => "staging:a-landing-takes-the-choices-its-stage-recorded",
+    LandingRetiresOrDropsWhatItStopsLanding => "staging:a-landing-retires-or-drops-what-it-stops-landing",
     ReplacementKeepsTheBytesItReplaces => "staging:a-replacement-keeps-the-bytes-it-replaces",
     StageTakesTheRecordedChoices => "staging:a-stage-takes-the-recorded-choices",
     UpgradeListsEveryRetiredCitationFirst => "staging:an-upgrade-lists-every-retired-citation-first",

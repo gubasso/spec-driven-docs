@@ -1,7 +1,8 @@
 //! Compare one stage against the target it was rendered for.
 //!
 //! One row per destination the stage carries, plus one per recorded
-//! managed file the candidate no longer lands. Each row says whether the
+//! managed file the candidate no longer lands, which the landing either
+//! retires or drops. Each row says whether the
 //! target holds the staged bytes, who owns the destination, and, where the
 //! two differ, how much this tool can say about who wrote what is there.
 //!
@@ -19,7 +20,7 @@ use crate::candidate::Ownership;
 use crate::error::AppError;
 
 /// The machine schema `sdd stage compare --json` declares.
-pub const SCHEMA: &str = "sdd.stage-compare/1";
+pub const SCHEMA: &str = "sdd.stage-compare/2";
 
 /// What the target holds at one destination, against the stage.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -31,8 +32,13 @@ pub enum State {
     Absent,
     /// The target holds other bytes.
     Differs,
-    /// The record names a managed file the candidate no longer lands.
+    /// The record names a managed file the candidate no longer lands, and
+    /// the target holds the recorded bytes: the landing deletes it.
     Retired,
+    /// The record names a managed file the candidate no longer lands, and
+    /// the target holds other bytes: the landing leaves it as the
+    /// project's and drops it from the record.
+    Dropped,
 }
 
 /// How much this tool can say about the bytes that differ.
@@ -88,7 +94,8 @@ pub struct Row {
     pub state: State,
     /// Who owns it.
     pub ownership: RowOwnership,
-    /// For a destination that differs or retires, what vouches for it.
+    /// For a destination that differs, retires, or drops, what vouches for
+    /// it.
     pub provenance: Option<Provenance>,
     /// Whether the record vouches for the bytes the target holds, where
     /// the target holds any. The landing refuses exactly the managed and
@@ -120,7 +127,8 @@ pub struct Report {
     pub target: Utf8PathBuf,
     /// Whether the history half was read.
     pub history: HistoryState,
-    /// One row per destination, in the stage's order, then the retired.
+    /// One row per destination, in the stage's order, then the retired and
+    /// the dropped.
     pub rows: Vec<Row>,
     /// Every skill package folder the landing would refuse, as
     /// `<root>/<name>/`, by the check the landing itself applies.
@@ -205,32 +213,27 @@ pub fn compare(root: &Utf8Path, target: &Utf8Path) -> Result<Report, AppError> {
             replaceable: replaceable.contains(&artifact.path),
         });
     }
-    for (destination, _) in &recorded.managed {
-        if staged_paths.contains(destination) {
-            continue;
-        }
-        let path = Utf8PathBuf::from(destination);
-        // Every recorded destination gets its row. One that is gone has no
-        // bytes to vouch for, so its provenance is the Git half alone, and
-        // one that cannot be read is vouched for by nobody, so the operator
-        // is asked rather than the row dropped.
-        let (provenance, vouched) = match std::fs::read(target.join(&path)) {
-            Ok(held) => {
-                let vouched = crate::landing::apply::vouches_retired(&recorded, destination, &held);
-                (Some(provenance(vouched, &path)), Some(vouched))
-            }
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                (Some(provenance(false, &path)), None)
-            }
-            Err(_) => (Some(Provenance::Unknown), None),
-        };
+    // The rows the landing's own sort names, so a row reads `retired`
+    // exactly where the apply deletes and `dropped` exactly where it keeps.
+    let landing: Vec<&str> = staged_paths.iter().map(String::as_str).collect();
+    let departures = crate::landing::apply::departures_from(&target, &landing, &recorded);
+    let retired = departures
+        .retired
+        .into_iter()
+        .map(|(destination, _)| (destination, State::Retired, true));
+    let dropped = departures
+        .dropped
+        .into_iter()
+        .map(|destination| (destination, State::Dropped, false));
+    for (destination, state, vouched) in retired.chain(dropped) {
+        let path = Utf8PathBuf::from(&destination);
         rows.push(Row {
-            path: destination.clone(),
-            state: State::Retired,
+            provenance: Some(provenance(vouched, &path)),
+            vouched: Some(vouched),
+            replaceable: replaceable.contains(&destination),
+            path: destination,
+            state,
             ownership: RowOwnership::Managed,
-            provenance,
-            vouched,
-            replaceable: replaceable.contains(destination),
         });
     }
     Ok(Report {

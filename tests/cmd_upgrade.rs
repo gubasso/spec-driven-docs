@@ -1,5 +1,6 @@
 //! Integration: `sdd upgrade` walks guides, refuses conflicts atomically,
-//! reinstalls, and prunes what the new version stopped managing.
+//! reinstalls, deletes each file the new version stopped landing that
+//! nobody edited, and keeps each edited one as the project's.
 
 // Integration tests: assertion style is the point, so the production
 // restrictions on unwrap/panic and string building do not apply here.
@@ -83,6 +84,54 @@ fn an_instance_at_the_current_version_is_already_done() {
         )));
 }
 
+/// VERIFIES staging:the-manifest-attributes-every-refresh
+///
+/// An adopted edit at the binary's own version is work the upgrade still
+/// has: one run records it, and the next finds nothing to do.
+#[test]
+fn one_upgrade_records_an_adopted_edit_at_the_current_version() {
+    let fixture = Fixture::new();
+    fixture.install("codebase");
+    let adopted = "docs/specs/SPEC-budget-debt.md";
+    let edited = format!("{}- Local rule: keep it short.\n", fixture.read(adopted));
+    fixture.write(adopted, &edited);
+    let drift = |fixture: &Fixture| {
+        let output = fixture
+            .cmd()
+            .args(["status", "--target", &fixture.target(), "--json"])
+            .output()
+            .unwrap();
+        let status: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        (
+            status["adopted_drift"].clone(),
+            status["classification"].clone(),
+        )
+    };
+    assert_eq!(drift(&fixture), (1.into(), "drift".into()));
+
+    fixture
+        .upgrade()
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(format!(
+            "OK recorded the adopted edits at {}",
+            env!("CARGO_PKG_VERSION")
+        )));
+    assert_eq!(fixture.read(adopted), edited, "the adopted edit was lost");
+    assert_eq!(drift(&fixture), (0.into(), "current".into()));
+    fixture
+        .cmd()
+        .args(["verify", "--target", &fixture.target()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("DRIFT").not());
+    fixture
+        .upgrade()
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("OK already at"));
+}
+
 #[test]
 fn dry_run_reports_the_plan_and_changes_nothing() {
     let fixture = v1_instance();
@@ -99,24 +148,24 @@ fn dry_run_reports_the_plan_and_changes_nothing() {
 #[test]
 fn conflicts_are_collected_and_abort_atomically() {
     let fixture = v1_instance();
+    let lint = "_docs/.markdownlint-cli2.jsonc";
+    let skill = ".claude/skills/sdd-setup/SKILL.md";
+    fixture.write(lint, "// locally edited\n");
+    std::fs::remove_file(fixture.path().join(skill)).unwrap();
+    // A file this release stops landing is no conflict, edited or not.
     fixture.write(".spec-driven-docs/verify.sh", "#!/bin/sh\nlocally edited\n");
-    std::fs::remove_file(
-        fixture
-            .path()
-            .join(".spec-driven-docs/hooks/sample-gate.sh"),
-    )
-    .unwrap();
     let digest = fixture.tree_digest();
     fixture
         .upgrade()
         .assert()
         .code(1)
-        .stdout(predicate::str::contains(
-            "CONFLICT locally edited managed file: .spec-driven-docs/verify.sh",
-        ))
-        .stdout(predicate::str::contains(
-            "CONFLICT missing managed file: .spec-driven-docs/hooks/sample-gate.sh",
-        ));
+        .stdout(predicate::str::contains(format!(
+            "CONFLICT locally edited managed file: {lint}"
+        )))
+        .stdout(predicate::str::contains(format!(
+            "CONFLICT missing managed file: {skill}"
+        )))
+        .stdout(predicate::str::contains("verify.sh").not());
     assert_eq!(
         digest,
         fixture.tree_digest(),
@@ -139,10 +188,10 @@ fn an_upgrade_reinstalls_prunes_and_reports() {
         .assert()
         .success()
         .stdout(predicate::str::contains(
-            "removed managed file no longer owned: .spec-driven-docs/verify.sh",
+            "retired managed file, deleted: .spec-driven-docs/verify.sh",
         ))
         .stdout(predicate::str::contains(
-            "removed managed file no longer owned: .spec-driven-docs/hooks/sample-gate.sh",
+            "retired managed file, deleted: .spec-driven-docs/hooks/sample-gate.sh",
         ))
         .stdout(predicate::str::contains(format!(
             "OK upgraded 0.1.6 to {}",
@@ -170,8 +219,12 @@ fn an_upgrade_reinstalls_prunes_and_reports() {
         .success();
 }
 
+/// VERIFIES staging:a-landing-retires-or-drops-what-it-stops-landing
+///
+/// A departing file reached through a link is dropped: the upgrade never
+/// deletes through it, leaves the link, and goes on.
 #[test]
-fn a_symlinked_prune_destination_is_refused() {
+fn a_linked_departing_file_is_dropped_and_never_followed() {
     let fixture = v1_instance();
     let outside = tempfile::tempdir().unwrap();
     let outside_file = outside.path().join("verify.sh");
@@ -183,26 +236,131 @@ fn a_symlinked_prune_destination_is_refused() {
     )
     .unwrap();
 
-    // The whole apply refuses before it stages anything, rather than
-    // skipping the one destination and landing the rest. The target is
-    // therefore untouched, which is the stronger of the two guarantees.
-    let digest = fixture.tree_digest();
     fixture
         .upgrade()
         .assert()
-        .code(73)
-        .stderr(predicate::str::contains(
-            "destination escapes the target through a symlink: .spec-driven-docs/verify.sh",
+        .success()
+        .stdout(predicate::str::contains(
+            "dropped managed file, kept as the project's: .spec-driven-docs/verify.sh",
         ));
     assert!(
         outside_file.exists(),
         "the upgrade deleted through the symlink"
     );
-    assert_eq!(
-        digest,
-        fixture.tree_digest(),
-        "a refused upgrade changed bytes"
+    assert!(
+        fixture
+            .path()
+            .join(".spec-driven-docs/verify.sh")
+            .is_symlink()
     );
+}
+
+/// VERIFIES staging:a-landing-retires-or-drops-what-it-stops-landing
+///
+/// Wherever it lies: an unedited file this release stops landing is
+/// deleted outside the roots this tool owns whole too, and an edited one
+/// stays, leaves the record, and lets the upgrade finish. The dry run
+/// names both first.
+#[test]
+fn a_departing_file_outside_the_owned_roots_is_retired_or_dropped() {
+    let fixture = Fixture::new();
+    fixture.install("codebase");
+    let retired = "docs/old-lint.jsonc";
+    let dropped = "docs/old-guide.md";
+    fixture.write(retired, "{}\n");
+    fixture.write(dropped, "# Edited since\n");
+    let mut manifest: serde_json::Value =
+        serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
+    for destination in [retired, dropped] {
+        manifest["managed_files"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({
+                "source": destination,
+                "destination": destination,
+                "sha256": spec_driven_docs::domain::ownership::Sha256::of(b"{}\n").to_string(),
+            }));
+    }
+    manifest["canon_version"] = serde_json::json!("0.1.6");
+    fixture.write(
+        ".spec-driven-docs/manifest.json",
+        &(serde_json::to_string_pretty(&manifest).unwrap() + "\n"),
+    );
+
+    let before = fixture.tree_digest();
+    let (code, report) = upgrade_json(&fixture, &["--dry-run"]);
+    assert_eq!(code, Some(0), "{report}");
+    assert_eq!(report["retired"], serde_json::json!([retired]));
+    assert_eq!(report["dropped"], serde_json::json!([dropped]));
+    assert!(
+        report["conflicts"].as_array().unwrap().is_empty(),
+        "{report}"
+    );
+    let lines = report["lines"].to_string();
+    assert!(
+        lines.contains(&format!("DRY RUN retired managed file, deleted: {retired}")),
+        "{lines}"
+    );
+    assert!(
+        lines.contains(&format!(
+            "DRY RUN dropped managed file, kept as the project's: {dropped}"
+        )),
+        "{lines}"
+    );
+    assert_eq!(before, fixture.tree_digest(), "the dry run changed bytes");
+
+    fixture
+        .upgrade()
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(format!(
+            "retired managed file, deleted: {retired}"
+        )))
+        .stdout(predicate::str::contains(format!(
+            "dropped managed file, kept as the project's: {dropped}"
+        )));
+    assert!(!fixture.path().join(retired).exists());
+    assert_eq!(fixture.read(dropped), "# Edited since\n");
+    let record = fixture.read(".spec-driven-docs/manifest.json");
+    assert!(
+        !record.contains(retired) && !record.contains(dropped),
+        "{record}"
+    );
+}
+
+/// VERIFIES staging:a-landing-retires-or-drops-what-it-stops-landing
+///
+/// A dropped skill file still loads as a skill, and the landing that drops
+/// it is the one moment this tool can say so.
+#[test]
+fn a_dropped_skill_is_named_as_still_loading() {
+    let fixture = Fixture::new();
+    fixture.install("knowledge-base");
+    let skill = ".claude/skills/old-skill/SKILL.md";
+    fixture.write(skill, "edited\n");
+    let mut manifest: serde_json::Value =
+        serde_json::from_str(&fixture.read(".spec-driven-docs/manifest.json")).unwrap();
+    manifest["managed_files"]
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::json!({
+            "source": "skills/old-skill/SKILL.md",
+            "destination": skill,
+            "sha256": spec_driven_docs::domain::ownership::Sha256::of(b"stale\n").to_string(),
+        }));
+    manifest["canon_version"] = serde_json::json!("0.1.6");
+    fixture.write(
+        ".spec-driven-docs/manifest.json",
+        &(serde_json::to_string_pretty(&manifest).unwrap() + "\n"),
+    );
+    fixture
+        .upgrade()
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            "note: .claude/skills/old-skill/ still loads as a skill that this release no longer ships",
+        ));
+    assert_eq!(fixture.read(skill), "edited\n");
 }
 
 #[test]
@@ -258,7 +416,7 @@ fn a_stale_managed_skill_file_is_pruned() {
         .assert()
         .success()
         .stdout(predicate::str::contains(
-            "removed managed file no longer owned: .claude/skills/old-skill/SKILL.md",
+            "retired managed file, deleted: .claude/skills/old-skill/SKILL.md",
         ));
     assert!(
         !fixture
@@ -835,29 +993,42 @@ fn an_upgrade_retires_the_private_lint_directory_and_lands_the_new_pair() {
         .success();
 }
 
-/// VERIFIES distribution:upgrade-conflicts-are-atomic
+/// VERIFIES staging:a-landing-retires-or-drops-what-it-stops-landing
 ///
-/// A retired file is still a managed file the record vouches for, so an edit
-/// in it stops the whole upgrade before any byte moves.
+/// An edited file this release stops landing is no conflict: it stays as
+/// the project's, the record forgets it, and the rest of the upgrade lands.
 #[test]
-fn an_edited_retired_lint_file_refuses_the_upgrade_and_writes_nothing() {
+fn an_edited_retired_lint_file_is_dropped_and_the_upgrade_goes_on() {
     let fixture = private_lint_layout_instance();
-    fixture.write(
-        ".spec-driven-docs/markdownlint/spec.markdownlint-cli2.jsonc",
-        "{ \"config\": { \"MD013\": true } }\n",
-    );
-    let digest = fixture.tree_digest();
+    let edited = ".spec-driven-docs/markdownlint/spec.markdownlint-cli2.jsonc";
+    fixture.write(edited, "{ \"config\": { \"MD013\": true } }\n");
     fixture
         .upgrade()
         .assert()
-        .failure()
-        .stdout(predicate::str::contains(
-            ".spec-driven-docs/markdownlint/spec.markdownlint-cli2.jsonc",
-        ));
+        .success()
+        .stdout(predicate::str::contains(format!(
+            "dropped managed file, kept as the project's: {edited}"
+        )));
     assert_eq!(
-        digest,
-        fixture.tree_digest(),
-        "a refused upgrade wrote bytes"
+        fixture.read(edited),
+        "{ \"config\": { \"MD013\": true } }\n"
+    );
+    for name in RETIRED_LINT {
+        let path = format!(".spec-driven-docs/markdownlint/{name}");
+        if path != edited {
+            assert!(!fixture.path().join(&path).exists(), "{path} survived");
+        }
+    }
+    assert!(
+        !fixture
+            .read(".spec-driven-docs/manifest.json")
+            .contains(edited)
+    );
+    assert!(
+        fixture
+            .path()
+            .join("_docs/.markdownlint-cli2.jsonc")
+            .is_file()
     );
 }
 

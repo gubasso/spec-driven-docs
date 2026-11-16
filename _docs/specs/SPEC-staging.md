@@ -16,6 +16,7 @@
   - [`staging:an-upgrade-from-an-older-release-names-the-skill-route` — An upgrade from an older release names the skill route](#stagingan-upgrade-from-an-older-release-names-the-skill-route--an-upgrade-from-an-older-release-names-the-skill-route)
   - [`staging:a-stage-persists-until-it-is-cleaned` — A stage persists until it is cleaned](#staginga-stage-persists-until-it-is-cleaned--a-stage-persists-until-it-is-cleaned)
   - [`staging:the-manifest-attributes-every-refresh` — The manifest attributes every refresh](#stagingthe-manifest-attributes-every-refresh--the-manifest-attributes-every-refresh)
+  - [`staging:a-landing-retires-or-drops-what-it-stops-landing` — A landing retires or drops what it stops landing](#staginga-landing-retires-or-drops-what-it-stops-landing--a-landing-retires-or-drops-what-it-stops-landing)
   - [`staging:an-unattributed-collision-refuses-first` — An unattributed collision refuses first](#stagingan-unattributed-collision-refuses-first--an-unattributed-collision-refuses-first)
   - [`staging:the-manifest-is-written-last` — The manifest is written last](#stagingthe-manifest-is-written-last--the-manifest-is-written-last)
   - [`staging:one-writer-holds-the-target` — One writer holds the target](#stagingone-writer-holds-the-target--one-writer-holds-the-target)
@@ -121,9 +122,7 @@ Verify: `cargo nextest run -E 'binary(cmd_init) + binary(cmd_upgrade)'`
 
 ### `staging:compare-reports-every-destination-the-stage-carries` — Compare reports every destination the stage carries
 
-`sdd stage compare <root>` MUST report one row per destination the stage carries and one per recorded managed file the candidate retires, each with its state, its ownership, and, where the bytes differ or retire, its provenance, and MUST judge the record half with the check the landing refuses on.
-
-The state is `equal`, `absent`, `differs`, or `retired`. The ownership is `managed`, `integration`, or `adopted`, and a marked region is compared by its own bytes. The provenance is `attributed` where the record vouches for the bytes and the history touches the path, `reduced` where one of the two holds, and `unknown` where neither does. Where Git is absent or the target is no repository, the report states why the history half is missing. Each row also carries `replaceable`, true only where the verb that lands the stage accepts the path in `--replace`, judged by the check `sdd upgrade` applies to each name: the path is a conflict that verb lists, and the landing can write it. It is false on every other row, and on every row before an instance exists, because `sdd init` takes no name. The report also lists in `refused_packages` every skill package folder the landing refuses, by the one check `distribution:an-unattributed-skill-folder-is-never-replaced` states.
+`sdd stage compare <root>` MUST report one row per destination the stage carries and one per recorded managed file the candidate retires or drops, each with its state, its ownership, and, where the bytes differ, retire, or drop, its provenance, and MUST judge the record half with the check the landing refuses on. The state is `equal`, `absent`, `differs`, `retired`, or `dropped`, and `sdd stage compare --json` declares `sdd.stage-compare/2`. The ownership is `managed`, `integration`, or `adopted`, and a marked region is compared by its own bytes. The provenance is `attributed` where the record vouches for the bytes and the history touches the path, `reduced` where one of the two holds, and `unknown` where neither does. Where Git is absent or the target is no repository, the report states why the history half is missing. Each row also carries `replaceable`, true only where the verb that lands the stage accepts the path in `--replace`, judged by the check `sdd upgrade` applies to each name: the path is a conflict that verb lists, and the landing can write it. It is false on every other row, and on every row before an instance exists, because `sdd init` takes no name. The report also lists in `refused_packages` every skill package folder the landing refuses, by the one check `distribution:an-unattributed-skill-folder-is-never-replaced` states.
 
 #### Scenario: A landing follows a comparison
 
@@ -195,15 +194,27 @@ Verify: `cargo nextest run -E 'binary(cmd_stage)'`
 
 ### `staging:the-manifest-attributes-every-refresh` — The manifest attributes every refresh
 
-A landing MUST refresh a whole file or a marked region only where the instance manifest attributes it to this tool, and MUST leave adopted specs, decision records, policy, debt, project prose, and seeded state to the project.
+A landing MUST refresh a whole file or a marked region only where the instance manifest attributes it to this tool, and MUST leave adopted specs, decision records, policy, debt, project prose, and seeded state to the project. Where an adopted file holds bytes the record does not, one `sdd upgrade` MUST keep and record them, at the binary's own version too, and `sdd status` MUST classify the target `drift` until a landing does.
 
 #### Scenario: An upgrade meets an adopted spec the project has rewritten
 
 - GIVEN an instance whose adopted spec carries the project's own requirements
 - WHEN `sdd upgrade --apply` runs
-- THEN the adopted spec is untouched and the managed files are refreshed, because the manifest records which of the two this tool wrote
+- THEN the adopted spec is untouched and the managed files are refreshed, because the manifest records which of the two this tool wrote, and the record holds the spec's bytes, so `sdd verify` reports no drift after one run
 
 Verify: `cargo nextest run -E 'binary(cmd_upgrade)'`
+
+### `staging:a-landing-retires-or-drops-what-it-stops-landing` — A landing retires or drops what it stops landing
+
+Where the record names a managed file that the candidate no longer lands, the landing MUST delete it where its bytes match the recorded digest, wherever it lies beneath the target. It MUST otherwise leave the file on disk, drop it from the record, and go on, and the file MUST NOT be a conflict. `sdd upgrade --dry-run`, `sdd stage`, and `sdd stage compare` MUST name each such file as `retired` or `dropped` before the apply, by the sort the landing runs. The recorded bytes authorize a deletion, never the path alone. An edited file, an unreadable one, and one reached through a link stay, so no edit is lost and no deletion follows a link. A dropped file is the project's from that landing. Where it is the `SKILL.md` of a skill package, the landing notes that it still loads, because the record forgets it in the same write. A directory that a deletion empties goes only inside `.spec-driven-docs/` and the skill roots.
+
+#### Scenario: A release stops landing two managed files, one edited
+
+- GIVEN an instance whose record names two managed files outside the instance directory that the new release does not land, one edited since
+- WHEN `sdd upgrade --dry-run` runs, then `sdd upgrade`
+- THEN the preview names one `retired` and one `dropped`, and the upgrade deletes the unedited file, keeps the edited one, drops both from the record, and exits 0
+
+Verify: `cargo nextest run -E 'binary(cmd_upgrade) + binary(cmd_stage)'`
 
 ### `staging:an-unattributed-collision-refuses-first` — An unattributed collision refuses first
 
