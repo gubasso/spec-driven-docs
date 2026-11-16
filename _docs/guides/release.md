@@ -68,7 +68,7 @@ Two of these are easy to skip and both have bitten this repository. Step 2 is th
    After the pin move, load the devshell and run the upgrade through the sdd-setup skill of the sdd in that devshell, and do every migration it names. Before `sdd upgrade`, read it with `sdd skill show sdd-setup`. After it, the project's .claude/skills/sdd-setup is that skill. Never use a host copy or an older skill.
    ```
 
-   Where the release changes the managed documentation block of `AGENTS.md`, the adopter note names each line that the block gains, because a root `AGENTS.md` near its 100-line budget then fails `agents-digest-size`.
+   Where the release changes the managed documentation block of `AGENTS.md`, the adopter note names each line that the block gains or loses. The budget of `agents-digest-size` counts only the project's own lines, so a block change never fails it in a project. `the_rendered_block_fits_the_managed_block_cap` holds the block to 20 lines at this repository's commit.
 
 3. Let the `release-gate` job merge the release pull request. It wakes when `ci` completes, and it merges the request once `test` is green on that exact head. This is the release decision: the squash lands the bump on `master`, and the push of that squash is what the publish half keys on. To hold a release, mark the request as a draft with `gh pr ready <pr number> --undo`, because the gate never merges a draft. Closing the request abandons the release at no cost:
 

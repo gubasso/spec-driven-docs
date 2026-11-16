@@ -28,7 +28,7 @@
     },
     {
       "path": "_docs/specs/SPEC-docs-format.md",
-      "sha256": "79b88d85ecfaaa24b9940045113f7b7665dcfd1f5d8c0333f29f2e43fe9aee3e"
+      "sha256": "3f94a24b4b6641d2e7b6221018c5b05f4696a5ea752f4c693763f3f61d89706c"
     },
     {
       "path": "_docs/specs/SPEC-docs-foundations.md",
@@ -164,7 +164,7 @@
     },
     {
       "path": "instance/payload/_docs/specs/SPEC-docs-format.md",
-      "sha256": "79b88d85ecfaaa24b9940045113f7b7665dcfd1f5d8c0333f29f2e43fe9aee3e"
+      "sha256": "3f94a24b4b6641d2e7b6221018c5b05f4696a5ea752f4c693763f3f61d89706c"
     },
     {
       "path": "instance/payload/_docs/specs/SPEC-docs-foundations.md",
@@ -232,11 +232,11 @@
     },
     {
       "path": "method/agent-context.md",
-      "sha256": "ed24e3cf00bcad2d18793808fc65314bdc0b350d99b2550eeb85cf44ad515707"
+      "sha256": "6e7c8ea204750a68992205ba7342a4947ccd7a9e6e944e042f1aff88ce179fce"
     },
     {
       "path": "method/checklist.md",
-      "sha256": "600fe61fe3198e8674861d1bea301a357edf1e243f5e6716bebe4227fe8248a2"
+      "sha256": "be3cc8ce71d04c8018448a6510bbc759b33c0764f870796e7e1408c4171b9b24"
     },
     {
       "path": "method/decisions.md",
@@ -244,7 +244,7 @@
     },
     {
       "path": "method/format.md",
-      "sha256": "4c998d5e224d04ddc77c5deb7be515b030f85e4db22ee88f7acffc766521b19a"
+      "sha256": "f3b753c184cb6ee8947c4796bbf71bca1d0e82b544098758df4c70cc5c81b182"
     },
     {
       "path": "method/gates.md",
@@ -368,7 +368,7 @@
     },
     {
       "path": "templates/TEMPLATE-agents-digest.md",
-      "sha256": "d4985d89a49bfaf2f36b92162899babb488c88e9792065c4f8921b50106cefe2"
+      "sha256": "3829ad25153fcc4ab62cd9bce793833ab975795406831c3aa2d37829028ebaf8"
     },
     {
       "path": "templates/TEMPLATE-comparison.md",
@@ -376,7 +376,7 @@
     },
     {
       "path": "templates/TEMPLATE-docs-rules.md",
-      "sha256": "3a2fbac9a6fbede029241ed405b1ed20090c0795b025dbd8b0fd30d0d9793a1b"
+      "sha256": "f546c49fe93e6d0aa82396e8f5b2dd4cfdcec7b907277433497ab1597d20e781"
     },
     {
       "path": "templates/TEMPLATE-guide.md",

@@ -76,6 +76,9 @@ An author-instructions file is paid for on every session whether or not it is re
 
 - A root author-instructions file MUST be at or below 100 lines.
 - A subtree author-instructions file MUST be at or below 150 lines.
+- A managed block that a tool writes into the file MUST be at or below 20 lines, its markers included.
+
+The two file budgets count the lines outside the managed blocks. A managed block is the region between a `<!-- BEGIN <label> -->` line and the `<!-- END <label> -->` line of the same label, which its tool rewrites at each upgrade. The project cannot shorten it, so the tool owns its size and the project owns the rest. The session still pays for every line, so the gate reports the block lines beside the project's count.
 
 Two habits hold the line: write each rule once and link rather than restate it, and keep the prose lean. A file paid for every session is the worst place for a paragraph that can be a sentence.
 

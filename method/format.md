@@ -6,8 +6,9 @@ Markdown is the house format. This chapter keeps the constructs that carry struc
 
 | Artifact                         | Budget                                               |
 | -------------------------------- | ---------------------------------------------------- |
-| Root author-instructions file    | 100 lines                                            |
-| Subtree author-instructions file | 150 lines                                            |
+| Root author-instructions file    | 100 lines outside the managed blocks                 |
+| Subtree author-instructions file | 150 lines outside the managed blocks                 |
+| Managed block in such a file     | 20 lines, markers included                           |
 | Spec                             | 300 lines excluding the TOC; TOC generated above 100 |
 | Requirement statement            | one sentence                                         |
 | Decision record                  | 350 words                                            |

@@ -24,7 +24,7 @@ This repository is the canonical knowledge product for spec-driven documentation
 
 ## Authoring
 
-- Keep the root digest at or below 100 lines and subtree digests at or below 150 lines.
+- Keep the root digest at or below 100 lines and subtree digests at or below 150 lines, counted outside the managed blocks.
 - Keep chapters at or below 200 lines, catalogs and specs at or below 300 lines, and decision records at or below 350 words.
 - Use headings, lists, tables, fenced blocks with a language, inline code, and links. Use no bold or italic text.
 - Keep prose unwrapped: one source line per paragraph or list item.

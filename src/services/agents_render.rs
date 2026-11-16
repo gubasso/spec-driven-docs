@@ -89,6 +89,37 @@ mod tests {
         assert!(!block.contains("simple-english"));
     }
 
+    /// VERIFIES docs-format:author-instructions-stay-within-budget
+    ///
+    /// The block sdd writes fits the cap the gate holds every managed
+    /// block to, so this release fails here rather than at a project's
+    /// commit. A release that needs more lines moves text into `sdd docs`.
+    #[test]
+    fn the_rendered_block_fits_the_managed_block_cap() {
+        for root in ["docs", "_docs"] {
+            for selection in [
+                WritingStyle::default(),
+                WritingStyle {
+                    source: WritingSource::None,
+                    path: None,
+                },
+            ] {
+                let block = render_block(root, &selection);
+                let lines = block.lines().count();
+                assert!(
+                    lines <= crate::gates::agents_digest_size::BLOCK_CAP,
+                    "{lines} lines:\n{block}"
+                );
+                assert!(
+                    crate::gates::agents_digest_size::split(&block)
+                        .broken
+                        .is_none(),
+                    "{block}"
+                );
+            }
+        }
+    }
+
     #[test]
     fn a_blank_line_separates_each_marker_from_the_body() {
         for selection in [

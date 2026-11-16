@@ -66,7 +66,7 @@ Owner: [Decisions](./decisions.md).
 
 Owner: [Agent Context](./agent-context.md).
 
-- [ ] The always-loaded files are within budget: 100 lines at the root, 150 in a subtree.
+- [ ] The always-loaded files are within budget: 100 lines at the root, 150 in a subtree, outside the managed blocks, and each managed block at or below 20 lines.
 - [ ] Subtree-local rules live in the subtree, and the root file points rather than imports.
 - [ ] Every source a context entrypoint needs is linked directly from it, not through another document.
 - [ ] Filenames indicate their contents.
