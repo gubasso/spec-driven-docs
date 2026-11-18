@@ -74,6 +74,14 @@ ureq = { version = "3.4.1", default-features = false, features = ["rustls", "gzi
 walkdir = "2.5.0"
 yaml_serde = "0.10"
 
+# Line tables for the crates of this project, so a backtrace names the file
+# and the line, and no debug information for the dependencies.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
+
 [profile.release]
 lto = "thin"
 codegen-units = 1

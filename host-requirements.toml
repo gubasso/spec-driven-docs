@@ -10,6 +10,10 @@ version = ">=1.2.0"
 # The host configuration owns the version of nix.
 [tools.nix]
 
+# The host configuration owns the one version of kache, which .envrc names
+# as RUSTC_WRAPPER.
+[tools.kache]
+
 # minimum_prek_version in .pre-commit-config.yaml enforces the version of
 # prek, so the checker leaves it to prek.
 [tools.prek]
