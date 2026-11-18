@@ -8,6 +8,10 @@
 //! back into a suggestion. Only a `Verify:` line binds: a command in prose
 //! or in a scenario is an example.
 //! Aliases count, because that is how a spec names a scoped variant.
+//!
+//! A configuration with a `repo: builtin` entry loads only in prek, so
+//! there a verification that runs `pre-commit run` runs nothing, and the
+//! gate refuses it.
 
 use std::collections::BTreeSet;
 
@@ -22,6 +26,9 @@ pub const CITES: &[RuleId] = &[RuleId::VerificationNamesALiveHook];
 
 /// The invocations that run one hook, one for each runner the gates accept.
 const RUNS: [&str; 2] = ["prek run ", "pre-commit run "];
+
+/// The invocation of the runner that cannot load a `repo: builtin` entry.
+const PRE_COMMIT_RUN: &str = "pre-commit run ";
 
 /// The hook every runner invocation of every `Verify:` line names.
 fn hook_names_in(text: &str) -> impl Iterator<Item = String> + '_ {
@@ -60,6 +67,32 @@ fn hook_argument(after: &str) -> Option<String> {
     (!name.is_empty() && !name.starts_with('-')).then_some(name)
 }
 
+/// The 1-based number of every `Verify:` line that runs pre-commit.
+fn pre_commit_verifications(text: &str) -> Vec<usize> {
+    text.lines()
+        .enumerate()
+        .filter_map(|(index, line)| {
+            let verification = line.trim_start().strip_prefix("Verify:")?;
+            verification
+                .match_indices(PRE_COMMIT_RUN)
+                .any(|(at, _)| starts_a_word(verification, at))
+                .then_some(index + 1)
+        })
+        .collect()
+}
+
+/// Whether the configuration declares a prek built-in repository, which
+/// pre-commit cannot load.
+fn holds_a_builtin_repo(config: &str) -> bool {
+    config.lines().any(|line| {
+        let trimmed = line.trim_start();
+        let entry = trimmed.strip_prefix("- ").unwrap_or(trimmed).trim_end();
+        entry
+            .strip_prefix("repo:")
+            .is_some_and(|value| value.trim().trim_matches(['\'', '"']) == "builtin")
+    })
+}
+
 fn defines_hook(config: &str, hook: &str) -> bool {
     config.lines().any(|line| {
         let trimmed = line.trim_start();
@@ -96,15 +129,30 @@ pub fn run(ctx: &GateCtx, _files: &[String]) -> GateResult {
         )]);
     }
 
-    let mut hooks: BTreeSet<String> = BTreeSet::new();
-    for file in ctx.retained(all_specs) {
-        hooks.extend(hook_names_in(&read_text(ctx, &file)?));
-    }
     let config = read_text(ctx, HOOKS_CONFIG_PATH)?;
+    let builtin = holds_a_builtin_repo(&config);
+    let mut hooks: BTreeSet<String> = BTreeSet::new();
+    let mut refused: Vec<Violation> = Vec::new();
+    for file in ctx.retained(all_specs) {
+        let text = read_text(ctx, &file)?;
+        hooks.extend(hook_names_in(&text));
+        if builtin {
+            refused.extend(pre_commit_verifications(&text).into_iter().map(|line| {
+                Violation::Finding(Finding::on_line(
+                    RuleId::VerificationNamesALiveHook,
+                    file.as_str(),
+                    line,
+                    "the hook configuration holds a `repo: builtin` entry, which \
+                     pre-commit cannot load; run the hook as `prek run <hook>`",
+                ))
+            }));
+        }
+    }
     Ok(hooks
         .into_iter()
         .filter(|hook| !defines_hook(&config, hook))
         .map(|hook| Violation::Finding(Finding::global(RuleId::VerificationNamesALiveHook, hook)))
+        .chain(refused)
         .collect())
 }
 
@@ -255,6 +303,63 @@ mod tests {
             run_in(&fixture_with(spec, &["sample-hook"])),
             vec!["FAIL docs-specs:verification-names-a-live-hook: second-missing".to_string()]
         );
+    }
+
+    /// Append a prek built-in repository to a fixture's configuration.
+    fn with_builtin_repo(dir: &tempfile::TempDir, repo_line: &str) {
+        let config = dir.path().join(".pre-commit-config.yaml");
+        let text = std::fs::read_to_string(&config).unwrap()
+            + &format!("  {repo_line}\n    hooks:\n      - id: check-yaml\n");
+        std::fs::write(&config, text).unwrap();
+    }
+
+    /// pre-commit cannot load a `repo: builtin` entry, so there a
+    /// verification that runs pre-commit runs nothing.
+    #[test]
+    fn a_builtin_repo_refuses_a_pre_commit_verification() {
+        for repo_line in [
+            "- repo: builtin",
+            "- repo: 'builtin'",
+            "- repo: \"builtin\"",
+        ] {
+            let dir = fixture("sample-hook");
+            with_builtin_repo(&dir, repo_line);
+            assert_eq!(
+                run_in(&dir),
+                vec![
+                    "FAIL docs-specs:verification-names-a-live-hook _docs/specs/SPEC-sample.md:3: \
+                     the hook configuration holds a `repo: builtin` entry, which pre-commit \
+                     cannot load; run the hook as `prek run <hook>`"
+                        .to_string()
+                ],
+                "{repo_line}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_builtin_repo_accepts_a_prek_verification() {
+        let dir = fixture_running("sample-hook", "prek run");
+        with_builtin_repo(&dir, "- repo: builtin");
+        assert!(run_in(&dir).is_empty());
+    }
+
+    /// Without a built-in repository both runners load the configuration.
+    #[test]
+    fn a_pre_commit_verification_passes_without_a_builtin_repo() {
+        let dir = fixture("sample-hook");
+        with_builtin_repo(&dir, "- repo: builtin-hooks");
+        assert!(run_in(&dir).is_empty());
+    }
+
+    /// Only a `Verify:` line binds, and a runner name inside a word is not
+    /// the runner, under a built-in repository as everywhere else.
+    #[test]
+    fn a_builtin_repo_judges_only_the_pre_commit_runner_of_a_verify_line() {
+        let spec = "### `sample:works` — Works\n\nThe old form was `pre-commit run sample-hook`.\n\nVerify: `sh -c 'notpre-commit run x' && prek run sample-hook`\n";
+        let dir = fixture_with(spec, &["sample-hook"]);
+        with_builtin_repo(&dir, "- repo: builtin");
+        assert!(run_in(&dir).is_empty());
     }
 
     #[test]

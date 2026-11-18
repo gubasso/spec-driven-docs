@@ -55,7 +55,7 @@ The width is a rule with an id, not a habit: `known-issues:a-bugzilla-report-bod
 
 A record whose `upstream:` names Bugzilla MUST hold its `## Report` body in a fenced block whose lines are at most 79 columns. A record filed into a tracker that reflows MUST NOT be held to a width.
 
-Verify: `pre-commit run ki-bugzilla-report-width --all-files`
+Verify: `prek run ki-bugzilla-report-width --all-files`
 ```
 
 The rule is Bugzilla's, not every tracker's. GitHub and Jira reflow, so a hard width there is invisible to every reader and enforceable only against the author. That is a habit wearing a rule id. As a result, the gate needs a per-tracker discriminator it can read: for a fenced section that is the record's `upstream:`, and for a standalone body it is the filename, below.
