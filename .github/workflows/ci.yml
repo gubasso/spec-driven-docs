@@ -21,7 +21,10 @@ jobs:
       - name: every job the gate needs passed
         if: ${{ needs.dist-plan.result != 'success' || needs.dist-build.result != 'success' }}
         run: exit 1
+      # The gitleaks hook scans the whole history at push.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: DeterminateSystems/nix-installer-action@v19
       - uses: DeterminateSystems/magic-nix-cache-action@v13
       # The hook runner is a host tool, so the job installs it outside the
@@ -32,6 +35,22 @@ jobs:
         with:
           install-only: true
           prek-version: 0.5.7
+      # The hooks of the exobrain-tech entry call the exobrain CLI, a host
+      # tool that the devshell does not hold, so the job installs the CLI of
+      # the tag that entry pins, from its attested release archive
+      # (release:the-devshell-supplies-every-project-tool). yq and gh come
+      # with the runner.
+      - name: Install the exobrain CLI of the pinned exobrain-tech tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(yq '.repos[] | select(.repo | test("/exobrain-tech(\.git)?/?$")) | .rev' .pre-commit-config.yaml)
+          asset=exobrain-x86_64-unknown-linux-gnu.tar.xz
+          gh release download "$tag" --repo gubasso/exobrain-tech --pattern "$asset" --dir "$RUNNER_TEMP"
+          gh attestation verify "$RUNNER_TEMP/$asset" --repo gubasso/exobrain-tech
+          mkdir -p "$RUNNER_TEMP/exobrain"
+          tar -xJf "$RUNNER_TEMP/$asset" -C "$RUNNER_TEMP/exobrain" --strip-components=1
+          echo "$RUNNER_TEMP/exobrain" >> "$GITHUB_PATH"
       # Every check of this job is a hook, so a push that passed its hooks
       # passes here (release:the-local-hooks-run-every-check-of-ci). The
       # commit stage runs first, then the costly checks of the push stage.

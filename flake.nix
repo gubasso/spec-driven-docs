@@ -12,22 +12,26 @@
       # is the version, flake.lock is the content pin, and nothing else in
       # this repository names an rk version.
       url = "github:gubasso/release-kit/v0.10.1";
-      # A deliberate deal, not a tidy-up: with follows, rk rebuilds against
-      # this repository's nixpkgs rather than the revision it tested
-      # upstream, so this consumer owns that compatibility — proven by the
-      # devshell build that a pin move runs and CI's nix develop. The
-      # alternative is a second nixpkgs node in the lock.
-      inputs.nixpkgs.follows = "nixpkgs";
-      # release-kit reads spec-driven-docs for its own development; here
-      # that is this flake, so the lock carries no nested chain of either.
-      inputs.spec-driven-docs.follows = "";
-      # rk pins an earlier rk release for its own development. The empty
-      # follows points that input at this flake, so flake.lock carries no
-      # node for that release, and nothing here builds it.
-      inputs.release-kit.follows = "";
-      # One node of each shared input.
-      inputs.rust-overlay.follows = "rust-overlay";
-      inputs.exobrain-tech.follows = "exobrain-tech";
+      inputs = {
+        # A deliberate deal, not a tidy-up: with follows, rk rebuilds against
+        # this repository's nixpkgs rather than the revision it tested
+        # upstream, so this consumer owns that compatibility — proven by the
+        # devshell build that a pin move runs and CI's nix develop. The
+        # alternative is a second nixpkgs node in the lock.
+        nixpkgs.follows = "nixpkgs";
+        # release-kit reads spec-driven-docs for its own development; here
+        # that is this flake, so the lock carries no nested chain of either.
+        spec-driven-docs.follows = "";
+        # rk pins an earlier rk release for its own development. The empty
+        # follows points that input at this flake, so flake.lock carries no
+        # node for that release, and nothing here builds it.
+        release-kit.follows = "";
+        # One node of each shared input.
+        rust-overlay.follows = "rust-overlay";
+        # exobrain-tech serves only the devShell of release-kit, and the host
+        # supplies the exobrain CLI here, so the lock carries no node for it.
+        exobrain-tech.follows = "";
+      };
     };
     # The previous release of this tool. It lands, verifies, and upgrades
     # this repository's own instance, and the rendered hooks run it, as in
@@ -40,21 +44,14 @@
     # node rather than a chain of older ones.
     spec-driven-docs = {
       url = "github:gubasso/spec-driven-docs/v0.19.0";
-      inputs.spec-driven-docs.follows = "";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.rust-overlay.follows = "rust-overlay";
-      inputs.release-kit.follows = "release-kit";
-      inputs.exobrain-tech.follows = "exobrain-tech";
-    };
-    # The store guard of the canon (exobrain): `exobrain store-guard --daily`
-    # in .envrc warns about working-tree copies in the Nix store. Its rk and
-    # sdd serve only its own devShell, so it takes this flake's rk and this
-    # flake itself.
-    exobrain-tech = {
-      url = "github:gubasso/exobrain-tech/v1.0.0";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.release-kit.follows = "release-kit";
-      inputs.spec-driven-docs.follows = "";
+      inputs = {
+        spec-driven-docs.follows = "";
+        nixpkgs.follows = "nixpkgs";
+        rust-overlay.follows = "rust-overlay";
+        release-kit.follows = "release-kit";
+        # exobrain-tech serves only the devShell of the pinned release.
+        exobrain-tech.follows = "";
+      };
     };
   };
 
@@ -65,7 +62,6 @@
       rust-overlay,
       release-kit,
       spec-driven-docs,
-      exobrain-tech,
     }:
     let
       # One system, declared here rather than mapped over a default set.
@@ -121,8 +117,10 @@
           pkgs.jq
           pkgs.check-jsonschema
           pkgs.curl
-          # exobrain, the store guard that .envrc runs once a day.
-          exobrain-tech.packages.${system}.default
+          # The nixfmt and statix hooks run these. nixfmt is the formatter
+          # below, so the hook formats as `nix fmt` does.
+          pkgs.nixfmt
+          pkgs.statix
         ];
       };
       # The binary this repository publishes, built under Nix from the
@@ -150,6 +148,6 @@
           touch $out
         '';
       };
-      formatter.${system} = pkgs.nixfmt-rfc-style;
+      formatter.${system} = pkgs.nixfmt;
     };
 }

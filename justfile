@@ -11,12 +11,14 @@ fmt:
 # the worktree convention directs; each still fires at commit time.
 # rk-status-check runs here, because the devshell carries the rk binary.
 lint:
+    exobrain host-check prek
     prek validate-config .pre-commit-config.yaml
     SKIP=no-commit-to-branch,rk-worktree-location prek run --files $(rg --files --hidden -g '!.git' -g '!.git/**')
 
 # The costly checks of the push stage: cargo deny, the scratch install of
 # `build`, the Nix package, the flake checks, and the one-system evaluation.
 lint-push:
+    exobrain host-check prek
     SKIP=no-commit-to-branch,rk-worktree-location prek run --hook-stage pre-push --files $(rg --files --hidden -g '!.git' -g '!.git/**')
 
 test:

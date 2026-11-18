@@ -16,10 +16,12 @@ indent_size = 2
 [Makefile]
 indent_style = tab
 
-# The release helper scripts; 2-space matches the shfmt default (shfmt -i 2).
-[*.{sh,bash}]
+# The shell scripts, the extensionless ones of scripts/ included. shfmt
+# reads this layout, because its hook passes no parser or printer flag.
+[{*.sh,*.bash,scripts/*}]
 indent_style = space
 indent_size = 2
+switch_case_indent = true
 
 # rustfmt owns Rust formatting, including continuation indents that are not
 # multiples of the base, so no indent size is enforced here.

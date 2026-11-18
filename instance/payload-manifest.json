@@ -20,7 +20,7 @@
     },
     {
       "path": "_docs/specs/SPEC-distribution.md",
-      "sha256": "b40457543af6794f33b99d36af4d933d7953bb648c61d8b91e32114f99c76e71"
+      "sha256": "47da0eb97a090092e8a49d9f77c51d15db5749b54202fa58b779cf66d8b37f36"
     },
     {
       "path": "_docs/specs/SPEC-docs-discovery.md",
@@ -52,7 +52,7 @@
     },
     {
       "path": "_docs/specs/SPEC-release.md",
-      "sha256": "68c4254985258af54296c9453b46d1bc3f4fb2659ee06060eadc7eccbaa8b0c3"
+      "sha256": "c86caa278a94462930c1971855563a4cf3a18aa925db6e0833cdcfe405bde58b"
     },
     {
       "path": "_docs/specs/SPEC-setup.md",

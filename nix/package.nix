@@ -22,7 +22,7 @@ let
 in
 rustPlatform.buildRustPackage {
   pname = package.name;
-  version = package.version;
+  inherit (package) version;
 
   # lib.cleanSource drops the version-control and editor noise and nothing
   # else, so the build directories are named here. They must not reach the

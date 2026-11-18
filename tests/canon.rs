@@ -74,7 +74,12 @@ fn the_delivered_block_carries_no_canon_check() {
     use spec_driven_docs::services::hooks_render::{RenderOptions, render_block};
 
     let delivered = render_block(&RenderOptions::default());
-    for canon_only in ["cargo-test", "cargo-clippy", "cargo-fmt", "self-manifest"] {
+    for canon_only in [
+        "cargo-nextest",
+        "cargo-clippy",
+        "cargo-fmt",
+        "self-manifest",
+    ] {
         assert!(
             !delivered.contains(&format!("- id: {canon_only}")),
             "{canon_only} is a canon-side check and must not be delivered"

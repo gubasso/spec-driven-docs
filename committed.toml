@@ -1,3 +1,7 @@
+# The style stays "conventional", because only that style judges the case
+# of the description after the colon, and this repository writes it with a
+# capital. Under "none", committed judges the case of the whole header, the
+# lowercase type included. The type list repeats the list of the rk block.
 style = "conventional"
 subject_length = 72
 merge_commit = false

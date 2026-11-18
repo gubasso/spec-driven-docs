@@ -46,9 +46,9 @@ Every adopted convention and material dependency has one owner and an outward li
 
 The host supplies these tools, and this repository installs none of them:
 
-- `nix` and `direnv`, which enter the devshell of `flake.nix`. The devshell holds every other tool.
-- `prek`, the hook runner, which runs the hooks of `.pre-commit-config.yaml`.
-- `git`, `bash`, `awk`, `sed`, `grep`, and the coreutils.
+- Each tool that [`host-requirements.toml`](./host-requirements.toml) lists, which a recipe or a hook calls. `exobrain host-check` reports each one that is missing or too old.
+- `direnv`, which enters the devshell of `flake.nix`. The devshell holds every other tool.
+- `bash`, `awk`, `sed`, `grep`, and the coreutils.
 - `gh`, authenticated, for the release guides only.
 
 If the host lacks one of them, the command that needs it fails. Install the tool on the host, then run the command again. [`release:the-devshell-supplies-every-project-tool`](./_docs/specs/SPEC-release.md#releasethe-devshell-supplies-every-project-tool--the-devshell-supplies-every-project-tool) states which tool the devshell holds and which the host supplies.

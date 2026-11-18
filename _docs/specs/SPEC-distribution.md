@@ -307,7 +307,7 @@ The boundary is the actor, not the file. An automatic write to an adopted file d
 - WHEN `sdd upgrade` runs
 - THEN the upgrade neither conflicts on the file nor drops the reservation, because the declaration is adopted rather than managed and the block is rendered rather than hand-edited
 
-Verify: `pre-commit run cargo-test --all-files`
+Verify: `prek run cargo-nextest --all-files --hook-stage pre-push`
 
 ### `distribution:a-delivered-configuration-serves-a-delivered-rule` — A delivered configuration serves a delivered rule
 

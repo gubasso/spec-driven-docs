@@ -43,7 +43,7 @@ The instance record names the sdd that landed the canon's own instance, which is
 - WHEN the canon test suite runs
 - THEN it fails and names `Cargo.toml` as the value to correct toward, not the disagreement
 
-Verify: `pre-commit run cargo-test --all-files`
+Verify: `prek run cargo-nextest --all-files --hook-stage pre-push`
 
 ### `release:a-tag-derives-from-the-version-file` — A tag derives from the version file
 
@@ -79,7 +79,7 @@ The release MUST carry a named license file for the method and one for the distr
 - WHEN a reader opens `LICENSE` or the crate metadata to learn the terms
 - THEN one identifier covers what was installed and the other stays with what was left behind
 
-Verify: `pre-commit run cargo-test --all-files`
+Verify: `prek run cargo-nextest --all-files --hook-stage pre-push`
 
 ### `release:the-delivered-gate-set-is-declared-once` — The delivered gate set is declared once
 
@@ -91,7 +91,7 @@ Every gate the release delivers MUST be declared in the one registry that the pr
 - WHEN the instance runs its hooks
 - THEN the gate exists and never runs. That is why the projection is rendered from the registry at install time rather than copied from a committed file that can fall behind it
 
-Verify: `pre-commit run cargo-test --all-files`
+Verify: `prek run cargo-nextest --all-files --hook-stage pre-push`
 
 ### `release:a-canon-gate-is-not-delivered` — A canon gate is not delivered
 
@@ -103,7 +103,7 @@ A check of an invariant only this repository has MUST stay a canon-side test rat
 - WHEN it is delivered to a knowledge base that cuts no release
 - THEN the instance is gated on a process it does not run, so the boundary is asserted rather than assumed
 
-Verify: `pre-commit run cargo-test --all-files`
+Verify: `prek run cargo-nextest --all-files --hook-stage pre-push`
 
 ### `release:a-delivered-gate-reads-what-the-convention-owns` — A delivered gate reads what the convention owns
 
@@ -121,7 +121,7 @@ A delivered gate MUST declare the subject paths it judges, and MUST NOT judge a 
 - WHEN the project reserves that path in its declaration
 - THEN no delivered gate judges it, and the managed block is rendered from the declaration rather than hand-patched, so the next upgrade carries the choice rather than re-rendering over it
 
-Verify: `pre-commit run cargo-test --all-files`
+Verify: `prek run cargo-nextest --all-files --hook-stage pre-push`
 
 ### `release:the-payload-record-describes-its-tree` — The payload record describes its tree
 
@@ -187,7 +187,7 @@ The release MUST carry a third-party notice naming every third-party source the 
 - WHEN a consumer runs `sdd license --third-party`
 - THEN the notice prints byte-identical to `THIRD_PARTY_NOTICES.md` and names the source's upstream MIT terms and resolved object ID. The canon test proves the notice appears in the packaged crate
 
-Verify: `pre-commit run cargo-test --all-files`
+Verify: `prek run cargo-nextest --all-files --hook-stage pre-push`
 
 ### `release:every-release-declares-what-it-asks` — Every release declares what it asks
 
@@ -256,7 +256,7 @@ Verify: `cargo nextest run -E 'binary(canon)'`
 
 ### `release:the-devshell-supplies-every-project-tool` — The devshell supplies every project tool
 
-The devshell of `flake.nix` MUST supply the language toolchain, `just`, and every tool that a recipe, a `language: system` hook, or a `language: script` hook calls from `PATH`. The hook runner supplies the tools of a hook whose language gets an environment that the runner builds. The host supplies only `nix` and `direnv`, which enter the devshell, the hook runner `prek`, and the base tools: `git`, `bash`, `awk`, `sed`, `grep`, and the coreutils. A CI job MUST install no project tool outside the devshell, and a job that compiles this project MUST compile it in the devshell. The hook runner is a host tool, so a CI job installs it with an action pinned by commit SHA, and runs it in the devshell.
+The devshell of `flake.nix` MUST supply the language toolchain, `just`, and every tool that a recipe, a `language: system` hook, or a `language: script` hook calls from `PATH`. The hook runner supplies the tools of a hook whose language gets an environment that the runner builds. The host supplies only `nix` and `direnv`, which enter the devshell, the hook runner `prek`, the CLI of the hook repository that holds the hook revisions to its tag, and the base tools: `git`, `bash`, `awk`, `sed`, `grep`, and the coreutils. `host-requirements.toml` lists each host tool that a recipe or a hook calls, and the devshell holds none of them. A CI job MUST install no project tool outside the devshell, and a job that compiles this project MUST compile it in the devshell. The hook runner and that CLI are host tools, so a CI job that runs the hooks installs them outside the devshell and runs them in it: prek with an action pinned by commit SHA, and the CLI from the attested release archive of the tag that `.pre-commit-config.yaml` pins for its hook repository.
 
 A workflow that a release tool generates follows its generator: `release-plz.yml` and `release.yml` only release, and their generators own how they install a toolchain.
 
@@ -265,6 +265,12 @@ A workflow that a release tool generates follows its generator: `release-plz.yml
 - GIVEN a workflow job that installs Rust with a toolchain action and then runs `cargo run`
 - WHEN the change is reviewed
 - THEN it is refused, because the job compiles with a compiler that neither `rust-toolchain.toml` nor the devshell pins, so a green local run says nothing about it
+
+#### Scenario: The devshell carries a host CLI
+
+- GIVEN a devshell that holds, from a flake input, a package of a CLI that `host-requirements.toml` lists
+- WHEN a hook that calls that CLI runs in the devshell
+- THEN it runs that copy, which comes first on the `PATH`, rather than the host CLI that `host-requirements.toml` requires, so the change is refused
 
 Verify: reviewer confirms that no job of a workflow this repository authors installs a project tool outside `nix develop`
 
