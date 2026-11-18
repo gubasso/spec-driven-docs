@@ -211,14 +211,23 @@ fn judge(file: &str, text: &str, violations: &mut Vec<Violation>) {
     }
 }
 
-/// Judge every file pre-commit passed.
+/// The file a release tool writes at its own wrap width, which the rule
+/// exempts wherever it sits.
+const CHANGELOG: &str = "CHANGELOG.md";
+
+/// Whether the rule exempts this path: a generated changelog.
+fn is_exempt(file: &str) -> bool {
+    camino::Utf8Path::new(file).file_name() == Some(CHANGELOG)
+}
+
+/// Judge every file pre-commit passed, except a generated changelog.
 ///
 /// # Errors
 ///
 /// [`crate::gates::GateError::Io`] when a file cannot be read.
 pub fn run(ctx: &GateCtx, files: &[String]) -> GateResult {
     let mut violations = Vec::new();
-    for file in files {
+    for file in files.iter().filter(|file| !is_exempt(file)) {
         let text = read_text(ctx, file)?;
         judge(file, &text, &mut violations);
     }
@@ -315,6 +324,28 @@ mod tests {
             run_on("some text on one line\n## A heading\nsome text\n- a list starts\n| a |\n")
                 .is_empty()
         );
+    }
+
+    /// SATISFIES docs-format:prose-stays-unwrapped
+    #[test]
+    fn a_changelog_inside_a_docs_zone_is_exempt() {
+        let dir = tempfile::tempdir().unwrap();
+        let zone = dir.path().join("_docs/reference");
+        std::fs::create_dir_all(&zone).unwrap();
+        let wrapped = "# Changelog\n\nA release note the tool\nwrapped at its width.\n";
+        std::fs::write(zone.join("CHANGELOG.md"), wrapped).unwrap();
+        std::fs::write(zone.join("notes.md"), wrapped).unwrap();
+        let ctx = GateCtx::new(dir.path().to_str().unwrap());
+        let out = run(
+            &ctx,
+            &[
+                "_docs/reference/CHANGELOG.md".to_string(),
+                "_docs/reference/notes.md".to_string(),
+            ],
+        )
+        .unwrap();
+        assert_eq!(out.len(), 1, "{out:?}");
+        assert!(out[0].to_string().contains("_docs/reference/notes.md:4"));
     }
 
     #[test]

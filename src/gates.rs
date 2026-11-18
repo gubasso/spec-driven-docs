@@ -577,7 +577,10 @@ pub static GATES: &[GateSpec] = &[
         name: "prose lines stay unwrapped",
         include: &[r"{docs_root}/{specs,decisions,guides,reference,explanation}/**/*.md"],
         types: Some("markdown"),
-        exclude: &[r"**/CHANGELOG.md"],
+        // A generated `CHANGELOG.md` is exempt, and the gate skips it by
+        // name. An exclude here would match no file the include selects,
+        // so the hook runner's useless-exclude check would refuse it.
+        exclude: &[],
         always_run: false,
         discovers: false,
         warns: false,

@@ -399,6 +399,18 @@ mod tests {
         assert!(!out.contains("{docs_root}"));
     }
 
+    /// The gate skips a generated changelog itself, so its hook carries no
+    /// exclude: one would match no file under the hook's `files:`.
+    #[test]
+    fn the_unwrapped_prose_hook_carries_no_changelog_exclude() {
+        let out = render_block(&RenderOptions::default());
+        assert!(!out.contains("CHANGELOG"), "{out}");
+        let hooks = selectors(&out);
+        let (files, exclude) = &hooks["prose-stays-unwrapped"];
+        assert!(files.is_some());
+        assert_eq!(exclude, &None);
+    }
+
     #[test]
     fn block_style_carries_the_markers_and_the_verifier() {
         let out = render_block(&RenderOptions::default());
