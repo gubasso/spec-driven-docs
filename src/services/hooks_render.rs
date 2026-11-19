@@ -399,12 +399,32 @@ mod tests {
         assert!(!out.contains("{docs_root}"));
     }
 
+    /// The lines of one hook's entry in a rendered block, from its `- id:`
+    /// line up to the next hook or the end of the block.
+    fn hook_entry<'a>(block: &'a str, id: &str) -> Vec<&'a str> {
+        let mut lines = block
+            .lines()
+            .skip_while(|line| line.trim() != format!("- id: {id}"));
+        let Some(head) = lines.next() else {
+            return Vec::new();
+        };
+        std::iter::once(head)
+            .chain(lines.take_while(|line| !line.trim_start().starts_with("- id: ")))
+            .collect()
+    }
+
     /// The gate skips a generated changelog itself, so its hook carries no
-    /// exclude: one would match no file under the hook's `files:`.
+    /// exclude: one would match no file under the hook's `files:`. Only
+    /// that hook's entry is judged, so another hook may name a changelog.
     #[test]
     fn the_unwrapped_prose_hook_carries_no_changelog_exclude() {
         let out = render_block(&RenderOptions::default());
-        assert!(!out.contains("CHANGELOG"), "{out}");
+        let entry = hook_entry(&out, "prose-stays-unwrapped");
+        assert!(!entry.is_empty(), "{out}");
+        assert!(
+            entry.iter().all(|line| !line.contains("CHANGELOG")),
+            "{entry:#?}"
+        );
         let hooks = selectors(&out);
         let (files, exclude) = &hooks["prose-stays-unwrapped"];
         assert!(files.is_some());
