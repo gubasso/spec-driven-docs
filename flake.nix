@@ -11,7 +11,7 @@
       # Moved by the operator with `rk self-depend sync --apply`: the tag in this URL
       # is the version, flake.lock is the content pin, and nothing else in
       # this repository names an rk version.
-      url = "github:gubasso/release-kit/v0.10.1";
+      url = "github:gubasso/release-kit/v0.10.3";
       inputs = {
         # A deliberate deal, not a tidy-up: with follows, rk rebuilds against
         # this repository's nixpkgs rather than the revision it tested
@@ -28,9 +28,6 @@
         release-kit.follows = "";
         # One node of each shared input.
         rust-overlay.follows = "rust-overlay";
-        # exobrain-tech serves only the devShell of release-kit, and the host
-        # supplies the exobrain CLI here, so the lock carries no node for it.
-        exobrain-tech.follows = "";
       };
     };
     # The previous release of this tool. It lands, verifies, and upgrades
@@ -43,14 +40,12 @@
     # empty follows points it at this flake, so flake.lock holds one sdd
     # node rather than a chain of older ones.
     spec-driven-docs = {
-      url = "github:gubasso/spec-driven-docs/v0.19.0";
+      url = "github:gubasso/spec-driven-docs/v0.19.1";
       inputs = {
         spec-driven-docs.follows = "";
         nixpkgs.follows = "nixpkgs";
         rust-overlay.follows = "rust-overlay";
         release-kit.follows = "release-kit";
-        # exobrain-tech serves only the devShell of the pinned release.
-        exobrain-tech.follows = "";
       };
     };
   };

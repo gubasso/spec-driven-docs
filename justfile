@@ -7,19 +7,19 @@ fmt:
 
 # Every check is a hook, so the commit, the push, and CI run one file set
 # with one tool version (release:the-local-hooks-run-every-check-of-ci).
-# The sweep commits nothing, so the commit-location guards are skipped as
-# the worktree convention directs; each still fires at commit time.
+# The sweep runs the steps of CI and leaves out the group local-only, as
+# CI does. Each hook of that group still fires at commit or push time.
 # rk-status-check runs here, because the devshell carries the rk binary.
 lint:
     exobrain host-check prek
     prek validate-config .pre-commit-config.yaml
-    SKIP=no-commit-to-branch,rk-worktree-location prek run --files $(rg --files --hidden -g '!.git' -g '!.git/**')
+    prek run --stage pre-commit --no-group local-only --files $(rg --files --hidden -g '!.git' -g '!.git/**')
 
 # The costly checks of the push stage: cargo deny, the scratch install of
 # `build`, the Nix package, the flake checks, and the one-system evaluation.
 lint-push:
     exobrain host-check prek
-    SKIP=no-commit-to-branch,rk-worktree-location prek run --hook-stage pre-push --files $(rg --files --hidden -g '!.git' -g '!.git/**')
+    prek run --stage pre-push --no-group local-only --files $(rg --files --hidden -g '!.git' -g '!.git/**')
 
 test:
     cargo nextest run

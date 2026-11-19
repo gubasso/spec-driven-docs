@@ -54,17 +54,13 @@ jobs:
       # Every check of this job is a hook, so a push that passed its hooks
       # passes here (release:the-local-hooks-run-every-check-of-ci). The
       # commit stage runs first, then the costly checks of the push stage.
-      # A CI checkout commits nothing, so the two guards of where a local
-      # commit happens are skipped: no-commit-to-branch refuses the trunk,
-      # and rk-worktree-location refuses a main checkout.
-      - run: nix develop --command prek run --all-files
-        env:
-          SKIP: no-commit-to-branch,rk-worktree-location
-      # lychee-system is local-only: an external site answers a CI runner
-      # with a block or a timeout that it does not give a developer host.
-      - run: nix develop --command prek run --all-files --hook-stage pre-push
-        env:
-          SKIP: no-commit-to-branch,rk-worktree-location,lychee-system
+      # Each step leaves out the hooks of the group local-only, whose
+      # comments in .pre-commit-config.yaml say why CI cannot run them. A
+      # group filter with no stage also runs the manual hooks, so each step
+      # names its stage. No hook carries the group ci-only, so no step runs
+      # the manual stage.
+      - run: nix develop --command prek run --all-files --stage pre-commit --no-group local-only
+      - run: nix develop --command prek run --all-files --stage pre-push --no-group local-only
 
   # rk's rust binding serves the two jobs below, and the gate needs them so
   # that every release target builds before a merge. Each dist step runs in
