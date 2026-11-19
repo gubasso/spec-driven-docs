@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.1](https://github.com/gubasso/spec-driven-docs/compare/v0.19.0...v0.19.1) - 2026-11-19
+
+### Fixed
+
+- *(gates)* Run every shipped Verify line through prek
+- *(gates)* Skip a changelog in the unwrapped-prose gate itself
+- *(deps)* Drop the unused tracing crate
+
+### Other
+
+- *(self-depend)* Wait out a forked child before the cache relock
+- *(cargo)* Build through kache with a lean dev profile
+- *(hooks)* Adopt the shared hook sets of exobrain-tech v1.2.0
+
 ## [0.19.0](https://github.com/gubasso/spec-driven-docs/compare/v0.18.1...v0.19.0) - 2026-11-16
 
 ### Added
