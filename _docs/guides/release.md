@@ -1,13 +1,18 @@
 # Release
 
-Day-to-day release workflow under the release-kit trunk convention. First time on a repository: [release-setup.md](./release-setup.md). The generic runbook is `rk guide release`. This guide carries the sequence with this repository's own facts filled in.
+Day-to-day release workflow under the trunk convention that `rk` runs. First time on a repository: [release-setup.md](./release-setup.md). The generic runbook is `rk guide release`. This guide carries the sequence with this repository's own facts filled in.
 
-`Cargo.toml` is the version source of truth. release-plz reads the Conventional Commit messages of the squash commits on `master` and maintains one release pull request carrying the bump and the changelog. Merging that request is the release, and the `release-gate` job in `release-plz.yml` performs the merge once the `ci` workflow's `test` check is green on the request's head. The merge tags, publishes to crates.io over OIDC, and hands the tag to cargo-dist, which builds and attests the installers (ADR-adopt-the-release-kit-trunk-convention). Never author a tag. Never move a published one. Fix a bad release with the next version instead.
+`Cargo.toml` is the version source of truth. release-plz reads the Conventional Commit messages of the squash commits on `master`. It keeps one release pull request open, which carries the bump and the changelog. Merging that request is the release.
+
+Only `rk release merge` merges the release request. It dispatches the `release-merge` job of `release-plz.yml`, which runs as the release App. The job proves that an administrator ordered the merge, that `test` is green on the request's head, and that neither the head nor the trunk moved. It then squash-merges with the head pinned. No job merges the request by itself, so a release waits until the operator orders it.
+
+The merge tags, publishes to crates.io over OIDC, and hands the tag to cargo-dist, which builds and attests the installers (ADR-adopt-the-release-kit-trunk-convention). Never author a tag. Never move a published one. Fix a bad release with the next version instead.
 
 ## Preconditions
 
 - `gh` authenticated for this repository: `gh auth status`
 - `rk` on `PATH`: `rk --version`
+- The operator holds the administrator role on the repository, because the merge job refuses any other caller: `gh api repos/gubasso/spec-driven-docs --jq .permissions.admin` prints `true`
 - The landing and the forge setup are green: `rk status --check --target .` exits 0, and `rk setup check --target .` reports no unsatisfied step. `install-bot` reads unknown on every host that lacks the App key, which is expected: the forge setup is complete
 
 ## At a glance
@@ -18,31 +23,41 @@ The whole sequence, in order. Each step is expanded below. `<repo>` is `gubasso/
 # 1. land the work through rk integrate and a trunk push; the bot refreshes its release request
 gh pr list --repo <repo> --state open
 
-# 2. read the changelog on the request, and correct it on its branch before ci turns green
+# 2. read the changelog on the request, and correct it on its branch before you order the merge
 
-# 3. the release-gate job merges the release request once ci is green; this is the release decision
+# 3. make sure that the request is not armed
+rk release status --target .
+
+# 4. wait for the checks on the request's head
 gh pr checks <release pr> --repo <repo> --watch
 
-# 4. the merge tags and publishes; watch the publish half
-gh run list --repo <repo> --workflow release-plz.yml --limit 1
+# 5. preview the merge
+rk release merge --target .
 
-# 5. wait for the build that creates the GitHub release
-gh run watch --repo <repo> --exit-status <release.yml run>
+# 6. order the merge; this is the release decision
+rk release merge --target . --apply
 
-# 6. verify
+# 7. the merge tags and publishes; watch the publish half on the merge commit
+gh run list --repo <repo> --workflow release-plz.yml --commit "$(git rev-parse origin/master)"
 
-# 7. move this repository to the new release, as every consumer does
+# 8. wait for the build that creates the GitHub release
+
+# 9. verify
+
+# 10. move this repository to the new release, as every consumer does
 sdd self-depend sync --apply
 ```
 
-Two of these are easy to skip and both have bitten this repository. Step 2 is the only point a changelog correction still reaches the release, and the window closes when `test` turns green on the request's head. release-plz rewrites its branch, corrections included, whenever work lands on `master` while the request is open. Step 5 is why a check run straight after the merge reports the release as not found: cargo-dist creates it after the x86_64 Linux build finishes, a few minutes later.
+Two of these are easy to skip and both have bitten this repository. Step 2 is the only point a changelog correction still reaches the release, and the window closes when you order the merge in step 6. release-plz rewrites its branch, corrections included, whenever work lands on `master` while the request is open. Step 8 is why a check run straight after the merge reports the release as not found: cargo-dist creates it after the x86_64 Linux build finishes, a few minutes later.
+
+A release that must not ship needs no action, because the request waits for the order of step 6. Closing the request abandons the release at no cost. After the merge, the version is public, and the way back is the withdrawal in `rk method recovery`.
 
 1. Land the work on `master` through its one path: a short-lived branch in its worktree, `rk integrate <branch> -m "<message>" --apply` with a scoped Conventional Commit message, and `git push origin master`. Each trunk push makes release-plz refresh the release pull request so it always proposes releasing the trunk's tip:
 
    ```bash
    gh pr list --repo gubasso/spec-driven-docs --state open
    # check: a request titled "chore: release v<version>" is open, and align-manifest has realigned the payload record on its branch
-   # none open: the trunk matches the last published version; there is nothing to release
+   # none open: rk release eligible says why; a trunk that matches the last published version has nothing to release
    ```
 
 2. Read the `CHANGELOG.md` entry on the release pull request and confirm it names every change the release carries. Compare it against the range since the last tag:
@@ -51,15 +66,17 @@ Two of these are easy to skip and both have bitten this repository. Step 2 is th
    git fetch origin --tags --force
    git log --oneline "v<previous version>^{commit}..origin/master"
    # check: the changelog entry names every change this range shows
+   # nothing missing: go to step 3
    ```
 
-   Correct it on the release pull request branch while `ci` still runs on its head. A pushed correction moves the head, so `ci` runs again and the gate judges the corrected head. A later push to `master` makes release-plz rewrite that branch and the correction with it. As a result, correct when the trunk is quiet:
+   Correct it on the release pull request branch before you order the merge. A pushed correction moves the head, so `ci` runs again, and step 4 waits for `test` on the corrected head. A later push to `master` makes release-plz rewrite that branch and the correction with it. As a result, correct when the trunk is quiet:
 
    ```bash
    git fetch origin <release branch> && git switch --detach FETCH_HEAD
    # edit CHANGELOG.md, then commit and push it back
    git push origin HEAD:<release branch>
-   # check: the release pull request shows the corrected entry
+   # check: the release pull request shows the corrected entry, under the same request number
+   # a new number, or an entry without the correction: a refresh took the fix; redo it on the request that stands now
    ```
 
    An adopter note is the part of the changelog entry that tells a consumer what to do. Where the release asks a consumer to act, end its adopter note with the moved text that `acquisition:a-pin-move-names-the-skill-route` holds:
@@ -70,32 +87,60 @@ Two of these are easy to skip and both have bitten this repository. Step 2 is th
 
    Where the release changes the managed documentation block of `AGENTS.md`, the adopter note names each line that the block gains or loses. The budget of `agents-digest-size` counts only the project's own lines, so a block change never fails it in a project. `the_rendered_block_fits_the_managed_block_cap` holds the block to 20 lines at this repository's commit.
 
-3. Let the `release-gate` job merge the release pull request. It wakes when `ci` completes, and it merges the request once `test` is green on that exact head. This is the release decision: the squash lands the bump on `master`, and the push of that squash is what the publish half keys on. To hold a release, mark the request as a draft with `gh pr ready <pr number> --undo`, because the gate never merges a draft. Closing the request abandons the release at no cost:
+3. Read the release state, and make sure that nothing armed the request to merge itself:
 
    ```bash
-   gh pr checks <pr number> --repo gubasso/spec-driven-docs --watch
-   gh pr view <pr number> --repo gubasso/spec-driven-docs --json state -q .state
-   # check: prints MERGED, and master's tip carries the version bump and the changelog
-   # OPEN after test passed: read the release-gate job log in the newest release-plz run, which names why it left the request open
+   rk release status --target .
+   # check: the report names the open request and lists no request-armed symptom
+   # request-armed: rk setup step merge-on-order --target . --apply disarms every open release request; then read the state again
    ```
 
-4. Watch the publish half. On the bump push, `release-plz.yml` tags `v<version>` and publishes to crates.io over OIDC. The tag, pushed with the bot's token, triggers `release.yml`:
+4. Wait for the checks on the request's head:
 
    ```bash
-   gh run list --repo gubasso/spec-driven-docs --workflow release-plz.yml --limit 1
-   # check: the newest run on master concluded success
+   gh pr checks <release pr> --repo gubasso/spec-driven-docs --watch
+   # check: every check passes, test included, and the branch is current with master
+   # behind master: wait for release-plz to rebuild the request on the trunk tip, then watch again
    ```
 
-5. Wait for the installer build before verifying anything. cargo-dist creates the GitHub release in its host job, after the x86_64 Linux build finishes and its artifacts are attested. As a result, no release exists for a few minutes after the merge, and `gh release view` reports that it is not found:
+5. Preview the merge. The preview reads the request and writes nothing:
+
+   ```bash
+   rk release merge --target .
+   # check: prints the request, the trunk tip, the head, the check, and the version you read in step 2
+   ```
+
+6. Order the merge. This is the release decision: the squash lands the bump on `master`, and the push of that squash is what the publish half keys on. Never merge the request through the forge by hand:
+
+   ```bash
+   rk release merge --target . --apply
+   # check: prints merged, and the rk release status --wait command for the merge commit
+   # refused: the output names the proof that failed (the request moved, the trunk moved, test is not green, or the caller is no administrator); the request stays open, so go back to step 4
+   ```
+
+7. Watch the publish half. On the bump push, `release-plz.yml` tags `v<version>` and publishes to crates.io over OIDC. The tag, pushed with the bot's token, triggers `release.yml`. Select the run by the merge commit, never by recency:
+
+   ```bash
+   git fetch origin
+   gh run watch --repo gubasso/spec-driven-docs --exit-status \
+     "$(gh run list --repo gubasso/spec-driven-docs --workflow release-plz.yml \
+        --commit "$(git rev-parse origin/master)" --event push --limit 1 \
+        --json databaseId -q '.[0].databaseId')"
+   # check: the watched run concludes success
+   ```
+
+8. Wait for the installer build before verifying anything. cargo-dist creates the GitHub release in its host job, after the x86_64 Linux build finishes and its artifacts are attested. As a result, no release exists for a few minutes after the merge, and `gh release view` reports that it is not found:
 
    ```bash
    gh run watch --repo gubasso/spec-driven-docs --exit-status \
      "$(gh run list --repo gubasso/spec-driven-docs --workflow release.yml \
-        --limit 1 --json databaseId -q '.[0].databaseId')"
+        --commit "$(git rev-parse origin/master)" --event push --limit 1 \
+        --json databaseId -q '.[0].databaseId')"
    # check: the watched run concludes success
+   # empty run id: the tag has not landed yet; rerun after a few seconds, and if it stays empty, follow rk method recovery
    ```
 
-6. Verify:
+9. Verify:
 
    ```bash
    # crates.io serves the new version
@@ -123,24 +168,24 @@ Two of these are easy to skip and both have bitten this repository. Step 2 is th
 
    release-plz writes an annotated tag, so `v<version>` names a tag object rather than a commit. `^{commit}` is what makes the values comparable.
 
-7. Move this repository to the new release. Its devshell pins the previous release, which lands, verifies, and upgrades its own instance, as in every consumer (release:the-canon-runs-its-previous-release). In a new worktree on a `build/<slug>` branch, move the pin from the loaded shell, then upgrade the instance through the `sdd-setup` skill:
+10. Move this repository to the new release. Its devshell pins the previous release, which lands, verifies, and upgrades its own instance, as in every consumer (release:the-canon-runs-its-previous-release). In a new worktree on a `build/<slug>` branch, move the pin from the loaded shell, then upgrade the instance through the `sdd-setup` skill:
 
-   ```bash
-   sdd self-depend sync --apply
-   # check: flake.nix names github:gubasso/spec-driven-docs/v<version>, and flake.lock moved with it
+    ```bash
+    sdd self-depend sync --apply
+    # check: flake.nix names github:gubasso/spec-driven-docs/v<version>, and flake.lock moved with it
 
-   # once: where the new release itself has a spec-driven-docs input and flake.nix does not yet cut it,
-   # add `inputs.spec-driven-docs.follows = "";` to the spec-driven-docs input of flake.nix, then
-   nix flake lock
-   # check: jq '[.nodes | keys[] | select(startswith("spec-driven-docs"))] | length' flake.lock prints 1
+    # once: where the new release itself has a spec-driven-docs input and flake.nix does not yet cut it,
+    # add `inputs.spec-driven-docs.follows = "";` to the spec-driven-docs input of flake.nix, then
+    nix flake lock
+    # check: jq '[.nodes | keys[] | select(startswith("spec-driven-docs"))] | length' flake.lock prints 1
 
-   direnv reload && sdd --version
-   # check: prints sdd <version>
+    direnv reload && sdd --version
+    # check: prints sdd <version>
 
-   sdd upgrade --target .
-   # check: the upgrade lands, and sdd verify --target . prints OK spec-driven-docs <version>
-   ```
+    sdd upgrade --target .
+    # check: the upgrade lands, and sdd verify --target . prints OK spec-driven-docs <version>
+    ```
 
-   Commit the pin move and the upgraded instance as one change, and land it as in step 1.
+    Commit the pin move and the upgraded instance as one change, and land it as in step 1.
 
 Recovery is `rk method recovery`, and it covers a failed publish, a wedged run, a yank, and a hand publish while CI is down. The changelog-correction window above is the only pre-merge repair a release needs.

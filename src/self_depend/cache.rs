@@ -283,6 +283,18 @@ mod tests {
         );
         drop(held);
         assert!(lock.exists(), "releasing the lock removed its file");
-        assert!(try_lock(&lock).unwrap().is_some());
+        // Another test thread can spawn a child at any time. Between fork
+        // and exec the child holds a copy of every open descriptor, and
+        // flock belongs to the open file description, so the released lock
+        // stays held until the child execs and close-on-exec drops the
+        // copy. The relock retries for that window alone.
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while try_lock(&lock).unwrap().is_none() {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "a released lock stayed held"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
     }
 }
