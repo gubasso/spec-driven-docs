@@ -26,4 +26,4 @@ Enforced by `acquisition:the-check-refreshes-weekly-and-retries-hourly`, `acquis
 
 ## Status
 
-Accepted
+Superseded by [ADR-leave-acquisition-to-the-project-manager](./ADR-leave-acquisition-to-the-project-manager.md)

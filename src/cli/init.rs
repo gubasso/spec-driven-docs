@@ -19,9 +19,9 @@ pub struct InitArgs {
     pub profile: Option<ProfileId>,
 
     /// Land the choices a stage recorded: its profile, docs scratch,
-    /// writing style, reserved paths, and acquisition decision. The landing
-    /// still renders every byte from this binary; only the stage's receipt
-    /// is read, and a receipt another release wrote refuses.
+    /// writing style, and reserved paths. The landing still renders every
+    /// byte from this binary; only the stage's receipt is read, and a
+    /// receipt another release wrote refuses.
     #[arg(
         long,
         value_name = "ROOT",

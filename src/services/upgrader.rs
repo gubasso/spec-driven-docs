@@ -351,7 +351,6 @@ fn reinstall_options(
             .map(|choices| choices.reserve.clone())
             .unwrap_or_default(),
         writing_style: staged.map(|choices| choices.writing_style.clone()),
-        acquisition: staged.and_then(|choices| choices.acquisition.clone()),
         replace: options.replace.clone(),
     }
 }
@@ -707,10 +706,10 @@ impl UpgradeOutcome {
             ..Self::default()
         };
         if old < new {
-            outcome.next = Some(crate::self_depend::guidance::MOVED);
+            outcome.next = Some(crate::landing::guidance::MOVED);
             outcome
                 .lines
-                .push(crate::self_depend::guidance::MOVED.to_string());
+                .push(crate::landing::guidance::MOVED.to_string());
         }
         outcome
     }

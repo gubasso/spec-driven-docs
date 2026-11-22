@@ -15,7 +15,7 @@ mod support;
 
 use predicates::prelude::*;
 use spec_driven_docs::landing::gate::{Class, TABLE, TargetSource, row_of};
-use spec_driven_docs::self_depend::guidance::MOVED;
+use spec_driven_docs::landing::guidance::MOVED;
 use support::Fixture;
 
 /// The refusal of a target with no instance.
@@ -247,9 +247,6 @@ fn migrate_mark_follows_the_writing_rows_on_an_instance() {
 }
 
 /// VERIFIES setup:a-gated-command-names-its-fix
-///
-/// Where the project pins an sdd older than the record, the refusal names
-/// the pin as the fix.
 #[test]
 fn a_record_newer_than_the_binary_names_the_environment() {
     let fixture = instance_at("9.9.9");
@@ -259,18 +256,8 @@ fn a_record_newer_than_the_binary_names_the_environment() {
         .assert()
         .code(73)
         .stderr(predicate::str::contains("which is older"))
-        .stderr(predicate::str::contains("The pin").not());
-    fixture.write(
-        "flake.nix",
-        "{\n  inputs.spec-driven-docs.url = \"github:gubasso/spec-driven-docs/v0.1.0\";\n}\n",
-    );
-    fixture
-        .cmd()
-        .args(["verify", "--target", &fixture.target()])
-        .assert()
-        .code(73)
         .stderr(predicate::str::contains(
-            "The pin names 0.1.0. Move it to 9.9.9.",
+            "Run the sdd of this project's environment",
         ));
 }
 
@@ -290,7 +277,6 @@ fn an_exempt_action_runs_without_an_instance() {
             vec!["skill", "show", "sdd-setup"],
             vec!["skill", "uninstall"],
             vec!["method", "writing-style"],
-            vec!["self-depend", "check"],
         ] {
             fixture
                 .cmd()

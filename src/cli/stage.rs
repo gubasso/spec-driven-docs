@@ -39,21 +39,9 @@ pub struct StageArgs {
     #[arg(long)]
     pub writing_style: Option<String>,
 
-    /// Record that every host installs sdd itself, at this release or newer,
-    /// where no manager file pins it.
-    #[arg(long, value_enum)]
-    pub acquisition: Option<AcquisitionChoice>,
-
     /// Print one JSON object instead of text.
     #[arg(long)]
     pub json: bool,
-}
-
-/// How the project obtains `sdd`, where no manager file records it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
-pub enum AcquisitionChoice {
-    /// Each host installs `sdd` itself.
-    Host,
 }
 
 /// The verbs `sdd stage` offers beyond rendering one.

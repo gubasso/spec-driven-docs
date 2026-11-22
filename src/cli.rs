@@ -19,7 +19,6 @@ pub mod lint;
 pub mod migrate;
 pub mod policy;
 pub mod read;
-pub mod self_depend;
 pub mod skill;
 pub mod stage;
 pub mod status;
@@ -100,8 +99,6 @@ pub enum Commands {
     License(license::LicenseArgs),
     /// Write the payload record of the canon checkout, an artifact of its tree.
     SelfManifest,
-    /// Wire this tool as a consumer's dependency, warn of a newer release, and move its pin.
-    SelfDepend(self_depend::SelfDependArgs),
     /// Generate shell completions.
     Completions(completions::CompletionsArgs),
     /// Render the manual page.

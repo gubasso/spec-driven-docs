@@ -8,11 +8,61 @@ Two products in one repository. The method is what a reader loads: `method/`, `c
 
 ## Install
 
+Pick the manager that the project already runs. `X.Y.Z` is the release version, and the binary is `sdd`. [REFERENCE-install-sources.md](./_docs/reference/REFERENCE-install-sources.md) cites the upstream documentation behind each command.
+
+### Nix flake
+
+Add the input to `flake.nix`:
+
+```nix
+spec-driven-docs = {
+  url = "github:gubasso/spec-driven-docs/vX.Y.Z";
+  inputs.nixpkgs.follows = "nixpkgs";
+  inputs.spec-driven-docs.follows = "";
+};
+```
+
+Then add `spec-driven-docs.packages.${system}.default` to the packages of the devshell. The empty follows cuts the previous sdd release that the flake pins for its own development, so `flake.lock` holds one sdd node.
+
+To move the pin, edit the tag in the URL, then run:
+
+```bash
+nix flake update spec-driven-docs
+```
+
+`exobrain outdated` warns when a newer release is out.
+
+### mise
+
+```bash
+mise use cargo:spec-driven-docs@X.Y.Z
+```
+
+### devbox
+
+```bash
+devbox add github:gubasso/spec-driven-docs/vX.Y.Z#default
+```
+
+### asdf
+
+No asdf plugin for sdd exists. An asdf user installs the binary from the GitHub release.
+
+### The GitHub release
+
+Each release tag carries a prebuilt x86_64 Linux archive and a shell installer. This route serves asdf users and any host with no manager:
+
+```bash
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/gubasso/spec-driven-docs/releases/download/vX.Y.Z/spec-driven-docs-installer.sh | sh
+```
+
+### Host install
+
 ```bash
 cargo install spec-driven-docs
 ```
 
-A prebuilt x86_64 Linux archive and a shell installer ship with each GitHub release, and `cargo binstall spec-driven-docs` resolves them.
+`cargo binstall spec-driven-docs` fetches the prebuilt archive of the GitHub release instead of a build from source.
 
 Linux is the only supported target. A build for another operating system is refused at compile time, and [ADR-linux-is-the-only-supported-target](./_docs/decisions/ADR-linux-is-the-only-supported-target.md) says why.
 

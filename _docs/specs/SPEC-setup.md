@@ -17,6 +17,7 @@
   - [`setup:an-incremental-landing-is-named` — An incremental landing is named](#setupan-incremental-landing-is-named--an-incremental-landing-is-named)
   - [`setup:every-command-has-a-gate-class` — Every command has a gate class](#setupevery-command-has-a-gate-class--every-command-has-a-gate-class)
   - [`setup:a-gated-command-names-its-fix` — A gated command names its fix](#setupa-gated-command-names-its-fix--a-gated-command-names-its-fix)
+  - [`setup:a-pin-move-names-the-skill-route` — A pin move names the skill route](#setupa-pin-move-names-the-skill-route--a-pin-move-names-the-skill-route)
 
 <!--TOC-->
 
@@ -182,7 +183,7 @@ The binary MUST give every command, and every action of a command family, exactl
 
 | Class         | What it covers                                                                                                                                                                                                                                                                                                                                                         |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `exempt`      | Needs no target, or must never fail: help, version, `doctor`, `status`, `docs`, `method`, `spec`, `template`, `license`, `completions`, `man`, `skill list`, `skill show`, `skill install`, `skill uninstall`, `self-manifest`, and every `self-depend` subcommand. An action with no target is `exempt`.                                                              |
+| `exempt`      | Needs no target, or must never fail: help, version, `doctor`, `status`, `docs`, `method`, `spec`, `template`, `license`, `completions`, `man`, `skill list`, `skill show`, `skill install`, `skill uninstall`, and `self-manifest`. An action with no target is `exempt`.                                                                                              |
 | `pre-landing` | Runs on a target with no instance by design, and before or during an upgrade: `assess`, `init`, `migrate`, every action of `stage`, `lint` with its candidate-profile report, and `env`, whose report the setup skill reads while it plans a landing. On an instance, a `pre-landing` action that writes nothing runs, and one that writes follows the `writing` rows. |
 | `upgrade`     | `upgrade` alone. It keeps its own refusal of a record newer than the binary.                                                                                                                                                                                                                                                                                           |
 | `read-only`   | `verify`, `gate`, `ki`, `track status`, `track check`, and every preview without `--apply`.                                                                                                                                                                                                                                                                            |
@@ -209,7 +210,7 @@ Before the handler of a `read-only` or `writing` action runs, the binary MUST co
 | Record newer than the binary | Refuses and names the environment | Refuses and names the environment                           |
 | Versions match               | Runs                              | Runs                                                        |
 
-A refusal exits 73 and writes nothing. The moved text is the constant that `acquisition:a-pin-move-names-the-skill-route` holds, and `sdd status` names it for the alignment `binary-newer` too. A record of an older schema at the binary's own version moved no pin, so its refusal and its warning name `sdd upgrade` instead. The refusal on a target with no instance names `sdd init`, and the setup skill as `sdd skill show sdd-setup`, with each file it names through `sdd skill show sdd-setup --file <path>`. A record newer than the binary names the recorded version and tells the reader to run the sdd of the project's own environment, and names the pin as the fix only where `self-depend` reads a pin older than the record. The warning never enters a JSON body.
+A refusal exits 73 and writes nothing. The moved text is the constant that `setup:a-pin-move-names-the-skill-route` holds, and `sdd status` names it for the alignment `binary-newer` too. A record of an older schema at the binary's own version moved no pin, so its refusal and its warning name `sdd upgrade` instead. The refusal on a target with no instance names `sdd init`, and the setup skill as `sdd skill show sdd-setup`, with each file it names through `sdd skill show sdd-setup --file <path>`. A record newer than the binary names the recorded version and tells the reader to run the sdd of the project's own environment. The warning never enters a JSON body.
 
 `sdd verify` and `sdd gate` run on every commit as hooks, so after a pin move they warn and keep their exit code, and they judge a record of an older schema by what that schema records. A corrupt record and real drift still fail. The gate never writes, never moves the pin, and never runs `init` or `upgrade` by itself. No gate of `sdd gate` runs outside an instance by design, so a gate run refuses a target with no instance. Its fallback to `_docs` serves only a record no schema reads, which the `instance-manifest` gate then reports.
 
@@ -220,3 +221,27 @@ A refusal exits 73 and writes nothing. The moved text is the constant that `acqu
 - THEN it exits 73 naming both versions and the moved text, and the target is unchanged, while `sdd verify` on the same target warns once on stderr with the moved text and keeps its own exit code
 
 Verify: `cargo nextest run -E 'binary(cmd_version_gate)'`
+
+### `setup:a-pin-move-names-the-skill-route` — A pin move names the skill route
+
+The operator moves the pin of sdd with the project's own manager. Every message that names what follows a pin move MUST carry the moved text unchanged, which one constant in the binary holds:
+
+```text
+After the pin move, load the devshell and run the upgrade through the sdd-setup skill of the sdd in that devshell, and do every migration it names. Before `sdd upgrade`, read it with `sdd skill show sdd-setup`. After it, the project's .claude/skills/sdd-setup is that skill. Never use a host copy or an older skill.
+```
+
+`sdd upgrade` writes the new release's skill into the project, so an agent that reads `.claude/skills/sdd-setup` before the upgrade reads the older release's skill. `sdd skill show sdd-setup` prints the skill that the binary embeds, which is why the text names it for the read before the upgrade. The version gate, `sdd status`, an upgrade from an older record, the sdd-setup skill, and the release guide quote the same constant.
+
+#### Scenario: An upgrade follows a pin move
+
+- GIVEN an instance recorded at an older sdd than the binary that the moved pin provides
+- WHEN `sdd upgrade --dry-run --json` runs
+- THEN `next` carries the moved text
+
+#### Scenario: A read-only action meets a moved pin
+
+- GIVEN an instance recorded at an older sdd than the binary
+- WHEN `sdd ki list --json` runs
+- THEN stderr carries the moved text once, and the JSON body does not
+
+Verify: `cargo nextest run -E 'test(the_moved_text_names_the_skill_and_its_show_command) + binary(cmd_upgrade) + binary(cmd_version_gate)'`

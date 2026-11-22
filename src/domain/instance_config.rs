@@ -39,18 +39,11 @@
 //! is validated, not just the field: `project` without a `path` names
 //! nothing, and a `path` beside another source is a value nothing reads,
 //! which is a value that drifts.
-//!
-//! # A host install is a decision the repository records
-//!
-//! `acquisition` records that the project obtains `sdd` from each host's own
-//! install rather than from a manager file, and the lowest version a host
-//! needs. A manager file records its pin itself, so the key exists only for
-//! the one method that leaves no file behind.
 
 use std::collections::BTreeMap;
 
 use camino::Utf8Path;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use crate::domain::gate_id::GateId;
 use crate::domain::path_filter::{Layer, PathFilter, PathFilterError, Pattern};
@@ -183,60 +176,6 @@ impl WritingStyle {
     }
 }
 
-/// Where every host obtains `sdd`, where no manager file records it.
-#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum AcquisitionSource {
-    /// Each host installs `sdd` itself, at the minimum version or newer.
-    Host,
-}
-
-/// The acquisition decision as written.
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields)]
-pub struct Acquisition {
-    /// How every host obtains the binary.
-    pub source: AcquisitionSource,
-    /// The lowest release a host may run against this repository.
-    pub minimum: String,
-}
-
-impl Acquisition {
-    /// A host decision whose minimum is this binary's own release.
-    #[must_use]
-    pub fn host_at_this_release() -> Self {
-        Self {
-            source: AcquisitionSource::Host,
-            minimum: crate::domain::version::CanonVersion::current().to_string(),
-        }
-    }
-
-    /// Hold the minimum to a release version.
-    fn check(&self) -> Result<(), ConfigError> {
-        self.minimum
-            .parse::<crate::domain::version::CanonVersion>()
-            .map(|_| ())
-            .map_err(|_| {
-                ConfigError::Acquisition(format!(
-                    "`minimum: {}` is not a release version such as `0.13.2`",
-                    self.minimum
-                ))
-            })
-    }
-
-    /// The decision as the declaration file spells it.
-    #[must_use]
-    pub fn render(&self) -> String {
-        let source = match self.source {
-            AcquisitionSource::Host => "host",
-        };
-        format!(
-            "acquisition:\n  source: {source}\n  minimum: {}\n",
-            quoted(&self.minimum)
-        )
-    }
-}
-
 /// The declaration as written.
 #[derive(Debug, Default, Clone, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -256,10 +195,6 @@ pub struct InstanceConfig {
     /// chapter.
     #[serde(default)]
     pub writing_style: WritingStyle,
-    /// How every host obtains `sdd`, where no manager file records it.
-    /// Absent, the repository has recorded no host decision.
-    #[serde(default)]
-    pub acquisition: Option<Acquisition>,
     /// The migration the repository holds open, by the id of its workspace
     /// under this tool's state root. Absent, no migration is open.
     #[serde(default)]
@@ -283,9 +218,6 @@ pub enum ConfigError {
     /// A writing-style selection whose fields do not agree.
     #[error("{CONFIG_PATH}: writing_style: {0}")]
     WritingStyle(String),
-    /// An acquisition decision this version cannot read.
-    #[error("{CONFIG_PATH}: acquisition: {0}")]
-    Acquisition(String),
     /// A migration id this version cannot read.
     #[error(
         "{CONFIG_PATH}: migration: `{0}` is not a migration id such as `20261009T213000Z` or `20261009T213000Z-2` (setup:an-open-migration-is-declared)"
@@ -316,9 +248,6 @@ impl InstanceConfig {
         // then fail separately from every gate that ran.
         parsed.check_patterns()?;
         parsed.writing_style.check()?;
-        if let Some(acquisition) = &parsed.acquisition {
-            acquisition.check()?;
-        }
         if let Some(id) = &parsed.migration
             && !is_migration_id(id)
         {
@@ -468,21 +397,6 @@ pub fn with_writing_style(text: &str, selection: &WritingStyle) -> String {
          # `sdd method writing-style`, `project` routes them to the document\n\
          # `path` names, and `none` installs no route and imposes no conversion\n\
          # obligation.\n",
-    )
-}
-
-/// Record an acquisition decision in a declaration, keeping every comment.
-///
-/// SATISFIES acquisition:a-host-install-is-a-recorded-decision
-#[must_use]
-pub fn with_acquisition(text: &str, decision: &Acquisition) -> String {
-    with_block(
-        text,
-        "acquisition:",
-        &decision.render(),
-        "# How every host obtains sdd. `source: host` means each host installs\n\
-         # it itself, at `minimum` or newer, because no manager file records a\n\
-         # pin for this repository.\n",
     )
 }
 
@@ -716,34 +630,6 @@ mod tests {
                 "{error}"
             );
         }
-    }
-
-    #[test]
-    fn a_host_decision_parses_renders_and_reads_back() {
-        let decision = Acquisition {
-            source: AcquisitionSource::Host,
-            minimum: "0.13.2".to_string(),
-        };
-        let text = with_acquisition("reserved: []\n", &decision);
-        assert!(text.contains("# How every host obtains sdd."), "{text}");
-        assert_eq!(config(&text).acquisition, Some(decision.clone()));
-        // A second write replaces the block rather than adding one.
-        let moved = Acquisition {
-            minimum: "0.14.0".to_string(),
-            ..decision
-        };
-        let again = with_acquisition(&text, &moved);
-        assert_eq!(again.matches("acquisition:").count(), 1, "{again}");
-        assert_eq!(config(&again).acquisition, Some(moved));
-    }
-
-    #[test]
-    fn an_acquisition_this_version_cannot_read_is_refused() {
-        assert!(InstanceConfig::parse("acquisition:\n  source: host\n  minimum: soon\n").is_err());
-        assert!(
-            InstanceConfig::parse("acquisition:\n  source: brew\n  minimum: '0.1.0'\n").is_err()
-        );
-        assert!(InstanceConfig::parse("acquisition:\n  source: host\n").is_err());
     }
 
     #[test]

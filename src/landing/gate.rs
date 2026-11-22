@@ -10,15 +10,13 @@
 //! SATISFIES setup:every-command-has-a-gate-class
 //! SATISFIES setup:a-gated-command-names-its-fix
 
-use std::fmt::Write as _;
-
 use camino::{Utf8Path, Utf8PathBuf};
 
 use crate::cli::Commands;
 use crate::domain::manifest::{MANIFEST_PATH, Manifest};
 use crate::domain::version::CanonVersion;
 use crate::error::AppError;
-use crate::self_depend::guidance::MOVED;
+use crate::landing::guidance::MOVED;
 
 /// What the gate holds an action to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -258,36 +256,6 @@ pub const TABLE: &[Row] = &[
         TargetSource::None,
     ),
     row(
-        "self-depend status",
-        Class::Exempt,
-        Writes::Never,
-        TargetSource::None,
-    ),
-    row(
-        "self-depend add",
-        Class::Exempt,
-        Writes::Never,
-        TargetSource::None,
-    ),
-    row(
-        "self-depend check",
-        Class::Exempt,
-        Writes::Never,
-        TargetSource::None,
-    ),
-    row(
-        "self-depend sync",
-        Class::Exempt,
-        Writes::Never,
-        TargetSource::None,
-    ),
-    row(
-        "self-depend clean",
-        Class::Exempt,
-        Writes::Never,
-        TargetSource::None,
-    ),
-    row(
         "completions",
         Class::Exempt,
         Writes::Never,
@@ -329,7 +297,6 @@ pub fn invocation_of(command: &Commands) -> Invocation {
     use crate::cli::lint::LintCommand;
     use crate::cli::migrate::MigrateCommand;
     use crate::cli::policy::PolicyVerb;
-    use crate::cli::self_depend::SelfDependCommand;
     use crate::cli::skill::SkillCommand;
     use crate::cli::stage::StageCommand;
     use crate::cli::track::TrackCommand;
@@ -412,13 +379,6 @@ pub fn invocation_of(command: &Commands) -> Invocation {
         Commands::Assess(args) => invocation("assess", false, Some(&args.target)),
         Commands::License(_) => invocation("license", false, None),
         Commands::SelfManifest => invocation("self-manifest", false, None),
-        Commands::SelfDepend(args) => match &args.command {
-            SelfDependCommand::Status(_) => invocation("self-depend status", false, None),
-            SelfDependCommand::Add(_) => invocation("self-depend add", false, None),
-            SelfDependCommand::Check(_) => invocation("self-depend check", false, None),
-            SelfDependCommand::Sync(_) => invocation("self-depend sync", false, None),
-            SelfDependCommand::Clean(_) => invocation("self-depend clean", false, None),
-        },
         Commands::Completions(_) => invocation("completions", false, None),
         Commands::Man => invocation("man", false, None),
     }
@@ -469,13 +429,6 @@ pub fn recorded(target: &Utf8Path) -> Option<Result<Recorded, String>> {
 /// The text that names the setup skill reader beside `sdd init`.
 const NO_INSTANCE: &str = "This repository has no spec-driven-docs instance. Run `sdd init` to land it. Read the setup skill with `sdd skill show sdd-setup`, and each file it names with `sdd skill show sdd-setup --file <path>`.";
 
-/// The version a pin at `target` names, where a manager file pins this tool.
-fn pinned(target: &Utf8Path) -> Option<String> {
-    crate::self_depend::manager::detect(target)
-        .into_iter()
-        .find_map(|detected| detected.pin.map(|pin| pin.version.to_string()))
-}
-
 /// Whether `left` names an older release than `right`.
 fn older(left: &str, right: &str) -> bool {
     let parse = |version: &str| -> Option<Vec<u64>> {
@@ -521,14 +474,8 @@ pub fn require_aligned(row: &Row, applied: bool, target: &Utf8Path) -> Result<Pa
     let binary = CanonVersion::current().to_string();
     let instance = record.version.to_string();
     if older(&binary, &instance) {
-        let mut text = format!(
-            "The instance is at sdd {instance} and this sdd is {binary}, which is older. Run the sdd of this project's environment, for example `direnv exec . sdd ...`."
-        );
-        if let Some(pin) = pinned(target).filter(|pin| older(pin, &instance)) {
-            let _ = write!(text, " The pin names {pin}. Move it to {instance}.");
-        }
         return Err(AppError::Refused(format!(
-            "{text} (setup:a-gated-command-names-its-fix)"
+            "The instance is at sdd {instance} and this sdd is {binary}, which is older. Run the sdd of this project's environment, for example `direnv exec . sdd ...`. (setup:a-gated-command-names-its-fix)"
         )));
     }
     if older(&instance, &binary) || record.older_schema.is_some() {

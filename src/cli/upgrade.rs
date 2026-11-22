@@ -16,9 +16,9 @@ pub struct UpgradeArgs {
     pub dry_run: bool,
 
     /// Land the choices a stage recorded for this target: its docs scratch,
-    /// writing style, reserved paths, and acquisition decision. Every byte
-    /// is still rendered from this binary; only the stage's receipt is
-    /// read, and a receipt another release or another target wrote refuses.
+    /// writing style, and reserved paths. Every byte is still rendered from
+    /// this binary; only the stage's receipt is read, and a receipt another
+    /// release or another target wrote refuses.
     #[arg(long, value_name = "ROOT")]
     pub stage: Option<Utf8PathBuf>,
 

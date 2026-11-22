@@ -30,7 +30,7 @@
 
 ## Purpose
 
-Rules governing how the installed binary renders a candidate, how an agent inspects that candidate in a stage, and how production landing writes into a target. The candidate is the one version the running binary carries. The stage is a persistent directory of evidence the agent reads and production never does. No instance adopts this spec: its subject is the binary, so an instance holding these rules holds obligations it cannot violate and verifications it cannot run. What a project owes its own installation is stated in `SPEC-instance.md`. The ownership classes and the skill payload are stated in `SPEC-distribution.md`. How a consumer pins this tool is stated in `SPEC-acquisition.md`.
+Rules governing how the installed binary renders a candidate, how an agent inspects that candidate in a stage, and how production landing writes into a target. The candidate is the one version the running binary carries. The stage is a persistent directory of evidence the agent reads and production never does. No instance adopts this spec: its subject is the binary, so an instance holding these rules holds obligations it cannot violate and verifications it cannot run. What a project owes its own installation is stated in `SPEC-instance.md`. The ownership classes and the skill payload are stated in `SPEC-distribution.md`.
 
 ## Requirements
 
@@ -108,7 +108,7 @@ Verify: `cargo nextest run -E 'binary(cmd_stage)'`
 
 ### `staging:a-landing-takes-the-choices-its-stage-recorded` — A landing takes the choices its stage recorded
 
-Where `sdd init` or `sdd upgrade` names a stage with `--stage`, the landing MUST take the profile, the documentation scratch, the writing style, the reserved paths, and the acquisition decision from that stage's receipt, MUST refuse a flag that sets one of them, and MUST refuse a receipt another release wrote or a receipt for another target.
+Where `sdd init` or `sdd upgrade` names a stage with `--stage`, the landing MUST take the profile, the documentation scratch, the writing style, and the reserved paths from that stage's receipt, MUST refuse a flag that sets one of them, and MUST refuse a receipt another release wrote or a receipt for another target.
 
 The operator states each choice once, at the stage, so the bytes the landing writes are the bytes the stage showed. A receipt is ordinary JSON, so it authorizes choices and never bytes.
 
@@ -168,7 +168,7 @@ Verify: `cargo nextest run -E 'binary(cmd_upgrade) | test(retired_citation)'`
 
 ### `staging:an-upgrade-from-an-older-release-names-the-skill-route` — An upgrade from an older release names the skill route
 
-Where the record is older than the binary, `sdd upgrade` MUST print the moved text of `acquisition:a-pin-move-names-the-skill-route` as its first line, with or without `--dry-run`, and `--json` MUST carry it in `next`. An upgrade of a record at the binary's own version MUST print no moved text.
+Where the record is older than the binary, `sdd upgrade` MUST print the moved text of `setup:a-pin-move-names-the-skill-route` as its first line, with or without `--dry-run`, and `--json` MUST carry it in `next`. An upgrade of a record at the binary's own version MUST print no moved text.
 
 `sdd upgrade` alone keeps the old bytes of every adopted spec and runs none of the migrations that the sdd-setup skill carries, so its first line sends the reader to that skill.
 

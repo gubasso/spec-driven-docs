@@ -58,19 +58,6 @@ sdd skill show sdd-setup --file references/pre-flight-gate.md
 
 Earlier releases installed the skills under the home. A home copy shadows the instance copy, because an agent prefers a personal skill or shows both. `sdd doctor` names such a copy, and `sdd skill uninstall --apply` removes it. The uninstall removes a file only where its digest is the one the receipt of the earlier install records, and names every file it keeps with the reason, so a file you edited stays.
 
-## Keep the pin fresh
-
-```bash
-sdd self-depend status --target /path/to/your-project --json
-sdd self-depend add --target /path/to/your-project --manager mise --venue crates
-sdd self-depend sync --target /path/to/your-project --apply
-sdd self-depend clean --target /path/to/your-project --also scripts/bump.sh
-```
-
-Where the target pins `sdd` through a manager, a landing does not close until the operator has answered about the freshness wire. After the variables land, run `sdd self-depend status --target . --json` and hold `wired`, `envrc_check`, and `envrc_old_line`. Where `wired` is `null`, there is no pin to keep fresh. Where `envrc_old_line` is `true`, the `.envrc` still runs the retired line `sdd self-depend sync --apply || true`: move the pin with `sdd self-depend sync --apply`, then run `sdd self-depend clean --target . --apply`, which swaps that line for the check line. Where `wired` names a manager and `envrc_check` is `false`, decide whether the project lands the line `sdd self-depend check || true` in its `.envrc`: on each directory entry it warns on stderr when a newer release is out, it reads the network at most once every seven days, it writes no file but its cache, and it never moves the pin. The operator moves the pin with `sdd self-depend sync --apply`, which leaves a diff for the operator to review and commit. On yes, `sdd self-depend add --target . --manager <wired>` prints the line with its placement and seeds `.envrc` only where the target has none: run it with `--apply` where it names `.envrc` among its seeds, and where it seeds nothing, place the line in the `.envrc` you already have. Re-run the status verb until `envrc_check` reads `true`. On no, the landing is complete without the wire, and the answer goes into the task's close.
-
-A project pins this tool through the manager it already runs, and `sdd self-depend` keeps that pin fresh. `status` reports offline, one entry per manager with the absent ones included, plus the shell-entry line, the version-check cache, the host probes, and any leftover; every state exits 0. `add` prints the fragments one manager and venue pair needs with their anchors and placements, edits no file the project owns, and seeds a manager file only where the project has none and only with `--apply`. `sync` moves the pin to the latest release through the wired manager in one transaction: a flake moves its tag and its lock together or not at all. `sync` is the operator's act: it reports every outcome, fails loudly, and leaves a diff for review. Where `DIRENV_IN_ENVRC` is set, in an `.envrc` evaluation or under `direnv exec`, it moves nothing, warns, and exits 1: run it from the loaded shell or with `nix develop -c sdd self-depend sync --apply`. `check`, the line `sdd self-depend check || true` in `.envrc`, reads a cache under `$XDG_CACHE_HOME/spec-driven-docs/`, refreshes it at most once every seven days or one hour after a failure, warns on stderr, writes no file but its cache, and exits 0. `CI` or `SDD_SELF_DEPEND_OFF` switches the check off, never an operator's sync. `clean` removes only what a predecessor mechanism left, swaps the retired sync line for the check line, removes the retired daily stamps, and names what it keeps.
-
 ## Read the corpus
 
 ```bash

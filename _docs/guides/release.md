@@ -44,8 +44,9 @@ gh run list --repo <repo> --workflow release-plz.yml --commit "$(git rev-parse o
 
 # 9. verify
 
-# 10. move this repository to the new release, as every consumer does
-sdd self-depend sync --apply
+# 10. move this repository to the new sdd and rk releases, as every consumer does:
+# edit both tags in flake.nix, then
+nix flake update spec-driven-docs release-kit
 ```
 
 Two of these are easy to skip and both have bitten this repository. Step 2 is the only point a changelog correction still reaches the release, and the window closes when you order the merge in step 6. release-plz rewrites its branch, corrections included, whenever work lands on `master` while the request is open. Step 8 is why a check run straight after the merge reports the release as not found: cargo-dist creates it after the x86_64 Linux build finishes, a few minutes later.
@@ -79,7 +80,7 @@ A release that must not ship needs no action, because the request waits for the 
    # a new number, or an entry without the correction: a refresh took the fix; redo it on the request that stands now
    ```
 
-   An adopter note is the part of the changelog entry that tells a consumer what to do. Where the release asks a consumer to act, end its adopter note with the moved text that `acquisition:a-pin-move-names-the-skill-route` holds:
+   An adopter note is the part of the changelog entry that tells a consumer what to do. Where the release asks a consumer to act, end its adopter note with the moved text that `setup:a-pin-move-names-the-skill-route` holds:
 
    ```text
    After the pin move, load the devshell and run the upgrade through the sdd-setup skill of the sdd in that devshell, and do every migration it names. Before `sdd upgrade`, read it with `sdd skill show sdd-setup`. After it, the project's .claude/skills/sdd-setup is that skill. Never use a host copy or an older skill.
@@ -168,24 +169,52 @@ A release that must not ship needs no action, because the request waits for the 
 
    release-plz writes an annotated tag, so `v<version>` names a tag object rather than a commit. `^{commit}` is what makes the values comparable.
 
-10. Move this repository to the new release. Its devshell pins the previous release, which lands, verifies, and upgrades its own instance, as in every consumer (release:the-canon-runs-its-previous-release). In a new worktree on a `build/<slug>` branch, move the pin from the loaded shell, then upgrade the instance through the `sdd-setup` skill:
+10. Move this repository to the new releases of sdd and rk in one pin move. Its devshell pins the previous releases, which land, verify, and upgrade its own instances, as in every consumer (release:the-canon-runs-its-previous-release). The operator moves each pin by editing its tag (release:the-rk-pin-has-two-facts-and-one-mover). Make the pin move in a new worktree on a `build/<slug>` branch:
 
-    ```bash
-    sdd self-depend sync --apply
-    # check: flake.nix names github:gubasso/spec-driven-docs/v<version>, and flake.lock moved with it
+    1. Edit the tag of the `spec-driven-docs` input and the tag of the `release-kit` input in `flake.nix`:
 
-    # once: where the new release itself has a spec-driven-docs input and flake.nix does not yet cut it,
-    # add `inputs.spec-driven-docs.follows = "";` to the spec-driven-docs input of flake.nix, then
-    nix flake lock
-    # check: jq '[.nodes | keys[] | select(startswith("spec-driven-docs"))] | length' flake.lock prints 1
+       ```text
+       url = "github:gubasso/spec-driven-docs/v<version>";
+       url = "github:gubasso/release-kit/v<rk version>";
+       ```
 
-    direnv reload && sdd --version
-    # check: prints sdd <version>
+    2. Update the two inputs in the lock:
 
-    sdd upgrade --target .
-    # check: the upgrade lands, and sdd verify --target . prints OK spec-driven-docs <version>
-    ```
+       ```bash
+       nix flake update spec-driven-docs release-kit
+       # check: flake.nix names both new tags, and git diff flake.lock shows both nodes moved
+       ```
 
-    Commit the pin move and the upgraded instance as one change, and land it as in step 1.
+    3. Once, where the new release itself has a spec-driven-docs input and `flake.nix` does not yet cut it, add `inputs.spec-driven-docs.follows = "";` to the spec-driven-docs input of `flake.nix`, then lock:
+
+       ```bash
+       nix flake lock
+       # check: jq '[.nodes | keys[] | select(startswith("spec-driven-docs"))] | length' flake.lock prints 1
+       ```
+
+    4. Load the new devshell:
+
+       ```bash
+       direnv reload && sdd --version && rk --version
+       # check: prints sdd <version> and rk <rk version>
+       ```
+
+    5. Upgrade the sdd instance through the sdd-setup skill of the sdd in the devshell:
+
+       ```bash
+       sdd skill show sdd-setup
+       sdd upgrade --target .
+       # check: the upgrade lands, and sdd verify --target . prints OK spec-driven-docs <version>
+       ```
+
+    6. Upgrade the rk instance through the rk-setup skill of the rk in the devshell, as `AGENTS.md` requires:
+
+       ```bash
+       rk skill show rk-setup
+       rk upgrade --target . --apply
+       # check: the upgrade lands, and rk status --check --target . exits 0
+       ```
+
+    Commit the pin move and the upgraded instances as one change, and land it as in step 1.
 
 Recovery is `rk method recovery`, and it covers a failed publish, a wedged run, a yank, and a hand publish while CI is down. The changelog-correction window above is the only pre-merge repair a release needs.

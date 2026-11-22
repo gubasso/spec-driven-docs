@@ -135,8 +135,6 @@ pub struct Input {
     pub reserve: Vec<String>,
     /// The writing-style selection to record in the declaration.
     pub writing_style: Option<WritingStyle>,
-    /// The acquisition decision to record in the declaration.
-    pub acquisition: Option<crate::domain::instance_config::Acquisition>,
     /// What the caller observed about the target.
     pub evidence: Evidence,
 }
@@ -277,11 +275,6 @@ pub fn project(input: &Input) -> Result<Candidate, AppError> {
                 && *selection != held.writing_style
             {
                 text = crate::domain::instance_config::with_writing_style(&text, selection);
-            }
-            if let Some(decision) = &input.acquisition
-                && held.acquisition.as_ref() != Some(decision)
-            {
-                text = crate::domain::instance_config::with_acquisition(&text, decision);
             }
             if let Some(id) = &migration {
                 text = crate::domain::instance_config::with_migration(&text, id);
@@ -526,7 +519,6 @@ mod tests {
             docs_scratch: None,
             reserve: Vec::new(),
             writing_style: None,
-            acquisition: None,
             evidence: Evidence::default(),
         }
     }

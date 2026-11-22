@@ -98,10 +98,6 @@ pub struct StatusReport {
     /// Every entry states what decided it, so a reader can tell a recorded
     /// answer from a derived one.
     pub paths: Paths,
-    /// A newer release than the pin, where the version-check cache records
-    /// one. Read offline, from the cache alone.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub pending: Option<crate::self_depend::status::Pending>,
 }
 
 /// What this target offers for the docs scratch.
@@ -145,7 +141,6 @@ fn absent(target: &Utf8Path, classified: Classified) -> StatusReport {
         adopted_drift: 0,
         failures: 0,
         ok: None,
-        pending: crate::self_depend::status::pending(target, &env),
     }
 }
 
@@ -197,7 +192,6 @@ pub fn status(target: &Utf8Path) -> Result<StatusReport, AppError> {
         adopted_drift: report.adopted_drift,
         failures: report.failures,
         ok: Some(report.failures == 0),
-        pending: crate::self_depend::status::pending(target, &env),
     })
 }
 

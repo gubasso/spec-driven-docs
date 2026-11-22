@@ -22,7 +22,6 @@ pub mod man;
 pub mod migrate;
 pub mod policy;
 pub mod read;
-pub mod self_depend;
 pub mod self_manifest;
 pub mod skill;
 pub mod stage;

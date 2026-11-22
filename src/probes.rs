@@ -12,7 +12,7 @@ use camino::Utf8PathBuf;
 use serde::Serialize;
 
 use crate::domain::ownership::Sha256;
-use crate::domain::paths::{AgentId, OFFLINE_VAR, SKILL_FILE, SKILL_RECEIPT_FILE, UserEnv};
+use crate::domain::paths::{AgentId, SKILL_FILE, SKILL_RECEIPT_FILE, UserEnv};
 use crate::domain::skill_record::SkillRecord;
 
 /// Every agent skill root under this home, resolved through the table.
@@ -121,8 +121,6 @@ pub fn run_all() -> Vec<ProbeResult> {
     vec![
         state_root(),
         skill_shadow(),
-        registry(),
-        pin_fresh(),
         tool(
             "git",
             "SDD_GIT_BIN",
@@ -170,97 +168,6 @@ fn tool(
             ProbeClass::Soft,
             format!("{default_bin} is not on PATH"),
             format!("install {label}"),
-        ),
-    }
-}
-
-/// The pin of the current folder against the newest release the
-/// version-check cache records, offline.
-///
-/// Soft, because a pin that is behind is the operator's to move, and
-/// unknown where the folder pins nothing or no check has run yet. A pin
-/// that is behind fails with the pending text as its remediation.
-///
-/// SATISFIES acquisition:every-report-names-a-pending-move
-fn pin_fresh() -> ProbeResult {
-    use crate::self_depend::status::{PinFreshness, freshness};
-    let id = "pin-fresh";
-    let Some(folder) = std::env::current_dir()
-        .ok()
-        .and_then(|dir| Utf8PathBuf::from_path_buf(dir).ok())
-    else {
-        return ProbeResult::ok(
-            id,
-            ProbeClass::Soft,
-            "unknown: the current folder is unreadable",
-        );
-    };
-    match freshness(&folder, &UserEnv::from_process()) {
-        PinFreshness::Unknown => ProbeResult::ok(
-            id,
-            ProbeClass::Soft,
-            "unknown: no pin or no version check recorded here",
-        ),
-        PinFreshness::Current { pin } => ProbeResult::ok(
-            id,
-            ProbeClass::Soft,
-            format!("ok: the pin {pin} names the newest recorded release"),
-        ),
-        PinFreshness::Behind(pending) => ProbeResult::failed(
-            id,
-            ProbeClass::Soft,
-            format!(
-                "behind: sdd {} is out, the pin names {}",
-                pending.latest, pending.pin
-            ),
-            pending.text,
-        ),
-    }
-}
-
-/// The registry the release resolver reads is reachable.
-///
-/// Soft, because a host that cannot fetch is a constraint on a plan rather
-/// than a broken install: every default path reads the embedded release,
-/// and only a plan toward another release needs this. The probe reads the
-/// registry's own configuration, which is the smallest document the
-/// protocol defines, and writes nothing.
-fn registry() -> ProbeResult {
-    let id = "release-registry";
-    let url = format!("{}/config.json", crate::self_depend::registry::INDEX_ROOT);
-    // One variable turns the read off, for a host that is deliberately
-    // offline and for every test in this repository's own suite.
-    if crate::domain::paths::variable(OFFLINE_VAR).is_some() {
-        return ProbeResult::ok(
-            id,
-            ProbeClass::Soft,
-            "SDD_OFFLINE is set, so no release beyond the embedded one is planned",
-        );
-    }
-    // A probe's budget is not a fetch's budget: an unreachable registry
-    // must answer this question in seconds, not in the minute a bounded
-    // archive read is allowed.
-    let agent: ureq::Agent = ureq::Agent::config_builder()
-        .timeout_connect(Some(std::time::Duration::from_secs(3)))
-        .timeout_global(Some(std::time::Duration::from_secs(5)))
-        .user_agent(format!("sdd/{}", env!("CARGO_PKG_VERSION")))
-        .build()
-        .into();
-    match agent.get(&url).call() {
-        Ok(response) if response.status().as_u16() == 200 => {
-            ProbeResult::ok(id, ProbeClass::Soft, format!("{url} answers"))
-        }
-        Ok(response) => ProbeResult::failed(
-            id,
-            ProbeClass::Soft,
-            format!("{url} answered {}", response.status().as_u16()),
-            "plan toward the embedded release, or retry when the registry answers",
-        ),
-        Err(source) => ProbeResult::failed(
-            id,
-            ProbeClass::Soft,
-            format!("{url} could not be read: {source}"),
-            "plan toward the embedded release; only a plan toward another release needs the registry",
         ),
     }
 }

@@ -27,9 +27,6 @@ pub fn run(ctx: &AppContext, args: StageArgs) -> Result<(), AppError> {
         None => {}
     }
     let target = resolved(ctx, args.target)?;
-    if args.acquisition.is_some() {
-        crate::commands::self_depend::refuse_host_where_pinned(&target)?;
-    }
     let state_root = UserEnv::from_process()
         .state_root()
         .ok_or_else(|| AppError::Usage("no state root resolves".to_string()))?
@@ -54,11 +51,6 @@ pub fn run(ctx: &AppContext, args: StageArgs) -> Result<(), AppError> {
             docs_scratch,
             reserve: args.reserve,
             writing_style,
-            acquisition: args.acquisition.map(|choice| match choice {
-                crate::cli::stage::AcquisitionChoice::Host => {
-                    crate::domain::instance_config::Acquisition::host_at_this_release()
-                }
-            }),
         },
         &state_root,
     )?;

@@ -17,8 +17,6 @@
 //! - [`candidate`] — the one pure projection of every byte a landing writes.
 //! - [`landing`] — the checks, the lock, and the order a landing writes in.
 //! - [`stage`] — the persistent workbench one candidate is rendered into.
-//! - [`self_depend`] — how a consumer pins this tool and keeps the pin
-//!   fresh.
 //! - [`transaction`] — the lock and the same-directory replacement a write
 //!   runs through.
 //! - [`cli`] / [`commands`] — clap parse shapes and their handlers.
@@ -57,7 +55,6 @@ pub mod logging;
 pub mod output;
 pub mod payload_roots;
 pub mod probes;
-pub mod self_depend;
 pub mod services;
 pub mod stage;
 pub mod transaction;

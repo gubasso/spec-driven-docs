@@ -32,22 +32,9 @@ pub const XDG_CACHE_HOME_VAR: &str = "XDG_CACHE_HOME";
 pub const OFFLINE_VAR: &str = "SDD_OFFLINE";
 /// The variable that names the docs scratch.
 pub const DOCS_SCRATCH_VAR: &str = "SDD_DOCS_SCRATCH";
-/// The variable an operator sets to hold the consumer pin where it is.
-pub const SELF_DEPEND_OFF_VAR: &str = "SDD_SELF_DEPEND_OFF";
 /// The command `sdd lint prove` runs in place of the delivered hook, as
 /// whitespace-separated words, for a host that runs the hook another way.
 pub const LINT_PROVE_RUNNER_VAR: &str = "SDD_LINT_PROVE_RUNNER";
-/// The variable a continuous-integration environment sets, where the pin
-/// is whatever the checkout carries.
-pub const CI_VAR: &str = "CI";
-/// The variable direnv exports while it evaluates an `.envrc`.
-///
-/// direnv 2.38.2 sets it in its embedded stdlib (`export DIRENV_IN_ENVRC=1`),
-/// so a command that sees it runs from a shell loader, not from a person.
-pub const DIRENV_IN_ENVRC_VAR: &str = "DIRENV_IN_ENVRC";
-/// The loopback origin a test serves the registry index from, in place of
-/// the public index.
-pub const HTTP_ORIGIN_VAR: &str = "SDD_HTTP_ORIGIN";
 
 /// This tool's directory name under a base directory.
 pub const TOOL_DIR: &str = "spec-driven-docs";
@@ -84,10 +71,6 @@ pub const SKILL_REFERENCES_DIR: &str = "references";
 
 /// The user-scope lock, relative to the state root.
 pub const SKILL_LOCK_FILE: &str = "skills.lock";
-/// The retired per-checkout sync stamps, relative to the state root.
-pub const SELF_DEPEND_STAMP_DIR: &str = "self-depend";
-/// The per-checkout version-check caches, relative to the cache root.
-pub const SELF_DEPEND_CACHE_DIR: &str = "self-depend";
 /// The user-scope skill receipt at the home-relative path, read once.
 ///
 /// A home installed before the state root followed `XDG_STATE_HOME` holds

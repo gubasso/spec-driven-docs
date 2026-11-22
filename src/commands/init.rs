@@ -87,7 +87,6 @@ fn flagged(args: InitArgs) -> Result<InitOptions, AppError> {
         docs_scratch,
         reserve: args.reserve,
         writing_style,
-        acquisition: None,
         replace: Vec::new(),
     })
 }
@@ -107,10 +106,6 @@ fn staged(
         None => ctx.cwd.clone(),
     };
     let choices = crate::stage::read_choices(root, &target)?;
-    // A manager can come to pin this tool between the stage and the landing.
-    if choices.acquisition.is_some() {
-        crate::commands::self_depend::refuse_host_where_pinned(&choices.target)?;
-    }
     Ok(InitOptions {
         target: choices.target,
         profile: choices.profile,
@@ -119,7 +114,6 @@ fn staged(
         docs_scratch: Some(choices.docs_scratch),
         reserve: choices.reserve,
         writing_style: Some(choices.writing_style),
-        acquisition: choices.acquisition,
         replace: Vec::new(),
     })
 }

@@ -69,8 +69,6 @@ pub struct Request {
     pub reserve: Vec<String>,
     /// The writing-style selection the candidate would record.
     pub writing_style: Option<crate::domain::instance_config::WritingStyle>,
-    /// The acquisition decision the candidate would record.
-    pub acquisition: Option<crate::domain::instance_config::Acquisition>,
 }
 
 /// Which rule chose the stage root, for the report that names it.
@@ -121,8 +119,6 @@ pub struct Receipt {
     pub reserve: Vec<String>,
     /// The writing source the candidate's own declaration selects.
     pub writing_style: String,
-    /// The acquisition decision the candidate's own declaration records.
-    pub acquisition: Option<crate::domain::instance_config::Acquisition>,
     /// Every destination the candidate would land.
     pub artifacts: Vec<Artifact>,
     /// Every recorded managed file the candidate no longer lands whose
@@ -291,7 +287,6 @@ pub fn create(request: &Request, state_root: &Utf8Path) -> Result<Receipt, AppEr
         docs_scratch: request.docs_scratch.clone(),
         reserve: request.reserve.clone(),
         writing_style: request.writing_style.clone(),
-        acquisition: request.acquisition.clone(),
         replace: Vec::new(),
     };
     let candidate = crate::services::installer::candidate_for(&target, &options)?;
@@ -457,7 +452,6 @@ fn render(
         docs_scratch: candidate.manifest.docs_scratch.clone(),
         reserve: candidate.declaration.reserved.clone(),
         writing_style: writing_style_of(&candidate.declaration),
-        acquisition: candidate.declaration.acquisition.clone(),
         artifacts,
         retired,
         dropped,
@@ -513,8 +507,6 @@ pub struct StagedChoices {
     pub reserve: Vec<String>,
     /// The writing-style selection the candidate's declaration records.
     pub writing_style: crate::domain::instance_config::WritingStyle,
-    /// The acquisition decision the candidate's declaration records.
-    pub acquisition: Option<crate::domain::instance_config::Acquisition>,
     /// Every destination the stage rendered, with its ownership.
     pub artifacts: Vec<HeldArtifact>,
 }
@@ -540,8 +532,6 @@ struct HeldReceipt {
     #[serde(default)]
     reserve: Vec<String>,
     writing_style: String,
-    #[serde(default)]
-    acquisition: Option<crate::domain::instance_config::Acquisition>,
     #[serde(default)]
     artifacts: Vec<HeldArtifact>,
 }
@@ -617,7 +607,6 @@ pub fn read_choices(root: &Utf8Path, target: &Utf8Path) -> Result<StagedChoices,
         docs_scratch: held.docs_scratch,
         reserve: held.reserve,
         writing_style,
-        acquisition: held.acquisition,
         artifacts: held.artifacts,
     })
 }

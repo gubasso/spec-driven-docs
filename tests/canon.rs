@@ -220,6 +220,130 @@ fn the_instance_recipes_use_the_pinned_sdd() {
     );
 }
 
+/// The form of a pin write that a command line carries, if any: a command
+/// that moves a flake input, or a write whose target is `flake.nix` or
+/// `flake.lock`. A read of either file, such as `jq` or `nix flake check`,
+/// is no write.
+fn pin_write(line: &str) -> Option<&'static str> {
+    let line = line.trim();
+    if line.starts_with('#') {
+        return None;
+    }
+    for form in ["nix flake update", "nix flake lock", "flake-edit"] {
+        if line.contains(form) {
+            return Some(form);
+        }
+    }
+    let words: Vec<&str> = line
+        .split(|c: char| c.is_whitespace() || c == ';' || c == '|' || c == '&')
+        .filter(|word| !word.is_empty())
+        .collect();
+    let is_pin = |word: &str| {
+        let word = word.trim_matches(|c| c == '"' || c == '\'');
+        word.ends_with("flake.nix") || word.ends_with("flake.lock")
+    };
+    if !words
+        .iter()
+        .any(|word| is_pin(word.trim_start_matches('>')))
+    {
+        return None;
+    }
+    for (index, word) in words.iter().enumerate() {
+        let redirect = word.starts_with('>')
+            && (is_pin(word.trim_start_matches('>'))
+                || words.get(index + 1).is_some_and(|next| is_pin(next)));
+        if redirect {
+            return Some("a redirect into the pin");
+        }
+    }
+    let editors = [
+        "sed -i",
+        "perl -i",
+        "tee ",
+        "cp ",
+        "mv ",
+        "truncate ",
+        "install ",
+    ];
+    editors
+        .iter()
+        .any(|editor| line.starts_with(editor) || line.contains(&format!(" {editor}")))
+        .then_some("an edit of the pin")
+}
+
+/// VERIFIES release:the-rk-pin-has-two-facts-and-one-mover
+///
+/// The operator is the one mover of the pins: no recipe, script, or local
+/// hook of this repository moves a flake input or writes `flake.nix` or
+/// `flake.lock`. The negative cases hold each form to a rejection.
+#[test]
+fn no_recipe_script_or_hook_writes_the_pin() {
+    for rejected in [
+        "nix flake update spec-driven-docs",
+        "nix flake lock --update-input release-kit",
+        "flake-edit change release-kit github:gubasso/release-kit/v1.0.0",
+        "sed -i 's/v0.1.0/v0.2.0/' flake.nix",
+        "echo '{}' > flake.lock",
+        "jq . new.json >flake.lock",
+        "cat new | tee flake.nix",
+        "cp /tmp/lock flake.lock",
+    ] {
+        assert!(
+            pin_write(rejected).is_some(),
+            "the check misses a pin write: {rejected}"
+        );
+    }
+    for accepted in [
+        "nix flake check",
+        "jq '.nodes' flake.lock",
+        "nixfmt flake.nix",
+        "# the operator runs nix flake update",
+    ] {
+        assert!(
+            pin_write(accepted).is_none(),
+            "the check rejects a read: {accepted}"
+        );
+    }
+
+    let mut found = Vec::new();
+    let mut judge = |source: &str, text: &str| {
+        for line in text.lines() {
+            if let Some(form) = pin_write(line) {
+                found.push(format!("{source}: {form}: {}", line.trim()));
+            }
+        }
+    };
+    judge("justfile", &read("justfile"));
+    for entry in walkdir::WalkDir::new(canon().join("scripts"))
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_type().is_file())
+    {
+        let source = entry
+            .path()
+            .strip_prefix(canon())
+            .unwrap()
+            .display()
+            .to_string();
+        judge(&source, &std::fs::read_to_string(entry.path()).unwrap());
+    }
+    let config: yaml_serde::Value = yaml_serde::from_str(&read(".pre-commit-config.yaml")).unwrap();
+    let repos = config["repos"].as_sequence().expect("no repos");
+    let local = repos
+        .iter()
+        .filter(|repo| repo["repo"].as_str() == Some("local"));
+    for hook in local.flat_map(|repo| repo["hooks"].as_sequence().into_iter().flatten()) {
+        if let Some(entry) = hook["entry"].as_str() {
+            let id = hook["id"].as_str().unwrap_or("?");
+            judge(&format!("hook {id}"), entry);
+        }
+    }
+    assert!(
+        found.is_empty(),
+        "release:the-rk-pin-has-two-facts-and-one-mover: the operator alone moves the pin, and these write it: {found:#?}"
+    );
+}
+
 /// VERIFIES release:the-canon-runs-its-previous-release
 ///
 /// The devshell carries the release the `spec-driven-docs` input pins, and
@@ -412,8 +536,7 @@ fn the_tree_gates_pass_on_the_canon() {
 /// The spec names `sdd spec` served at the change that moved the adoptable
 /// specs under `instance/payload/`, written here so the move cannot change
 /// the served set unnoticed.
-const SERVED_SPECS: [&str; 20] = [
-    "acquisition",
+const SERVED_SPECS: [&str; 19] = [
     "budget-debt",
     "comparison-docs",
     "decision-records",
@@ -1604,8 +1727,8 @@ fn the_setup_skill_stages_before_it_compares() {
 
 /// SATISFIES staging:the-operator-owns-acquisition
 ///
-/// The task proposes, the operator picks, and the answer lands in a file
-/// every contributor shares, or in the declaration for a host install.
+/// The task proposes, the operator picks, and the answer lands in the
+/// manager file every contributor shares. A host install records nothing.
 #[test]
 fn the_provision_task_offers_each_method_and_records_the_answer() {
     let provision = setup_file("references/provision.md");
@@ -1622,10 +1745,12 @@ fn the_provision_task_offers_each_method_and_records_the_answer() {
         );
     }
     for recorded in [
-        "sdd self-depend add --target . --manager <manager>",
-        "sdd self-depend add --target . --host --apply",
-        "--acquisition host",
-        "Ask the operator for the method",
+        "Ask the operator for the method: which manager the project runs",
+        "Point to the Install section of the sdd `README.md`",
+        "https://crates.io/crates/spec-driven-docs",
+        "No `sdd` verb installs or moves `sdd`",
+        "records no host decision",
+        "A host answer records nothing",
     ] {
         assert!(
             provision.contains(recorded),
@@ -1717,119 +1842,6 @@ fn the_setup_skill_declares_its_gated_steps() {
             "{file} does not gate '{gated}' for the operator"
         );
     }
-}
-
-/// VERIFIES acquisition:the-setup-path-offers-the-wire
-#[test]
-fn the_setup_skill_offers_the_freshness_wire() {
-    let provision = setup_file("references/provision.md");
-    let readme = read("instance/README.md");
-    assert!(
-        provision.contains("## Step B: how the dev environment loads"),
-        "the provision task has no step for the environment and its wire"
-    );
-    for held in [
-        // The observation the offer rests on.
-        "sdd self-depend status --target . --json",
-        "Hold `wired`, `envrc_check`, and `envrc_old_line`",
-        // Silence where nothing is wired, and where the wire is landed.
-        "Where `wired` is `null`, there is no pin to keep fresh",
-        "`envrc_check` is `true`, the wire is landed",
-        // The offer, with its facts.
-        "`envrc_check` is `false`, ask with `AskUserQuestion`",
-        "sdd self-depend check || true",
-        "reads the network at most once every seven days",
-        "it never moves the pin",
-        "leaves a diff for the operator to review and commit",
-        // Landing the line is gated, and a no is recorded.
-        "landing the line is a gated step",
-        "sdd self-depend add --target . --manager <wired>",
-        "re-observe with the status verb until `envrc_check` reads `true`",
-        "the landing is complete without the wire",
-        "Record the answer in the report",
-        // Both placement cases, because the verb covers one of them. A
-        // rewrite that drops the second sends the operator back to a
-        // command that refuses to edit the file it names.
-        "gate the same command with `--apply`",
-        "you append the line to it yourself",
-    ] {
-        assert!(
-            provision.contains(held),
-            "the provision task does not state '{held}'"
-        );
-    }
-    // The skill quotes the binary's own line and the binary's own file, so
-    // a rename in one place cannot leave the other reading almost right.
-    assert!(
-        provision.contains(spec_driven_docs::self_depend::CHECK_LINE),
-        "the provision task quotes a check line the binary does not write"
-    );
-    assert!(
-        provision.contains(spec_driven_docs::self_depend::ENVRC),
-        "the provision task names a loader file the status verb does not read"
-    );
-    // The seeding verb writes nothing without the flag, so no line may
-    // offer it as the thing that lands the wire.
-    for (number, line) in provision.lines().enumerate() {
-        if !line.contains("self-depend add") {
-            continue;
-        }
-        assert!(
-            line.contains("--apply")
-                || line.contains("prints the fragment")
-                || line.contains("read-only"),
-            "provision.md line {}: `self-depend add` without `--apply` is offered as a write",
-            number + 1
-        );
-    }
-    // The operator's path asks the same question in the same words.
-    for shared in [
-        "does not close until the operator has answered about the freshness wire",
-        "Where `wired` is `null`, there is no pin to keep fresh",
-        "reads the network at most once every seven days",
-        "leaves a diff for the operator to review and commit",
-        "seeds `.envrc` only where the target has none",
-    ] {
-        assert!(
-            provision.contains(shared),
-            "the provision task does not carry '{shared}'"
-        );
-        assert!(
-            readme.contains(shared),
-            "instance/README.md does not carry '{shared}'"
-        );
-    }
-}
-
-/// The skill installs the check line, swaps the retired sync line through
-/// the clean verb after the pin moves, and names the sync as the
-/// operator's act. Read from the packaged skill, as an agent resolves it.
-///
-/// VERIFIES acquisition:the-setup-path-offers-the-wire
-#[test]
-fn the_provisioning_skill_serves_the_check_line() {
-    use spec_driven_docs::self_depend::{CHECK_LINE, OLD_SYNC_LINE, SYNC_COMMAND};
-    let provision = setup_file("references/provision.md");
-    assert!(provision.contains(CHECK_LINE));
-    assert!(provision.contains(&format!(
-        "Moving the pin stays the operator's act, `{SYNC_COMMAND}`"
-    )));
-    for line in provision.lines() {
-        if line.contains(OLD_SYNC_LINE) {
-            assert!(
-                line.contains("retired")
-                    && line.contains("sdd self-depend clean --target . --apply"),
-                "provision.md offers the retired sync line as a line to land: {line}"
-            );
-        }
-    }
-    let swap = provision
-        .find("sdd self-depend clean --target . --apply")
-        .expect("the provision task names no swap of the retired line");
-    let moved = provision
-        .find(&format!("Gate `{SYNC_COMMAND}` first"))
-        .expect("the provision task does not move the pin before the swap");
-    assert!(moved < swap, "the swap comes before the pin moves");
 }
 
 #[test]
@@ -2646,7 +2658,7 @@ fn without_json_examples(text: &str) -> String {
 /// byte, so its spelling is the report's and not a restatement.
 #[test]
 fn no_skill_spells_a_path_the_binary_reports() {
-    use spec_driven_docs::self_depend::guidance::MOVED;
+    use spec_driven_docs::landing::guidance::MOVED;
     let spellings = reported_paths();
     for (relative, text) in skill_prose() {
         let scanned = without_json_examples(&text).replace(MOVED, "");
@@ -3543,10 +3555,10 @@ fn the_gates_chapter_lists_no_spec_rule() {
 /// The moved text reaches the agent and the release author byte for byte,
 /// so the skill and the guide cannot drift from what the binary prints.
 ///
-/// VERIFIES acquisition:a-pin-move-names-the-skill-route
+/// VERIFIES setup:a-pin-move-names-the-skill-route
 #[test]
 fn the_skill_and_the_release_guide_carry_the_moved_text() {
-    use spec_driven_docs::self_depend::guidance::MOVED;
+    use spec_driven_docs::landing::guidance::MOVED;
     for relative in [
         "skills/sdd-setup/references/upgrade.md",
         "_docs/guides/release.md",

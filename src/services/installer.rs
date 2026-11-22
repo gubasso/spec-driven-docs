@@ -36,9 +36,6 @@ pub struct InitOptions {
     /// The writing-style selection to record in the declaration. `None`
     /// keeps whatever is recorded.
     pub writing_style: Option<crate::domain::instance_config::WritingStyle>,
-    /// The acquisition decision to record in the declaration. `None` keeps
-    /// whatever is recorded.
-    pub acquisition: Option<crate::domain::instance_config::Acquisition>,
     /// Destinations the operator named for replacement. The caller saves
     /// each one's bytes before the landing runs.
     pub replace: Vec<String>,
@@ -297,7 +294,6 @@ fn gather(target: &Utf8Path, options: &InitOptions) -> Result<crate::candidate::
         docs_scratch: resolved_docs_scratch(target, options.docs_scratch.as_ref())?,
         reserve: options.reserve.clone(),
         writing_style: options.writing_style.clone(),
-        acquisition: options.acquisition.clone(),
         evidence: crate::candidate::Evidence {
             existing,
             recorded_adopted,

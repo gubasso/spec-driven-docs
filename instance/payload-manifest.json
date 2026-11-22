@@ -3,10 +3,6 @@
   "version": "0.19.1",
   "files": [
     {
-      "path": "_docs/specs/SPEC-acquisition.md",
-      "sha256": "42bdcd22f1661a68ab3071b6256012907c25a7d82b225a846fc53692bbabd9c7"
-    },
-    {
       "path": "_docs/specs/SPEC-budget-debt.md",
       "sha256": "9457b1b3a2645b92e34549cc6a28e62c10981b12813c8d1022cc9e519a817e0a"
     },
@@ -52,11 +48,11 @@
     },
     {
       "path": "_docs/specs/SPEC-release.md",
-      "sha256": "ba24947029636db848ff2ad0e13c076ecd7b16cd4d99480b8129d68e0893995c"
+      "sha256": "6f5dc5023a4922d15ebaee3df1baf3b2f0f4e8cb6d72dcffc4ec4105b8402d41"
     },
     {
       "path": "_docs/specs/SPEC-setup.md",
-      "sha256": "3d8f25caa8606a89ef112f432dd4cf1211dd7a14de3244f68403f71391e87d87"
+      "sha256": "8accab20a25ef401fd280042807d86933f8860106801dcbc2a031ec1deb00a55"
     },
     {
       "path": "_docs/specs/SPEC-skill-format.md",
@@ -68,7 +64,7 @@
     },
     {
       "path": "_docs/specs/SPEC-staging.md",
-      "sha256": "d372a71113906c705d2f932bd3d474bcdd359385f3ee909535c0f05864ab4b2a"
+      "sha256": "44063a6ebb7315136bfeae13ce274130a4f143e00a417547114827da7db57432"
     },
     {
       "path": "_docs/specs/SPEC-tracking/tracking.schema.json",
@@ -136,11 +132,11 @@
     },
     {
       "path": "instance/README.md",
-      "sha256": "abfea56614c635bca5f9cba606782b80861178fcf9bff110cad5ee3c4c8b7489"
+      "sha256": "c09c6b609e69964c96a4cd250bca97d23d939f20e594e3dccf5131dabc42c17d"
     },
     {
       "path": "instance/docs-catalog.toml",
-      "sha256": "947992470e7a313e3f4ba5fbad31c9a34855b3371eccc1f591f715e19c109c43"
+      "sha256": "b82132d3aa6b70883f2edc9f44d806c833da7b92d2863fd8d4ea881720615564"
     },
     {
       "path": "instance/manifest.schema.json",
@@ -256,7 +252,7 @@
     },
     {
       "path": "method/landing.md",
-      "sha256": "0fb9b8725bd541aa0b864319a9bfadec0d0ddcc17f2883a169658c801df35a02"
+      "sha256": "7436eefef04b578692ff789ddcd5aa59e4b66272d97d05f2c8584b6a51673794"
     },
     {
       "path": "method/lifecycle.md",
@@ -328,11 +324,11 @@
     },
     {
       "path": "skills/sdd-setup/SKILL.md",
-      "sha256": "0f15d01ac8b814e2c79656ed609a9c4bc66313e81fae910265f080e38a9591b8"
+      "sha256": "c03295fbf3d3c387ecbfc6101c0b5badc260e13561b5bd76025bbf31154ff3c3"
     },
     {
       "path": "skills/sdd-setup/references/land.md",
-      "sha256": "151b691d3da83165a256fe2dafbde298ba7b8a17e63044de7048e10dd7894e1a"
+      "sha256": "5966b24ffdd06a03df73a3adef75a16328a26bb2d6d41ea0265eab05110957a5"
     },
     {
       "path": "skills/sdd-setup/references/landing.md",
@@ -340,11 +336,11 @@
     },
     {
       "path": "skills/sdd-setup/references/migrate.md",
-      "sha256": "6166775965d08bca568bb65fa8e81b90402e6598709203ea0a0053826463ef95"
+      "sha256": "6d704ff64f7436e11385eeabb1beaa9c8a8d471ba3eb2308d8185ef1f5f75af2"
     },
     {
       "path": "skills/sdd-setup/references/provision.md",
-      "sha256": "9d98da7e3aa96feab1b51ef91460880aedfe49f8a6ac4bfcbcd457bd4442d599"
+      "sha256": "015ab7b975502fce86fbb7e87584c94639abf252d9dcf32775e9ba09dd23b2da"
     },
     {
       "path": "skills/sdd-setup/references/repair.md",

@@ -16,7 +16,7 @@
 mod support;
 
 use predicates::prelude::*;
-use spec_driven_docs::self_depend::guidance::MOVED;
+use spec_driven_docs::landing::guidance::MOVED;
 use support::Fixture;
 
 /// Rewrite a fresh instance into the version-one shape the previous
@@ -1133,11 +1133,6 @@ fn a_staged_upgrade_keeps_the_declaration_it_staged() {
         (
             "commented",
             "reserved: []\ngates: {}\nwriting_style:\n  # the house default\n  source: builtin\n  path: null\n",
-            &[][..],
-        ),
-        (
-            "acquisition",
-            "reserved: []\ngates: {}\nacquisition:\n  # each host installs it\n  source: host\n  minimum: \"0.1.0\"\n",
             &[][..],
         ),
     ] {
