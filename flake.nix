@@ -12,7 +12,7 @@
       # and nothing else in this repository names an rk version. The
       # `exobrain outdated` line of .envrc warns about a newer release, and
       # the operator moves the pin with `flake-edit update release-kit`.
-      url = "github:gubasso/release-kit/v0.10.3";
+      url = "github:gubasso/release-kit/v0.11.0";
       inputs = {
         # A deliberate deal, not a tidy-up: with follows, rk rebuilds against
         # this repository's nixpkgs rather than the revision it tested
@@ -42,7 +42,7 @@
     # empty follows points it at this flake, so flake.lock holds one sdd
     # node rather than a chain of older ones.
     spec-driven-docs = {
-      url = "github:gubasso/spec-driven-docs/v0.19.1";
+      url = "github:gubasso/spec-driven-docs/v0.20.0";
       inputs = {
         spec-driven-docs.follows = "";
         nixpkgs.follows = "nixpkgs";
