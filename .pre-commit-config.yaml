@@ -412,7 +412,7 @@ repos:
   # entry. exobrain-tech publishes the hooks, and the host supplies the
   # exobrain CLI that they call.
   - repo: https://github.com/gubasso/exobrain-tech
-    rev: v1.2.0
+    rev: v2.0.0
     hooks:
       - id: no-path-flake-reference
       - id: no-hook-runner-in-flake

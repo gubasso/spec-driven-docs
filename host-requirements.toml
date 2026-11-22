@@ -1,8 +1,8 @@
 schema = 1
 
-# hook-revisions calls exobrain hooks check, which 1.2.0 carries first.
+# .envrc runs exobrain outdated, which 2.0.0 carries first.
 [tools.exobrain]
-version = ">=1.2.0"
+version = ">=2.0.0"
 
 # The host configuration owns the version of git.
 [tools.git]

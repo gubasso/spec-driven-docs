@@ -8,9 +8,10 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     release-kit = {
-      # Moved by the operator with `rk self-depend sync --apply`: the tag in this URL
-      # is the version, flake.lock is the content pin, and nothing else in
-      # this repository names an rk version.
+      # The tag in this URL is the version, flake.lock is the content pin,
+      # and nothing else in this repository names an rk version. The
+      # `exobrain outdated` line of .envrc warns about a newer release, and
+      # the operator moves the pin with `flake-edit update release-kit`.
       url = "github:gubasso/release-kit/v0.10.3";
       inputs = {
         # A deliberate deal, not a tidy-up: with follows, rk rebuilds against
@@ -33,8 +34,9 @@
     # The previous release of this tool. It lands, verifies, and upgrades
     # this repository's own instance, and the rendered hooks run it, as in
     # every consumer; the sdd built from the tree runs only under test
-    # (release:the-canon-runs-its-previous-release). The operator moves the
-    # pin with `sdd self-depend sync --apply` after each release, then runs
+    # (release:the-canon-runs-its-previous-release). The `exobrain outdated`
+    # line of .envrc warns about a newer release. The operator moves the pin
+    # with `flake-edit update spec-driven-docs` after each release, then runs
     # `sdd upgrade` here. The follows keep one node of each shared input.
     # The pinned release brings its own previous-release input, and the
     # empty follows points it at this flake, so flake.lock holds one sdd
@@ -88,7 +90,9 @@
       # through the overlay so CI and local development share one compiler.
       # curl is named because the source check in comparison-docs/SOURCES.md
       # calls it. rk comes from the release-kit flake input, pinned by its
-      # tag, and the operator moves that pin with `rk self-depend sync --apply`.
+      # tag. The `exobrain outdated` line of .envrc warns about a newer
+      # release, and the operator moves the pin with
+      # `flake-edit update release-kit`.
       devShells.${system}.default = pkgs.mkShell {
         packages = [
           toolchain
