@@ -103,6 +103,6 @@ A traceability matrix or a coverage index restates what the greps derive. Each i
 
 - GitHub Spec Kit, on tests written first and confirmed to fail before implementation: <https://github.com/github/spec-kit/blob/main/spec-driven.md>
 - AWS Kiro, on tasks tracing to requirement identifiers: <https://kiro.dev/docs/specs/>
-- StrictDoc, for the relation marker in a source comment and its implementation and verification roles: <https://strictdoc.readthedocs.io/en/stable/stable/docs/strictdoc_01_user_guide.html>
+- StrictDoc, for the relation marker in a source comment and its implementation and verification roles: <https://strictdoc.readthedocs.io/en/stable/stable/docs/strictdoc_01_user_guide.sdoc.html>
 - OpenFastTrace, for coverage tags written as source comments against specification item ids: <https://github.com/itsallcode/openfasttrace>
 - DO-178C, on every source code element tracing back to a requirement: <https://www.parasoft.com/learning-center/do-178c/requirements-traceability/>
