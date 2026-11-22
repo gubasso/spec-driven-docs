@@ -1,6 +1,6 @@
 {
   "schema": "sdd.payload-manifest/1",
-  "version": "0.19.1",
+  "version": "0.20.0",
   "files": [
     {
       "path": "_docs/specs/SPEC-budget-debt.md",
