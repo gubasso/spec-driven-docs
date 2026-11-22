@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.0](https://github.com/gubasso/spec-driven-docs/compare/v0.19.1...v0.20.0) - 2026-11-22
+
+### Added
+
+- *(acquisition)* [**breaking**] Retire the acquisition rules
+
+### Other
+
+- *(devshell)* Warn on stale pins through exobrain outdated
+- *(method)* Point the StrictDoc source at its moved user guide
+- *(gates)* Judge only the unwrapped-prose hook for a changelog
+- *(deps-dev)* Move the rk and sdd pins, and select CI hooks by group
+
 ## [0.19.1](https://github.com/gubasso/spec-driven-docs/compare/v0.19.0...v0.19.1) - 2026-11-19
 
 ### Fixed
