@@ -10,7 +10,7 @@ Source of Truth (SoT): Every concern has exactly one authoritative source. Code+
 
 Docs-as-Code: Specifications live in the repo, version-controlled alongside code. They are reviewed in PRs, linted in CI, and subject to the same quality standards as source code.
 
-Spec Rot is Real: "By Sprint 3, the HLD is outdated. By release 2, the SRS no longer matches the product" (Thoughtworks). Every spec that describes implemented behavior will eventually lie unless actively maintained or deliberately archived.
+Spec Rot is Real: "By Sprint 3, the HLD is outdated. By release 2, the SRS no longer matches the product" (Piskala, arXiv 2602.00180). Every spec that describes implemented behavior will eventually lie unless actively maintained or deliberately archived.
 
 ---
 
@@ -28,33 +28,36 @@ arXiv study (January 2026, 124 PRs across 10 repositories) measuring impact of p
 | Mean output tokens     | 5,744             | 4,591          | 20.1% fewer   |
 | Mean input tokens      | —                 | —              | 9.7% decrease |
 
-The improvement is not uniform: AGENTS.md primarily reduces token usage in high-cost outlier runs rather than providing consistent gains across all tasks.
+The token gain is not uniform: AGENTS.md "primarily reduces token usage in a small number of very high-cost runs". The time gain is broader, because the mean and the median improve alike.
 
-Adoption: over 60,000 repositories as of early 2026.
+Adoption: more than 60,000 repositories at the time of the study (January 2026).
 
 ### Anthropic Recommendations
 
-- CLAUDE.md should contain only broadly applicable rules. "For each line, ask: 'Would removing this cause Claude to make mistakes?' If not, cut it."
-- Do not include code snippets in context files, because they go stale. Use `file:line` references instead.
-- Use `.claude/skills/` for domain knowledge that is only sometimes relevant.
+- Keep CLAUDE.md short: "the file works best when it only holds what Claude couldn't work out from the code itself."
+- Put a team procedure or a piece of team knowledge in a skill at `.claude/skills/<name>/SKILL.md`.
 - Spec-then-implement workflow: Have the agent interview you about requirements, write a spec, then start a fresh session to implement. The fresh session gets clean context focused entirely on implementation.
+
+### HumanLayer
+
+- Do not include code snippets in context files, because "they will become out-of-date quickly". Use `file:line` references instead.
 - Progressive disclosure: "Don't tell Claude all the information you could possibly want it to know; rather, tell it how to find important information."
 
-### Martin Fowler's Analysis
+### Birgitta Böckeler's Analysis (martinfowler.com)
 
-Fowler identifies three implementation levels for spec-driven development:
+Böckeler identifies three implementation levels for spec-driven development:
 
 1. Spec-first: Specs guide initial development, then are discarded
 2. Spec-anchored: Specs persist through feature evolution
 3. Spec-as-source: Specs are the primary artifact. Code is generated
 
-His assessment is cautious:
+Her assessment is cautious:
 
 - Spec-kit output was "repetitive" and "tedious to review"
-- Even with detailed specs, agents "ultimately did not follow all the instructions"
+- Even with detailed specs, she "frequently saw the agent ultimately not follow all the instructions"
 - Spec-as-source risks combining "inflexibility and non-determinism", that is, the worst of both worlds
-- Draws parallels to failed model-driven development (MDD) approaches of the 2000s
-- Spec-implementation synchronization "remains largely unresolved"
+- Draws parallels to model-driven development (MDD)
+- The spec maintenance strategy over time is often "left vague or totally open"
 
 ### Thoughtworks Conservative Position
 
@@ -64,8 +67,7 @@ His assessment is cautious:
 
 ### Addy Osmani (Google Chrome)
 
-- Recommends creating a `spec.md` before coding, and describes it as "doing a waterfall in 15 minutes"
-- Treats specs as "foundational infrastructure that multiplies AI productivity"
+- Recommends creating a `spec.md` before coding, and describes it as "doing a waterfall in 15 minutes", after Les Orchard
 
 ---
 
@@ -91,11 +93,11 @@ Treat specs as generative inputs that produce code, then evolve into other artif
 
 ### 2. Executable Specifications
 
-BDD tools (Cucumber, SpecFlow) turn specs into tests. The spec IS the test. Eliminates divergence by construction: "a single source of truth eliminates discrepancies between documentation and actual system behavior."
+BDD tools (Cucumber, SpecFlow) turn specs into tests. The spec IS the test. Eliminates divergence by construction.
 
 ### 3. Immutable Decision Records (ADRs)
 
-Specs describe what was decided and why, not what the system currently does. Append-only. When decisions change, a new record supersedes the old one. Amazon, Google Cloud, Azure, and Red Hat all recommend this pattern.
+Specs describe what was decided and why, not what the system currently does. Append-only. When decisions change, a new record supersedes the old one. Azure calls the record "an append-only log", and Red Hat notes that ADRs "can be superseded later by newer ADRs". Google Cloud instead suggests revisiting an ADR and keeping its history in source control.
 
 ### 4. Automated Spec-Code Verification
 
@@ -127,7 +129,7 @@ Accept that code is the only reliable SoT. Use specs to drive initial generation
 - Over-specified: Specs that constrain implementation without adding clarity
 - Generated boilerplate: Spec-kit style scaffolding that is "tedious to review"
 - Mistaken for guarantees: Specs do not prevent hallucinations or non-deterministic generation
-- Documentation for documentation's sake: "Taken to its logical extreme, all documentation is waste" (Agile Alliance)
+- Documentation for documentation's sake: "Taken to its logical extreme, all documentation is waste" (Jonathan Berger, quoted by InfoQ)
 
 ---
 
@@ -168,7 +170,7 @@ Key data points for justifying spec-driven workflows:
 ### Anthropic / Claude
 
 - [Claude Code Best Practices](https://code.claude.com/docs/en/best-practices)
-- [How Anthropic Teams Use Claude Code](https://www-cdn.anthropic.com/58284b19e702b49db9302d5b6f135ad8871e7658.pdf)
+- [How Anthropic Teams Use Claude Code](https://assets.claude.com/58284b19e702b49db9302d5b6f135ad8871e7658.pdf)
 
 ### Martin Fowler / Thoughtworks
 
@@ -202,7 +204,7 @@ Key data points for justifying spec-driven workflows:
 ### Architecture Decision Records
 
 - [Master ADR Best Practices](https://aws.amazon.com/blogs/architecture/master-architecture-decision-records-adrs-best-practices-for-effective-decision-making/) (AWS)
-- [ADR Overview](https://cloud.google.com/architecture/architecture-decision-records) (Google Cloud)
+- [ADR Overview](https://docs.cloud.google.com/architecture/architecture-decision-records) (Google Cloud)
 - [Maintain an ADR](https://learn.microsoft.com/en-us/azure/well-architected/architect-role/architecture-decision-record) (Microsoft Azure)
 - [Why You Should Be Using ADRs](https://www.redhat.com/en/blog/architecture-decision-records) (Red Hat)
 

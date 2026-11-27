@@ -12,6 +12,7 @@ use crate::domain::rule_id::RuleId;
 use crate::gates::paths::docs_root;
 use crate::gates::{GateCtx, GateResult, Violation};
 use crate::services::tracking::{evaluate, today_utc};
+use jiff::civil::Date;
 
 /// The rules this gate can cite.
 pub const CITES: &[RuleId] = &[
@@ -23,13 +24,27 @@ pub const CITES: &[RuleId] = &[
     RuleId::DeclaredDependentExists,
 ];
 
-/// Judge the tracking registry.
+/// Judge the tracking registry against today's date in UTC.
 ///
 /// # Errors
 ///
 /// [`crate::gates::GateError::Io`] when the registry is present but cannot be
 /// read.
 pub fn run(ctx: &GateCtx, _files: &[String]) -> GateResult {
+    judge(ctx, today_utc())
+}
+
+/// Judge the tracking registry as of `as_of`.
+///
+/// The hook judges as of today through [`run`]. A test that judges a tree
+/// passes a fixed date, so a tree that passed does not fail later only
+/// because time passed.
+///
+/// # Errors
+///
+/// [`crate::gates::GateError::Io`] when the registry is present but cannot be
+/// read.
+pub fn judge(ctx: &GateCtx, as_of: Date) -> GateResult {
     let root = docs_root(ctx);
     let registry = ctx.path(&root).join("reference/tracking.yaml");
     if !registry.is_file() {
@@ -43,7 +58,7 @@ pub fn run(ctx: &GateCtx, _files: &[String]) -> GateResult {
     {
         return Ok(vec![]);
     }
-    let report = evaluate(&ctx.repo_root, &root, today_utc()).map_err(|source| {
+    let report = evaluate(&ctx.repo_root, &root, as_of).map_err(|source| {
         crate::gates::GateError::io(root.join("reference/tracking.yaml"), source)
     })?;
 

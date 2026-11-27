@@ -447,17 +447,60 @@ fn tree_gate(
         .expect("sdd runs")
 }
 
+/// The date the canon's tracking registry is judged as of: its newest
+/// `last_checked`.
+///
+/// The wall clock would fail a tree that passed once an entry ages past its
+/// cadence, and that failure breaks every later build of a released tag.
+/// The newest check is the earliest day the tree can have passed the hook,
+/// so the judgment holds on every day after it.
+fn canon_registry_date() -> jiff::civil::Date {
+    let registry =
+        spec_driven_docs::domain::tracking::parse(&read("_docs/reference/tracking.yaml"))
+            .expect("the canon's tracking registry parses");
+    registry
+        .tracked
+        .iter()
+        .map(|entry| {
+            entry
+                .last_checked
+                .parse::<jiff::civil::Date>()
+                .expect("last_checked is an ISO date")
+        })
+        .max()
+        .expect("the canon's tracking registry tracks an entry")
+}
+
 /// VERIFIES release:the-canon-runs-its-previous-release
 ///
 /// The hooks run the previous release, so the gates under development judge
 /// the canon's documents here: every gate of the tree, over the canon, with
-/// its declaration. The negative control copies the canon, plants one known
-/// violation per gate family, and proves each planted gate fails.
+/// its declaration. The tracking registry gate reads the clock, so it judges
+/// the canon in process as of [`canon_registry_date`], and the result does
+/// not depend on the day the suite runs. The negative control copies the
+/// canon, plants one known violation per gate family, and proves each
+/// planted gate fails.
 #[test]
 fn the_tree_gates_pass_on_the_canon() {
     let gates = spec_driven_docs::gates::GATES;
     let files = hook_files(&canon());
     for gate in gates {
+        if gate.id.as_str() == "tracking-registry" {
+            let ctx = spec_driven_docs::gates::GateCtx::new(canon().to_str().unwrap());
+            let violations =
+                spec_driven_docs::gates::tracking_registry::judge(&ctx, canon_registry_date())
+                    .expect("the tracking registry reads");
+            assert!(
+                violations.is_empty(),
+                "tracking-registry fails on the canon:\n{}",
+                violations
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            );
+            continue;
+        }
         let output = tree_gate(&canon(), gate, &files);
         assert!(
             output.status.success(),

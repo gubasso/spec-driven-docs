@@ -12,7 +12,7 @@ tracked:
       - flake.lock
   - id: dprint-plugins
     path: dprint.json
-    last_checked: 2026-08-24
+    last_checked: 2026-11-26
     cadence_days: 90
     why: plugin WASM URLs are versioned endpoints
     revalidate:
@@ -22,7 +22,7 @@ tracked:
       - flake.lock
   - id: prior-art
     path: reference/prior-art/spec-driven-development.md
-    last_checked: 2026-08-24
+    last_checked: 2026-11-26
     cadence_days: 90
     why: referenced tools and guidance evolve
     revalidate:
