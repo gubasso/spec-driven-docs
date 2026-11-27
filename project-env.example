@@ -1,6 +1,7 @@
 # shellcheck shell=bash
-# Developer-specific values for the release-kit bot setup steps. Gitignored:
-# this file names a private key on this machine and is never committed.
+# Developer-specific values for the release-kit bot setup steps. Copy it to
+# $HOME/.config/project-env/spec-driven-docs.env, outside the checkout: it
+# names a private key on this machine and is never committed.
 #
 # Both are empty on purpose — rk setup guards on its own variables, so an
 # unfilled value fails loudly instead of reaching the GitHub API.

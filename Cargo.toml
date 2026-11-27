@@ -35,7 +35,7 @@ exclude = [
     "/.markdownlint-cli2.jsonc",
     "/.editorconfig",
     "/.envrc",
-    "/.envrc.local.example",
+    "/project-env.example",
     "/.config",
     "/dprint.json",
     "/lychee.toml",

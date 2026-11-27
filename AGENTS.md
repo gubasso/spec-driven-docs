@@ -40,7 +40,7 @@ This repository is the canonical knowledge product for spec-driven documentation
 - Run `just check` before handoff. It lints, tests, and installs into a scratch target.
 - Run `just manifest` after editing any payload source. It writes `instance/payload-manifest.json` with the sdd of the tree, and `release:the-payload-record-describes-its-tree` fails without it. Edit a payload spec under `instance/payload/_docs/specs/`, and port the change into its adopted copy under `_docs/specs/` in the same change, as an instance ports a shipped spec.
 - `Cargo.toml` is the release source of truth. Write Conventional Commits, and release-plz derives the version, the changelog, and the tag. Never author a tag: `_docs/guides/release.md` owns the sequence.
-- The forge setup is complete, `install-bot` included. `rk setup check` reads `install-bot` as unknown on every host that lacks the App key `.envrc.local` names. That result is expected, so never report it as a gap and never ask for the key. `_docs/guides/release-setup.md` owns the setup.
+- The forge setup is complete, `install-bot` included. `rk setup check` reads `install-bot` as unknown on every host that lacks the App key `$HOME/.config/project-env/spec-driven-docs.env` names. That result is expected, so never report it as a gap and never ask for the key. `_docs/guides/release-setup.md` owns the setup.
 - Manage dependencies through cargo (`cargo add`, `cargo remove`, `cargo update`). Never hand-edit versions in `Cargo.toml`.
 
 ## Routing

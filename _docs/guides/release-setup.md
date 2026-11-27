@@ -21,12 +21,13 @@ One-time bootstrap for automated releases under the release-kit convention. Run 
    1. Open <https://github.com/settings/apps/gubasso-ci-bot>.
       - Read the App ID from the "About" section at the top.
       - Under "Private keys", click Generate a private key. The `.pem` downloads once and is never shown again.
-   2. Fill `RK_BOT_APP_ID` and `RK_BOT_PRIVATE_KEY_FILE` in `.envrc.local`, then load them:
+   2. Fill `RK_BOT_APP_ID` and `RK_BOT_PRIVATE_KEY_FILE` in `$HOME/.config/project-env/spec-driven-docs.env`, then load them:
 
       ```bash
-      cp -n .envrc.local.example .envrc.local
-      $EDITOR .envrc.local
-      direnv allow
+      mkdir -p "$HOME/.config/project-env"
+      cp -n project-env.example "$HOME/.config/project-env/spec-driven-docs.env"
+      $EDITOR "$HOME/.config/project-env/spec-driven-docs.env"
+      direnv reload
       # check: printenv RK_BOT_APP_ID prints the App ID
       ```
 
