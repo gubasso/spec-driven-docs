@@ -42,7 +42,7 @@
     # empty follows points it at this flake, so flake.lock holds one sdd
     # node rather than a chain of older ones.
     spec-driven-docs = {
-      url = "github:gubasso/spec-driven-docs/v0.20.0";
+      url = "github:gubasso/spec-driven-docs/v0.20.1";
       inputs = {
         spec-driven-docs.follows = "";
         nixpkgs.follows = "nixpkgs";
